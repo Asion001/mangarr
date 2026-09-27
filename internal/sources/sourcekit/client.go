@@ -66,12 +66,16 @@ func (e *StatusError) Error() string {
 
 // Challenged reports whether the site asked for a browser challenge.
 func (e *StatusError) Challenged() bool {
-	return (e.Code == http.StatusForbidden || e.Code == http.StatusServiceUnavailable) && looksChallenged(e.Body)
+	if u, err := url.Parse(e.URL); err == nil && u.Path == "/_c" {
+		return true
+	}
+	return looksChallenged(e.Body)
 }
 
 func looksChallenged(body string) bool {
 	b := strings.ToLower(body)
-	for _, s := range []string{"just a moment", "cf-chl", "cloudflare", "checking your browser", "attention required"} {
+	for _, s := range []string{"just a moment", "cf-chl", "cloudflare", "checking your browser", "attention required",
+		`pow_nonce`, `x.open("post", "/_v"`, "для доступа к сайту необходимо включить javascript"} {
 		if strings.Contains(b, s) {
 			return true
 		}
@@ -155,7 +159,7 @@ func (c *Client) do(ctx context.Context, r Request) ([]byte, error) {
 		return nil, err
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, &StatusError{Code: resp.StatusCode, URL: u, Body: snippet(body)}
+		return nil, &StatusError{Code: resp.StatusCode, URL: resp.Request.URL.String(), Body: snippet(body)}
 	}
 	return body, nil
 }
