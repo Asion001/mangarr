@@ -2,6 +2,8 @@ import { t } from "../../lib/i18n/core";
 import { type S } from "../../api/client";
 import { useCatalogs, useProfiles, useRootFolders } from "../../api/queries";
 import { Badge, Button, Card, ErrorBox, Field, Input, Loading, PageHeader, SaveBar, Select, Switch } from "../../components/ui";
+import { LanguageSelect } from "../../components/LanguageSelect";
+import { languageName } from "../../lib/format";
 import { useSettingsDoc } from "./useSettingsDoc";
 
 type Sources = S["Sources"];
@@ -38,7 +40,7 @@ export function SearchSettingsPage() {
   };
   const { data: profiles } = useProfiles();
   const v = doc.value;
-  const catalogLangs = Array.from(new Set((catalogs?.items ?? []).filter((c) => !c.hidden).map((c) => c.lang))).filter((l) => l && l !== "all" && l !== "multi").sort();
+  const catalogLangs = Array.from(new Set((catalogs?.items ?? []).filter((c) => !c.hidden).map((c) => c.lang))).filter((l) => l && l !== "all" && l !== "multi").sort((a, b) => languageName(a).localeCompare(languageName(b)));
   const qs = v?.quickSearch;
   const setQS = (p: Partial<Sources["quickSearch"]>) => v && doc.patch({ quickSearch: { ...v.quickSearch, ...p } });
   const setT = (p: Partial<Throttle>) => v && doc.patch({ throttle: { ...v.throttle, ...p } });
@@ -79,7 +81,7 @@ export function SearchSettingsPage() {
                       onClick={() => doc.patch({ defaultLanguages: on ? v.defaultLanguages.filter((x) => x !== l) : [...(v.defaultLanguages ?? []), l] })}
                       className={`rounded border px-2 py-0.5 text-xs ${on ? "border-accent bg-accent/15 text-fg" : "border-border text-muted hover:text-fg"}`}
                     >
-                      {l}
+                      {languageName(l)}
                     </button>
                   );
                 })}
@@ -96,7 +98,7 @@ export function SearchSettingsPage() {
                   <div key={`${item.language}-${index}`} className="rounded-lg border border-border p-3">
                     <div className="mb-3 grid gap-3 md:grid-cols-4">
                       <Field label={t("Language")}>
-                        <Input value={item.language} onChange={(e) => patchLanguage(index, { language: e.target.value.trim().toLowerCase() })} />
+                        <LanguageSelect value={item.language} onChange={(language) => patchLanguage(index, { language })} />
                       </Field>
                       <Field label={t("Folder")} help={t("Set in Media management")}>
                         <span className="block truncate py-2 font-mono text-xs text-muted">{folderFor(item.language)}</span>
@@ -124,7 +126,7 @@ export function SearchSettingsPage() {
                           <div key={key} className="flex items-center gap-2 rounded bg-panel-2 px-2 py-1 text-sm">
                             <span className="w-5 text-muted">{sourceIndex + 1}.</span>
                             <span className="flex-1">{catalog?.displayName ?? key}</span>
-                            {catalog?.lang && <Badge>{catalog.lang}</Badge>}
+                            {catalog?.lang && <Badge>{languageName(catalog.lang)}</Badge>}
                             <Button size="sm" disabled={sourceIndex === 0} onClick={() => patchLanguage(index, { sources: swap(item.sources, sourceIndex, sourceIndex - 1) })}>{t("Up")}</Button>
                             <Button size="sm" disabled={sourceIndex === item.sources.length - 1} onClick={() => patchLanguage(index, { sources: swap(item.sources, sourceIndex, sourceIndex + 1) })}>{t("Down")}</Button>
                             <Button size="sm" onClick={() => patchLanguage(index, { sources: item.sources.filter((value) => value !== key) })}>{t("Remove")}</Button>
@@ -136,7 +138,7 @@ export function SearchSettingsPage() {
                       <Select value="" onChange={(e) => e.target.value && patchLanguage(index, { sources: [...item.sources, e.target.value] })}>
                         <option value="">{t("Add source…")}</option>
                         {catalogs?.items.filter((catalog) => !catalog.hidden && !chosen.has(`${catalog.moduleId}:${catalog.id}`)).map((catalog) => (
-                          <option key={`${catalog.moduleId}:${catalog.id}`} value={`${catalog.moduleId}:${catalog.id}`}>{catalog.displayName} ({catalog.lang})</option>
+                          <option key={`${catalog.moduleId}:${catalog.id}`} value={`${catalog.moduleId}:${catalog.id}`}>{catalog.displayName} ({languageName(catalog.lang)})</option>
                         ))}
                       </Select>
                       <Button onClick={() => doc.patch({ languageDefaults: languageDefaults.filter((_, i) => i !== index) })}>{t("Remove")}</Button>

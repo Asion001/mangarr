@@ -9,6 +9,7 @@ import { useCatalogs, useModules, useSeriesList } from "../../api/queries";
 import { Cover } from "../../components/Cover";
 import { Button, EmptyState, ErrorBox, Input, Loading, PageHeader, Segmented, Select } from "../../components/ui";
 import { useListParam } from "../../lib/urlState";
+import { languageMatches, languageName } from "../../lib/format";
 import { useSettingsDoc } from "../settings/useSettingsDoc";
 import { AddCatalogs, useExtensions } from "./AddCatalogs";
 import { CatalogIcon, Catalogs } from "./Catalogs";
@@ -130,7 +131,7 @@ function Browse({ module }: { module: ModuleResource }) {
   // series already in the library, by the source entry they link
   const have = useMemo(() => new Set((library ?? []).flatMap((s) => (s.sources ?? []).map((l) => `${l.moduleId}:${l.sourceId}:${l.mangaUrl}`))), [library]);
   if (!mine.length) return <EmptyState title={t("No catalogs")}>{t("Turn a catalog on under My catalogs first.")}</EmptyState>;
-  const rail = filter ? mine.filter((s) => s.displayName.toLowerCase().includes(filter.toLowerCase())) : mine;
+  const rail = filter ? mine.filter((s) => s.displayName.toLowerCase().includes(filter.toLowerCase()) || languageMatches(s.lang, filter)) : mine;
   const choose = (id: string) => (setSourceId(id), setPage("1"));
   return (
     <div className="flex flex-col gap-4 md:flex-row md:gap-6">
@@ -139,7 +140,7 @@ function Browse({ module }: { module: ModuleResource }) {
         <Select className="md:hidden" aria-label={t("Catalog")} value={src?.id} onChange={(e) => choose(e.target.value)}>
           {rail.map((s) => (
             <option key={s.id} value={s.id}>
-              {s.displayName}
+              {s.displayName} · {languageName(s.lang)}
             </option>
           ))}
         </Select>
@@ -154,7 +155,7 @@ function Browse({ module }: { module: ModuleResource }) {
             >
               <CatalogIcon moduleId={module.id} iconUrl={s.iconUrl} name={s.name} small />
               <span className="min-w-0 flex-1 truncate">{s.name}</span>
-              <span className="text-[11px] text-muted">{s.lang}</span>
+              <span className="text-[11px] text-muted">{languageName(s.lang)}</span>
             </button>
           ))}
         </div>
@@ -162,7 +163,7 @@ function Browse({ module }: { module: ModuleResource }) {
       <section aria-label={src?.displayName} className="min-w-0 flex-1">
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <h2 className="mr-1 text-base font-semibold">
-            {src?.name} <span className="text-sm font-normal text-muted">{src?.lang}</span>
+            {src?.name} <span className="text-sm font-normal text-muted">{src?.lang ? languageName(src.lang) : ""}</span>
           </h2>
           <Segmented
             label={t("List")}

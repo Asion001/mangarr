@@ -8,6 +8,7 @@ import { Badge, Button, ErrorBox, IconButton, Input, Loading, Modal, Switch } fr
 import { useToast } from "../../lib/toast";
 import { useQueryParam } from "../../lib/urlState";
 import { useSettingsDoc } from "../settings/useSettingsDoc";
+import { languageMatches, languageName } from "../../lib/format";
 import { CatalogIcon } from "./Catalogs";
 
 /** useExtensions lists a module's extensions; refresh asks the stores again. */
@@ -43,7 +44,7 @@ export function AddCatalogs({ module }: { module: ModuleResource }) {
   // your search languages are the starting filter, first in the chips
   const preferred = src?.defaultLanguages ?? [];
   const langs = useMemo(
-    () => [...preferred, ...Array.from(new Set(all.map((e) => e.lang))).filter((l) => l !== "all" && l !== "multi" && !preferred.includes(l)).sort()],
+    () => [...preferred, ...Array.from(new Set(all.map((e) => e.lang))).filter((l) => l !== "all" && l !== "multi" && !preferred.includes(l)).sort((a, b) => languageName(a).localeCompare(languageName(b)))],
     [all, preferred.join(",")],
   );
   const chosen = picked ?? preferred;
@@ -51,7 +52,7 @@ export function AddCatalogs({ module }: { module: ModuleResource }) {
     (e) =>
       !(hideNsfw && e.nsfw) &&
       (!chosen.length || chosen.includes(e.lang) || e.lang === "all" || e.lang === "multi") &&
-      (!q || e.name.toLowerCase().includes(q.toLowerCase())),
+      (!q || e.name.toLowerCase().includes(q.toLowerCase()) || languageMatches(e.lang, q)),
   );
   const updates = visible.filter((e) => e.installed && e.hasUpdate);
   const rest = visible.filter((e) => (showInstalled ? !e.hasUpdate || !e.installed : !e.installed)).sort((a, b) => a.name.localeCompare(b.name));
@@ -91,7 +92,7 @@ export function AddCatalogs({ module }: { module: ModuleResource }) {
           {e.nsfw && <Badge tone="err">18+</Badge>}
           {e.obsolete && <Badge tone="warn">{t("obsolete")}</Badge>}
         </div>
-        <div className="text-xs text-muted">{[e.lang === "all" || e.lang === "multi" ? t("many languages") : e.lang, `v${e.versionName}`].join(" · ")}</div>
+        <div className="text-xs text-muted">{[languageName(e.lang), `v${e.versionName}`].join(" · ")}</div>
       </div>
       {action}
     </div>
@@ -112,7 +113,7 @@ export function AddCatalogs({ module }: { module: ModuleResource }) {
                 onClick={() => setPicked(on ? chosen.filter((x) => x !== l) : [...chosen, l])}
                 className={clsx("rounded-full border px-2.5 py-0.5 text-xs font-medium", on ? "border-accent bg-accent/12 text-fg" : "border-border text-muted hover:text-fg")}
               >
-                {l}
+                {languageName(l)}
               </button>
             );
           })}
@@ -179,7 +180,7 @@ function LanguagePicker({ ext, catalogs, preferred, onClose }: { module: ModuleR
   const [on, setOn] = useState<Set<string>>(() => new Set(catalogs.filter((c) => preferred.includes(c.lang)).map((c) => c.id)));
   const [all, setAll] = useState(false);
   const [saving, setSaving] = useState(false);
-  const sorted = [...catalogs].sort((a, b) => Number(preferred.includes(b.lang)) - Number(preferred.includes(a.lang)) || a.lang.localeCompare(b.lang));
+  const sorted = [...catalogs].sort((a, b) => Number(preferred.includes(b.lang)) - Number(preferred.includes(a.lang)) || languageName(a.lang).localeCompare(languageName(b.lang)));
   const shown = all ? sorted : sorted.slice(0, 8);
   const save = async () => {
     setSaving(true);
@@ -222,7 +223,8 @@ function LanguagePicker({ ext, catalogs, preferred, onClose }: { module: ModuleR
                 return next;
               })}
             />
-            {c.displayName}
+            <span className="flex-1">{c.displayName}</span>
+            <Badge>{languageName(c.lang)}</Badge>
           </label>
         ))}
       </div>

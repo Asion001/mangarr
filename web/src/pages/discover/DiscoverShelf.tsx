@@ -59,10 +59,10 @@ function ShelfPage({ shelf, viewer }: { shelf: Shelf; viewer: string }) {
   const errors = [...new Map(pages.flatMap((page) => page.sourceErrors).map((error) => [error.source, error])).values()];
   const count = shelf === "popular" ? popular.length : library.length;
   const sourceOptions = new Map<string, string>();
-  for (const item of [...(discover.data?.popular ?? []), ...popular]) sourceOptions.set(`${item.moduleId}:${item.sourceId}`, `${item.sourceName} · ${item.language.toUpperCase()}`);
+  for (const item of [...(discover.data?.popular ?? []), ...popular]) sourceOptions.set(`${item.moduleId}:${item.sourceId}`, `${item.sourceName} · ${languageName(item.language)}`);
   for (const catalog of catalogs.data?.items ?? []) {
     if (catalog.hidden || (shelf === "popular" && !catalog.enabled)) continue;
-    sourceOptions.set(`${catalog.moduleId}:${catalog.id}`, `${catalog.displayName} · ${catalog.lang.toUpperCase()}`);
+    sourceOptions.set(`${catalog.moduleId}:${catalog.id}`, `${catalog.displayName} · ${languageName(catalog.lang)}`);
   }
   const languages = [...new Set(["en", "ru", "uk", ...library.map((item) => item.language), ...popular.map((item) => item.language), ...(catalogs.data?.items ?? []).map((item) => item.lang), ...(roots.data ?? []).map((item) => item.language)])].filter((lang) => lang && !["*", "multi", "all"].includes(lang)).sort();
   const sentinel = useRef<HTMLDivElement>(null);

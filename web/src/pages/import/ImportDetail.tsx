@@ -7,7 +7,7 @@ import { api, apiUrl, unwrap, type S } from "../../api/client";
 import { useProfiles, useReaders, useRootFolders } from "../../api/queries";
 import { Cover } from "../../components/Cover";
 import { Badge, Button, Card, Confirm, ErrorBox, Field, Input, Loading, Modal, PageHeader, Select, Spinner, Switch, Table, Td, Th } from "../../components/ui";
-import { date } from "../../lib/format";
+import { date, languageName } from "../../lib/format";
 import { useListParam, useQueryParam } from "../../lib/urlState";
 import { useToast } from "../../lib/toast";
 import { MetadataSearch } from "../series/AddSeries";
@@ -334,7 +334,7 @@ function EntryRow({
           </div>
         ) : e.extension ? (
           <div className="text-xs text-muted">
-            {e.extension.name} ({e.extension.lang}{t(") isn't installed")}</div>
+            {e.extension.name} ({languageName(e.extension.lang)}{t(") isn't installed")}</div>
         ) : (
           <span className="text-xs text-muted">—</span>
         )}

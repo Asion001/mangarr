@@ -7,7 +7,7 @@ import { api, apiUrl, unwrap, type Series } from "../../api/client";
 import { usePushCommand, useRootFolders, useSeriesSearch } from "../../api/queries";
 import { Cover } from "../../components/Cover";
 import { Badge, Button, EmptyState, ErrorBox, Input, Loading, PageHeader, Progress, Select, Table, Td, Th } from "../../components/ui";
-import { bytes, date } from "../../lib/format";
+import { bytes, date, languageName } from "../../lib/format";
 import { useListParam, useQueryParam, useStoredListParam } from "../../lib/urlState";
 import { MassEditBar } from "./Organize";
 import { ContinueReading } from "./ContinueReading";
@@ -177,8 +177,8 @@ export function SeriesIndex() {
         {((data?.languages?.length ?? 0) > 1 || language !== "") && (
           <Select className="w-auto" value={language} onChange={(e) => { setLanguage(e.target.value); setPage("1"); }}>
             <option value="">{t("All languages")}</option>
-            {language !== "" && !data?.languages?.includes(language) && <option value={language}>{language}</option>}
-            {data?.languages?.map((item) => <option key={item} value={item}>{item}</option>)}
+            {language !== "" && !data?.languages?.includes(language) && <option value={language}>{languageName(language)}</option>}
+            {data?.languages?.map((item) => <option key={item} value={item}>{languageName(item)}</option>)}
           </Select>
         )}
         <div className="ml-auto flex gap-1">
@@ -260,7 +260,7 @@ export function SeriesIndex() {
                 <div className="line-clamp-2 text-sm font-medium leading-tight">{s.title}</div>
                 {(s.editions?.length ?? 0) > 0 && (
                   <div className="flex flex-wrap gap-1">
-                    {(s.editions ?? []).map((edition) => <Badge key={edition.id}>{edition.language || "—"}</Badge>)}
+                    {(s.editions ?? []).map((edition) => <Badge key={edition.id}>{edition.language ? languageName(edition.language) : "—"}</Badge>)}
                   </div>
                 )}
                 <div className="-mt-1 text-xs text-muted">
@@ -297,7 +297,7 @@ export function SeriesIndex() {
                   </Link>
                   {(s.editions?.length ?? 0) > 0 && (
                     <span className="ml-2 inline-flex gap-1">
-                      {(s.editions ?? []).map((edition) => <Badge key={edition.id}>{edition.language || "—"}</Badge>)}
+                      {(s.editions ?? []).map((edition) => <Badge key={edition.id}>{edition.language ? languageName(edition.language) : "—"}</Badge>)}
                     </span>
                   )}
                   {manage && !s.monitored && <span className="ml-2"><Badge>{t("unmonitored")}</Badge></span>}

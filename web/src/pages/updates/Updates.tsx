@@ -5,7 +5,7 @@ import { BookOpen, BookPlus, Sparkles } from "lucide-react";
 import { api, apiUrl, unwrap, type S } from "../../api/client";
 import { Cover } from "../../components/Cover";
 import { Badge, Button, Card, ErrorBox, Loading, PageHeader, Select } from "../../components/ui";
-import { relative } from "../../lib/format";
+import { languageName, relative } from "../../lib/format";
 import { useLiveUpdateStatus } from "../../lib/events";
 import { t } from "../../lib/i18n/core";
 
@@ -111,8 +111,8 @@ function UpdateRow({ item }: { item: Update }) {
             {chapter ? <BookOpen className="size-3" /> : <Sparkles className="size-3" />}
             {chapter ? t("New chapter") : t("New title")}
           </Badge>
-          {item.language && <Badge>{item.language}</Badge>}
-          {item.languages?.map((language) => <Badge key={language}>{language}</Badge>)}
+          {item.language && <Badge>{languageName(item.language)}</Badge>}
+          {item.languages?.map((language) => <Badge key={language}>{languageName(language)}</Badge>)}
           {chapter && <Badge tone={item.downloaded ? "ok" : item.readable ? "info" : "default"}>{item.downloaded ? t("Downloaded") : item.readable ? t("Streamable") : t("Unavailable")}</Badge>}
           {chapter && <Badge tone={item.readState === "read" ? "ok" : item.readState === "in_progress" ? "accent" : "default"}>
             {item.readState === "read" ? t("Read") : item.readState === "in_progress" ? `${t("In progress")} · ${item.readPage}` : t("Unread")}

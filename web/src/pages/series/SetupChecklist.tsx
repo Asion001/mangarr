@@ -7,6 +7,7 @@ import { Check } from "lucide-react";
 import { api, unwrap } from "../../api/client";
 import { useHealth } from "../../api/queries";
 import { Button, Input, Progress } from "../../components/ui";
+import { LanguageSelect } from "../../components/LanguageSelect";
 import { useToast } from "../../lib/toast";
 
 const skippedKey = "mangarr:setup-skipped";
@@ -91,7 +92,7 @@ export function SetupChecklist() {
           }}
         >
           <Input className="min-w-0 flex-1" aria-label={t("Folder path")} placeholder="/data/manga/en" value={path} onChange={(e) => setPath(e.target.value)} />
-          <Input className="w-20" aria-label={t("Language")} value={lang} onChange={(e) => setLang(e.target.value)} />
+          <LanguageSelect className="w-40" aria-label={t("Language")} value={lang} onChange={setLang} />
           <Button type="submit" variant="primary" size="sm" className="h-auto" loading={busy === "root"} disabled={!path.trim()}>{t("Add folder")}</Button>
         </form>
       ),

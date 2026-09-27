@@ -7,7 +7,7 @@ import { Check, ChevronRight, GripVertical, MoreHorizontal } from "lucide-react"
 import { api, apiUrl, unwrap, type Catalog, type ModuleResource, type S } from "../../api/client";
 import { useCatalogs, useRootFolders, useSeriesList } from "../../api/queries";
 import { Badge, Button, EmptyState, ErrorBox, Input, Loading, Menu, Modal, Select, Switch } from "../../components/ui";
-import { relative } from "../../lib/format";
+import { languageMatches, languageName, relative } from "../../lib/format";
 import { useToast } from "../../lib/toast";
 import { SourceSettings } from "./SourceSettings";
 
@@ -53,8 +53,8 @@ export function Catalogs({ module }: { module: ModuleResource }) {
   );
   const scopes = [
     { value: "global", label: tr("Every library"), language: "" },
-    ...(roots.data ?? []).map((r) => ({ value: `library:${r.id}`, label: `${r.path.split("/").filter(Boolean).pop() || r.path}${r.language ? ` (${r.language})` : ""}`, language: r.language })),
-    ...languages.map((l) => ({ value: `language:${l}`, label: tr("{lang} series", { lang: l }), language: l })),
+    ...(roots.data ?? []).map((r) => ({ value: `library:${r.id}`, label: `${r.path.split("/").filter(Boolean).pop() || r.path}${r.language ? ` (${languageName(r.language)})` : ""}`, language: r.language })),
+    ...languages.map((l) => ({ value: `language:${l}`, label: tr("{lang} series", { lang: languageName(l) }), language: l })),
   ];
   const current = scopes.find((s) => s.value === scope) ?? scopes[0];
   useEffect(() => {
@@ -71,7 +71,7 @@ export function Catalogs({ module }: { module: ModuleResource }) {
     return out;
   }, [eligible, saved]);
   const off = byGlobal.filter((c) => !c.enabled);
-  const shownOff = offFilter ? off.filter((c) => c.displayName.toLowerCase().includes(offFilter.toLowerCase())) : off;
+  const shownOff = offFilter ? off.filter((c) => c.displayName.toLowerCase().includes(offFilter.toLowerCase()) || languageMatches(c.lang, offFilter)) : off;
   const customSeries = (series ?? []).filter((s) => s.sourcePriorityMode === "custom");
 
   const refresh = () => Promise.all([qc.invalidateQueries({ queryKey: ["catalogs"] }), qc.invalidateQueries({ queryKey: ["sources"] }), qc.invalidateQueries({ queryKey: ["source-priorities"] })]);
@@ -195,7 +195,7 @@ export function Catalogs({ module }: { module: ModuleResource }) {
                 <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-semibold">{c.name || c.displayName}</span>
-                    <Badge>{c.lang}</Badge>
+                    <Badge>{languageName(c.lang)}</Badge>
                     {c.nsfw && <Badge tone="warn">18+</Badge>}
                     {c.throttle?.preset && <Badge>{tr(c.throttle.preset)}</Badge>}
                   </div>
@@ -250,7 +250,7 @@ export function Catalogs({ module }: { module: ModuleResource }) {
                 {shownOff.slice(0, 200).map((c) => (
                   <li key={key(c)} className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-panel-2">
                     <span className="min-w-0 flex-1 truncate text-sm">{c.displayName}</span>
-                    <Badge>{c.lang}</Badge>
+                    <Badge>{languageName(c.lang)}</Badge>
                     <Switch checked={false} onChange={() => update({ [key(c)]: { enabled: true } })} label={<span className="sr-only">{t("Turn on {name}", { name: c.displayName })}</span>} />
                   </li>
                 ))}

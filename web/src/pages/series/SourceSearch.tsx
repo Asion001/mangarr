@@ -6,7 +6,7 @@ import { api, apiUrl, unwrap, type Catalog, type S, type SearchGroup, type Sourc
 import { useCatalogs } from "../../api/queries";
 import { Cover } from "../../components/Cover";
 import { Badge, Button, ErrorBox, Input, Modal, Select, Spinner } from "../../components/ui";
-import { relative } from "../../lib/format";
+import { languageMatches, languageName, relative } from "../../lib/format";
 import { useSettingsDoc } from "../settings/useSettingsDoc";
 
 export type PickGroup = Pick<SearchGroup, "moduleId" | "sourceId" | "sourceName" | "lang">;
@@ -85,7 +85,7 @@ export function ScopeBar({
         <option value="">{scope === "active" ? tr("default langs") : tr("all langs")}</option>
         {langs.map((l) => (
           <option key={l} value={l}>
-            {l}
+            {languageName(l)}
           </option>
         ))}
       </Select>
@@ -109,7 +109,7 @@ function CatalogPicker({ items, selected, onSave, onClose }: { items: Catalog[];
   const [sel, setSel] = useState<string[]>(selected);
   const [q, setQ] = useState("");
   const list = items
-    .filter((c) => !q || c.displayName.toLowerCase().includes(q.toLowerCase()))
+    .filter((c) => !q || c.displayName.toLowerCase().includes(q.toLowerCase()) || languageMatches(c.lang, q))
     .sort((a, b) => a.priority - b.priority || a.displayName.localeCompare(b.displayName));
   return (
     <Modal
@@ -131,6 +131,7 @@ function CatalogPicker({ items, selected, onSave, onClose }: { items: Catalog[];
             <label key={k} className="flex items-center gap-2 rounded px-2 py-1 text-sm hover:bg-panel-2">
               <input type="checkbox" checked={sel.includes(k)} onChange={(e) => setSel(e.target.checked ? [...sel, k] : sel.filter((x) => x !== k))} />
               <span className="flex-1">{c.displayName}</span>
+              <Badge>{languageName(c.lang)}</Badge>
               {!c.enabled && <Badge>{t("disabled")}</Badge>}
             </label>
           );
@@ -247,7 +248,7 @@ export function CatalogResults({
         return (
           <div key={catKey(c)}>
             <div className="mb-2 flex items-center gap-2 text-sm font-medium">
-              {c.displayName} <Badge>{c.lang}</Badge>
+              {c.displayName} <Badge>{languageName(c.lang)}</Badge>
               <span className="text-xs font-normal text-muted">{mangas.length}{" " + t("results")}</span>
             </div>
             <div className="grid grid-cols-[repeat(auto-fill,minmax(110px,1fr))] gap-3">

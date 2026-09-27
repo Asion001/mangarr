@@ -5,6 +5,7 @@ import clsx from "clsx";
 import { api, unwrap, type Catalog, type S } from "../../api/client";
 import { followCommand, useCatalogs } from "../../api/queries";
 import { Badge, Button, ErrorBox, Input, Modal, Progress } from "../../components/ui";
+import { languageMatches, languageName } from "../../lib/format";
 import { useToast } from "../../lib/toast";
 import { SourceSearchModal } from "./SourceSearch";
 
@@ -22,7 +23,7 @@ const sure = 0.9; // matches at least this good are ticked by default
  */
 function CatalogChooser({ label, catalogs, usage, value, onChange }: { label: string; catalogs: Catalog[]; usage: Map<string, number>; value: string; onChange: (k: string) => void }) {
   const [filter, setFilter] = useState("");
-  const shown = catalogs.filter((c) => !filter || `${c.displayName} ${c.lang}`.toLowerCase().includes(filter.toLowerCase()));
+  const shown = catalogs.filter((c) => !filter || c.displayName.toLowerCase().includes(filter.toLowerCase()) || languageMatches(c.lang, filter));
   return (
     <fieldset className="flex min-w-0 flex-1 flex-col gap-1.5">
       <legend className="mb-1.5 text-sm text-muted">{label}</legend>
@@ -34,7 +35,7 @@ function CatalogChooser({ label, catalogs, usage, value, onChange }: { label: st
           return (
             <button key={key(c)} type="button" role="radio" aria-checked={on} onClick={() => onChange(key(c))} className={clsx("flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm", on ? "bg-accent/15 text-fg" : "hover:bg-panel-2")}>
               <span className="flex-1 truncate">{c.displayName}</span>
-              <Badge>{c.lang}</Badge>
+              <Badge>{languageName(c.lang)}</Badge>
               {n > 0 && <span className="text-xs text-muted">{t("used by {count}", { count: n })}</span>}
             </button>
           );

@@ -71,12 +71,20 @@ export function calendarMonth(month: string): string {
 
 /** languageName names a language code in the interface language ("en" → "English"). */
 export function languageName(code: string): string {
-  if (!code || code === "und") return t("Unknown language");
+  const normalized = code.trim().toLowerCase();
+  if (!normalized || normalized === "und") return t("Unknown language");
+  if (normalized === "all" || normalized === "multi") return t("Several languages");
   try {
-    const name = new Intl.DisplayNames(getLocale(), { type: "language" }).of(code);
-    if (name && name !== code) return name.charAt(0).toLocaleUpperCase(getLocale()) + name.slice(1);
+    const name = new Intl.DisplayNames(getLocale(), { type: "language" }).of(normalized);
+    if (name && name !== normalized) return name.charAt(0).toLocaleUpperCase(getLocale()) + name.slice(1);
   } catch {
     // not a valid BCP 47 tag: show it as the source wrote it
   }
   return code;
+}
+
+/** languageMatches lets language filters find both the saved code and its localized name. */
+export function languageMatches(code: string, query: string): boolean {
+  const q = query.trim().toLocaleLowerCase(getLocale());
+  return !q || code.toLocaleLowerCase(getLocale()).includes(q) || languageName(code).toLocaleLowerCase(getLocale()).includes(q);
 }

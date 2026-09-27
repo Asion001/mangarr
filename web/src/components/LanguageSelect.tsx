@@ -40,11 +40,12 @@ export function LanguageSelect({
   placeholder?: string;
 }) {
   const langs = useLanguages();
+  const options = value && value !== AUTO && !langs.includes(value) ? [value, ...langs] : langs;
   return (
     <Select {...props} value={value} onChange={(e) => onChange(e.target.value)}>
       {placeholder !== undefined && <option value="">{placeholder}</option>}
       {auto && <option value={AUTO}>{t("Every language (automatic)")}</option>}
-      {langs.map((code) => (
+      {options.map((code) => (
         <option key={code} value={code}>
           {languageName(code)}
         </option>
@@ -64,4 +65,3 @@ export function useLanguageFolders(langs: string[]) {
   });
   return new Map(langs.map((lang, i) => [lang, qs[i]?.data]));
 }
-

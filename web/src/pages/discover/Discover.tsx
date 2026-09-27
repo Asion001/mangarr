@@ -7,6 +7,7 @@ import { Badge, Button, EmptyState, ErrorBox, PageHeader } from "../../component
 import { useAccount } from "../../lib/account";
 import { relative } from "../../lib/format";
 import { t } from "../../lib/i18n/core";
+import { languageName } from "../../lib/format";
 import { useUIMode } from "../../lib/uiPreferences";
 import { ContinueReading, useReadingShelf } from "../series/ContinueReading";
 
@@ -80,7 +81,7 @@ export function SourceCard({ item, manage, request, grid = false }: { item: Sour
     <>
       <div className="relative">
         <Cover src={item.thumbnailUrl ? apiUrl(item.thumbnailUrl) : undefined} alt={item.title} className="aspect-[2/3] w-full ring-accent/60 transition duration-200 group-hover:-translate-y-1 group-hover:ring-2" />
-        <span className="absolute left-1.5 top-1.5"><Badge tone={item.existingSeriesId ? "ok" : "default"}>{item.existingSeriesId ? t("In library") : item.language.toUpperCase()}</Badge></span>
+        <span className="absolute left-1.5 top-1.5"><Badge tone={item.existingSeriesId ? "ok" : "default"}>{item.existingSeriesId ? t("In library") : languageName(item.language)}</Badge></span>
         {destination && !item.existingSeriesId && (
           <span className="absolute bottom-2 right-2 rounded-full bg-black/75 p-2 text-white opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">
             <ArrowRight className="size-4" />
