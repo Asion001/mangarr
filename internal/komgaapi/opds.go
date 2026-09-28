@@ -7,6 +7,8 @@ import (
 	"encoding/hex"
 	"encoding/xml"
 	"fmt"
+	"image"
+	"image/jpeg"
 	"net/http"
 	"net/url"
 	"path"
@@ -17,6 +19,7 @@ import (
 
 	"github.com/Asion001/mangarr/internal/access"
 	"github.com/Asion001/mangarr/internal/cbz"
+	"github.com/Asion001/mangarr/internal/eink"
 	"github.com/Asion001/mangarr/internal/imagecheck"
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/reading"
@@ -314,11 +317,13 @@ func archivePartialMD5(data []byte) string {
 
 // chapterLinks are a chapter's acquisition links: CBZ for KOReader and
 // comic readers, EPUB for readers that only open EPUBs (CrossPoint lists only
-// entries with an application/epub+zip acquisition link).
+// entries with an application/epub+zip acquisition link), and XTCH, pages
+// pre-rendered for CrossPoint's screen. Take ?screen=WxH on EPUB and XTCH.
 func chapterLinks(id int64) []atomLink {
 	return []atomLink{
 		link("http://opds-spec.org/acquisition/open-access", fmt.Sprintf("/opds/chapters/%d", id), "application/vnd.comicbook+zip", "Download CBZ"),
 		link("http://opds-spec.org/acquisition/open-access", fmt.Sprintf("/opds/chapters/%d/epub", id), "application/epub+zip", "Download EPUB"),
+		link("http://opds-spec.org/acquisition/open-access", fmt.Sprintf("/opds/chapters/%d/xtch", id), "application/x-xtch", "Download XTCH (CrossPoint)"),
 	}
 }
 
@@ -328,14 +333,35 @@ type archivePage struct {
 	data            []byte
 }
 
-func (h *opdsHandlers) chapter(w http.ResponseWriter, r *http.Request) { h.download(w, r, false) }
+func (h *opdsHandlers) chapter(w http.ResponseWriter, r *http.Request) { h.download(w, r, "cbz") }
 
-func (h *opdsHandlers) chapterEPUB(w http.ResponseWriter, r *http.Request) { h.download(w, r, true) }
+func (h *opdsHandlers) chapterEPUB(w http.ResponseWriter, r *http.Request) { h.download(w, r, "epub") }
 
-func (h *opdsHandlers) download(w http.ResponseWriter, r *http.Request, epub bool) {
+func (h *opdsHandlers) chapterXTCH(w http.ResponseWriter, r *http.Request) { h.download(w, r, "xtch") }
+
+// deviceScreen is the screen to lay pages out for: ?screen=WxH, or CrossPoint's
+// X4 panel when CrossPoint itself downloads (it sends CrossPoint-ESP32-<version>).
+// ok is false for full-size pages.
+func deviceScreen(r *http.Request, format string) (eink.Screen, bool, error) {
+	q := r.URL.Query().Get("screen")
+	if q == "" && format != "xtch" && !strings.HasPrefix(r.UserAgent(), "CrossPoint") {
+		return eink.Screen{}, false, nil
+	}
+	s, err := eink.ParseScreen(q)
+	return s, err == nil, err
+}
+
+var downloadTypes = map[string]string{"cbz": "application/vnd.comicbook+zip", "epub": "application/epub+zip", "xtch": "application/octet-stream"}
+
+func (h *opdsHandlers) download(w http.ResponseWriter, r *http.Request, format string) {
 	p := PrincipalFrom(r.Context())
 	if !p.User.Can(access.Download) {
 		writeError(w, r, 403, "your account can't download files")
+		return
+	}
+	screen, device, err := deviceScreen(r, format)
+	if err != nil {
+		writeError(w, r, 400, err.Error())
 		return
 	}
 	b, err := h.s.deps.Reading.Book(r.Context(), p.User.ReaderID, pathID(r, "id"))
@@ -348,40 +374,70 @@ func (h *opdsHandlers) download(w http.ResponseWriter, r *http.Request, epub boo
 		pageError(w, r, err)
 		return
 	}
+	epub := format == "epub"
 	out := make([]archivePage, 0, len(pages))
+	var laid []*image.Gray
 	for i, pg := range pages {
 		data, ct, err := h.s.deps.Reading.Page(r.Context(), b, pg.Number)
 		if err != nil {
 			pageError(w, r, err)
 			return
 		}
+		if device {
+			img, err := reading.Decode(data)
+			if err != nil {
+				writeError(w, r, 502, "couldn't decode a page for this reader")
+				return
+			}
+			laid = append(laid, eink.Layout(img, screen)...)
+			continue
+		}
 		name := pg.FileName
 		// KOReader can't open AVIF/JXL; e-ink EPUB readers only decode JPEG and PNG.
 		info, _ := imagecheck.Detect(data)
-		format := info.Format
+		imgFormat := info.Format
 		lowCT, lowName := strings.ToLower(ct), strings.ToLower(name)
 		modern := strings.Contains(lowCT, "avif") || strings.Contains(lowCT, "jxl") || strings.HasSuffix(lowName, ".avif") || strings.HasSuffix(lowName, ".jxl")
-		if modern || (epub && format != "jpeg" && format != "png") {
+		if modern || (epub && imgFormat != "jpeg" && imgFormat != "png") {
 			data, _, err = reading.Convert(data, "jpeg")
 			if err != nil {
 				writeError(w, r, 502, "couldn't convert a page for this reader")
 				return
 			}
-			name, format = cbz.PageName(i, ".jpg"), "jpeg"
+			name, imgFormat = cbz.PageName(i, ".jpg"), "jpeg"
 			info, _ = imagecheck.Detect(data)
 		} else if epub {
 			ext := ".jpg"
-			if format == "png" {
+			if imgFormat == "png" {
 				ext = ".png"
 			}
 			name = cbz.PageName(i, ext)
 		}
-		out = append(out, archivePage{name: name, mediaType: "image/" + format, width: info.Width, height: info.Height, data: data})
+		out = append(out, archivePage{name: name, mediaType: "image/" + imgFormat, width: info.Width, height: info.Height, data: data})
+	}
+	if device && format != "xtch" {
+		// Screen-sized grayscale JPEGs: small, and quick for an e-ink reader to decode.
+		for i, g := range laid {
+			var jb bytes.Buffer
+			if err := jpeg.Encode(&jb, g, &jpeg.Options{Quality: 88}); err != nil {
+				writeError(w, r, 500, err.Error())
+				return
+			}
+			out = append(out, archivePage{name: cbz.PageName(i, ".jpg"), mediaType: "image/jpeg", width: screen.W, height: screen.H, data: jb.Bytes()})
+		}
 	}
 	var buf bytes.Buffer
-	if epub {
+	switch format {
+	case "epub":
 		err = writeEPUB(&buf, chapterTitle(b.Chapter), b.Chapter.ID, out)
-	} else {
+	case "xtch":
+		title, author := chapterTitle(b.Chapter), ""
+		if si, err := h.s.deps.Reading.Series(r.Context(), p.User.ReaderID, b.Chapter.SeriesID); err == nil {
+			title = si.Series.Title + " - " + title
+			author = strings.Join(si.Series.Metadata.Authors, ", ")
+		}
+		err = eink.WriteXTCH(&buf, title, author, laid)
+	default:
 		err = writeCBZ(&buf, out)
 	}
 	if err != nil {
@@ -395,12 +451,8 @@ func (h *opdsHandlers) download(w http.ResponseWriter, r *http.Request, epub boo
 		writeError(w, r, 500, err.Error())
 		return
 	}
-	filename, ct := fmt.Sprintf("chapter-%d.cbz", b.Chapter.ID), "application/vnd.comicbook+zip"
-	if epub {
-		filename, ct = fmt.Sprintf("chapter-%d.epub", b.Chapter.ID), "application/epub+zip"
-	}
-	w.Header().Set("Content-Type", ct)
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filename))
+	w.Header().Set("Content-Type", downloadTypes[format])
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", fmt.Sprintf("chapter-%d.%s", b.Chapter.ID, format)))
 	w.Header().Set("Cache-Control", "private, no-store")
 	w.Header().Set("Content-Length", strconv.Itoa(buf.Len()))
 	_, _ = w.Write(buf.Bytes())

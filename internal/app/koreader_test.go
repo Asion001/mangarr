@@ -4,9 +4,12 @@ import (
 	"archive/zip"
 	"bytes"
 	"crypto/md5"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/xml"
 	"fmt"
+	"image/color"
+	"image/jpeg"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -223,6 +226,49 @@ func TestKOReaderFeedsAndSync(t *testing.T) {
 			_ = rc.Close()
 			if !strings.Contains(string(opf), `href="images/0001.jpg" media-type="image/jpeg"`) || !strings.Contains(string(opf), `<itemref idref="p1"/>`) {
 				t.Fatalf("EPUB package: %s", opf)
+			}
+			// XTCH: pages pre-rendered for CrossPoint's 480x800 screen, or another size.
+			for _, c := range []struct {
+				query string
+				w, h  uint16
+			}{{"", 480, 800}, {"?screen=528x792", 528, 792}} {
+				xtch := request(http.MethodGet, "/opds/chapters/"+strconv.FormatInt(chapter.ID, 10)+"/xtch"+c.query, "", nil)
+				d := xtch.Body.Bytes()
+				if xtch.Code != 200 || len(d) < 0x100 || string(d[:4]) != "XTCH" {
+					t.Fatalf("XTCH acquisition %q: %d %.64q", c.query, xtch.Code, d)
+				}
+				entry := d[binary.LittleEndian.Uint64(d[0x18:]):]
+				if binary.LittleEndian.Uint16(d[6:]) != 1 || binary.LittleEndian.Uint16(entry[12:]) != c.w || binary.LittleEndian.Uint16(entry[14:]) != c.h {
+					t.Fatalf("XTCH %q page table: % x", c.query, entry[:16])
+				}
+			}
+			if got := request(http.MethodGet, "/opds/chapters/"+strconv.FormatInt(chapter.ID, 10)+"/xtch?screen=huge", "", nil); got.Code != http.StatusBadRequest {
+				t.Fatalf("bad screen size: %d", got.Code)
+			}
+			// CrossPoint's own EPUB download gets screen-sized grayscale pages.
+			device := request(http.MethodGet, epubHref, "", map[string]string{"User-Agent": "CrossPoint-ESP32-1.6.5"})
+			dr, err := zip.NewReader(bytes.NewReader(device.Body.Bytes()), int64(device.Body.Len()))
+			if err != nil {
+				t.Fatal(err)
+			}
+			found := false
+			for _, f := range dr.File {
+				if f.Name != "OEBPS/images/0001.jpg" {
+					continue
+				}
+				found = true
+				rc, err := f.Open()
+				if err != nil {
+					t.Fatal(err)
+				}
+				cfg, err := jpeg.DecodeConfig(rc)
+				_ = rc.Close()
+				if err != nil || cfg.Width != 480 || cfg.Height != 800 || cfg.ColorModel != color.GrayModel {
+					t.Fatalf("device EPUB page: %+v %v", cfg, err)
+				}
+			}
+			if !found {
+				t.Fatal("device EPUB has no pages")
 			}
 			download := request(http.MethodGet, "/opds/chapters/"+strconv.FormatInt(chapter.ID, 10), "", nil)
 			if download.Code != 200 {

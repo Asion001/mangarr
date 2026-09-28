@@ -425,13 +425,7 @@ func (s *Service) File(b *BookInfo) (*os.File, os.FileInfo, error) {
 // Convert re-encodes an image to png or jpeg (for clients that can't show
 // the original format).
 func Convert(data []byte, to string) ([]byte, string, error) {
-	var img image.Image
-	var err error
-	if info, _ := imagecheck.Detect(data); info.Format == "jxl" {
-		img, err = decodeJXL(data)
-	} else {
-		img, _, err = image.Decode(bytes.NewReader(data))
-	}
+	img, err := Decode(data)
 	if err != nil {
 		return nil, "", err
 	}
@@ -445,6 +439,15 @@ func Convert(data []byte, to string) ([]byte, string, error) {
 	}
 	err = (&png.Encoder{CompressionLevel: png.BestSpeed}).Encode(&buf, img)
 	return buf.Bytes(), "image/png", err
+}
+
+// Decode decodes a page in any format a chapter can hold.
+func Decode(data []byte) (image.Image, error) {
+	if info, _ := imagecheck.Detect(data); info.Format == "jxl" {
+		return decodeJXL(data)
+	}
+	img, _, err := image.Decode(bytes.NewReader(data))
+	return img, err
 }
 
 // decodeJXL decodes JPEG XL through libjxl's djxl, when installed.
