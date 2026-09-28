@@ -209,7 +209,7 @@ or Kavita. They then only see downloaded chapters:
 
 **KOReader directly from mangarr.** Enable **Settings → Reading apps → Allow
 Komga apps to connect** (the same listener serves OPDS and the Komga API), then
-add `http://<mangarr-host>:25600/opds` as a catalog in KOReader. Sign in with
+add `http://<mangarr-host>:25600/opds` as a catalog in KOReader (the same steps are under **My account → Reading apps → KOReader**). Sign in with
 your mangarr username and a reading-app device key. The catalog shows only the
 libraries and series your account can access. Open a chapter to download its
 CBZ; AVIF and JPEG XL pages are converted to JPEG for the downloaded copy.
@@ -457,8 +457,8 @@ same split to files already in the library.
 
 | Format | Saves | Readers that can't open it |
 |---|---|---|
-| AVIF (lossy) | typically 40–70% | KOReader; Chunky only through Komga's OPDS (Komga converts); 32-bit ARM Komga |
-| JPEG XL (lossless, JPEG pages only) | ~20%, reversible | Kavita, KOReader |
+| AVIF (lossy) | typically 40–70% | Chunky only through Komga's OPDS (Komga converts); 32-bit ARM Komga. KOReader reads it through mangarr's `/opds`, which converts to JPEG |
+| JPEG XL (lossless, JPEG pages only) | ~20%, reversible | Kavita. KOReader reads it through mangarr's `/opds`, which converts to JPEG |
 
 Mihon 0.17+, Tachimanga, Panels (iOS 17+) and Komga's official amd64/arm64
 image read both. After the first re-encoded chapter mangarr asks Komga whether

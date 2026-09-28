@@ -7654,5 +7654,57 @@
   "This file isn't matched to a chapter, so it can't be put back.": {
     "ru": "Файл не сопоставлен с главой, поэтому его нельзя вернуть.",
     "uk": "Файл не зіставлено з розділом, тому його не можна повернути."
+  },
+  "Read your whole mangarr library in Mihon, KMReader, Paperback or KOReader through a Komga-compatible API and an OPDS catalog, with progress synced both ways.": {
+    "ru": "Читайте всю библиотеку mangarr в Mihon, KMReader, Paperback или KOReader через Komga-совместимый API и каталог OPDS, с двусторонней синхронизацией прогресса.",
+    "uk": "Читайте всю бібліотеку mangarr у Mihon, KMReader, Paperback чи KOReader через Komga-сумісний API та каталог OPDS, із двобічною синхронізацією прогресу."
+  },
+  "Mihon, KMReader, Paperback and KOReader can read this library once an administrator turns on reading apps.": {
+    "ru": "Mihon, KMReader, Paperback и KOReader смогут читать эту библиотеку, когда администратор включит приложения для чтения.",
+    "uk": "Mihon, KMReader, Paperback і KOReader зможуть читати цю бібліотеку, коли адміністратор увімкне застосунки для читання."
+  },
+  "Read in Mihon, KMReader, Paperback or KOReader: they connect as your account and sync your progress.": {
+    "ru": "Читайте в Mihon, KMReader, Paperback или KOReader: они подключаются от вашей учётной записи и синхронизируют прогресс.",
+    "uk": "Читайте в Mihon, KMReader, Paperback чи KOReader: вони підключаються від вашого облікового запису й синхронізують прогрес."
+  },
+  "Add a device under Devices and keep its key: KOReader uses it as the password for both the catalog and progress sync.": {
+    "ru": "Добавьте устройство в разделе «Устройства» и сохраните ключ: KOReader использует его как пароль и для каталога, и для синхронизации прогресса.",
+    "uk": "Додайте пристрій у розділі «Пристрої» й збережіть ключ: KOReader використовує його як пароль і для каталогу, і для синхронізації прогресу."
+  },
+  "In KOReader, open": {
+    "ru": "В KOReader откройте",
+    "uk": "У KOReader відкрийте"
+  },
+  "Search → OPDS catalog": {
+    "ru": "Поиск → Каталог OPDS",
+    "uk": "Пошук → Каталог OPDS"
+  },
+  ", tap +, and add": {
+    "ru": ", нажмите + и добавьте",
+    "uk": ", натисніть + і додайте"
+  },
+  ". Sign in with your mangarr username and the device key.": {
+    "ru": ". Войдите с именем пользователя mangarr и ключом устройства.",
+    "uk": ". Увійдіть з іменем користувача mangarr і ключем пристрою."
+  },
+  "Browse or search the catalog and tap a chapter to download it. AVIF and JPEG XL pages are converted to JPEG in the downloaded copy, since KOReader can't show them.": {
+    "ru": "Листайте или ищите в каталоге и нажмите на главу, чтобы скачать её. Страницы AVIF и JPEG XL в скачанной копии конвертируются в JPEG, потому что KOReader их не показывает.",
+    "uk": "Гортайте або шукайте в каталозі й натисніть на розділ, щоб завантажити його. Сторінки AVIF і JPEG XL у завантаженій копії конвертуються в JPEG, бо KOReader їх не показує."
+  },
+  "Tools → Progress sync → Custom sync server": {
+    "ru": "Инструменты → Синхронизация прогресса → Свой сервер синхронизации",
+    "uk": "Інструменти → Синхронізація прогресу → Власний сервер синхронізації"
+  },
+  "enter": {
+    "ru": "введите",
+    "uk": "введіть"
+  },
+  ", then log in with your mangarr username and the device key. Keep document matching on Binary.": {
+    "ru": ", затем войдите с именем пользователя mangarr и ключом устройства. Сопоставление документов оставьте на «Binary».",
+    "uk": ", потім увійдіть з іменем користувача mangarr і ключем пристрою. Зіставлення документів залиште на «Binary»."
+  },
+  "Only chapters downloaded from this catalog sync. KOReader sends its page and percentage, and they become your reading progress in mangarr.": {
+    "ru": "Синхронизируются только главы, скачанные из этого каталога. KOReader отправляет страницу и процент, и они становятся вашим прогрессом чтения в mangarr.",
+    "uk": "Синхронізуються лише розділи, завантажені з цього каталогу. KOReader надсилає сторінку й відсоток, і вони стають вашим прогресом читання в mangarr."
   }
 }

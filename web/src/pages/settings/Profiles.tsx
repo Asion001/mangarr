@@ -41,10 +41,10 @@ const presetQuality: Record<Preset, number> = { fast: 60, balanced: 55, max: 48 
 const compat: Record<string, { yes: string; no: string; note?: string }> = {
   avif: {
     yes: "Mihon 0.17+, Tachimanga, Panels (iOS 17+), Paperback (iOS 16+), Komga, Kavita",
-    no: "KOReader",
-    note: "Chunky works through Komga's OPDS; 32-bit ARM Komga can't read AVIF.",
+    no: "Chunky",
+    note: "KOReader through mangarr's OPDS catalog, which converts pages to JPEG; Chunky through Komga's OPDS; 32-bit ARM Komga can't read AVIF.",
   },
-  jxl: { yes: "Mihon 0.17+, Tachimanga, Panels (iOS 17+), Komga", no: "Kavita, KOReader", note: "JPEG pages can be restored bit for bit." },
+  jxl: { yes: "Mihon 0.17+, Tachimanga, Panels (iOS 17+), Komga", no: "Kavita", note: "JPEG pages can be restored bit for bit. KOReader through mangarr's OPDS catalog, which converts pages to JPEG." },
 };
 
 /** normalize fills defaults and maps older upscale formats onto "Save pages as". */

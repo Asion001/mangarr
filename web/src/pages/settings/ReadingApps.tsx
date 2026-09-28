@@ -11,7 +11,15 @@ import { useSettingsDoc } from "./useSettingsDoc";
 
 type ReadingSettings = S["Reading"];
 type Key = S["ReadingKey"];
-export type App = "mihon" | "kmreader" | "paperback";
+export type App = "mihon" | "kmreader" | "paperback" | "koreader";
+
+/** The apps the guides cover, in the order the tabs show them. */
+export const appTabs: { value: App; label: string }[] = [
+  { value: "mihon", label: "Mihon (Android)" },
+  { value: "kmreader", label: "KMReader (iPhone, iPad)" },
+  { value: "paperback", label: "Paperback (iPhone, iPad)" },
+  { value: "koreader", label: "KOReader (e-readers)" },
+];
 
 /** The address apps should use: the configured one, else this host on the API's port. */
 export function appAddress(publicUrl: string, listen?: string) {
@@ -34,7 +42,7 @@ export function ReadingAppsPage() {
     <>
       <PageHeader
         title={t("Reading apps")}
-        subtitle={t("Read your whole mangarr library in Mihon, KMReader or Paperback through a Komga-compatible API, with progress synced both ways.")}
+        subtitle={t("Read your whole mangarr library in Mihon, KMReader, Paperback or KOReader through a Komga-compatible API and an OPDS catalog, with progress synced both ways.")}
       />
       {isLoading && <Loading />}
       {error && <ErrorBox error={error} />}
@@ -92,11 +100,7 @@ export function ReadingAppsPage() {
 
           <Card title={t("Connect an app")}>
             <Tabs
-              tabs={[
-                { value: "mihon", label: "Mihon (Android)" },
-                { value: "kmreader", label: "KMReader (iPhone, iPad)" },
-                { value: "paperback", label: "Paperback (iPhone, iPad)" },
-              ]}
+              tabs={appTabs}
               value={app}
               onChange={setApp}
             />
@@ -142,6 +146,16 @@ export function Guide({ app, address }: { app: App; address: string }) {
           <li>{t("In Paperback, add the") + " "}<b>Komga</b>{" " + t("extension from the default extensions repository.")}</li>
           <li>{t("Set the server address to") + " "}<Code>{address}</Code>{t(". Log in with any username and a device key from Devices as the password (or your mangarr username and password).")}</li>
           <li>{t("Enable the Komga tracker in Paperback to send finished chapters to mangarr.")}</li>
+        </ol>
+      );
+    case "koreader":
+      return (
+        <ol className="flex list-decimal flex-col gap-2 pl-5">
+          <li>{t("Add a device under Devices and keep its key: KOReader uses it as the password for both the catalog and progress sync.")}</li>
+          <li>{t("In KOReader, open") + " "}<b>{t("Search → OPDS catalog")}</b>{t(", tap +, and add") + " "}<Code>{`${address}/opds`}</Code>{t(". Sign in with your mangarr username and the device key.")}</li>
+          <li>{t("Browse or search the catalog and tap a chapter to download it. AVIF and JPEG XL pages are converted to JPEG in the downloaded copy, since KOReader can't show them.")}</li>
+          <li>{t("For progress sync, open") + " "}<b>{t("Tools → Progress sync → Custom sync server")}</b>{", " + t("enter") + " "}<Code>{address}</Code>{t(", then log in with your mangarr username and the device key. Keep document matching on Binary.")}</li>
+          <li>{t("Only chapters downloaded from this catalog sync. KOReader sends its page and percentage, and they become your reading progress in mangarr.")}</li>
         </ol>
       );
   }

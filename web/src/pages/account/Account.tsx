@@ -7,7 +7,7 @@ import { api, apiUrl, unwrap, type Implementation, type ModuleResource } from ".
 import { DynamicForm, defaultsOf } from "../../components/DynamicForm";
 import { Badge, Button, Card, Confirm, ErrorBox, Field, IconButton, Input, Modal, PageHeader, Select, Tabs } from "../../components/ui";
 import { ModuleEditor, type Draft } from "../settings/Modules";
-import { appAddress, DevicesCard, Guide, type App } from "../settings/ReadingApps";
+import { appAddress, appTabs, DevicesCard, Guide, type App } from "../settings/ReadingApps";
 import { useAccount } from "../../lib/account";
 import { relative } from "../../lib/format";
 import { useToast } from "../../lib/toast";
@@ -70,7 +70,7 @@ function ReadingAppsCard() {
   if (!st.enabled) {
     return (
       <Card title={t("Reading apps")}>
-        <p className="text-sm text-muted">{t("Mihon, KMReader and Paperback can read this library once an administrator turns on reading apps.")}</p>
+        <p className="text-sm text-muted">{t("Mihon, KMReader, Paperback and KOReader can read this library once an administrator turns on reading apps.")}</p>
       </Card>
     );
   }
@@ -106,13 +106,9 @@ function ReadingAppsCard() {
   return (
     <>
       <Card title={t("Reading apps")}>
-        <p className="mb-3 text-sm text-muted">{t("Read in Mihon, KMReader or Paperback: they connect as your account and sync your progress.")}</p>
+        <p className="mb-3 text-sm text-muted">{t("Read in Mihon, KMReader, Paperback or KOReader: they connect as your account and sync your progress.")}</p>
         <Tabs
-          tabs={[
-            { value: "mihon", label: "Mihon (Android)" },
-            { value: "kmreader", label: "KMReader (iPhone, iPad)" },
-            { value: "paperback", label: "Paperback (iPhone, iPad)" },
-          ]}
+          tabs={appTabs}
           value={app}
           onChange={setApp}
         />
