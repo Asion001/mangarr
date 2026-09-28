@@ -7722,5 +7722,41 @@
   "Reload": {
     "ru": "Перезагрузить",
     "uk": "Перезавантажити"
+  },
+  "Backup verified": {
+    "ru": "Бэкап проверен",
+    "uk": "Бекап перевірено"
+  },
+  "{rows} rows from mangarr {version} on {database}": {
+    "ru": "Строк: {rows}, из mangarr {version} на {database}",
+    "uk": "Рядків: {rows}, з mangarr {version} на {database}"
+  },
+  "This backup can't be restored": {
+    "ru": "Этот бэкап нельзя восстановить",
+    "uk": "Цей бекап не можна відновити"
+  },
+  "Verified": {
+    "ru": "Проверен",
+    "uk": "Перевірено"
+  },
+  "Verified {when}": {
+    "ru": "Проверен {when}",
+    "uk": "Перевірено {when}"
+  },
+  "{rows} rows": {
+    "ru": "Строк: {rows}",
+    "uk": "Рядків: {rows}"
+  },
+  "Restorable": {
+    "ru": "Можно восстановить",
+    "uk": "Можна відновити"
+  },
+  "Not verified": {
+    "ru": "Не проверен",
+    "uk": "Не перевірено"
+  },
+  "Verify": {
+    "ru": "Проверить",
+    "uk": "Перевірити"
   }
 }

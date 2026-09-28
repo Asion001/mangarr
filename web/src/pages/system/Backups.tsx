@@ -2,7 +2,7 @@ import { t as tr, t } from "../../lib/i18n/core";
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArchiveRestore, Download, Plus, Trash2, Upload } from "lucide-react";
+import { ArchiveRestore, Download, Plus, ShieldCheck, Trash2, Upload } from "lucide-react";
 import { api, apiUrl, basePath, unwrap } from "../../api/client";
 import { Badge, Button, Confirm, EmptyState, IconButton, Loading, PageHeader, Table, Td, Th } from "../../components/ui";
 import { bytes, dateTime } from "../../lib/format";
@@ -15,6 +15,7 @@ export function BackupsPage() {
   const [creating, setCreating] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [restoring, setRestoring] = useState<string | null>(null);
+  const [verifying, setVerifying] = useState<string | null>(null);
   const file = useRef<HTMLInputElement>(null);
   const { data, isLoading } = useQuery({ queryKey: ["backups"], queryFn: () => unwrap(api.GET("/api/v1/system/backups")) });
   const create = async () => {
@@ -56,6 +57,18 @@ export function BackupsPage() {
     }
     setRestoring(null);
   };
+  const verify = async (name: string) => {
+    setVerifying(name);
+    try {
+      const v = await unwrap(api.POST("/api/v1/system/backups/{name}/verify", { params: { path: { name } } }));
+      qc.invalidateQueries({ queryKey: ["backups"] });
+      toast.success(tr("Backup verified"), tr("{rows} rows from mangarr {version} on {database}", { rows: v.total, version: v.sourceVersion || "?", database: v.sourceDatabase || "?" }));
+    } catch (e) {
+      toast.fromError(e, tr("This backup can't be restored"));
+    } finally {
+      setVerifying(null);
+    }
+  };
   const remove = async (name: string) => {
     await unwrap(api.DELETE("/api/v1/system/backups/{name}", { params: { path: { name } } }));
     qc.invalidateQueries({ queryKey: ["backups"] });
@@ -83,6 +96,7 @@ export function BackupsPage() {
               <Th>{t("Type")}</Th>
               <Th>{t("Size")}</Th>
               <Th>{t("Created")}</Th>
+              <Th>{t("Verified")}</Th>
               <Th />
             </tr>
           </thead>
@@ -95,8 +109,28 @@ export function BackupsPage() {
                 </Td>
                 <Td>{bytes(b.size)}</Td>
                 <Td className="text-muted">{dateTime(b.created)}</Td>
+                <Td>
+                  {b.verification ? (
+                    <span
+                      title={[
+                        tr("Verified {when}", { when: dateTime(b.verification.verifiedAt) }),
+                        `mangarr ${b.verification.sourceVersion || "?"} · ${b.verification.sourceDatabase || "?"}`,
+                        tr("{rows} rows", { rows: b.verification.total }),
+                        `SHA-256 ${b.verification.checksum}`,
+                      ].join("\n")}
+                    >
+                      <Badge tone="ok">{t("Restorable")}</Badge>
+                      <span className="ml-2 text-xs whitespace-nowrap text-muted">{dateTime(b.verification.verifiedAt)}</span>
+                    </span>
+                  ) : (
+                    <Badge tone="warn">{t("Not verified")}</Badge>
+                  )}
+                </Td>
                 <Td className="text-right">
                   <div className="flex justify-end">
+                    <IconButton title={t("Verify")} disabled={verifying === b.name} onClick={() => verify(b.name)}>
+                      <ShieldCheck className={verifying === b.name ? "size-4 animate-pulse" : "size-4"} />
+                    </IconButton>
                     <a href={apiUrl(`api/v1/system/backups/${encodeURIComponent(b.name)}`)} download>
                       <IconButton title={t("Download")}>
                         <Download className="size-4" />
