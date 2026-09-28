@@ -13,6 +13,7 @@ const titles: Record<string, { title: string; subtitle: string }> = {
   metadata: { title: "Metadata", subtitle: "Providers searched by priority; their data is merged field by field." },
   library: { title: "Library servers", subtitle: "Komga / Kavita: rescanned after imports; per-reader progress powers cleanup." },
   notify: { title: "Notifications", subtitle: "Where to send new-chapter digests, failures and health alerts." },
+  mediaserver: { title: "Media servers", subtitle: "Jellyfin / Silo: series pages link anime adaptations to where you can watch them." },
   upscale: { title: "Upscalers", subtitle: "mangarr-upscaler workers used by profiles with upscaling enabled." },
 };
 

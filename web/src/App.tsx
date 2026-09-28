@@ -133,6 +133,7 @@ export function App() {
           <Route path="settings/metadata" element={<Need perm="admin"><ModulesPage kind="metadata" /></Need>} />
           <Route path="settings/library" element={<Need perm="admin"><ModulesPage kind="library" /></Need>} />
           <Route path="settings/notifications" element={<Need perm="admin"><ModulesPage kind="notify" /></Need>} />
+          <Route path="settings/media-servers" element={<Need perm="admin"><ModulesPage kind="mediaserver" /></Need>} />
           <Route path="settings/upscalers" element={<Navigate to="/system/workers" replace />} />
           <Route path="settings/sso" element={<Need perm="admin"><SingleSignOnPage /></Need>} />
           <Route path="settings/users" element={<Need perm="admin"><UsersPage /></Need>} />

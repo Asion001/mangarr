@@ -40,7 +40,7 @@ type NavItem = { to: string; label: string; icon: ReactNode; section: Section; n
 const settingsGroups: { title: string; items: { to: string; label: string }[] }[] = [
   { title: "Library", items: [{ to: "/settings/media", label: "Media management" }, { to: "/settings/profiles", label: "Profiles" }, { to: "/settings/readers", label: "Readers" }] },
   { title: "Sources & search", items: [{ to: "/settings/sources", label: "Source modules" }, { to: "/settings/search", label: "Search & throttling" }, { to: "/settings/metadata", label: "Metadata" }, { to: "/settings/downloads", label: "Downloads" }, { to: "/settings/schedule", label: "Schedule" }] },
-  { title: "Integrations", items: [{ to: "/settings/library", label: "Library servers" }, { to: "/settings/notifications", label: "Notifications" }, { to: "/settings/reading", label: "Reading apps" }] },
+  { title: "Integrations", items: [{ to: "/settings/library", label: "Library servers" }, { to: "/settings/notifications", label: "Notifications" }, { to: "/settings/media-servers", label: "Media servers" }, { to: "/settings/reading", label: "Reading apps" }] },
   { title: "Users & access", items: [{ to: "/settings/users", label: "Users & groups" }, { to: "/settings/sso", label: "Single sign-on" }] },
   { title: "System", items: [{ to: "/settings/general", label: "General" }] },
 ];
