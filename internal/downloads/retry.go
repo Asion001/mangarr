@@ -91,8 +91,8 @@ func (m *Manager) fail(ctx context.Context, job *model.DownloadJob, jc *jobCtx, 
 		if berr := BlocklistRelease(bg, m.db, *job.ReleaseID, err.Error()); berr != nil {
 			m.log.Warn("blocklist release", "err", berr)
 		}
-		if jc != nil {
-			if cand, upgrade, cerr := m.searcher.NextCandidate(bg, jc.series.ID, jc.chapter.ID); cerr == nil && cand != nil {
+		if jc != nil && !job.PinRelease {
+			if cand, upgrade, cerr := m.nextCandidate(bg, jc); cerr == nil && cand != nil {
 				rid := cand.Release.ID
 				job.ReleaseID, job.IsUpgrade, job.Attempt = &rid, upgrade, 0
 				_, _ = m.db.NewUpdate().Model(job).Column("is_upgrade").WherePK().Exec(bg)

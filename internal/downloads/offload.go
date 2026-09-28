@@ -52,7 +52,7 @@ func (m *Manager) offload(ctx context.Context, job model.DownloadJob) (bool, err
 		return true, nil
 	}
 	if jc.release == nil || jc.link == nil {
-		cand, upgrade, cerr := m.searcher.NextCandidate(ctx, jc.series.ID, jc.chapter.ID)
+		cand, upgrade, cerr := m.nextCandidate(ctx, jc)
 		if cerr != nil || cand == nil {
 			m.fail(ctx, &job, jc, permanent(errors.New("no downloadable release left for this chapter")))
 			return true, nil

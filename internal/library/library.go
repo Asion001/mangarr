@@ -13,7 +13,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/Asion001/mangarr/internal/comicinfo"
 	"github.com/Asion001/mangarr/internal/db"
@@ -24,11 +23,12 @@ import (
 )
 
 type Library struct {
-	db       *db.DB
-	settings *settings.Store
-	http     *http.Client
-	dataDir  string
-	log      *slog.Logger
+	db        *db.DB
+	settings  *settings.Store
+	http      *http.Client
+	dataDir   string
+	log       *slog.Logger
+	recycleMu sync.Mutex
 }
 
 func New(d *db.DB, s *settings.Store, hc *http.Client, dataDir string, log *slog.Logger) *Library {
@@ -219,46 +219,6 @@ func (l *Library) RecycleDir(ctx context.Context) string {
 		return mm.RecycleBinPath
 	}
 	return filepath.Join(l.dataDir, "recycle")
-}
-
-// Recycle moves (or, with keepOriginal, copies/hardlinks) a file into the
-// recycle bin, preserving series/file names. Returns the recycled path.
-func (l *Library) Recycle(ctx context.Context, path, seriesFolder string, keepOriginal bool) (string, error) {
-	dst := filepath.Join(l.RecycleDir(ctx), seriesFolder, time.Now().UTC().Format("20060102-150405")+"-"+filepath.Base(path))
-	if keepOriginal {
-		return dst, fsutil.LinkOrCopy(path, dst)
-	}
-	return dst, fsutil.Move(path, dst)
-}
-
-// PurgeRecycleBin deletes recycled files older than the retention.
-func (l *Library) PurgeRecycleBin(ctx context.Context) (int, error) {
-	mm, err := l.settings.MediaManagement(ctx)
-	if err != nil || mm.RecycleBinDays <= 0 {
-		return 0, err
-	}
-	root := l.RecycleDir(ctx)
-	cutoff := time.Now().Add(-time.Duration(mm.RecycleBinDays) * 24 * time.Hour)
-	n := 0
-	err = filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {
-		if err != nil {
-			return nil
-		}
-		if d.IsDir() {
-			return nil
-		}
-		if info, err := d.Info(); err == nil && info.ModTime().Before(cutoff) {
-			if os.Remove(p) == nil {
-				n++
-			}
-		}
-		return nil
-	})
-	if errors.Is(err, os.ErrNotExist) {
-		err = nil
-	}
-	removeEmptyDirs(root)
-	return n, err
 }
 
 func removeEmptyDirs(root string) {

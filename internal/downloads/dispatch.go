@@ -90,6 +90,9 @@ func (m *Manager) dispatch(ctx context.Context) {
 		if (j.Kind == model.JobKindDownload && quietNow.PauseDownloads) || (j.Kind == model.JobKindReprocess && quietNow.PauseProcessing) {
 			continue // quiet hours
 		}
+		if j.ConfigOverride != nil && j.ConfigOverride.ProcessParams() != "" && quietNow.PauseProcessing {
+			continue
+		}
 		if j.Kind == model.JobKindDownload && m.runningOfKind(model.JobKindDownload) >= dl.MaxConcurrent {
 			continue
 		}

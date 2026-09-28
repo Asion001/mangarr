@@ -176,12 +176,22 @@ func (s *Searcher) Explain(ctx context.Context, seriesID, chapterID int64) (*dec
 
 // NextCandidate picks the best remaining release for a chapter after a failure.
 func (s *Searcher) NextCandidate(ctx context.Context, seriesID, chapterID int64) (*decision.Candidate, bool, error) {
+	return s.NextCandidateConfigured(ctx, seriesID, chapterID, false, nil)
+}
+
+func (s *Searcher) NextCandidateConfigured(ctx context.Context, seriesID, chapterID int64, force bool, cfg *model.ProfileConfig) (*decision.Candidate, bool, error) {
 	st, err := s.load(ctx, seriesID, []int64{chapterID})
 	if err != nil || len(st.chapters) == 0 {
 		return nil, false, err
 	}
 	in := st.input(st.chapters[0], true)
 	in.Queued = false
+	if force {
+		in.CurrentFile, in.CurrentRelease = nil, nil
+	}
+	if cfg != nil {
+		in.Profile.Config = *cfg
+	}
 	d := decision.Decide(in, st.releases[chapterID])
 	return d.Approved, d.IsUpgrade, nil
 }

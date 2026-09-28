@@ -51,6 +51,19 @@ func (q *Queue) Enqueue(ctx context.Context, seriesID, chapterID int64, releaseI
 
 // EnqueuePriority is Enqueue with a queue priority (higher runs first).
 func (q *Queue) EnqueuePriority(ctx context.Context, seriesID, chapterID int64, releaseID *int64, kind string, isUpgrade bool, priority int) (*model.DownloadJob, bool, error) {
+	return q.EnqueueConfigured(ctx, seriesID, chapterID, releaseID, kind, isUpgrade, priority, JobOptions{})
+}
+
+type JobOptions struct {
+	ProfileName    string
+	RecycledFileID *int64
+	Config         *model.ProfileConfig
+	ForceDownload  bool
+	PinRelease     bool
+}
+
+// EnqueueConfigured persists run-specific input and settings before dispatch can claim it.
+func (q *Queue) EnqueueConfigured(ctx context.Context, seriesID, chapterID int64, releaseID *int64, kind string, isUpgrade bool, priority int, options JobOptions) (*model.DownloadJob, bool, error) {
 	var existing model.DownloadJob
 	err := q.db.NewSelect().Model(&existing).Where("chapter_id = ?", chapterID).Where("status IN (?)", bun.In(activeStatuses)).Limit(1).Scan(ctx)
 	if err == nil {
@@ -67,7 +80,8 @@ func (q *Queue) EnqueuePriority(ctx context.Context, seriesID, chapterID int64, 
 	}
 	now := time.Now().UTC()
 	job := &model.DownloadJob{Kind: kind, SeriesID: seriesID, ChapterID: chapterID, ReleaseID: releaseID, Status: model.JobQueued,
-		IsUpgrade: isUpgrade, Priority: priority, NotBefore: now, CreatedAt: now, UpdatedAt: now}
+		IsUpgrade: isUpgrade, Priority: priority, NotBefore: now, CreatedAt: now, UpdatedAt: now,
+		ProfileName: options.ProfileName, RecycledFileID: options.RecycledFileID, ConfigOverride: options.Config, ForceDownload: options.ForceDownload, PinRelease: options.PinRelease}
 	err = q.orderTx(ctx, func(ctx context.Context, tx bun.Tx) error {
 		ranks, err := insertionRanks(ctx, tx, priority, 1)
 		if err != nil {

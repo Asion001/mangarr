@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 
+	"github.com/Asion001/mangarr/internal/decision"
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/progress"
 	"github.com/Asion001/mangarr/internal/sourcegov"
@@ -15,13 +16,14 @@ import (
 // release and link may be absent until a candidate is selected; file is the
 // existing import, when present. job points to the attempt being run.
 type jobCtx struct {
-	job     *model.DownloadJob
-	series  model.Series
-	profile model.Profile
-	chapter model.Chapter
-	release *model.ChapterRelease
-	link    *model.SeriesSource
-	file    *model.ChapterFile
+	job       *model.DownloadJob
+	series    model.Series
+	profile   model.Profile
+	chapter   model.Chapter
+	release   *model.ChapterRelease
+	link      *model.SeriesSource
+	file      *model.ChapterFile
+	inputFile *model.ChapterFile
 }
 
 func (m *Manager) load(ctx context.Context, job *model.DownloadJob) (*jobCtx, error) {
@@ -34,6 +36,12 @@ func (m *Manager) load(ctx context.Context, job *model.DownloadJob) (*jobCtx, er
 	}
 	if err := m.db.NewSelect().Model(&jc.profile).Where("id = ?", jc.series.ProfileID).Scan(ctx); err != nil {
 		return nil, err
+	}
+	if job.ConfigOverride != nil {
+		jc.profile.Config = *job.ConfigOverride
+	}
+	if job.ProfileName != "" {
+		jc.profile.Name = job.ProfileName
 	}
 	if jc.chapter.FileID != nil {
 		var f model.ChapterFile
@@ -50,6 +58,9 @@ func (m *Manager) load(ctx context.Context, job *model.DownloadJob) (*jobCtx, er
 				jc.link = &ss
 			}
 		}
+	}
+	if job.PinRelease && (jc.release == nil || jc.link == nil || jc.release.Removed || !jc.link.Enabled) {
+		return nil, permanent(errors.New("pinned release is no longer available"))
 	}
 	return jc, nil
 }
@@ -83,7 +94,7 @@ func (m *Manager) run(ctx context.Context, job model.DownloadJob) {
 		pages, err = m.extractExisting(jc, workDir)
 	default:
 		if jc.release == nil || jc.link == nil {
-			cand, upgrade, cerr := m.searcher.NextCandidate(ctx, jc.series.ID, jc.chapter.ID)
+			cand, upgrade, cerr := m.nextCandidate(ctx, jc)
 			if cerr != nil || cand == nil {
 				m.fail(ctx, &job, jc, permanent(errors.New("no downloadable release left for this chapter")))
 				return
@@ -107,4 +118,8 @@ func (m *Manager) run(ctx context.Context, job model.DownloadJob) {
 		return
 	}
 	m.finish(ctx, job, jc, pages, workDir)
+}
+
+func (m *Manager) nextCandidate(ctx context.Context, jc *jobCtx) (*decision.Candidate, bool, error) {
+	return m.searcher.NextCandidateConfigured(ctx, jc.series.ID, jc.chapter.ID, jc.job.ForceDownload, jc.job.ConfigOverride)
 }

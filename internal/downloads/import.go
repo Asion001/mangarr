@@ -2,8 +2,6 @@ package downloads
 
 import (
 	"context"
-	"database/sql"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -64,8 +62,12 @@ func (m *Manager) importChapter(ctx context.Context, jc *jobCtx, proc ProcessRes
 	// to free the space); everything else keeps the replaced file around
 	recycle := !(jc.job.Kind == model.JobKindReprocess && proc.Encoded > 0 && !jc.profile.Config.Encode.RecycleOriginals)
 	if _, err := os.Stat(target); err == nil && recycle {
-		if _, err := m.lib.Recycle(ctx, target, jc.series.Path, true); err != nil {
-			m.log.Warn("recycle previous file", "path", target, "err", err)
+		reason := "upgraded"
+		if jc.job.Kind == model.JobKindReprocess {
+			reason = "reprocessed"
+		}
+		if _, err := m.lib.Recycle(ctx, target, jc.series.Path, true, library.RecycleInfo{Series: &jc.series, File: jc.file, Reason: reason, Job: jc.job, Profile: &jc.profile}); err != nil {
+			return infraError{err}
 		}
 	}
 
@@ -106,10 +108,10 @@ func (m *Manager) importChapter(ctx context.Context, jc *jobCtx, proc ProcessRes
 	if proc.Changed {
 		file.SizeOriginal = sizeBefore // pages as downloaded
 	}
-	if jc.job.Kind == model.JobKindReprocess && jc.file != nil {
-		file.SizeOriginal = jc.file.SizeOriginal
+	if jc.job.Kind == model.JobKindReprocess && jc.inputFile != nil {
+		file.SizeOriginal = jc.inputFile.SizeOriginal
 		if file.SizeOriginal == 0 {
-			file.SizeOriginal = jc.file.Size
+			file.SizeOriginal = jc.inputFile.Size
 		}
 	}
 	if params != "" {
@@ -122,16 +124,27 @@ func (m *Manager) importChapter(ctx context.Context, jc *jobCtx, proc ProcessRes
 	if jc.link != nil {
 		file.SourceName = jc.link.SourceName
 	}
-	if jc.job.Kind == model.JobKindReprocess && jc.file != nil {
-		file.ReleaseID, file.Scanlator, file.SourceName = jc.file.ReleaseID, jc.file.Scanlator, jc.file.SourceName
+	if jc.job.Kind == model.JobKindReprocess && jc.inputFile != nil {
+		file.ReleaseID, file.Scanlator, file.SourceName = jc.inputFile.ReleaseID, jc.inputFile.Scanlator, jc.inputFile.SourceName
 		if !upscaled {
-			file.Upscaled, file.UpscaleModel = jc.file.Upscaled, jc.file.UpscaleModel
+			file.Upscaled, file.UpscaleModel = jc.inputFile.Upscaled, jc.inputFile.UpscaleModel
 		}
 	}
-	// Writing the very same bytes back (a re-import, or processing that turned
-	// out to change nothing) keeps the existing row: its id is what reader
-	// servers hang book ids and read progress on.
-	if jc.file != nil && jc.file.RelativePath == rel && jc.file.SHA256 == res.SHA256 {
+	file.SourcePages = append([]int(nil), proc.SourcePages...)
+	if jc.inputFile != nil && len(jc.inputFile.SourcePages) > 0 {
+		if len(file.SourcePages) == 0 {
+			file.SourcePages = append([]int(nil), jc.inputFile.SourcePages...)
+		} else {
+			for i, source := range file.SourcePages {
+				if source < len(jc.inputFile.SourcePages) {
+					file.SourcePages[i] = jc.inputFile.SourcePages[source]
+				}
+			}
+		}
+	}
+	// Keep the row identity when replacing a chapter: reader servers key
+	// book IDs and progress on it.
+	if jc.file != nil && jc.file.RelativePath == rel {
 		file.ID, file.ImportedAt = jc.file.ID, jc.file.ImportedAt
 	}
 	event := model.HistoryImported
@@ -158,19 +171,9 @@ func (m *Manager) importChapter(ctx context.Context, jc *jobCtx, proc ProcessRes
 			Set("cleaned_at = NULL").Set("updated_at = ?", now).Where("id = ?", jc.chapter.ID).Exec(ctx); err != nil {
 			return err
 		}
-		if proc.Split > 0 {
-			var states []model.ChapterReadState
-			if err := tx.NewSelect().Model(&states).Where("chapter_id = ?", jc.chapter.ID).Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		if jc.file != nil {
+			if err := library.RemapProgress(ctx, tx, jc.chapter.ID, jc.file, file); err != nil {
 				return err
-			}
-			for i := range states {
-				page := remapPage(states[i].Page, states[i].Completed, proc.SourcePages)
-				if page == states[i].Page {
-					continue
-				}
-				if _, err := tx.NewUpdate().Model(&states[i]).Set("page = ?", page).WherePK().Exec(ctx); err != nil {
-					return err
-				}
 			}
 		}
 		jc.job.Status, jc.job.Progress, jc.job.Error, jc.job.UpdatedAt = model.JobCompleted, 100, "", now

@@ -170,6 +170,7 @@ export function Layout() {
         { to: "/system/tasks", label: "Tasks" },
         { to: "/system/workers", label: "Workers" },
         { to: "/system/backups", label: "Backups" },
+        { to: "/system/recycle-bin", label: "Recycle bin" },
         { to: "/system/database", label: "Database" },
         { to: "/system/logs", label: "Logs" },
       ],

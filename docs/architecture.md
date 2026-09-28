@@ -102,6 +102,17 @@ parsed Mihon-style (`internal/chapternum`).
    import. Upgrades and processing rename the new file over the **same path**,
    with the old one in the recycle bin, so Komga and Kavita keep read progress.
 
+The recycle bin is indexed in `recycled_files`: every file put there by an
+upgrade, reprocess, cleanup or series delete gets a row with its reason, its
+chapter and a snapshot of the `chapter_files` row it replaced. System → Recycle
+bin lists them, restores a version over the library file (keeping the
+`chapter_files` id and remapping read progress when the page count differs),
+and queues reprocessing that starts from the recycled file, the library file or
+a new download, optionally with one-off processing settings. Housekeeping
+purges by the recorded recycle time, not the file's mtime (a hardlinked file
+keeps the library file's old mtime). Files already in the folder are indexed at
+start-up and by Rescan folder.
+
 The download manager stays in one package, with responsibilities split into
 files:
 

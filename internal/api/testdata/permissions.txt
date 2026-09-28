@@ -20,6 +20,7 @@ catalogs-list GET /api/v1/catalogs -> library.manage | requests.manage
 catalogs-update PUT /api/v1/catalogs -> admin
 chapter-decision GET /api/v1/series/{id}/chapters/{chapterId}/decision -> library.manage
 chapter-restore POST /api/v1/chapters/{id}/restore -> library.manage
+chapter-versions GET /api/v1/chapters/{id}/versions -> admin
 chapters-delete POST /api/v1/chapters/delete -> library.manage
 chapters-monitor PUT /api/v1/chapters/monitor -> library.manage
 cleanup-preview GET /api/v1/cleanup/preview -> admin
@@ -126,6 +127,14 @@ reading-keys-delete DELETE /api/v1/reading/keys/{id} -> apps
 reading-mihon-backup POST /api/v1/reading/mihon-backup -> apps
 reading-shelf GET /api/v1/reading/shelf -> signedin
 reading-status GET /api/v1/reading/status -> apps
+recycle-delete DELETE /api/v1/recycle-bin -> admin
+recycle-get GET /api/v1/recycle-bin/{id} -> admin
+recycle-list GET /api/v1/recycle-bin -> admin
+recycle-read GET /api/v1/recycle-bin/{id}/read -> admin
+recycle-read-page GET /api/v1/recycle-bin/{id}/pages/{page} -> admin
+recycle-reprocess POST /api/v1/recycle-bin/reprocess -> admin
+recycle-rescan POST /api/v1/recycle-bin/rescan -> admin
+recycle-restore POST /api/v1/recycle-bin/restore -> admin
 requests-count GET /api/v1/requests/count -> requests.manage | library.manage
 requests-create POST /api/v1/requests -> requests.create
 requests-decline POST /api/v1/requests/{id}/decline -> requests.manage | library.manage

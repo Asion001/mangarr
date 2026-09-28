@@ -254,6 +254,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/chapters/{id}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["chapter-versions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/cleanup/preview": {
         parameters: {
             query?: never;
@@ -1613,6 +1629,119 @@ export interface paths {
         };
         /** Whether the Komga-compatible API is on, and the address apps should use */
         get: operations["reading-status"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recycle-bin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["recycle-list"];
+        put?: never;
+        post?: never;
+        delete: operations["recycle-delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recycle-bin/reprocess": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["recycle-reprocess"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recycle-bin/rescan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["recycle-rescan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recycle-bin/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["recycle-restore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recycle-bin/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["recycle-get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recycle-bin/{id}/pages/{page}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["recycle-read-page"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recycle-bin/{id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read a recycled archive without changing chapter progress */
+        get: operations["recycle-read"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3644,6 +3773,10 @@ export interface components {
             approved?: components["schemas"]["ReleaseView"];
             decision: components["schemas"]["DecisionDecision"];
         };
+        "Chapter-versionsResponse": {
+            current?: components["schemas"]["ChapterFile"];
+            recycled: components["schemas"]["RecycledResource"][];
+        };
         ChapterFile: {
             /** Format: int64 */
             avgWidth: number;
@@ -3683,6 +3816,7 @@ export interface components {
             /** Format: int64 */
             sizeOriginal: number;
             sourceName: string;
+            sourcePages?: number[];
             upscaleModel: string;
             upscaled: boolean;
         };
@@ -3932,9 +4066,11 @@ export interface components {
             attempt: number;
             /** Format: int64 */
             chapterId: number;
+            configOverride?: components["schemas"]["ProfileConfig"];
             /** Format: date-time */
             createdAt: string;
             error: string;
+            forceDownload: boolean;
             /** Format: int64 */
             id: number;
             isUpgrade: boolean;
@@ -3945,12 +4081,16 @@ export interface components {
             pagesDone: number;
             /** Format: int64 */
             pagesTotal: number;
+            pinRelease: boolean;
             /** Format: int64 */
             priority: number;
+            profileName?: string;
             /** Format: int64 */
             progress: number;
             /** Format: int64 */
             rank: number;
+            /** Format: int64 */
+            recycledFileId?: number;
             /** Format: int64 */
             releaseId?: number;
             /** Format: int64 */
@@ -4424,9 +4564,11 @@ export interface components {
             chapter: string;
             /** Format: int64 */
             chapterId: number;
+            configOverride?: components["schemas"]["ProfileConfig"];
             /** Format: date-time */
             createdAt: string;
             error: string;
+            forceDownload: boolean;
             /** Format: int64 */
             id: number;
             isUpgrade: boolean;
@@ -4440,12 +4582,16 @@ export interface components {
             pagesDone: number;
             /** Format: int64 */
             pagesTotal: number;
+            pinRelease: boolean;
             /** Format: int64 */
             priority: number;
+            profileName?: string;
             /** Format: int64 */
             progress: number;
             /** Format: int64 */
             rank: number;
+            /** Format: int64 */
+            recycledFileId?: number;
             /** Format: int64 */
             releaseId?: number;
             scanlator: string;
@@ -5355,6 +5501,97 @@ export interface components {
             error?: string;
             listening: boolean;
             publicUrl: string;
+        };
+        "Recycle-deleteRequest": {
+            ids?: number[];
+        };
+        "Recycle-rescanResponse": {
+            /** Format: int64 */
+            indexed: number;
+        };
+        RecycleGroup: {
+            /** Format: int64 */
+            count: number;
+            /** Format: int64 */
+            seriesId?: number;
+            seriesTitle: string;
+            /** Format: int64 */
+            size: number;
+        };
+        RecycleIDs: {
+            ids: number[];
+        };
+        RecycleList: {
+            groups: components["schemas"]["RecycleGroup"][];
+            items: components["schemas"]["RecycledResource"][];
+            /** Format: int64 */
+            page: number;
+            /** Format: int64 */
+            pageSize: number;
+            reasons: {
+                [key: string]: number;
+            };
+            /** Format: int64 */
+            retentionDays: number;
+            retentionLocked: boolean;
+            /** Format: int64 */
+            size: number;
+            /** Format: int64 */
+            total: number;
+        };
+        RecycleResult: {
+            error?: string;
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            jobId?: number;
+            /** Format: int64 */
+            seriesId?: number;
+        };
+        RecycleRun: {
+            config?: components["schemas"]["ProfileConfig"];
+            ids: number[];
+            /** Format: int64 */
+            profileId?: number;
+            /** @enum {string} */
+            release?: "" | "same" | "best";
+            /** @enum {string} */
+            startFrom?: "" | "recycled" | "current" | "download";
+        };
+        RecycledResource: {
+            chapter: string;
+            /** Format: int64 */
+            chapterFileId?: number;
+            /** Format: int64 */
+            chapterId?: number;
+            countChanged: boolean;
+            current?: components["schemas"]["ChapterFile"];
+            file?: components["schemas"]["ChapterFile"];
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            jobId?: number;
+            jobKind: string;
+            kind: string;
+            originalRelativePath: string;
+            /** Format: int64 */
+            pageCount: number;
+            processParams: string;
+            profileName: string;
+            /** Format: date-time */
+            purgeAt?: string;
+            reason: string;
+            /** Format: date-time */
+            recycledAt: string;
+            recycledPath: string;
+            scanlator: string;
+            /** Format: int64 */
+            seriesId?: number;
+            seriesTitle: string;
+            sha256: string;
+            /** Format: int64 */
+            size: number;
+            sourceName: string;
         };
         ReleaseView: {
             blocklisted: boolean;
@@ -7022,6 +7259,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Chapter"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "chapter-versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Chapter-versionsResponse"];
                 };
             };
             /** @description Error */
@@ -10300,6 +10568,265 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReadingStatus"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "recycle-list": {
+        parameters: {
+            query?: {
+                series?: number;
+                reason?: "" | "upgraded" | "reprocessed" | "cleaned" | "deleted" | "series_deleted" | "restored_over" | "unknown";
+                q?: string;
+                page?: number;
+                pageSize?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecycleList"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "recycle-delete": {
+        parameters: {
+            query?: {
+                all?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["Recycle-deleteRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecycleResult"][];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "recycle-reprocess": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecycleRun"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecycleResult"][];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "recycle-rescan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Recycle-rescanResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "recycle-restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecycleIDs"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecycleResult"][];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "recycle-get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecycledResource"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "recycle-read-page": {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-None-Match"?: string;
+            };
+            path: {
+                id: number;
+                page: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "recycle-read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadChapter"];
                 };
             };
             /** @description Error */

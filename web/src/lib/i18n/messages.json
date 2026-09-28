@@ -7198,5 +7198,461 @@
   "server time": {
     "ru": "время сервера",
     "uk": "час сервера"
+  },
+  "Keep files for": {
+    "ru": "Хранить файлы",
+    "uk": "Зберігати файли"
+  },
+  "Keep recycled files for": {
+    "ru": "Сколько хранить файлы в корзине",
+    "uk": "Скільки зберігати файли в кошику"
+  },
+  "{days} days": {
+    "ru": "{days} дн.",
+    "uk": "{days} дн."
+  },
+  "Forever": {
+    "ru": "Всегда",
+    "uk": "Завжди"
+  },
+  "Custom…": {
+    "ru": "Своё…",
+    "uk": "Своє…"
+  },
+  "Days": {
+    "ru": "Дни",
+    "uk": "Дні"
+  },
+  "Today": {
+    "ru": "Сегодня",
+    "uk": "Сьогодні"
+  },
+  "{from} → {to} now": {
+    "ru": "{from} → сейчас {to}",
+    "uk": "{from} → зараз {to}"
+  },
+  "{count} · not in library": {
+    "ru": "{count} · нет в библиотеке",
+    "uk": "{count} · немає в бібліотеці"
+  },
+  "Count changed": {
+    "ru": "Число изменилось",
+    "uk": "Кількість змінилась"
+  },
+  "Found {count} new files": {
+    "ru": "Найдено новых файлов: {count}",
+    "uk": "Знайдено нових файлів: {count}"
+  },
+  "No new files found": {
+    "ru": "Новых файлов нет",
+    "uk": "Нових файлів немає"
+  },
+  "Could not rescan": {
+    "ru": "Не удалось пересканировать",
+    "uk": "Не вдалося пересканувати"
+  },
+  "Unknown series": {
+    "ru": "Неизвестная серия",
+    "uk": "Невідома серія"
+  },
+  "{count} files · {size}": {
+    "ru": "Файлов: {count} · {size}",
+    "uk": "Файлів: {count} · {size}"
+  },
+  "Housekeeping is paused, so nothing is purged.": {
+    "ru": "Housekeeping на паузе, поэтому ничего не удаляется.",
+    "uk": "Housekeeping на паузі, тому нічого не видаляється."
+  },
+  "older files are purged by Housekeeping.": {
+    "ru": "старые файлы удаляет Housekeeping.",
+    "uk": "старі файли видаляє Housekeeping."
+  },
+  "Rescan folder": {
+    "ru": "Пересканировать папку",
+    "uk": "Пересканувати теку"
+  },
+  "Empty recycle bin": {
+    "ru": "Очистить корзину",
+    "uk": "Очистити кошик"
+  },
+  "Search series or chapter": {
+    "ru": "Поиск серии или главы",
+    "uk": "Пошук серії чи розділу"
+  },
+  "All reasons": {
+    "ru": "Все причины",
+    "uk": "Усі причини"
+  },
+  "all from {series}": {
+    "ru": "все из {series}",
+    "uk": "усі з {series}"
+  },
+  "{count} series": {
+    "ru": "Серий: {count}",
+    "uk": "Серій: {count}"
+  },
+  "Reprocess from these…": {
+    "ru": "Переобработать из них…",
+    "uk": "Переобробити з них…"
+  },
+  "Delete now": {
+    "ru": "Удалить сейчас",
+    "uk": "Видалити зараз"
+  },
+  "Nothing matches": {
+    "ru": "Ничего не найдено",
+    "uk": "Нічого не знайдено"
+  },
+  "The recycle bin is empty": {
+    "ru": "Корзина пуста",
+    "uk": "Кошик порожній"
+  },
+  "Files replaced by upgrades or reprocessing, cleaned up or deleted land here, so you can put them back.": {
+    "ru": "Сюда попадают файлы, заменённые обновлением или переобработкой, очищенные или удалённые, чтобы их можно было вернуть.",
+    "uk": "Сюди потрапляють файли, замінені оновленням чи переобробкою, очищені або видалені, щоб їх можна було повернути."
+  },
+  "Why it is here": {
+    "ru": "Почему здесь",
+    "uk": "Чому тут"
+  },
+  "Recycled": {
+    "ru": "В корзине с",
+    "uk": "У кошику з"
+  },
+  "Purged in": {
+    "ru": "Удалится через",
+    "uk": "Видалиться через"
+  },
+  "Select {series}": {
+    "ru": "Выбрать {series}",
+    "uk": "Вибрати {series}"
+  },
+  "Select {chapter}": {
+    "ru": "Выбрать {chapter}",
+    "uk": "Вибрати {chapter}"
+  },
+  "Open": {
+    "ru": "Открыть",
+    "uk": "Відкрити"
+  },
+  "Showing {shown} of {count} files": {
+    "ru": "Показано {shown} из {count}",
+    "uk": "Показано {shown} з {count}"
+  },
+  "Page {page} of {pages}": {
+    "ru": "Страница {page} из {pages}",
+    "uk": "Сторінка {page} з {pages}"
+  },
+  "Empty the recycle bin?": {
+    "ru": "Очистить корзину?",
+    "uk": "Очистити кошик?"
+  },
+  "Delete {count} files now?": {
+    "ru": "Удалить файлы ({count}) сейчас?",
+    "uk": "Видалити файли ({count}) зараз?"
+  },
+  "Every file in the recycle bin is removed from disk. This can't be undone.": {
+    "ru": "Все файлы корзины будут удалены с диска. Это нельзя отменить.",
+    "uk": "Усі файли кошика буде видалено з диска. Це не можна скасувати."
+  },
+  "They are removed from disk and can't be restored.": {
+    "ru": "Они будут удалены с диска без возможности восстановления.",
+    "uk": "Їх буде видалено з диска без можливості відновлення."
+  },
+  "Open in reader": {
+    "ru": "Открыть в читалке",
+    "uk": "Відкрити в читалці"
+  },
+  "Reprocess job": {
+    "ru": "Переобработка",
+    "uk": "Переобробка"
+  },
+  "Download job": {
+    "ru": "Загрузка",
+    "uk": "Завантаження"
+  },
+  "Replaced by": {
+    "ru": "Чем заменён",
+    "uk": "Чим замінено"
+  },
+  "This file": {
+    "ru": "Этот файл",
+    "uk": "Цей файл"
+  },
+  "{pages} pages · {size}": {
+    "ru": "{pages} стр. · {size}",
+    "uk": "{pages} стор. · {size}"
+  },
+  "Processing in this file": {
+    "ru": "Обработка в этом файле",
+    "uk": "Обробка в цьому файлі"
+  },
+  "Stored at": {
+    "ru": "Где лежит",
+    "uk": "Де лежить"
+  },
+  "Compare versions": {
+    "ru": "Сравнение версий",
+    "uk": "Порівняння версій"
+  },
+  "In recycle bin": {
+    "ru": "В корзине",
+    "uk": "У кошику"
+  },
+  "this version": {
+    "ru": "эта версия",
+    "uk": "ця версія"
+  },
+  "In library now": {
+    "ru": "Сейчас в библиотеке",
+    "uk": "Зараз у бібліотеці"
+  },
+  "current": {
+    "ru": "текущая",
+    "uk": "поточна"
+  },
+  "Written": {
+    "ru": "Записан",
+    "uk": "Записано"
+  },
+  "This chapter has no file in the library now.": {
+    "ru": "Сейчас у главы нет файла в библиотеке.",
+    "uk": "Зараз у розділу немає файлу в бібліотеці."
+  },
+  "Page count changed from {from} to {to}. Restoring remaps read progress to the restored pages.": {
+    "ru": "Число страниц изменилось с {from} на {to}. При восстановлении прогресс чтения перенесётся на восстановленные страницы.",
+    "uk": "Кількість сторінок змінилась з {from} на {to}. Під час відновлення прогрес читання перенесеться на відновлені сторінки."
+  },
+  "Restoring puts the library file in the recycle bin, so you can switch back.": {
+    "ru": "При восстановлении файл из библиотеки попадёт в корзину, так что можно вернуться обратно.",
+    "uk": "Під час відновлення файл із бібліотеки потрапить у кошик, тож можна повернутися назад."
+  },
+  "Reprocess from this…": {
+    "ru": "Переобработать из этого…",
+    "uk": "Переобробити з цього…"
+  },
+  "Restore this version": {
+    "ru": "Восстановить эту версию",
+    "uk": "Відновити цю версію"
+  },
+  "Delete this file now?": {
+    "ru": "Удалить этот файл сейчас?",
+    "uk": "Видалити цей файл зараз?"
+  },
+  "It is removed from disk and can't be restored.": {
+    "ru": "Он будет удалён с диска без возможности восстановления.",
+    "uk": "Його буде видалено з диска без можливості відновлення."
+  },
+  "Reprocess {chapter}": {
+    "ru": "Переобработать: {chapter}",
+    "uk": "Переобробити: {chapter}"
+  },
+  "Reprocess {count} chapters": {
+    "ru": "Переобработать главы ({count})",
+    "uk": "Переобробити розділи ({count})"
+  },
+  "Queue job": {
+    "ru": "В очередь",
+    "uk": "У чергу"
+  },
+  "Queue {count} jobs": {
+    "ru": "Поставить в очередь ({count})",
+    "uk": "Додати в чергу ({count})"
+  },
+  "Start from": {
+    "ru": "Начать с",
+    "uk": "Почати з"
+  },
+  "Recycled files": {
+    "ru": "Файлов из корзины",
+    "uk": "Файлів із кошика"
+  },
+  "{pages} pages, as they were before being replaced. Best when a split or upscale went wrong.": {
+    "ru": "{pages} стр. в том виде, как были до замены. Лучше всего, если нарезка или апскейл пошли не так.",
+    "uk": "{pages} стор. у тому вигляді, як були до заміни. Найкраще, якщо нарізка чи апскейл пішли не так."
+  },
+  "Current library files": {
+    "ru": "Текущих файлов библиотеки",
+    "uk": "Поточних файлів бібліотеки"
+  },
+  "{pages} pages, with the processing they already have. Processing runs on top of that.": {
+    "ru": "{pages} стр. с уже сделанной обработкой. Новая обработка пойдёт поверх.",
+    "uk": "{pages} стор. з уже зробленою обробкою. Нова обробка піде поверх."
+  },
+  "Download again": {
+    "ru": "Скачать заново",
+    "uk": "Завантажити знову"
+  },
+  "Fetch fresh pages from a source, then process them with the settings below.": {
+    "ru": "Скачать страницы из источника заново и обработать их с настройками ниже.",
+    "uk": "Завантажити сторінки з джерела знову й обробити їх з налаштуваннями нижче."
+  },
+  "Download from": {
+    "ru": "Откуда скачать",
+    "uk": "Звідки завантажити"
+  },
+  "Same release as this file": {
+    "ru": "Тот же релиз, что у файла",
+    "uk": "Той самий реліз, що у файлу"
+  },
+  "Best available release (profile ranking)": {
+    "ru": "Лучший доступный релиз (по профилю)",
+    "uk": "Найкращий доступний реліз (за профілем)"
+  },
+  "Series profile: {name}": {
+    "ru": "Профиль серии: {name}",
+    "uk": "Профіль серії: {name}"
+  },
+  "Change settings for this run only": {
+    "ru": "Изменить настройки только для этого запуска",
+    "uk": "Змінити налаштування лише для цього запуску"
+  },
+  "Upscaler model": {
+    "ru": "Модель апскейла",
+    "uk": "Модель апскейлу"
+  },
+  "No upscaling": {
+    "ru": "Без апскейла",
+    "uk": "Без апскейлу"
+  },
+  "Encode as": {
+    "ru": "Кодировать в",
+    "uk": "Кодувати в"
+  },
+  "Keep the page format": {
+    "ru": "Оставить формат страниц",
+    "uk": "Залишити формат сторінок"
+  },
+  "lossless": {
+    "ru": "без потерь",
+    "uk": "без втрат"
+  },
+  "Max page width": {
+    "ru": "Макс. ширина страницы",
+    "uk": "Макс. ширина сторінки"
+  },
+  "Only these chapters use these settings. The profile stays as it is.": {
+    "ru": "Эти настройки только для выбранных глав. Профиль не меняется.",
+    "uk": "Ці налаштування лише для вибраних розділів. Профіль не змінюється."
+  },
+  "Each run replaces the library file and puts the replaced one in the recycle bin.": {
+    "ru": "Каждый запуск заменяет файл в библиотеке, а заменённый кладёт в корзину.",
+    "uk": "Кожен запуск замінює файл у бібліотеці, а замінений кладе в кошик."
+  },
+  "{count} pages": {
+    "ru": "{count} стр.",
+    "uk": "{count} стор."
+  },
+  "Versions of {chapter}": {
+    "ru": "Версии: {chapter}",
+    "uk": "Версії: {chapter}"
+  },
+  "Recycled {when}": {
+    "ru": "В корзине с {when}",
+    "uk": "У кошику з {when}"
+  },
+  "Compare": {
+    "ru": "Сравнить",
+    "uk": "Порівняти"
+  },
+  "Open recycle bin": {
+    "ru": "Открыть корзину",
+    "uk": "Відкрити кошик"
+  },
+  "Reprocessed": {
+    "ru": "Переобработан",
+    "uk": "Переоброблено"
+  },
+  "Replaced by upgrade": {
+    "ru": "Заменён обновлением",
+    "uk": "Замінено оновленням"
+  },
+  "Cleaned up": {
+    "ru": "Очищен",
+    "uk": "Очищено"
+  },
+  "Deleted": {
+    "ru": "Удалён",
+    "uk": "Видалено"
+  },
+  "Series deleted": {
+    "ru": "Серия удалена",
+    "uk": "Серію видалено"
+  },
+  "Replaced by restore": {
+    "ru": "Заменён восстановлением",
+    "uk": "Замінено відновленням"
+  },
+  "Found in folder": {
+    "ru": "Найден в папке",
+    "uk": "Знайдено в теці"
+  },
+  "Upscaled ({model})": {
+    "ru": "Апскейл ({model})",
+    "uk": "Апскейл ({model})"
+  },
+  "Upscaled": {
+    "ru": "Апскейл",
+    "uk": "Апскейл"
+  },
+  "Whole series folder": {
+    "ru": "Вся папка серии",
+    "uk": "Уся тека серії"
+  },
+  "Ch. {number}": {
+    "ru": "Гл. {number}",
+    "uk": "Розд. {number}"
+  },
+  "Unknown chapter": {
+    "ru": "Неизвестная глава",
+    "uk": "Невідомий розділ"
+  },
+  "{failed} of {count} failed: {error}": {
+    "ru": "Не удалось {failed} из {count}: {error}",
+    "uk": "Не вдалося {failed} з {count}: {error}"
+  },
+  "Restored": {
+    "ru": "Восстановлено",
+    "uk": "Відновлено"
+  },
+  "Could not restore": {
+    "ru": "Не удалось восстановить",
+    "uk": "Не вдалося відновити"
+  },
+  "Deleted from the recycle bin": {
+    "ru": "Удалено из корзины",
+    "uk": "Видалено з кошика"
+  },
+  "Could not delete": {
+    "ru": "Не удалось удалить",
+    "uk": "Не вдалося видалити"
+  },
+  "Could not queue": {
+    "ru": "Не удалось поставить в очередь",
+    "uk": "Не вдалося додати в чергу"
+  },
+  "Recycled version, read-only": {
+    "ru": "Версия из корзины, только чтение",
+    "uk": "Версія з кошика, лише читання"
+  },
+  "Page {page}": {
+    "ru": "Страница {page}",
+    "uk": "Сторінка {page}"
+  },
+  "chapter {number}": {
+    "ru": "главы {number}",
+    "uk": "розділу {number}"
+  },
+  "1 earlier version": {
+    "ru": "1 ранняя версия",
+    "uk": "1 рання версія"
+  },
+  "{count} earlier versions": {
+    "ru": "Ранних версий: {count}",
+    "uk": "Ранніх версій: {count}"
+  },
+  "This file isn't matched to a chapter, so it can't be put back.": {
+    "ru": "Файл не сопоставлен с главой, поэтому его нельзя вернуть.",
+    "uk": "Файл не зіставлено з розділом, тому його не можна повернути."
   }
 }

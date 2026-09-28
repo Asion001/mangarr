@@ -520,20 +520,22 @@ func (s *Service) Delete(ctx context.Context, id int64, deleteFiles bool) error 
 	if err != nil {
 		return err
 	}
+	defer library.LockSeries(id)()
 	dir, _ := s.lib.SeriesDir(ctx, ser)
+	if deleteFiles && dir != "" {
+		if _, err := os.Stat(dir); err == nil {
+			if _, err := s.lib.Recycle(ctx, dir, "", false, library.RecycleInfo{Series: ser, Reason: "series_deleted"}); err != nil {
+				return err
+			}
+		} else if !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+	}
 	if _, err := s.db.NewDelete().Model((*model.Series)(nil)).Where("id = ?", id).Exec(ctx); err != nil {
 		return err
 	}
 	_, _ = s.db.NewDelete().Model((*model.Work)(nil)).Where("id = ? AND NOT EXISTS (SELECT 1 FROM series WHERE work_id = ?)", ser.WorkID, ser.WorkID).Exec(ctx)
-	// tables without FK cascade
 	_, _ = s.db.NewDelete().Model((*model.History)(nil)).Where("series_id = ?", id).Exec(ctx)
-	if deleteFiles && dir != "" {
-		if _, err := os.Stat(dir); err == nil {
-			if _, err := s.lib.Recycle(ctx, dir, "", false); err != nil {
-				s.log.Warn("recycle series folder", "dir", dir, "err", err)
-			}
-		}
-	}
 	s.bus.Publish(events.Event{Type: events.SeriesDeleted, SeriesID: id, Payload: events.MessagePayload{Title: "Series deleted", Message: ser.Title}})
 	s.bus.Changed("series", "deleted", id)
 	return nil

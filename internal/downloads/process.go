@@ -72,7 +72,7 @@ func (m *Manager) finish(ctx context.Context, job model.DownloadJob, jc *jobCtx,
 	}
 	proc := ProcessResult{Pages: pages}
 	processed := false
-	if job.Kind == model.JobKindReprocess && params == "" {
+	if job.Kind == model.JobKindReprocess && job.RecycledFileID == nil && params == "" {
 		m.markProcessed(ctx, jc.file, "", 0)
 		m.completeUnchanged(ctx, &job, "processing is disabled for this series' profile")
 		return
@@ -81,6 +81,10 @@ func (m *Manager) finish(ctx context.Context, job model.DownloadJob, jc *jobCtx,
 	if job.Kind == model.JobKindDownload {
 		sched, _ := m.settings.Schedule(ctx)
 		processingPaused = quiet.Evaluate(sched, time.Now()).PauseProcessing
+		if job.ConfigOverride != nil && processingPaused && params != "" {
+			m.fail(ctx, &job, jc, infraError{errors.New("processing is paused by the schedule")})
+			return
+		}
 	}
 	inline := job.Kind == model.JobKindReprocess || cfg.ProcessTiming == "inline"
 	if m.Processor != nil && params != "" && inline && !processingPaused {
@@ -105,6 +109,9 @@ func (m *Manager) finish(ctx context.Context, job model.DownloadJob, jc *jobCtx,
 			m.markProcessFailed(ctx, jc.file, perr)
 			m.fail(ctx, &job, jc, permanent(perr))
 			return
+		case perr != nil && job.ConfigOverride != nil:
+			m.fail(ctx, &job, jc, infraError{perr})
+			return
 		case perr != nil:
 			log.Warn("processing failed, importing original pages", "err", perr)
 			m.bus.Publish(events.Event{Type: events.HealthIssue, SeriesID: jc.series.ID, Payload: events.MessagePayload{
@@ -112,7 +119,7 @@ func (m *Manager) finish(ctx context.Context, job model.DownloadJob, jc *jobCtx,
 		default:
 			proc, processed = res, true
 		}
-		if processed && job.Kind == model.JobKindReprocess && !proc.Changed {
+		if processed && job.Kind == model.JobKindReprocess && job.RecycledFileID == nil && !proc.Changed {
 			// nothing to upscale and re-encoding wouldn't save space
 			m.markProcessed(ctx, jc.file, params, proc.Seconds)
 			m.completeUnchanged(ctx, &job, "nothing to change")
@@ -186,14 +193,29 @@ func (m *Manager) completeUnchanged(ctx context.Context, job *model.DownloadJob,
 
 // extractExisting unpacks an imported CBZ for re-processing.
 func (m *Manager) extractExisting(jc *jobCtx, workDir string) ([]PageFile, error) {
-	if jc.file == nil {
-		return nil, permanent(errors.New("chapter has no file to re-process"))
+
+	var pages []cbz.Page
+	var err error
+	jc.inputFile = jc.file
+	if jc.job.RecycledFileID != nil {
+		err = m.lib.WithRecycled(context.Background(), *jc.job.RecycledFileID, func(r *model.RecycledFile, path string) error {
+			if r.Kind != "file" || r.ChapterID == nil || *r.ChapterID != jc.chapter.ID {
+				return errors.New("recycled input does not belong to chapter")
+			}
+			jc.inputFile = r.FileSnapshot
+			pages, _, err = cbz.Read(path)
+			return err
+		})
+	} else {
+		if jc.file == nil {
+			return nil, permanent(errors.New("chapter has no file to re-process"))
+		}
+		dir, e := m.lib.SeriesDir(context.Background(), &jc.series)
+		if e != nil {
+			return nil, infraError{e}
+		}
+		pages, _, err = cbz.Read(filepath.Join(dir, jc.file.RelativePath))
 	}
-	dir, err := m.lib.SeriesDir(context.Background(), &jc.series)
-	if err != nil {
-		return nil, infraError{err}
-	}
-	pages, _, err := cbz.Read(filepath.Join(dir, jc.file.RelativePath))
 	if err != nil {
 		return nil, permanent(fmt.Errorf("read existing file: %w", err))
 	}

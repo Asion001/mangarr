@@ -1,7 +1,7 @@
 import { t as tr, t } from "../../lib/i18n/core";
 import { Fragment, memo, useCallback, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowDownToLine, ArrowUpToLine, BookOpen, Check, ChevronDown, ChevronRight, ExternalLink, HelpCircle, Pause, Play, RotateCcw, RotateCw, Search, Sparkles, Eye, Trash2 } from "lucide-react";
+import { ArrowDownToLine, ArrowUpToLine, BookOpen, History, Check, ChevronDown, ChevronRight, ExternalLink, HelpCircle, Pause, Play, RotateCcw, RotateCw, Search, Sparkles, Eye, Trash2 } from "lucide-react";
 import { Link } from "react-router";
 import clsx from "clsx";
 import { api, unwrap, type Chapter } from "../../api/client";
@@ -12,6 +12,8 @@ import { useToast } from "../../lib/toast";
 import { eta } from "../../lib/liveProgress";
 import { useListParam, useStoredListParam } from "../../lib/urlState";
 import { useAccount } from "../../lib/account";
+import { RecycledDrawer, ReprocessModal, VersionsModal } from "../system/RecycleDialogs";
+import type { Recycled } from "../system/recycle";
 
 const stateTone: Record<string, "ok" | "warn" | "err" | "info" | "default" | "accent"> = {
   imported: "ok",
@@ -44,7 +46,21 @@ export function ChaptersTable({ seriesId, manage = true, nextChapterId }: { seri
   const queuePaused = !!useQueue({ pageSize: 1 }, manage).data?.state?.paused;
   const qc = useQueryClient();
   const toast = useToast();
-  const { account } = useAccount();
+  const { account, isAdmin } = useAccount();
+  // earlier versions of chapters, from the recycle bin (admins only)
+  const { data: recycled } = useQuery({
+    queryKey: ["recycle-bin", "series", seriesId],
+    queryFn: () => unwrap(api.GET("/api/v1/recycle-bin", { params: { query: { series: seriesId, pageSize: 200 } } })),
+    enabled: manage && isAdmin,
+  });
+  const versions = useMemo(() => {
+    const out = new Map<number, number>();
+    for (const r of recycled?.items ?? []) if (r.chapterId && r.kind === "file") out.set(r.chapterId, (out.get(r.chapterId) ?? 0) + 1);
+    return out;
+  }, [recycled]);
+  const [versionsOf, setVersionsOf] = useState<Chapter | null>(null);
+  const [compare, setCompare] = useState<Recycled | null>(null);
+  const [reprocessFrom, setReprocessFrom] = useState<Recycled | null>(null);
   const tableTop = useRef<HTMLDivElement>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
@@ -272,6 +288,8 @@ export function ChaptersTable({ seriesId, manage = true, nextChapterId }: { seri
                   onMark={mark}
                   onQueueAction={queueAction}
                   onExplain={setExplain}
+                  versions={versions.get(chapter.id) ?? 0}
+                  onVersions={setVersionsOf}
                   queuePaused={queuePaused}
                   next={chapter.id === nextChapterId}
                 />
@@ -301,6 +319,16 @@ export function ChaptersTable({ seriesId, manage = true, nextChapterId }: { seri
         </div>
       )}
       {explain && <DecisionModal seriesId={seriesId} chapter={explain} onClose={() => setExplain(null)} />}
+      {versionsOf && (
+        <VersionsModal
+          chapterId={versionsOf.id}
+          label={t("chapter {number}", { number: versionsOf.number })}
+          onClose={() => setVersionsOf(null)}
+          onCompare={(r) => (setVersionsOf(null), setCompare(r))}
+        />
+      )}
+      {compare && <RecycledDrawer item={compare} onClose={() => setCompare(null)} onReprocess={(r) => (setCompare(null), setReprocessFrom(r))} />}
+      {reprocessFrom && <ReprocessModal items={[reprocessFrom]} onClose={() => setReprocessFrom(null)} />}
       <Confirm
         open={deleteIds.length > 0}
         title={t("Delete chapter files")}
@@ -330,6 +358,9 @@ type ChapterRowProps = {
   onMark: (chapter: Chapter, read: boolean, scope?: "chapter" | "previous") => void;
   onQueueAction: (jobID: number, action: "top" | "bottom" | "pause" | "resume") => void;
   onExplain: (chapter: Chapter) => void;
+  /** versions: how many earlier versions of the file the recycle bin holds. */
+  versions?: number;
+  onVersions?: (chapter: Chapter) => void;
   /** queuePaused: the whole download queue is paused, so queued chapters wait. */
   queuePaused?: boolean;
   /** next: this is the chapter to read next. */
@@ -352,6 +383,8 @@ const ChapterRow = memo(function ChapterRow({
   onMark,
   onQueueAction,
   onExplain,
+  versions = 0,
+  onVersions,
   queuePaused,
   next,
 }: ChapterRowProps) {
@@ -434,7 +467,22 @@ const ChapterRow = memo(function ChapterRow({
                   <Badge tone="err" title={c.file.processError}>{t("processing failed")}</Badge>
                 )}
               </span>
+              {versions > 0 && onVersions && (
+                <button
+                  type="button"
+                  onClick={() => onVersions(c)}
+                  className="mt-1 inline-flex w-fit items-center gap-1 rounded-full border border-border bg-panel-2 px-2 py-0.5 text-xs font-medium hover:border-accent"
+                >
+                  <History className="size-3" />
+                  {versions === 1 ? t("1 earlier version") : t("{count} earlier versions", { count: versions })}
+                </button>
+              )}
             </div>
+          ) : versions > 0 && onVersions ? (
+            <button type="button" onClick={() => onVersions(c)} className="inline-flex items-center gap-1 rounded-full border border-border bg-panel-2 px-2 py-0.5 text-xs font-medium hover:border-accent">
+              <History className="size-3" />
+              {versions === 1 ? t("1 earlier version") : t("{count} earlier versions", { count: versions })}
+            </button>
           ) : (
             <span className="text-muted">—</span>
           )}

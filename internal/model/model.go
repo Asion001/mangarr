@@ -658,6 +658,7 @@ type ChapterRelease struct {
 }
 
 type ChapterFile struct {
+	SourcePages   []int `bun:"source_pages" json:"sourcePages,omitempty"`
 	bun.BaseModel `bun:"table:chapter_files"`
 	ID            int64     `bun:"id,pk,autoincrement" json:"id"`
 	ChapterID     int64     `bun:"chapter_id,notnull" json:"chapterId"`
@@ -710,13 +711,18 @@ const (
 const PriorityReading = 100
 
 type DownloadJob struct {
-	bun.BaseModel `bun:"table:download_jobs"`
-	ID            int64  `bun:"id,pk,autoincrement" json:"id"`
-	Kind          string `bun:"kind,notnull" json:"kind"`
-	SeriesID      int64  `bun:"series_id,notnull" json:"seriesId"`
-	ChapterID     int64  `bun:"chapter_id,notnull" json:"chapterId"`
-	ReleaseID     *int64 `bun:"release_id" json:"releaseId,omitempty"`
-	Status        string `bun:"status,notnull" json:"status"`
+	ProfileName    string         `bun:"profile_name,notnull" json:"profileName,omitempty"`
+	RecycledFileID *int64         `bun:"recycled_file_id" json:"recycledFileId,omitempty"`
+	ConfigOverride *ProfileConfig `bun:"config_override,type:jsonb" json:"configOverride,omitempty"`
+	ForceDownload  bool           `bun:"force_download,notnull" json:"forceDownload"`
+	PinRelease     bool           `bun:"pin_release,notnull" json:"pinRelease"`
+	bun.BaseModel  `bun:"table:download_jobs"`
+	ID             int64  `bun:"id,pk,autoincrement" json:"id"`
+	Kind           string `bun:"kind,notnull" json:"kind"`
+	SeriesID       int64  `bun:"series_id,notnull" json:"seriesId"`
+	ChapterID      int64  `bun:"chapter_id,notnull" json:"chapterId"`
+	ReleaseID      *int64 `bun:"release_id" json:"releaseId,omitempty"`
+	Status         string `bun:"status,notnull" json:"status"`
 	// Priority is the legacy enqueue hint (higher first), retained for clients.
 	// Rank is the durable global order: lower first, with running jobs pinned.
 	Rank       int64      `bun:"rank,notnull" json:"rank"`

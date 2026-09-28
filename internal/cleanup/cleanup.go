@@ -375,7 +375,11 @@ func (c *Cleaner) remove(ctx context.Context, cd Candidate, recycle bool, event 
 	}
 	if _, err := os.Stat(cd.Path); err == nil {
 		if recycle {
-			if _, err := c.lib.Recycle(ctx, cd.Path, s.Path, false); err != nil {
+			var file model.ChapterFile
+			if err := c.db.NewSelect().Model(&file).Where("id = ?", cd.FileID).Scan(ctx); err != nil {
+				return err
+			}
+			if _, err := c.lib.Recycle(ctx, cd.Path, s.Path, false, library.RecycleInfo{Series: &s, File: &file, Reason: event}); err != nil {
 				return err
 			}
 		} else if err := os.Remove(cd.Path); err != nil {

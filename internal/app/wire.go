@@ -30,6 +30,9 @@ type Services struct {
 func (a *App) wire(ctx context.Context) error {
 	log := a.Log
 	a.Library = library.New(a.DB, a.Settings, a.HTTP, a.Cfg.DataDir, log.With("component", "library"))
+	if _, err := a.Library.RescanRecycleBin(ctx); err != nil {
+		log.Warn("index recycle bin", "err", err)
+	}
 	if err := a.Library.AssignFolderLanguages(ctx); err != nil {
 		return fmt.Errorf("root folder languages: %w", err)
 	}

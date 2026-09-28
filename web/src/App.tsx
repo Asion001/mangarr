@@ -40,6 +40,8 @@ import { BackupsPage } from "./pages/system/Backups";
 import { LogsPage } from "./pages/system/Logs";
 import { DatabasePage } from "./pages/system/Database";
 import { WorkersPage } from "./pages/system/Workers";
+import { RecycleBinPage } from "./pages/system/RecycleBin";
+import { RecycledReaderPage } from "./pages/system/RecycledReader";
 import { ImportsPage } from "./pages/import/Imports";
 import { ImportDetailPage } from "./pages/import/ImportDetail";
 import { UpdatesPage } from "./pages/updates/Updates";
@@ -91,6 +93,7 @@ export function App() {
   return (
     <Routes>
       <Route path="read/:id" element={<ReaderPage />} />
+      <Route path="recycle-bin/:id/read" element={<Need perm="admin"><RecycledReaderPage /></Need>} />
       <Route element={<Layout />}>
         <Route index element={<SeriesIndex />} />
         <Route path="discover" element={<DiscoverPage />} />
@@ -135,6 +138,7 @@ export function App() {
         <Route path="system/tasks" element={<Need perm="admin"><TasksPage /></Need>} />
         <Route path="system/workers" element={<Need perm="admin"><WorkersPage /></Need>} />
         <Route path="system/backups" element={<Need perm="admin"><BackupsPage /></Need>} />
+        <Route path="system/recycle-bin" element={<Need perm="admin"><RecycleBinPage /></Need>} />
         <Route path="system/logs" element={<Need perm="admin"><LogsPage /></Need>} />
         <Route path="system/database" element={<Need perm="admin"><DatabasePage /></Need>} />
         <Route path="*" element={<Navigate to="/" replace />} />
