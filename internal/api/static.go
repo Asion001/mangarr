@@ -2,10 +2,12 @@ package api
 
 import (
 	"bytes"
+	"html"
 	"io/fs"
 	"net/http"
 	"os"
 	"path"
+	"regexp"
 	"strings"
 	"time"
 
@@ -31,8 +33,7 @@ func (s *Server) staticHandler() http.Handler {
 	index, err := fs.ReadFile(root, "index.html")
 	hasUI := err == nil
 	if hasUI && s.app.Cfg.URLBase != "" {
-		// let the SPA know its base path
-		index = bytes.Replace(index, []byte(`<base href="/">`), []byte(`<base href="`+s.app.Cfg.URLBase+`/">`), 1)
+		index = withBase(index, s.app.Cfg.URLBase)
 	}
 	files := http.FileServerFS(root)
 	start := time.Now()
@@ -60,4 +61,15 @@ func (s *Server) staticHandler() http.Handler {
 		w.Header().Set("Cache-Control", "no-cache")
 		http.ServeContent(w, r, "index.html", start, bytes.NewReader(index))
 	})
+}
+
+// baseTag matches the <base> tag the web build writes (Vite keeps index.html's
+// `<base href="/" />`, self-closing and all).
+var baseTag = regexp.MustCompile(`<base href="/"\s*/?>`)
+
+// withBase lets the SPA know its base path, so its relative asset and page
+// chunk URLs resolve under it.
+func withBase(index []byte, urlBase string) []byte {
+	tag := []byte(`<base href="` + html.EscapeString(urlBase) + `/" />`)
+	return baseTag.ReplaceAllLiteral(index, tag)
 }

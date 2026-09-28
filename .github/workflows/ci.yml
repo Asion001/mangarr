@@ -67,6 +67,9 @@ jobs:
       - name: production build
         run: npm run build
         working-directory: web
+      - name: first-load bundle budget
+        run: npm run check:bundle
+        working-directory: web
       - name: install Chromium
         run: npm exec playwright install --with-deps chromium
         working-directory: web

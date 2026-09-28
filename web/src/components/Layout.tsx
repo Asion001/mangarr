@@ -1,6 +1,7 @@
 import { t, label } from "../lib/i18n/core";
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router";
+import { RouteBoundary } from "./RouteBoundary";
 import clsx from "clsx";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -250,8 +251,8 @@ export function Layout() {
       <main className="min-h-0 min-w-0 flex-1 overflow-y-auto p-4 md:p-6">
         {tabsFor&&<SectionTabs label={label(tabsFor.label)} items={tabsFor.children!}/>}
         {loc.pathname.startsWith("/settings")&&can("admin")
-          ? <div className="md:flex md:gap-8"><SettingsNav/><div className="min-w-0 flex-1"><Outlet/></div></div>
-          : <Outlet/>}
+          ? <div className="md:flex md:gap-8"><SettingsNav/><div className="min-w-0 flex-1"><RouteBoundary><Outlet/></RouteBoundary></div></div>
+          : <RouteBoundary><Outlet/></RouteBoundary>}
       </main>
     </div>
   </div>;

@@ -7706,5 +7706,21 @@
   "Only chapters downloaded from this catalog sync. KOReader sends its page and percentage, and they become your reading progress in mangarr.": {
     "ru": "Синхронизируются только главы, скачанные из этого каталога. KOReader отправляет страницу и процент, и они становятся вашим прогрессом чтения в mangarr.",
     "uk": "Синхронізуються лише розділи, завантажені з цього каталогу. KOReader надсилає сторінку й відсоток, і вони стають вашим прогресом читання в mangarr."
+  },
+  "mangarr was updated": {
+    "ru": "mangarr обновился",
+    "uk": "mangarr оновився"
+  },
+  "This page failed to load": {
+    "ru": "Эта страница не загрузилась",
+    "uk": "Ця сторінка не завантажилася"
+  },
+  "Reload to get the new version of this page.": {
+    "ru": "Перезагрузите, чтобы получить новую версию страницы.",
+    "uk": "Перезавантажте, щоб отримати нову версію сторінки."
+  },
+  "Reload": {
+    "ru": "Перезагрузить",
+    "uk": "Перезавантажити"
   }
 }
