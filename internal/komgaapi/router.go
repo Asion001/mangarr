@@ -43,6 +43,7 @@ func (s *Service) router() http.Handler {
 		r.Get("/opds/libraries/{id}", o.library)
 		r.Get("/opds/series/{id}", o.series)
 		r.Get("/opds/chapters/{id}", o.chapter)
+		r.Get("/opds/chapters/{id}/epub", o.chapterEPUB)
 		r.Get("/opds/covers/series/{id}", o.seriesCover)
 		r.Get("/opds/covers/chapters/{id}", o.chapterCover)
 		s.routes(r)

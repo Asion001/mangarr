@@ -34,7 +34,7 @@ func routeList(t *testing.T, includeWeb bool) []string {
 		out = append(out, method+" "+strings.TrimSuffix(route, "/"))
 		return nil
 	})
-	out = append(out, "GET /opds", "GET /opds/covers/chapters/{id}", "GET /opds/covers/series/{id}", "GET /opds/chapters/{id}",
+	out = append(out, "GET /opds", "GET /opds/covers/chapters/{id}", "GET /opds/covers/series/{id}", "GET /opds/chapters/{id}", "GET /opds/chapters/{id}/epub",
 		"GET /opds/libraries", "GET /opds/libraries/{id}", "GET /opds/search", "GET /opds/search.xml", "GET /opds/series/{id}", "GET /opds/updated")
 	sort.Strings(out)
 	return out

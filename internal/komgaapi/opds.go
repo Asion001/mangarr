@@ -17,6 +17,7 @@ import (
 
 	"github.com/Asion001/mangarr/internal/access"
 	"github.com/Asion001/mangarr/internal/cbz"
+	"github.com/Asion001/mangarr/internal/imagecheck"
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/reading"
 )
@@ -199,12 +200,8 @@ func (h *opdsHandlers) series(w http.ResponseWriter, r *http.Request) {
 	}
 	entries := make([]atomEntry, 0, len(books))
 	for _, b := range books {
-		title := b.Chapter.Title
-		if strings.TrimSpace(title) == "" {
-			title = fmt.Sprintf("Chapter %g", b.Chapter.NumberSort)
-		}
 		cover := fmt.Sprintf("/opds/covers/chapters/%d", b.Chapter.ID)
-		entries = append(entries, atomEntry{Title: title, ID: fmt.Sprintf("urn:mangarr:chapter:%d", b.Chapter.ID), Updated: b.Chapter.UpdatedAt.UTC().Format(time.RFC3339), Links: []atomLink{link("http://opds-spec.org/acquisition/open-access", fmt.Sprintf("/opds/chapters/%d", b.Chapter.ID), "application/vnd.comicbook+zip", "Download CBZ"), link("http://opds-spec.org/image", cover, "image/jpeg", "Cover"), link("http://opds-spec.org/image/thumbnail", cover, "image/jpeg", "Cover thumbnail")}})
+		entries = append(entries, atomEntry{Title: chapterTitle(b.Chapter), ID: fmt.Sprintf("urn:mangarr:chapter:%d", b.Chapter.ID), Updated: b.Chapter.UpdatedAt.UTC().Format(time.RFC3339), Links: append(chapterLinks(b.Chapter.ID), link("http://opds-spec.org/image", cover, "image/jpeg", "Cover"), link("http://opds-spec.org/image/thumbnail", cover, "image/jpeg", "Cover thumbnail"))})
 	}
 	start, end := pageBounds(r, len(entries))
 	h.paged(w, r, si.Series.Title, fmt.Sprintf("/opds/series/%d", sid), entries, start, end)
@@ -244,7 +241,7 @@ func (h *opdsHandlers) updated(w http.ResponseWriter, r *http.Request) {
 	sort.SliceStable(books, func(i, j int) bool { return books[i].Chapter.UpdatedAt.After(books[j].Chapter.UpdatedAt) })
 	entries := []atomEntry{}
 	for _, b := range books {
-		entries = append(entries, atomEntry{Title: b.Chapter.Title, ID: fmt.Sprintf("urn:mangarr:chapter:%d", b.Chapter.ID), Updated: b.Chapter.UpdatedAt.UTC().Format(time.RFC3339), Links: []atomLink{link("http://opds-spec.org/acquisition/open-access", fmt.Sprintf("/opds/chapters/%d", b.Chapter.ID), "application/vnd.comicbook+zip", "Download CBZ")}})
+		entries = append(entries, atomEntry{Title: chapterTitle(b.Chapter), ID: fmt.Sprintf("urn:mangarr:chapter:%d", b.Chapter.ID), Updated: b.Chapter.UpdatedAt.UTC().Format(time.RFC3339), Links: chapterLinks(b.Chapter.ID)})
 	}
 	start, end := pageBounds(r, len(entries))
 	h.paged(w, r, "Recently updated", "/opds/updated", entries, start, end)
@@ -315,7 +312,27 @@ func archivePartialMD5(data []byte) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
-func (h *opdsHandlers) chapter(w http.ResponseWriter, r *http.Request) {
+// chapterLinks are a chapter's acquisition links: CBZ for KOReader and
+// comic readers, EPUB for readers that only open EPUBs (CrossPoint lists only
+// entries with an application/epub+zip acquisition link).
+func chapterLinks(id int64) []atomLink {
+	return []atomLink{
+		link("http://opds-spec.org/acquisition/open-access", fmt.Sprintf("/opds/chapters/%d", id), "application/vnd.comicbook+zip", "Download CBZ"),
+		link("http://opds-spec.org/acquisition/open-access", fmt.Sprintf("/opds/chapters/%d/epub", id), "application/epub+zip", "Download EPUB"),
+	}
+}
+
+type archivePage struct {
+	name, mediaType string
+	width, height   int
+	data            []byte
+}
+
+func (h *opdsHandlers) chapter(w http.ResponseWriter, r *http.Request) { h.download(w, r, false) }
+
+func (h *opdsHandlers) chapterEPUB(w http.ResponseWriter, r *http.Request) { h.download(w, r, true) }
+
+func (h *opdsHandlers) download(w http.ResponseWriter, r *http.Request, epub bool) {
 	p := PrincipalFrom(r.Context())
 	if !p.User.Can(access.Download) {
 		writeError(w, r, 403, "your account can't download files")
@@ -331,8 +348,7 @@ func (h *opdsHandlers) chapter(w http.ResponseWriter, r *http.Request) {
 		pageError(w, r, err)
 		return
 	}
-	var buf bytes.Buffer
-	zw := zip.NewWriter(&buf)
+	out := make([]archivePage, 0, len(pages))
 	for i, pg := range pages {
 		data, ct, err := h.s.deps.Reading.Page(r.Context(), b, pg.Number)
 		if err != nil {
@@ -340,28 +356,35 @@ func (h *opdsHandlers) chapter(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		name := pg.FileName
-		if strings.Contains(strings.ToLower(ct), "avif") || strings.Contains(strings.ToLower(ct), "jxl") || strings.HasSuffix(strings.ToLower(name), ".avif") || strings.HasSuffix(strings.ToLower(name), ".jxl") {
-			data, ct, err = reading.Convert(data, "jpeg")
+		// KOReader can't open AVIF/JXL; e-ink EPUB readers only decode JPEG and PNG.
+		info, _ := imagecheck.Detect(data)
+		format := info.Format
+		lowCT, lowName := strings.ToLower(ct), strings.ToLower(name)
+		modern := strings.Contains(lowCT, "avif") || strings.Contains(lowCT, "jxl") || strings.HasSuffix(lowName, ".avif") || strings.HasSuffix(lowName, ".jxl")
+		if modern || (epub && format != "jpeg" && format != "png") {
+			data, _, err = reading.Convert(data, "jpeg")
 			if err != nil {
-				writeError(w, r, 502, "couldn't convert a page for KOReader")
+				writeError(w, r, 502, "couldn't convert a page for this reader")
 				return
 			}
-			_ = ct
-			name = cbz.PageName(i, ".jpg")
+			name, format = cbz.PageName(i, ".jpg"), "jpeg"
+			info, _ = imagecheck.Detect(data)
+		} else if epub {
+			ext := ".jpg"
+			if format == "png" {
+				ext = ".png"
+			}
+			name = cbz.PageName(i, ext)
 		}
-		hdr := &zip.FileHeader{Name: name, Method: zip.Store}
-		hdr.SetModTime(time.Date(1980, 1, 1, 0, 0, 0, 0, time.UTC))
-		entry, err := zw.CreateHeader(hdr)
-		if err != nil {
-			writeError(w, r, 500, err.Error())
-			return
-		}
-		if _, err = entry.Write(data); err != nil {
-			writeError(w, r, 500, err.Error())
-			return
-		}
+		out = append(out, archivePage{name: name, mediaType: "image/" + format, width: info.Width, height: info.Height, data: data})
 	}
-	if err := zw.Close(); err != nil {
+	var buf bytes.Buffer
+	if epub {
+		err = writeEPUB(&buf, chapterTitle(b.Chapter), b.Chapter.ID, out)
+	} else {
+		err = writeCBZ(&buf, out)
+	}
+	if err != nil {
 		writeError(w, r, 500, err.Error())
 		return
 	}
@@ -372,10 +395,94 @@ func (h *opdsHandlers) chapter(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, 500, err.Error())
 		return
 	}
-	filename := fmt.Sprintf("chapter-%d.cbz", b.Chapter.ID)
-	w.Header().Set("Content-Type", "application/vnd.comicbook+zip")
+	filename, ct := fmt.Sprintf("chapter-%d.cbz", b.Chapter.ID), "application/vnd.comicbook+zip"
+	if epub {
+		filename, ct = fmt.Sprintf("chapter-%d.epub", b.Chapter.ID), "application/epub+zip"
+	}
+	w.Header().Set("Content-Type", ct)
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filename))
 	w.Header().Set("Cache-Control", "private, no-store")
 	w.Header().Set("Content-Length", strconv.Itoa(buf.Len()))
 	_, _ = w.Write(buf.Bytes())
+}
+
+func storeEntry(zw *zip.Writer, name string, data []byte) error {
+	hdr := &zip.FileHeader{Name: name, Method: zip.Store}
+	hdr.SetModTime(time.Date(1980, 1, 1, 0, 0, 0, 0, time.UTC))
+	entry, err := zw.CreateHeader(hdr)
+	if err != nil {
+		return err
+	}
+	_, err = entry.Write(data)
+	return err
+}
+
+func writeCBZ(buf *bytes.Buffer, pages []archivePage) error {
+	zw := zip.NewWriter(buf)
+	for _, pg := range pages {
+		if err := storeEntry(zw, pg.name, pg.data); err != nil {
+			return err
+		}
+	}
+	return zw.Close()
+}
+
+func xmlEscape(s string) string {
+	var b strings.Builder
+	_ = xml.EscapeText(&b, []byte(s))
+	return b.String()
+}
+
+// writeEPUB packs pages as a fixed-layout EPUB 3, one XHTML page per image.
+func writeEPUB(buf *bytes.Buffer, title string, chapterID int64, pages []archivePage) error {
+	zw := zip.NewWriter(buf)
+	// The mimetype entry must come first, stored, with no extra field (so no
+	// modification time, which Go writes as an extended-timestamp field).
+	mt, err := zw.CreateHeader(&zip.FileHeader{Name: "mimetype", Method: zip.Store})
+	if err != nil {
+		return err
+	}
+	if _, err := mt.Write([]byte("application/epub+zip")); err != nil {
+		return err
+	}
+	if err := storeEntry(zw, "META-INF/container.xml", []byte(`<?xml version="1.0" encoding="UTF-8"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>`)); err != nil {
+		return err
+	}
+	t := xmlEscape(title)
+	var manifest, spine, nav strings.Builder
+	for i, pg := range pages {
+		n := i + 1
+		props := ""
+		if i == 0 {
+			props = ` properties="cover-image"`
+		}
+		fmt.Fprintf(&manifest, `<item id="img%d" href="images/%s" media-type="%s"%s/>`, n, xmlEscape(pg.name), pg.mediaType, props)
+		fmt.Fprintf(&manifest, `<item id="p%d" href="p%04d.xhtml" media-type="application/xhtml+xml"/>`, n, n)
+		fmt.Fprintf(&spine, `<itemref idref="p%d"/>`, n)
+		if i == 0 {
+			fmt.Fprintf(&nav, `<li><a href="p%04d.xhtml">%s</a></li>`, n, t)
+		}
+		page := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"><head><title>%s %d</title><meta name="viewport" content="width=%d, height=%d"/><style>body{margin:0;padding:0;text-align:center}img{max-width:100%%;max-height:100%%}</style></head><body><div><img src="images/%s" alt="Page %d"/></div></body></html>`, t, n, max(pg.width, 1), max(pg.height, 1), xmlEscape(pg.name), n)
+		if err := storeEntry(zw, fmt.Sprintf("OEBPS/p%04d.xhtml", n), []byte(page)); err != nil {
+			return err
+		}
+		if err := storeEntry(zw, "OEBPS/images/"+pg.name, pg.data); err != nil {
+			return err
+		}
+	}
+	navDoc := `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops"><head><title>` + t + `</title></head><body><nav epub:type="toc"><ol>` + nav.String() + `</ol></nav></body></html>`
+	if err := storeEntry(zw, "OEBPS/nav.xhtml", []byte(navDoc)); err != nil {
+		return err
+	}
+	opf := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="uid"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:identifier id="uid">urn:mangarr:chapter:%d</dc:identifier><dc:title>%s</dc:title><dc:language>en</dc:language><meta property="dcterms:modified">2000-01-01T00:00:00Z</meta><meta property="rendition:layout">pre-paginated</meta><meta name="cover" content="img1"/></metadata><manifest><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>%s</manifest><spine>%s</spine></package>`, chapterID, t, manifest.String(), spine.String())
+	if err := storeEntry(zw, "OEBPS/content.opf", []byte(opf)); err != nil {
+		return err
+	}
+	return zw.Close()
 }

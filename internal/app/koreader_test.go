@@ -168,8 +168,61 @@ func TestKOReaderFeedsAndSync(t *testing.T) {
 			if got := request(http.MethodGet, "/opds/updated", "", nil); got.Code != 200 || strings.Contains(got.Body.String(), "Secret chapter") {
 				t.Fatalf("updated feed visibility: %d %s", got.Code, got.Body.String())
 			}
-			if got := request(http.MethodGet, "/opds/series/"+strconv.FormatInt(visible.ID, 10), "", nil); got.Code != 200 || !strings.Contains(got.Body.String(), "application/vnd.comicbook+zip") {
-				t.Fatalf("chapter acquisition: %d %s", got.Code, got.Body.String())
+			seriesFeed := request(http.MethodGet, "/opds/series/"+strconv.FormatInt(visible.ID, 10), "", nil)
+			if seriesFeed.Code != 200 || !strings.Contains(seriesFeed.Body.String(), "application/vnd.comicbook+zip") {
+				t.Fatalf("chapter acquisition: %d %s", seriesFeed.Code, seriesFeed.Body.String())
+			}
+			// CrossPoint drops entries without an application/epub+zip acquisition link.
+			var chapters struct {
+				Entries []struct {
+					Title string `xml:"title"`
+					Links []struct {
+						Rel  string `xml:"rel,attr"`
+						Href string `xml:"href,attr"`
+						Type string `xml:"type,attr"`
+					} `xml:"link"`
+				} `xml:"entry"`
+			}
+			if err := xml.Unmarshal(seriesFeed.Body.Bytes(), &chapters); err != nil || len(chapters.Entries) != 1 {
+				t.Fatalf("series feed: %v %s", err, seriesFeed.Body.String())
+			}
+			epubHref := ""
+			for _, l := range chapters.Entries[0].Links {
+				if strings.Contains(l.Rel, "opds-spec.org/acquisition") && l.Type == "application/epub+zip" {
+					epubHref = l.Href
+				}
+			}
+			if epubHref == "" {
+				t.Fatalf("chapter has no EPUB acquisition link: %s", seriesFeed.Body.String())
+			}
+			epub := request(http.MethodGet, epubHref, "", nil)
+			if epub.Code != 200 || epub.Header().Get("Content-Type") != "application/epub+zip" {
+				t.Fatalf("EPUB acquisition: %d %s", epub.Code, epub.Body.String())
+			}
+			er, err := zip.NewReader(bytes.NewReader(epub.Body.Bytes()), int64(epub.Body.Len()))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if er.File[0].Name != "mimetype" || er.File[0].Method != zip.Store {
+				t.Fatalf("EPUB must start with a stored mimetype: %+v", er.File[0].FileHeader)
+			}
+			epubFiles := map[string]*zip.File{}
+			for _, f := range er.File {
+				epubFiles[f.Name] = f
+			}
+			for _, name := range []string{"META-INF/container.xml", "OEBPS/content.opf", "OEBPS/nav.xhtml", "OEBPS/p0001.xhtml", "OEBPS/images/0001.jpg"} {
+				if epubFiles[name] == nil {
+					t.Fatalf("EPUB is missing %s: %v", name, epubFiles)
+				}
+			}
+			rc, err := epubFiles["OEBPS/content.opf"].Open()
+			if err != nil {
+				t.Fatal(err)
+			}
+			opf, _ := io.ReadAll(rc)
+			_ = rc.Close()
+			if !strings.Contains(string(opf), `href="images/0001.jpg" media-type="image/jpeg"`) || !strings.Contains(string(opf), `<itemref idref="p1"/>`) {
+				t.Fatalf("EPUB package: %s", opf)
 			}
 			download := request(http.MethodGet, "/opds/chapters/"+strconv.FormatInt(chapter.ID, 10), "", nil)
 			if download.Code != 200 {

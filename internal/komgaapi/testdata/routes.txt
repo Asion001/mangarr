@@ -49,6 +49,7 @@ GET /book/{id}
 GET /books/{id}
 GET /opds
 GET /opds/chapters/{id}
+GET /opds/chapters/{id}/epub
 GET /opds/covers/chapters/{id}
 GET /opds/covers/series/{id}
 GET /opds/libraries
