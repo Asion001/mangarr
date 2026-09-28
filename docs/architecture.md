@@ -173,7 +173,9 @@ return the existing command, exclusive and disk flags limit what runs
 together, and commands still running at shutdown are requeued. The scheduler
 ticks every 30 seconds; its tasks (refresh, metadata refresh, read-progress
 sync, processing backlog, health checks, disk scan, backup, housekeeping,
-extension updates) are listed with their intervals under System → Tasks.
+extension updates) can be paused and given an interval or time-of-day schedule
+under System → Tasks. Code defaults stay separate from overrides, so restarting
+does not erase user choices; see [task scheduling](task-scheduling.md).
 
 A typed event bus feeds the SSE stream (`/api/v1/events`) the UI uses for live
 updates, and the notification digests.

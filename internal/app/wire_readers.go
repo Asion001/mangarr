@@ -76,12 +76,7 @@ func (a *App) wireReaders(ctx context.Context) error {
 			}
 			return err
 		}})
-	rs, _ := a.Settings.ReadSync(ctx)
-	interval := time.Duration(rs.IntervalMinutes) * time.Minute
-	if interval < 5*time.Minute {
-		interval = 30 * time.Minute
-	}
-	if err := a.Scheduler.Add(ctx, jobs.Task{Name: "SyncReadProgress", Interval: interval}); err != nil {
+	if err := a.Scheduler.Add(ctx, jobs.Task{Name: "SyncReadProgress", Interval: 30 * time.Minute}); err != nil {
 		return err
 	}
 	return a.wireProcess(ctx)

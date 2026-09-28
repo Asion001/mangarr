@@ -534,7 +534,25 @@ func (s *Store) QueueState(ctx context.Context) (QueueState, error) {
 
 func (s *Store) ReadSync(ctx context.Context) (ReadSync, error) {
 	v := DefaultReadSync()
-	return v, s.Get(ctx, KeyReadSync, &v)
+	if err := s.Get(ctx, KeyReadSync, &v); err != nil {
+		return v, err
+	}
+	var task model.ScheduledTask
+	err := s.db.NewSelect().Model(&task).Where("name = ?", "SyncReadProgress").Scan(ctx)
+	if errors.Is(err, sql.ErrNoRows) {
+		return v, nil
+	}
+	if err != nil {
+		return v, err
+	}
+	v.IntervalMinutes = task.IntervalMinutes
+	if task.CustomIntervalMinutes != nil {
+		v.IntervalMinutes = *task.CustomIntervalMinutes
+	}
+	s.mu.RLock()
+	ov := s.overlays[KeyReadSync]
+	s.mu.RUnlock()
+	return v, applyOverlay(ov, &v)
 }
 
 func (s *Store) Reading(ctx context.Context) (Reading, error) {

@@ -138,6 +138,7 @@ func (s *Server) registerSettings() {
 	settingsDoc(s, "media", settings.KeyMediaManagement, s.app.Settings.MediaManagement, nil)
 	settingsDoc(s, "schedule", settings.KeySchedule, s.app.Settings.Schedule, func(ctx context.Context, v settings.Schedule) error {
 		s.app.DLQueue.Wake()
+		s.app.Bus.Changed("tasks", "updated", 0)
 		return nil
 	})
 	settingsDoc(s, "sources", settings.KeySources, s.app.Settings.Sources, func(ctx context.Context, v settings.Sources) error {
@@ -151,12 +152,7 @@ func (s *Server) registerSettings() {
 		s.app.Bus.Changed("reading", "updated", 0)
 		return nil
 	})
-	settingsDoc(s, "readsync", settings.KeyReadSync, s.app.Settings.ReadSync, func(ctx context.Context, v settings.ReadSync) error {
-		if v.IntervalMinutes < 5 {
-			v.IntervalMinutes = 5
-		}
-		return s.app.Scheduler.SetInterval(ctx, "SyncReadProgress", time.Duration(v.IntervalMinutes)*time.Minute)
-	})
+	s.registerReadSyncSettings()
 
 	// ---- root folders
 	rtags := []string{"Root folders"}

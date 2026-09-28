@@ -159,17 +159,17 @@ func (q *Queue) Push(ctx context.Context, name string, body map[string]any, trig
 			return &cp, nil
 		}
 	}
-	q.mu.Unlock()
 
 	cmd := &model.Command{Name: name, Body: body, Status: model.CommandQueued, Trigger: trigger, QueuedAt: time.Now().UTC()}
 	if _, err := q.db.NewInsert().Model(cmd).Exec(ctx); err != nil {
+		q.mu.Unlock()
 		return nil, err
 	}
 	cp := *cmd
-	q.mu.Lock()
 	q.queued = append(q.queued, cmd)
 	q.mu.Unlock()
 	q.bus.Changed("command", "created", cp.ID)
+	q.bus.Changed("tasks", "updated", 0)
 	q.signal()
 	return &cp, nil
 }
@@ -276,6 +276,7 @@ func (q *Queue) execute(ctx context.Context, cmd *model.Command, def Definition)
 	q.mu.Unlock()
 	_, _ = q.db.NewUpdate().Model(&snap).Column("status", "started_at").WherePK().Exec(ctx)
 	q.bus.Changed("command", "updated", cmd.ID)
+	q.bus.Changed("tasks", "updated", 0)
 	q.log.Debug("command started", "name", cmd.Name, "id", cmd.ID)
 
 	run := &Run{Command: cmd, q: q}
@@ -311,13 +312,14 @@ func (q *Queue) execute(ctx context.Context, cmd *model.Command, def Definition)
 	// persist before removing from the running set so Get never sees a gap
 	_, _ = q.db.NewUpdate().Model(&final).Column("status", "ended_at", "duration_ms", "error", "message").WherePK().Exec(context.Background())
 
+	for _, fn := range q.onDone {
+		fn(&final)
+	}
 	q.mu.Lock()
 	delete(q.running, final.ID)
 	q.mu.Unlock()
 	q.bus.Changed("command", "updated", final.ID)
-	for _, fn := range q.onDone {
-		fn(&final)
-	}
+	q.bus.Changed("tasks", "updated", 0)
 }
 
 // Active returns queued and running commands.
@@ -338,9 +340,13 @@ func (q *Queue) Active() []*model.Command {
 }
 
 // Recent returns the latest commands from the database.
-func (q *Queue) Recent(ctx context.Context, limit int) ([]model.Command, error) {
+func (q *Queue) Recent(ctx context.Context, limit int, name ...string) ([]model.Command, error) {
 	var out []model.Command
-	err := q.db.NewSelect().Model(&out).Order("id DESC").Limit(limit).Scan(ctx)
+	query := q.db.NewSelect().Model(&out).Order("id DESC").Limit(limit)
+	if len(name) > 0 && name[0] != "" {
+		query.Where("name = ?", name[0])
+	}
+	err := query.Scan(ctx)
 	return out, err
 }
 

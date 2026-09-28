@@ -139,7 +139,7 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger, ring *loggin
 		return nil, fmt.Errorf("environment: %w", err)
 	}
 	a.Queue = jobs.NewQueue(d, a.Bus, log.With("component", "commands"), 3)
-	a.Scheduler = jobs.NewScheduler(d, a.Queue, log.With("component", "scheduler"))
+	a.Scheduler = jobs.NewScheduler(d, a.Queue, log.With("component", "scheduler"), a.Settings)
 	if err := a.Modules.Reload(ctx); err != nil {
 		return nil, err
 	}

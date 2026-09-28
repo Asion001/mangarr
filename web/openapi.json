@@ -8753,6 +8753,37 @@
         ],
         "type": "object"
       },
+      "System-tasks-previewRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "intervalMinutes": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "timesOfDay": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "weekdays": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "type": "object"
+      },
       "SystemStatus": {
         "additionalProperties": false,
         "properties": {
@@ -8835,6 +8866,12 @@
       "TaskInfo": {
         "additionalProperties": false,
         "properties": {
+          "custom": {
+            "type": "boolean"
+          },
+          "defaultSchedule": {
+            "$ref": "#/components/schemas/TaskSchedule"
+          },
           "description": {
             "type": "string"
           },
@@ -8846,22 +8883,159 @@
             "format": "date-time",
             "type": "string"
           },
+          "lastRun": {
+            "$ref": "#/components/schemas/TaskLastRun"
+          },
+          "minIntervalMinutes": {
+            "format": "int64",
+            "type": "integer"
+          },
           "name": {
             "type": "string"
           },
           "nextExecution": {
             "format": "date-time",
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "nextRuns": {
+            "items": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "paused": {
+            "type": "boolean"
+          },
+          "running": {
+            "$ref": "#/components/schemas/TaskRunning"
+          },
+          "schedule": {
+            "$ref": "#/components/schemas/TaskSchedule"
           },
           "scheduled": {
             "type": "boolean"
+          },
+          "timezone": {
+            "type": "string"
           }
         },
         "required": [
+          "paused",
+          "custom",
+          "minIntervalMinutes",
+          "nextRuns",
+          "timezone",
           "name",
           "description",
           "intervalMinutes",
+          "nextExecution",
           "scheduled"
+        ],
+        "type": "object"
+      },
+      "TaskLastRun": {
+        "additionalProperties": false,
+        "properties": {
+          "durationMs": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "endedAt": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "error": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "durationMs",
+          "message",
+          "error",
+          "endedAt"
+        ],
+        "type": "object"
+      },
+      "TaskPreview": {
+        "additionalProperties": false,
+        "properties": {
+          "nextRuns": {
+            "items": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "timezone": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "nextRuns",
+          "timezone"
+        ],
+        "type": "object"
+      },
+      "TaskRunning": {
+        "additionalProperties": false,
+        "properties": {
+          "commandId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "message": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "commandId",
+          "message",
+          "status"
+        ],
+        "type": "object"
+      },
+      "TaskSchedule": {
+        "additionalProperties": false,
+        "properties": {
+          "intervalMinutes": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "timesOfDay": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "weekdays": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "kind"
         ],
         "type": "object"
       },
@@ -11205,7 +11379,16 @@
               "default": 50,
               "format": "int64",
               "maximum": 500,
+              "minimum": 1,
               "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "name",
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -19904,6 +20087,232 @@
               }
             },
             "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "tags": [
+          "System"
+        ]
+      }
+    },
+    "/api/v1/system/tasks/pause-all": {
+      "post": {
+        "operationId": "system-tasks-pause-all",
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "tags": [
+          "System"
+        ]
+      }
+    },
+    "/api/v1/system/tasks/preview": {
+      "post": {
+        "operationId": "system-tasks-preview",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/System-tasks-previewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskPreview"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "tags": [
+          "System"
+        ]
+      }
+    },
+    "/api/v1/system/tasks/resume-all": {
+      "post": {
+        "operationId": "system-tasks-resume-all",
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "tags": [
+          "System"
+        ]
+      }
+    },
+    "/api/v1/system/tasks/{name}/pause": {
+      "post": {
+        "operationId": "system-tasks-pause",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "tags": [
+          "System"
+        ]
+      }
+    },
+    "/api/v1/system/tasks/{name}/resume": {
+      "post": {
+        "operationId": "system-tasks-resume",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "tags": [
+          "System"
+        ]
+      }
+    },
+    "/api/v1/system/tasks/{name}/schedule": {
+      "delete": {
+        "operationId": "system-tasks-reset",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "tags": [
+          "System"
+        ]
+      },
+      "put": {
+        "operationId": "system-tasks-schedule",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskSchedule"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
           },
           "default": {
             "content": {

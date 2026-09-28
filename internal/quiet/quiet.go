@@ -3,6 +3,8 @@
 package quiet
 
 import (
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -28,12 +30,7 @@ var strength = map[string]int{"fast": 1, "normal": 2, "gentle": 3}
 
 // Evaluate returns the effects of the windows active at now.
 func Evaluate(s settings.Schedule, now time.Time) Effects {
-	loc := time.Local
-	if s.Timezone != "" {
-		if l, err := time.LoadLocation(s.Timezone); err == nil {
-			loc = l
-		}
-	}
+	loc := Location(s.Timezone)
 	t := now.In(loc)
 	minute := t.Hour()*60 + t.Minute()
 	today := days[t.Weekday()]
@@ -69,4 +66,37 @@ func Evaluate(s settings.Schedule, now time.Time) Effects {
 		e.Windows = append(e.Windows, name)
 	}
 	return e
+}
+
+// Location resolves the schedule timezone, falling back to the server timezone.
+func Location(zone string) *time.Location {
+	loc := time.Local
+	if zone != "" {
+		if l, err := time.LoadLocation(zone); err == nil {
+			loc = l
+		}
+	}
+	return loc
+}
+
+// ZoneName names a location the way browsers understand it (an IANA name like
+// "Europe/Kyiv"). The server's own zone is looked up from TZ or /etc/localtime;
+// it is "" when that cannot be told, which callers read as the server's zone.
+func ZoneName(loc *time.Location) string {
+	if loc != time.Local {
+		return loc.String()
+	}
+	if tz := strings.TrimPrefix(os.Getenv("TZ"), ":"); tz != "" {
+		if _, err := time.LoadLocation(tz); err == nil {
+			return tz
+		}
+	}
+	if target, err := filepath.EvalSymlinks("/etc/localtime"); err == nil {
+		if _, name, ok := strings.Cut(target, "zoneinfo/"); ok {
+			if _, err := time.LoadLocation(name); err == nil {
+				return name
+			}
+		}
+	}
+	return ""
 }

@@ -807,6 +807,13 @@ type ScheduledTask struct {
 	IntervalMinutes int        `bun:"interval_minutes,notnull" json:"intervalMinutes"`
 	LastExecution   *time.Time `bun:"last_execution" json:"lastExecution,omitempty"`
 	LastStart       *time.Time `bun:"last_start" json:"lastStart,omitempty"`
+	// User overrides; a nil ScheduleKind means the code default (IntervalMinutes).
+	Paused                bool      `bun:"paused,notnull" json:"paused"`
+	ScheduleKind          *string   `bun:"schedule_kind" json:"scheduleKind,omitempty"`
+	CustomIntervalMinutes *int      `bun:"custom_interval_minutes" json:"customIntervalMinutes,omitempty"`
+	TimesOfDay            []string  `bun:"times_of_day,type:json" json:"timesOfDay"`
+	Weekdays              []string  `bun:"weekdays,type:json" json:"weekdays"`
+	UpdatedAt             time.Time `bun:"updated_at,notnull" json:"updatedAt"`
 }
 
 // ---- Readers / progress ------------------------------------------------------

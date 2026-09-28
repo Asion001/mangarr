@@ -2873,6 +2873,102 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/system/tasks/pause-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["system-tasks-pause-all"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/system/tasks/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["system-tasks-preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/system/tasks/resume-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["system-tasks-resume-all"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/system/tasks/{name}/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["system-tasks-pause"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/system/tasks/{name}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["system-tasks-resume"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/system/tasks/{name}/schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["system-tasks-schedule"];
+        post?: never;
+        delete: operations["system-tasks-reset"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tags": {
         parameters: {
             query?: never;
@@ -5854,6 +5950,14 @@ export interface components {
             unknown: string[];
             vars: components["schemas"]["Var"][];
         };
+        "System-tasks-previewRequest": {
+            /** Format: int64 */
+            intervalMinutes?: number;
+            kind: string;
+            name?: string;
+            timesOfDay?: string[];
+            weekdays?: string[];
+        };
         SystemStatus: {
             arch: string;
             build: string;
@@ -5876,15 +5980,51 @@ export interface components {
             label: string;
         };
         TaskInfo: {
+            custom: boolean;
+            defaultSchedule?: components["schemas"]["TaskSchedule"];
             description: string;
             /** Format: int64 */
             intervalMinutes: number;
             /** Format: date-time */
             lastExecution?: string;
+            lastRun?: components["schemas"]["TaskLastRun"];
+            /** Format: int64 */
+            minIntervalMinutes: number;
             name: string;
             /** Format: date-time */
-            nextExecution?: string;
+            nextExecution: string | null;
+            nextRuns: string[];
+            paused: boolean;
+            running?: components["schemas"]["TaskRunning"];
+            schedule?: components["schemas"]["TaskSchedule"];
             scheduled: boolean;
+            timezone: string;
+        };
+        TaskLastRun: {
+            /** Format: int64 */
+            durationMs: number;
+            /** Format: date-time */
+            endedAt: string | null;
+            error: string;
+            message: string;
+            status: string;
+        };
+        TaskPreview: {
+            nextRuns: string[];
+            timezone: string;
+        };
+        TaskRunning: {
+            /** Format: int64 */
+            commandId: number;
+            message: string;
+            status: string;
+        };
+        TaskSchedule: {
+            /** Format: int64 */
+            intervalMinutes?: number;
+            kind: string;
+            timesOfDay?: string[];
+            weekdays?: string[];
         };
         ThrottleConfig: {
             /** Format: int64 */
@@ -6959,6 +7099,7 @@ export interface operations {
         parameters: {
             query?: {
                 limit?: number;
+                name?: string;
             };
             header?: never;
             path?: never;
@@ -13247,6 +13388,213 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["TaskInfo"][];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "system-tasks-pause-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "system-tasks-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["System-tasks-previewRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskPreview"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "system-tasks-resume-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "system-tasks-pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "system-tasks-resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "system-tasks-schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskSchedule"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "system-tasks-reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {

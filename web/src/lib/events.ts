@@ -9,6 +9,7 @@ const map: Record<string, string[][]> = {
   seriessource: [["series"]],
   queue: [["queue"], ["series"]],
   command: [["commands"], ["tasks"]],
+  tasks: [["tasks"], ["settings", "readsync"]],
   health: [["health"]],
   module: [["modules"], ["sources"], ["health"], ["me-notifications"], ["me-library-accounts"]],
   extension: [["extensions"], ["sources"]],

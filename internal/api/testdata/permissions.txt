@@ -213,6 +213,13 @@ system-logs-download GET /api/v1/system/logs/download -> admin
 system-restart POST /api/v1/system/restart -> admin
 system-status GET /api/v1/system/status -> admin
 system-tasks GET /api/v1/system/tasks -> admin
+system-tasks-pause POST /api/v1/system/tasks/{name}/pause -> admin
+system-tasks-pause-all POST /api/v1/system/tasks/pause-all -> admin
+system-tasks-preview POST /api/v1/system/tasks/preview -> admin
+system-tasks-reset DELETE /api/v1/system/tasks/{name}/schedule -> admin
+system-tasks-resume POST /api/v1/system/tasks/{name}/resume -> admin
+system-tasks-resume-all POST /api/v1/system/tasks/resume-all -> admin
+system-tasks-schedule PUT /api/v1/system/tasks/{name}/schedule -> admin
 tags-create POST /api/v1/tags -> library.manage
 tags-delete DELETE /api/v1/tags/{id} -> library.manage
 tags-list GET /api/v1/tags -> signedin

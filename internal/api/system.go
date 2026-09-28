@@ -14,6 +14,7 @@ import (
 
 	"github.com/Asion001/mangarr/internal/diskcache"
 	"github.com/Asion001/mangarr/internal/envcfg"
+	"github.com/Asion001/mangarr/internal/jobs"
 	"github.com/Asion001/mangarr/internal/logging"
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/version"
@@ -51,12 +52,21 @@ func (s *Server) imageCap(ctx context.Context) int64 {
 }
 
 type TaskInfo struct {
-	Name            string     `json:"name"`
-	Description     string     `json:"description"`
-	IntervalMinutes int        `json:"intervalMinutes"`
-	LastExecution   *time.Time `json:"lastExecution,omitempty"`
-	NextExecution   *time.Time `json:"nextExecution,omitempty"`
-	Scheduled       bool       `json:"scheduled"`
+	Paused             bool           `json:"paused"`
+	Schedule           *jobs.Schedule `json:"schedule,omitempty"`
+	DefaultSchedule    *jobs.Schedule `json:"defaultSchedule,omitempty"`
+	Custom             bool           `json:"custom"`
+	MinIntervalMinutes int            `json:"minIntervalMinutes"`
+	NextRuns           []time.Time    `json:"nextRuns"`
+	Timezone           string         `json:"timezone"`
+	Running            *TaskRunning   `json:"running,omitempty"`
+	LastRun            *TaskLastRun   `json:"lastRun,omitempty"`
+	Name               string         `json:"name"`
+	Description        string         `json:"description"`
+	IntervalMinutes    int            `json:"intervalMinutes"`
+	LastExecution      *time.Time     `json:"lastExecution,omitempty"`
+	NextExecution      *time.Time     `json:"nextExecution"`
+	Scheduled          bool           `json:"scheduled"`
 }
 
 type CommandInput struct {
@@ -161,41 +171,14 @@ func (s *Server) registerSystem() {
 			return &struct{ Body []logging.Entry }{entries}, nil
 		})
 
-	huma.Register(s.api, huma.Operation{OperationID: "system-tasks", Method: http.MethodGet, Path: "/api/v1/system/tasks", Tags: tags},
-		func(ctx context.Context, _ *struct{}) (*struct{ Body []TaskInfo }, error) {
-			rows, err := s.app.Scheduler.Tasks(ctx)
-			if err != nil {
-				return nil, toHTTPError(err)
-			}
-			byName := map[string]model.ScheduledTask{}
-			for _, r := range rows {
-				byName[r.Name] = r
-			}
-			var out []TaskInfo
-			for _, d := range s.app.Queue.Definitions() {
-				ti := TaskInfo{Name: d.Name, Description: d.Description}
-				if r, ok := byName[d.Name]; ok {
-					ti.Scheduled = true
-					ti.IntervalMinutes = r.IntervalMinutes
-					ti.LastExecution = r.LastExecution
-					if r.IntervalMinutes > 0 {
-						next := time.Now().UTC()
-						if r.LastExecution != nil {
-							next = r.LastExecution.Add(time.Duration(r.IntervalMinutes) * time.Minute)
-						}
-						ti.NextExecution = &next
-					}
-				}
-				out = append(out, ti)
-			}
-			return &struct{ Body []TaskInfo }{out}, nil
-		})
+	s.registerTasks()
 
 	huma.Register(s.api, huma.Operation{OperationID: "commands-list", Method: http.MethodGet, Path: "/api/v1/commands", Tags: tags},
 		func(ctx context.Context, in *struct {
-			Limit int `query:"limit" default:"50" maximum:"500"`
+			Limit int    `query:"limit" default:"50" minimum:"1" maximum:"500"`
+			Name  string `query:"name"`
 		}) (*struct{ Body []model.Command }, error) {
-			out, err := s.app.Queue.Recent(ctx, in.Limit)
+			out, err := s.app.Queue.Recent(ctx, in.Limit, in.Name)
 			if out == nil {
 				out = []model.Command{}
 			}
@@ -218,7 +201,11 @@ func (s *Server) registerSystem() {
 			if !access.From(ctx).IsAdmin() && !managerCommands[in.Body.Name] {
 				return nil, huma.Error403Forbidden("only administrators can run " + in.Body.Name)
 			}
-			c, err := s.app.Queue.Push(ctx, in.Body.Name, in.Body.Body, "manual")
+			trigger := "manual"
+			if user := access.From(ctx).Username; user != "" {
+				trigger += " · " + user
+			}
+			c, err := s.app.Queue.Push(ctx, in.Body.Name, in.Body.Body, trigger)
 			if err != nil {
 				return nil, huma.Error400BadRequest(err.Error())
 			}
