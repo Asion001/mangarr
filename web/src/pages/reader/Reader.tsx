@@ -193,7 +193,12 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
 
   const toggleFull = () => {
     if (document.fullscreenElement) void document.exitFullscreen();
-    else void document.documentElement.requestFullscreen?.();
+    else {
+      const el = document.documentElement as HTMLElement & { webkitRequestFullscreen?: () => void };
+      // older iPad Safari only has the prefixed call
+      if (el.requestFullscreen) void el.requestFullscreen();
+      else el.webkitRequestFullscreen?.();
+    }
   };
   useEffect(() => {
     const on = () => setFull(!!document.fullscreenElement);
@@ -288,7 +293,7 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
           "absolute inset-x-0 top-0 z-20 flex items-center gap-2 bg-bg/90 px-2 py-2 text-fg backdrop-blur transition-transform",
           bars ? "translate-y-0" : "-translate-y-full",
         )}
-        style={{ paddingTop: "max(0.5rem, env(safe-area-inset-top))" }}
+        style={{ paddingTop: "max(0.5rem, env(safe-area-inset-top))", paddingLeft: "max(0.5rem, env(safe-area-inset-left))", paddingRight: "max(0.5rem, env(safe-area-inset-right))" }}
       >
         <Link to={`/series/${ch.seriesId}`} className="rounded p-2 hover:bg-panel-2" aria-label={t("Back to the series")}>
           <ArrowLeft className="size-5" />
@@ -322,7 +327,7 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
           "absolute inset-x-0 bottom-0 z-20 flex items-center gap-2 bg-bg/90 px-2 py-2 text-fg backdrop-blur transition-transform",
           bars ? "translate-y-0" : "translate-y-full",
         )}
-        style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
+        style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))", paddingLeft: "max(0.5rem, env(safe-area-inset-left))", paddingRight: "max(0.5rem, env(safe-area-inset-right))" }}
       >
         <button
           type="button"

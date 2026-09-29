@@ -18,7 +18,7 @@ export function RecycledReaderPage() {
   });
   return (
     <div className="min-h-dvh bg-black text-fg">
-      <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-panel/95 px-3 py-2 backdrop-blur">
+      <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-panel/95 px-3 py-2 backdrop-blur" style={{ paddingTop: "max(0.5rem, env(safe-area-inset-top))" }}>
         <IconButton title={t("Back")} onClick={() => navigate(-1)}>
           <ArrowLeft className="size-4" />
         </IconButton>
