@@ -97,7 +97,7 @@ func (w *Worker) download(ctx context.Context, t Task) (result, error) {
 				case err != nil && gone(err):
 					fail(errors.New("the server gave this task to someone else"))
 				case err != nil:
-					w.log.Debug("heartbeat didn't reach the server", "task", t.ID, "err", err)
+					w.log.Warn("heartbeat didn't reach the server", "task", t.ID, "err", err)
 				case out.Cancel:
 					fail(errors.New("cancelled"))
 				}

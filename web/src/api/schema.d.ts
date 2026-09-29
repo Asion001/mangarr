@@ -6580,13 +6580,13 @@ export interface components {
         };
         "Worker-heartbeatRequest": {
             /** Format: int64 */
-            bytesIn: number;
+            bytesIn?: number;
             /** Format: int64 */
-            bytesOut: number;
+            bytesOut?: number;
             /** Format: int64 */
-            pagesDone: number;
+            pagesDone?: number;
             /** Format: int64 */
-            pagesTotal: number;
+            pagesTotal?: number;
         };
         "Worker-heartbeatResponse": {
             cancel: boolean;

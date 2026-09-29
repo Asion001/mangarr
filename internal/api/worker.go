@@ -246,12 +246,14 @@ func (s *Server) registerWorkerProtocol() {
 	huma.Register(s.api, huma.Operation{OperationID: "worker-heartbeat", Method: http.MethodPost, Path: "/api/v1/worker/tasks/{id}/heartbeat", Tags: tags,
 		Summary: "Report progress and keep the task"},
 		func(ctx context.Context, in *struct {
-			ID   int64 `path:"id"`
+			ID int64 `path:"id"`
+			// Every field is optional: a heartbeat's job is to keep the lease,
+			// and rejecting one for a missing counter loses the task.
 			Body struct {
-				PagesDone  int   `json:"pagesDone"`
-				PagesTotal int   `json:"pagesTotal"`
-				BytesIn    int64 `json:"bytesIn"`
-				BytesOut   int64 `json:"bytesOut"`
+				PagesDone  int   `json:"pagesDone,omitempty"`
+				PagesTotal int   `json:"pagesTotal,omitempty"`
+				BytesIn    int64 `json:"bytesIn,omitempty"`
+				BytesOut   int64 `json:"bytesOut,omitempty"`
 			}
 		}) (*struct {
 			Body struct {

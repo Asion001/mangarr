@@ -97,8 +97,13 @@ func (w *Worker) beating(ctx context.Context, t Task, pages int) func() {
 				var out struct {
 					Cancel bool `json:"cancel"`
 				}
-				_ = w.call(ctx, http.MethodPost, fmt.Sprintf("/api/v1/worker/tasks/%d/heartbeat", t.ID),
-					map[string]any{"pagesDone": 0, "pagesTotal": pages}, &out)
+				err := w.call(ctx, http.MethodPost, fmt.Sprintf("/api/v1/worker/tasks/%d/heartbeat", t.ID),
+					map[string]any{"pagesDone": 0, "pagesTotal": pages, "bytesIn": 0, "bytesOut": 0}, &out)
+				if err != nil {
+					// a lost heartbeat loses the task when the lease runs out,
+					// so it is worth a line in the log
+					w.log.Warn("heartbeat didn't reach the server", "task", t.ID, "err", err)
+				}
 			}
 		}
 	}()

@@ -10446,12 +10446,6 @@
             "type": "integer"
           }
         },
-        "required": [
-          "pagesDone",
-          "pagesTotal",
-          "bytesIn",
-          "bytesOut"
-        ],
         "type": "object"
       },
       "Worker-heartbeatResponse": {
