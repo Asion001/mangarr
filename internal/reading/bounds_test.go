@@ -111,3 +111,33 @@ func TestContentBoxDarkGreyMarginsWithSpecks(t *testing.T) {
 		t.Fatalf("dark grey margins were not cropped: %+v", b)
 	}
 }
+
+func TestContentBoxKeepsLetteringNearTheEdge(t *testing.T) {
+	// Page 24 of a real chapter: art ends at x=300, but a caption's thin
+	// letter strokes run on to x=373. Every column through them is still
+	// over 92% paper, which used to count as margin and cut the caption off.
+	img := image.NewRGBA(image.Rect(0, 0, 400, 600))
+	for y := 0; y < 600; y++ {
+		for x := 0; x < 400; x++ {
+			c := color.RGBA{255, 255, 255, 255}
+			if x >= 40 && x < 300 && y >= 60 && y < 540 {
+				c = color.RGBA{uint8(x % 200), uint8(y % 200), 90, 255}
+			}
+			img.Set(x, y, c)
+		}
+	}
+	for x := 310; x < 373; x += 12 {
+		for y := 200; y < 240; y++ {
+			for d := 0; d < 3; d++ {
+				img.Set(x+d, y, color.Black)
+			}
+		}
+	}
+	b := ContentBox(img)
+	if b.X+b.W < 373 {
+		t.Fatalf("lettering cut off at x=%d: %+v", b.X+b.W, b)
+	}
+	if b.X < 30 || b.Y < 50 || b.Y+b.H > 550 {
+		t.Fatalf("margins not cropped: %+v", b)
+	}
+}

@@ -95,7 +95,9 @@ func ContentBox(img image.Image) Bounds {
 		cr, cg, cb, _ := img.At(r.Min.X+x, r.Min.Y+y).RGBA()
 		return int((299*cr + 587*cg + 114*cb) / 1000 >> 8)
 	}
-	stepX, stepY := max(1, w/300), max(1, h/300)
+	// Sample densely enough that a thin stroke (a speech bubble's outline)
+	// shows up on neighbouring lines at the same place.
+	stepX, stepY := max(1, w/1200), max(1, h/1200)
 	// Border kinds: a line where nearly every sample is light or dark. Scan
 	// margins are often grey after JPEG compression, and a page number can
 	// occupy a small part of an otherwise empty row, so use broad tones and
@@ -105,16 +107,21 @@ func ContentBox(img image.Image) Bounds {
 		light
 		dark
 	)
-	kind := func(samples func(yield func(int))) int {
-		n, l, d := 0, 0, 0
-		samples(func(v int) {
-			n++
-			if v >= 180 {
+	off := func(v, k int) bool {
+		if k == light {
+			return v < 180
+		}
+		return v > 75
+	}
+	kind := func(vals []int) int {
+		n, l, d := len(vals), 0, 0
+		for _, v := range vals {
+			if !off(v, light) {
 				l++
-			} else if v <= 75 {
+			} else if !off(v, dark) {
 				d++
 			}
-		})
+		}
 		if n == 0 {
 			return none
 		}
@@ -127,37 +134,77 @@ func ContentBox(img image.Image) Bounds {
 		}
 		return none
 	}
-	row := func(y int) int {
-		return kind(func(yield func(int)) {
-			for x := 0; x < w; x += stepX {
-				yield(luma(x, y))
-			}
-		})
+	row := func(y int, vals []int) []int {
+		for x := 0; x < w; x += stepX {
+			vals = append(vals, luma(x, y))
+		}
+		return vals
 	}
-	col := func(x, y0, y1 int) int {
-		return kind(func(yield func(int)) {
+	col := func(y0, y1 int) func(int, []int) []int {
+		return func(x int, vals []int) []int {
 			for y := y0; y < y1; y += stepY {
-				yield(luma(x, y))
+				vals = append(vals, luma(x, y))
 			}
-		})
+			return vals
+		}
 	}
-	// each edge trims only the colour it starts with, so a white margin
-	// stops at a black frame instead of eating into it
-	trim := func(from, to, step int, line func(int) int) int {
-		k := line(from)
+	// Each edge trims only the colour it starts with, so a white margin
+	// stops at a black frame instead of eating into it.
+	//
+	// The 8% tolerance also passes lines that cut through real content: a
+	// column along the edge of a speech bubble, lettering or bleeding art is
+	// mostly paper with a few strokes. Dust and noise land in different
+	// places on neighbouring lines while ink carries on from one line to the
+	// next, so a line whose off-tone samples repeat the previous line's is
+	// inked. A small inked island followed by a wide clean gap (a page
+	// number) is still margin; any other ink is content, and the edge stays
+	// in front of it.
+	trim := func(from, to, step int, line func(int, []int) []int) int {
+		cur := line(from, nil)
+		k := kind(cur)
 		if k == none {
 			return from
 		}
-		i := from
-		for i != to && line(i) == k {
-			i += step
+		size := (to - from) * step
+		maxIsland, minGap := max(2, size*3/100), max(2, size*3/100)
+		var prev []int
+		end := from
+		island, gap := 0, 0 // island: lines since the current island's first ink
+		for i := from; i != to; i += step {
+			if i != from {
+				prev, cur = cur, line(i, prev[:0])
+				if kind(cur) != k {
+					break
+				}
+			}
+			inked := false
+			for j, v := range cur {
+				if off(v, k) && (prev == nil || off(prev[j], k)) {
+					inked = true
+					break
+				}
+			}
+			switch {
+			case inked:
+				island += gap + 1
+				gap = 0
+				if island > maxIsland {
+					return end
+				}
+			case island == 0:
+				end = i + step
+			default:
+				if gap++; gap >= minGap {
+					end, island, gap = i+step, 0, 0
+				}
+			}
 		}
-		return i
+		return end
 	}
 	top := trim(0, h, 1, row)
 	bottom := trim(h-1, top-1, -1, row) + 1
-	left := trim(0, w, 1, func(x int) int { return col(x, top, bottom) })
-	right := trim(w-1, left-1, -1, func(x int) int { return col(x, top, bottom) }) + 1
+	left := trim(0, w, 1, col(top, bottom))
+	right := trim(w-1, left-1, -1, col(top, bottom)) + 1
 	cw, ch := right-left, bottom-top
 	if cw < w*3/10 || ch < h*3/10 { // blank or nearly blank: leave it
 		return full
