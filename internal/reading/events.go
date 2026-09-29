@@ -29,6 +29,9 @@ func (s *Service) Observe(ctx context.Context, readerID int64, out []Outcome, by
 	s.inReadingOrder(ctx, out)
 	s.logOutcomes(ctx, readerID, out, by, time.Now().UTC())
 	s.announce(readerID, out, by)
+	for sid := range s.mirrorEditions(ctx, readerID, out) {
+		s.Bus.Changed("series", "updated", sid)
+	}
 }
 
 // inReadingOrder sorts outcomes by chapter number.

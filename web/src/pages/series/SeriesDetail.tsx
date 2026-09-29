@@ -233,7 +233,7 @@ export function SeriesDetail() {
       {manage && addingLang && <AddLanguageModal series={s} onClose={() => setAddingLang(false)} />}
       {manage && grouping && (
         <Modal open onClose={() => setGrouping(false)} title={t("Group language edition")}>
-          <p className="mb-4 text-sm text-muted">{t("Choose the title this edition belongs to. Files, sources, settings, and reading progress stay separate.")}</p>
+          <p className="mb-4 text-sm text-muted">{t("Choose the title this edition belongs to. Files, sources, and settings stay separate; a chapter you finish is marked read in every language.")}</p>
           <Select value={groupTarget} onChange={(event) => setGroupTarget(event.target.value)}>
             <option value="">{t("Choose a title…")}</option>
             {(library ?? []).filter((candidate) => candidate.workId !== s.workId).map((candidate) => (

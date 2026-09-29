@@ -52,7 +52,9 @@ type Outcome struct {
 //     unread does);
 //   - otherwise the latest report wins;
 //   - states get origin "app", so a library server's sync doesn't lower or
-//     delete them until it reports the chapter itself.
+//     delete them until it reports the chapter itself;
+//   - finishing or unreading a chapter does the same in the title's other
+//     language editions (see mirrorEditions).
 func (s *Service) Record(ctx context.Context, readerID int64, changes []Change, by By) ([]Outcome, error) {
 	if len(changes) == 0 {
 		return nil, nil
@@ -95,6 +97,9 @@ func (s *Service) Record(ctx context.Context, readerID int64, changes []Change, 
 	}
 	s.logOutcomes(ctx, readerID, out, by, now)
 	s.announce(readerID, out, by)
+	for sid := range s.mirrorEditions(ctx, readerID, out) {
+		changed[sid] = true
+	}
 	for sid := range changed {
 		s.Bus.Changed("series", "updated", sid)
 	}
