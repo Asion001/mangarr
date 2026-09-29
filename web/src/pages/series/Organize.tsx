@@ -205,7 +205,7 @@ export function MassEditBar({
               <ChevronUp className="size-3.5" />
             </Button>
             {listOpen && (
-              <ul aria-label={t("Selected series")} className="absolute bottom-full left-0 mb-2 max-h-80 w-72 overflow-y-auto rounded-lg border border-border bg-panel-2 p-1 shadow-xl">
+              <ul aria-label={t("Selected series")} className="absolute bottom-full left-0 mb-2 max-h-80 w-72 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-lg border border-border bg-panel-2 p-1 shadow-xl">
                 {[...selected].map(([id, title]) => (
                   <li key={id} className="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm hover:bg-border">
                     <span className="min-w-0 flex-1 truncate">{title || `#${id}`}</span>

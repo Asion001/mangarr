@@ -1,5 +1,5 @@
 import { t, label as translateLabel } from "../lib/i18n/core";
-import { useEffect, useId, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
 import clsx from "clsx";
 import { ChevronDown, Loader2, Lock, X, Plus, Trash2 } from "lucide-react";
 
@@ -234,11 +234,26 @@ export type MenuItem = { label: string; onSelect: () => void; icon?: ReactNode; 
 
 /**
  * Menu is a button that opens a list of actions (role="menu"): arrow keys
- * move between items, Escape or a click outside closes it.
+ * move between items, Escape or a click outside closes it. The list is
+ * nudged sideways when it would run past the edge of the screen, which is
+ * what happens on a phone when the button sits near the right edge.
  */
 export function Menu({ label, icon, items, align = "left", up = false }: { label: ReactNode; icon?: ReactNode; items: MenuItem[]; align?: "left" | "right"; /** up opens above the button (for bars at the bottom) */ up?: boolean }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const list = useRef<HTMLDivElement>(null);
+  const [shift, setShift] = useState(0);
+  useLayoutEffect(() => {
+    const el = list.current;
+    if (!open || !el) return setShift(0);
+    const margin = 8;
+    const r = el.getBoundingClientRect();
+    const width = document.documentElement.clientWidth;
+    let dx = 0;
+    if (r.right > width - margin) dx = width - margin - r.right;
+    if (r.left + dx < margin) dx = margin - r.left;
+    setShift(dx);
+  }, [open]);
   useEffect(() => {
     if (!open) return;
     const root = ref.current;
@@ -273,7 +288,7 @@ export function Menu({ label, icon, items, align = "left", up = false }: { label
         <ChevronDown className="size-3.5" />
       </Button>
       {open && (
-        <div role="menu" className={clsx("absolute z-30 w-max max-h-[60vh] overflow-y-auto", up ? "bottom-full mb-1" : "mt-1", "min-w-60 max-w-[calc(100vw-2rem)] rounded-lg border border-border bg-panel-2 p-1 shadow-xl", align === "right" ? "right-0" : "left-0")}>
+        <div ref={list} role="menu" style={shift ? { transform: `translateX(${shift}px)` } : undefined} className={clsx("absolute z-30 w-max max-h-[60vh] overflow-y-auto", up ? "bottom-full mb-1" : "mt-1", "min-w-60 max-w-[calc(100vw-1rem)] rounded-lg border border-border bg-panel-2 p-1 shadow-xl", align === "right" ? "right-0" : "left-0")}>
           {shown.map((it, i) =>
             "section" in it && !it.section ? (
               <div key={i} role="separator" className="my-1 border-t border-border" />
