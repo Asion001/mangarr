@@ -85,6 +85,7 @@ modules-test-saved POST /api/v1/modules/{id}/test -> admin
 modules-update PUT /api/v1/modules/{id} -> admin
 naming-preview GET /api/v1/settings/media/preview -> admin
 permissions-list GET /api/v1/permissions -> admin
+previews-open POST /api/v1/previews -> library.manage | requests.manage | requests.create
 processing-history GET /api/v1/processing/history -> admin
 processing-preview POST /api/v1/processing/preview -> admin
 processing-preview-cbz GET /api/v1/processing/preview/{token}/sample.cbz -> admin

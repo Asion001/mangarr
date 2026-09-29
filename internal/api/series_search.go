@@ -103,7 +103,7 @@ func (s *Server) registerSeriesSearch() {
 		Summary: "Search, filter, sort and paginate visible series"},
 		func(ctx context.Context, in *SeriesSearchQuery) (*struct{ Body SeriesSearchResponse }, error) {
 			var list []model.Series
-			if err := s.app.DB.NewSelect().Model(&list).Order("sort_title").Scan(ctx); err != nil {
+			if err := s.app.DB.NewSelect().Model(&list).Where("preview = ?", false).Order("sort_title").Scan(ctx); err != nil {
 				return nil, toHTTPError(err)
 			}
 			principal := access.From(ctx)

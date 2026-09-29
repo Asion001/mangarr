@@ -8157,6 +8157,9 @@
           "path": {
             "type": "string"
           },
+          "preview": {
+            "type": "boolean"
+          },
           "profileId": {
             "format": "int64",
             "type": "integer"
@@ -9450,6 +9453,54 @@
           "requestsPerMinute": {
             "format": "int64",
             "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "TitlePreview": {
+        "additionalProperties": false,
+        "properties": {
+          "created": {
+            "type": "boolean"
+          },
+          "inLibrary": {
+            "type": "boolean"
+          },
+          "seriesId": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "seriesId",
+          "inLibrary",
+          "created"
+        ],
+        "type": "object"
+      },
+      "TitlePreviewInput": {
+        "additionalProperties": false,
+        "properties": {
+          "language": {
+            "maxLength": 20,
+            "type": "string"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/MetadataRef"
+          },
+          "source": {
+            "$ref": "#/components/schemas/SourceLink"
+          },
+          "title": {
+            "maxLength": 500,
+            "type": "string"
+          },
+          "titles": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "type": "array"
           }
         },
         "type": "object"
@@ -14447,6 +14498,47 @@
         "summary": "The permissions groups can have",
         "tags": [
           "Users"
+        ]
+      }
+    },
+    "/api/v1/previews": {
+      "post": {
+        "operationId": "previews-open",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TitlePreviewInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TitlePreview"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Open a title without adding it to the library (its chapters stream from the source)",
+        "tags": [
+          "Series"
         ]
       }
     },

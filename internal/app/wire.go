@@ -180,7 +180,7 @@ func (a *App) wire(ctx context.Context) error {
 			var ids []int64
 			if body.SeriesID > 0 {
 				ids = []int64{body.SeriesID}
-			} else if err := a.DB.NewSelect().Model((*model.Series)(nil)).Column("id").Scan(ctx, &ids); err != nil {
+			} else if err := a.DB.NewSelect().Model((*model.Series)(nil)).Column("id").Where("preview = ?", false).Scan(ctx, &ids); err != nil {
 				return err
 			}
 			changed := 0

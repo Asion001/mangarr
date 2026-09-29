@@ -263,6 +263,7 @@ func (s *Server) registerActivity() {
 			var items []WantedItem
 			err := s.app.DB.NewSelect().TableExpr("chapters AS c").ColumnExpr("c.*, s.title AS series_title").
 				Join("JOIN series AS s ON s.id = c.series_id").
+				Where("s.preview = ?", false).
 				Where("c.release_date >= ? AND c.release_date <= ?", in.Start.UTC(), in.End.UTC()).
 				OrderExpr("c.release_date DESC").Limit(1000).Scan(ctx, &items)
 			if items == nil {

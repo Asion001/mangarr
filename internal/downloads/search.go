@@ -129,6 +129,9 @@ func (s *Searcher) Evaluate(ctx context.Context, seriesID int64, chapterIDs []in
 // EvaluateAt is Evaluate with a queue priority: what someone is reading now
 // goes before the backlog (PriorityReading), background work after it.
 func (s *Searcher) EvaluateAt(ctx context.Context, seriesID int64, chapterIDs []int64, explicit bool, priority int) (int, error) {
+	if preview, err := IsPreview(ctx, s.db, seriesID); err != nil || preview {
+		return 0, err // a preview only streams
+	}
 	st, err := s.load(ctx, seriesID, chapterIDs)
 	if err != nil {
 		return 0, err

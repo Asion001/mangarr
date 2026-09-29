@@ -121,7 +121,7 @@ func (s *Service) BulkSources(ctx context.Context, req BulkRequest, dryRun bool,
 
 // bulkSeries is the series a request selects, by title.
 func (s *Service) bulkSeries(ctx context.Context, req BulkRequest) ([]model.Series, error) {
-	q := s.db.NewSelect().Model((*model.Series)(nil)).Order("sort_title")
+	q := s.db.NewSelect().Model((*model.Series)(nil)).Where("preview = ?", false).Order("sort_title")
 	if len(req.SeriesIDs) > 0 {
 		q = q.Where("id IN (?)", bun.In(req.SeriesIDs))
 	}

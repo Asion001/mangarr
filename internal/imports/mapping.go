@@ -101,7 +101,7 @@ func (s *Service) newMapper(ctx context.Context, imp *model.Import) (*mapper, er
 		m.links[linkKey{l.ModuleID, l.SourceID, l.MangaURL}] = l.SeriesID
 	}
 	var all []model.Series
-	if err := s.DB.NewSelect().Model(&all).Column("id", "metadata").Scan(ctx); err != nil {
+	if err := s.DB.NewSelect().Model(&all).Column("id", "metadata").Where("preview = ?", false).Scan(ctx); err != nil {
 		return nil, err
 	}
 	for _, ser := range all {

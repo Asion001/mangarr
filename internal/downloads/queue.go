@@ -64,6 +64,11 @@ type JobOptions struct {
 
 // EnqueueConfigured persists run-specific input and settings before dispatch can claim it.
 func (q *Queue) EnqueueConfigured(ctx context.Context, seriesID, chapterID int64, releaseID *int64, kind string, isUpgrade bool, priority int, options JobOptions) (*model.DownloadJob, bool, error) {
+	if preview, err := IsPreview(ctx, q.db, seriesID); err != nil {
+		return nil, false, err
+	} else if preview {
+		return nil, false, ErrPreview
+	}
 	var existing model.DownloadJob
 	err := q.db.NewSelect().Model(&existing).Where("chapter_id = ?", chapterID).Where("status IN (?)", bun.In(activeStatuses)).Limit(1).Scan(ctx)
 	if err == nil {
@@ -417,4 +422,12 @@ func (q *Queue) Raise(ctx context.Context, chapterID int64, priority int) error 
 		q.bus.Changed("chapter", "updated", chapterID)
 	}
 	return err
+}
+
+// ErrPreview refuses downloads for a preview: its chapters only stream.
+var ErrPreview = errors.New("this title is a preview: add it to the library to download chapters")
+
+// IsPreview reports whether a series is a preview (see series.Preview).
+func IsPreview(ctx context.Context, d bun.IDB, seriesID int64) (bool, error) {
+	return d.NewSelect().Model((*model.Series)(nil)).Where("id = ? AND preview = ?", seriesID, true).Exists(ctx)
 }

@@ -177,7 +177,7 @@ func (l *Library) majorityLanguage(ctx context.Context, rootID int64) string {
 		N        int    `bun:"n"`
 	}
 	err := l.db.NewSelect().Model((*model.Series)(nil)).ColumnExpr("LOWER(language) AS language, COUNT(*) AS n").
-		Where("root_folder_id = ?", rootID).GroupExpr("LOWER(language)").OrderExpr("n DESC").Scan(ctx, &rows)
+		Where("root_folder_id = ? AND preview = ?", rootID, false).GroupExpr("LOWER(language)").OrderExpr("n DESC").Scan(ctx, &rows)
 	if err != nil || len(rows) == 0 || (len(rows) > 1 && rows[0].N == rows[1].N) {
 		return ""
 	}

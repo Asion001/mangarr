@@ -17,6 +17,7 @@ import { EditSeriesModal } from "./EditSeriesModal";
 import { RenameModal } from "./Organize";
 import { useAccount } from "../../lib/account";
 import { AddLanguageModal } from "./AddLanguage";
+import { PreviewBanner } from "./Preview";
 
 export function SeriesDetail() {
   const id = Number(useParams().id);
@@ -26,7 +27,8 @@ export function SeriesDetail() {
   const push = usePushCommand();
   const { can, account } = useAccount();
   const { editing } = useUIMode();
-  const manage = can("library.manage") && editing;
+  // a preview is read-only until it is added
+  const manage = can("library.manage") && editing && !s?.preview;
   const qc = useQueryClient();
   const toast = useToast();
   const nav = useNavigate();
@@ -87,6 +89,7 @@ export function SeriesDetail() {
   const links = Object.entries(md.links ?? {});
   return (
     <>
+      {s.preview && <PreviewBanner series={s} />}
       <div className="mb-6 grid grid-cols-[6rem_minmax(0,1fr)] gap-x-4 gap-y-3 md:grid-cols-[12rem_minmax(0,1fr)] md:gap-x-6">
         <Cover src={apiUrl(s.coverUrl)} alt={s.title} className="aspect-[2/3] w-full self-start md:row-span-2" />
         <div className="min-w-0">
@@ -97,7 +100,7 @@ export function SeriesDetail() {
               {md.altTitles && md.altTitles.length > 0 && <p className="mt-1 line-clamp-1 text-sm text-muted">{md.altTitles.slice(0, 4).join(" · ")}</p>}
             </div>
             <div className="flex items-center gap-3">
-              {account?.kind === "user" && <FollowButton seriesId={id} following={s.following} />}
+              {account?.kind === "user" && !s.preview && <FollowButton seriesId={id} following={s.following} />}
               {manage && <Switch checked={s.monitored} onChange={setMonitored} label={s.monitored ? tr("Monitored") : tr("Unmonitored")} />}
             </div>
           </div>

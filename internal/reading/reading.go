@@ -120,6 +120,8 @@ func (s *Service) AllSeries(ctx context.Context, readerID, id int64) ([]SeriesIn
 	q := s.DB.NewSelect().Model(&list).Order("sort_title")
 	if id > 0 {
 		q = q.Where("id = ?", id)
+	} else {
+		q = q.Where("preview = ?", false) // previews aren't in the library
 	}
 	if err := q.Scan(ctx); err != nil {
 		return nil, err
@@ -411,19 +413,28 @@ func scopeOf(ctx context.Context) *access.Scope {
 func (s *Service) visibleSeries(ctx context.Context, id int64) (map[int64]bool, error) {
 	sc := scopeOf(ctx)
 	if sc == nil {
-		return nil, nil
+		// previews aren't listed; with none, everything is visible
+		if id > 0 {
+			return nil, nil
+		}
+		if has, err := s.DB.NewSelect().Model((*model.Series)(nil)).Where("preview = ?", true).Exists(ctx); err != nil || !has {
+			return nil, err
+		}
+		sc = &access.Scope{}
 	}
 	var list []model.Series
-	q := s.DB.NewSelect().Model(&list).Column("id", "root_folder_id", "tags")
+	q := s.DB.NewSelect().Model(&list).Column("id", "root_folder_id", "tags", "preview")
 	if id > 0 {
 		q = q.Where("id = ?", id)
+	} else {
+		q = q.Where("preview = ?", false)
 	}
 	if err := q.Scan(ctx); err != nil {
 		return nil, err
 	}
 	out := map[int64]bool{}
 	for i := range list {
-		if sc.Allows(&list[i]) {
+		if list[i].Preview || sc.Allows(&list[i]) { // a preview opened by id is readable
 			out[list[i].ID] = true
 		}
 	}

@@ -101,6 +101,7 @@ var operationPermissions = map[string][]string{
 
 	// managing the library
 	"series-add":               {access.LibraryManage, access.RequestsManage},
+	"previews-open":            {access.LibraryManage, access.RequestsManage, access.RequestsCreate},
 	"series-add-editions":      {access.LibraryManage, access.RequestsManage},
 	"series-work-update":       {access.LibraryManage},
 	"series-update":            {access.LibraryManage},

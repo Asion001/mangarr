@@ -171,7 +171,7 @@ func (s *Server) registerSettings() {
 					res.Accessible = true
 					res.FreeSpace, _ = fsutil.FreeSpace(r.Path)
 				}
-				n, _ := s.app.DB.NewSelect().Model((*model.Series)(nil)).Where("root_folder_id = ?", r.ID).Count(ctx)
+				n, _ := s.app.DB.NewSelect().Model((*model.Series)(nil)).Where("root_folder_id = ? AND preview = ?", r.ID, false).Count(ctx)
 				res.SeriesCnt = n
 				out = append(out, res)
 			}
@@ -250,10 +250,12 @@ func (s *Server) registerSettings() {
 			if err := s.app.DB.NewSelect().Model(&rf).Where("id = ?", in.ID).Scan(ctx); err == nil && rf.ManagedBy != "" {
 				return nil, huma.Error409Conflict("this root folder is set by MANGARR_ROOT_FOLDERS")
 			}
-			n, _ := s.app.DB.NewSelect().Model((*model.Series)(nil)).Where("root_folder_id = ?", in.ID).Count(ctx)
+			n, _ := s.app.DB.NewSelect().Model((*model.Series)(nil)).Where("root_folder_id = ? AND preview = ?", in.ID, false).Count(ctx)
 			if n > 0 {
 				return nil, huma.Error409Conflict("root folder still has series")
 			}
+			// previews only borrow the folder; they go with it
+			_, _ = s.app.DB.NewDelete().Model((*model.Series)(nil)).Where("root_folder_id = ? AND preview = ?", in.ID, true).Exec(ctx)
 			_, err := s.app.DB.NewDelete().Model((*model.RootFolder)(nil)).Where("id = ?", in.ID).Exec(ctx)
 			s.app.Bus.Changed("rootfolder", "deleted", in.ID)
 			return nil, toHTTPError(err)

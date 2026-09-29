@@ -621,7 +621,7 @@ func toBody(v any) map[string]any {
 // existingByExternalID returns a matcher from external ids to series in the library.
 func (s *Server) existingByExternalID(ctx context.Context) func(ids map[string]string) int64 {
 	var existing []model.Series
-	_ = s.app.DB.NewSelect().Model(&existing).Column("id", "metadata", "tags", "root_folder_id").Scan(ctx)
+	_ = s.app.DB.NewSelect().Model(&existing).Column("id", "metadata", "tags", "root_folder_id").Where("preview = ?", false).Scan(ctx)
 	p := access.From(ctx)
 	return func(ids map[string]string) int64 {
 		for _, e := range existing {
@@ -713,7 +713,7 @@ func (s *Server) registerSeries() {
 	huma.Register(s.api, huma.Operation{OperationID: "series-list", Method: http.MethodGet, Path: "/api/v1/series", Tags: tags},
 		func(ctx context.Context, _ *struct{}) (*struct{ Body []SeriesResource }, error) {
 			var list []model.Series
-			if err := s.app.DB.NewSelect().Model(&list).Order("sort_title").Scan(ctx); err != nil {
+			if err := s.app.DB.NewSelect().Model(&list).Where("preview = ?", false).Order("sort_title").Scan(ctx); err != nil {
 				return nil, toHTTPError(err)
 			}
 			out, err := s.groupedSeriesResources(ctx, list)
@@ -728,6 +728,9 @@ func (s *Server) registerSeries() {
 			ser, err := s.visibleSeries(ctx, in.ID)
 			if err != nil {
 				return nil, err
+			}
+			if ser.Preview {
+				_ = s.app.Series.TouchPreview(ctx, ser.ID) // opened: keep it
 			}
 			stats, err := s.seriesStats(ctx, in.ID)
 			if err != nil {

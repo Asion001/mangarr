@@ -25,7 +25,7 @@ type ScanResult struct {
 func (l *Library) DiskScan(ctx context.Context, seriesID int64) (ScanResult, error) {
 	var res ScanResult
 	var list []model.Series
-	q := l.db.NewSelect().Model(&list)
+	q := l.db.NewSelect().Model(&list).Where("preview = ?", false) // previews have no files
 	if seriesID > 0 {
 		q = q.Where("id = ?", seriesID)
 	}

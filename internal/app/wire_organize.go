@@ -145,7 +145,7 @@ func (a *App) moveRootFolder(ctx context.Context, r *jobs.Run, rootID int64, new
 		return fmt.Errorf("this root folder is set by MANGARR_ROOT_FOLDERS")
 	}
 	var series []model.Series
-	if err := a.DB.NewSelect().Model(&series).Where("root_folder_id = ?", rootID).Scan(ctx); err != nil {
+	if err := a.DB.NewSelect().Model(&series).Where("root_folder_id = ? AND preview = ?", rootID, false).Scan(ctx); err != nil {
 		return err
 	}
 	if moveFiles {

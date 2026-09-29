@@ -12,6 +12,7 @@ import { relative } from "../../lib/format";
 import { useToast } from "../../lib/toast";
 import { useQueryParam } from "../../lib/urlState";
 import { MetadataSearch } from "../series/AddSeries";
+import { ReadButton } from "../series/Preview";
 
 type Request = S["Request"];
 type Status = Request["status"];
@@ -72,9 +73,12 @@ function AskTab({ onDone }: { onDone: () => void }) {
               <Badge tone={statusTone[r.request.status as Status] ?? "info"}>
                 <Check className="size-3" />{" " + t("Requested")}</Badge>
             ) : (
-              <Button size="sm" variant="primary" icon={<PlusCircle className="size-4" />} onClick={() => setAsking(r)}>
-                {r.request ? tr("Request too") : tr("Request")}
-              </Button>
+              <span className="flex gap-2">
+                <ReadButton result={r} />
+                <Button size="sm" variant="primary" icon={<PlusCircle className="size-4" />} onClick={() => setAsking(r)}>
+                  {r.request ? tr("Request too") : tr("Request")}
+                </Button>
+              </span>
             )
           }
         />

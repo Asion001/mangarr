@@ -26,6 +26,9 @@ func (s *Service) ReadAhead(ctx context.Context, readerID, seriesID int64) (int,
 	if err != nil || !cfg.ReadAhead.Enabled || cfg.ReadAhead.Chapters <= 0 || s.Downloads == nil {
 		return 0, err
 	}
+	if preview, err := s.DB.NewSelect().Model((*model.Series)(nil)).Where("id = ? AND preview = ?", seriesID, true).Exists(ctx); err != nil || preview {
+		return 0, err // a preview isn't monitored or downloaded
+	}
 	var pos []struct {
 		Number float64      `bun:"number_sort"`
 		At     bun.NullTime `bun:"at"`

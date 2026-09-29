@@ -14,6 +14,7 @@ import { useAccount } from "../../lib/account";
 import { useSettingsDoc } from "../settings/useSettingsDoc";
 import { LanguageSelect, useLanguageFolders } from "../../components/LanguageSelect";
 import { languageName } from "../../lib/format";
+import { ReadButton } from "./Preview";
 import { SourceSearchModal, pickKey, useCatalogTargets, useQuickSearch, type Picked, type Scope } from "./SourceSearch";
 
 /** MetadataSearch looks up series across metadata modules. */
@@ -148,7 +149,10 @@ export function AddSearchStep() {
               r.existingSeriesId ? (
                 <Link to={`/series/${r.existingSeriesId}`}><Button size="sm">{t("In library")}</Button></Link>
               ) : (
-                <Button size="sm" variant={isNovel(r.format) ? "secondary" : "primary"} onClick={() => pick(r)}>{t("Add…")}</Button>
+                <span className="flex gap-2">
+                  {!isNovel(r.format) && <ReadButton result={r} language={lang} />}
+                  <Button size="sm" variant={isNovel(r.format) ? "secondary" : "primary"} onClick={() => pick(r)}>{t("Add…")}</Button>
+                </span>
               )
             }
           />

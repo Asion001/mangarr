@@ -143,6 +143,7 @@ func (s *Server) applyUpdateVisibility(q *bun.SelectQuery, viewer *access.Princi
 	if viewer == nil {
 		return q.Where("1 = 0")
 	}
+	q = q.Where(alias+".preview = ?", false) // previews aren't in the library
 	if viewer.Can(access.LibraryManage) {
 		return q
 	}

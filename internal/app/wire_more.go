@@ -16,6 +16,7 @@ import (
 	"github.com/Asion001/mangarr/internal/modules/source"
 	"github.com/Asion001/mangarr/internal/notifications"
 	"github.com/Asion001/mangarr/internal/requests"
+	"github.com/Asion001/mangarr/internal/series"
 	"github.com/Asion001/mangarr/internal/sso"
 )
 
@@ -99,7 +100,7 @@ func (a *App) wireMore(ctx context.Context) error {
 	a.Queue.Register(jobs.Definition{Name: "LibraryRescan", Description: "Ask library servers (Komga/Kavita) to rescan every series folder",
 		Handler: func(ctx context.Context, r *jobs.Run) error {
 			var list []model.Series
-			if err := a.DB.NewSelect().Model(&list).Scan(ctx); err != nil {
+			if err := a.DB.NewSelect().Model(&list).Where("preview = ?", false).Scan(ctx); err != nil {
 				return err
 			}
 			var dirs []string
@@ -178,9 +179,13 @@ func (a *App) housekeeping(ctx context.Context, r *jobs.Run) error {
 	if _, err := a.Reading.PruneEvents(ctx); err != nil {
 		a.Log.Warn("read events purge", "err", err)
 	}
+	previews, err := a.Series.PurgePreviews(ctx, time.Now().UTC().Add(-series.PreviewTTL))
+	if err != nil {
+		a.Log.Warn("preview purge", "err", err)
+	}
 	g, _ := a.Settings.General(ctx)
 	cleaned := a.ImageCache.Trim(30*24*time.Hour, int64(g.ImageCacheMaxMB)<<20)
-	r.Progress("purged %d recycled files, %d cached images", purged, cleaned)
+	r.Progress("purged %d recycled files, %d unopened previews, %d cached images", purged, previews, cleaned)
 	return nil
 }
 

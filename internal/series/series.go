@@ -104,12 +104,22 @@ type AddRequest struct {
 	NoRefresh bool `json:"-"`
 	// RequestID is the request this fulfils (the API links them).
 	RequestID int64 `json:"requestId,omitempty"`
+	// Preview adds the title as a preview (see Preview), not to the library.
+	Preview bool `json:"-"`
 }
 
 // Add creates a series, links its sources and queues the first refresh.
 func (s *Service) Add(ctx context.Context, req AddRequest) (*model.Series, error) {
 	if len(req.Sources) == 0 {
 		return nil, ValidationError{"at least one source is required"}
+	}
+	if !req.Preview {
+		// a preview of this title is adopted, keeping its chapters and progress
+		if pv, err := s.previewFor(ctx, req.Sources, req.Language); err != nil {
+			return nil, err
+		} else if pv != nil {
+			return s.adopt(ctx, pv, req)
+		}
 	}
 	// no folder given: the edition's language picks it
 	var rf *model.RootFolder
@@ -119,7 +129,12 @@ func (s *Service) Add(ctx context.Context, req AddRequest) (*model.Series, error
 			return nil, ValidationError{"root folder not found"}
 		}
 	} else if rf, err = s.lib.FolderForLanguage(ctx, firstNonEmpty(library.NormalizeLanguage(req.Language), sourcesLanguage(req.Sources))); err != nil {
-		return nil, ValidationError{err.Error()}
+		// a preview writes no files, so any root folder holds its row
+		var first model.RootFolder
+		if !req.Preview || s.db.NewSelect().Model(&first).Order("id").Limit(1).Scan(ctx) != nil {
+			return nil, ValidationError{err.Error()}
+		}
+		rf = &first
 	}
 	profileID, err := s.profileID(ctx, req.ProfileID)
 	if err != nil {
@@ -138,6 +153,12 @@ func (s *Service) Add(ctx context.Context, req AddRequest) (*model.Series, error
 		ser.Tags = []int64{}
 	}
 	ser.BlockedScanlators = cleanNames(req.BlockedScanlators)
+	if req.Preview {
+		// nothing is monitored or downloaded, and new chapters stay unmonitored
+		seen := now
+		ser.Preview, ser.PreviewSeenAt, ser.Monitored, ser.MonitorNew = true, &seen, false, model.MonitorNone
+		ser.AddOptions = model.AddOptions{}
+	}
 	if req.Metadata != nil {
 		resolved, err := s.agg.ResolveLanguage(ctx, *req.Metadata, nil, ser.Language)
 		if err != nil {
@@ -151,7 +172,7 @@ func (s *Service) Add(ctx context.Context, req AddRequest) (*model.Series, error
 			if sameLanguage(match.Language, ser.Language) {
 				return nil, ExistsError{SeriesID: match.ID, Title: match.Title}
 			}
-			if req.WorkID == 0 {
+			if req.WorkID == 0 && !req.Preview {
 				req.WorkID = match.WorkID
 			}
 		}
@@ -204,6 +225,10 @@ func (s *Service) Add(ctx context.Context, req AddRequest) (*model.Series, error
 	})
 	if err != nil {
 		return nil, err
+	}
+	if ser.Preview {
+		// no folder, no "series added" news: the caller syncs the chapters
+		return ser, nil
 	}
 	if _, err := s.lib.EnsureSeriesDir(ctx, ser); err != nil {
 		s.log.Warn("create series folder", "series", ser.Title, "err", err)
@@ -293,7 +318,7 @@ func (s *Service) findByExternal(ctx context.Context, ids map[string]string) ([]
 		return []model.Series{}, nil
 	}
 	var all []model.Series
-	if err := s.db.NewSelect().Model(&all).Column("id", "work_id", "title", "language", "metadata").Scan(ctx); err != nil {
+	if err := s.db.NewSelect().Model(&all).Column("id", "work_id", "title", "language", "metadata").Where("preview = ?", false).Scan(ctx); err != nil {
 		return nil, err
 	}
 	var out []model.Series
@@ -312,7 +337,7 @@ func (s *Service) findByExternal(ctx context.Context, ids map[string]string) ([]
 // trusted external ID proves they are the same title. Title text is never used.
 func (s *Service) ReconcileWorks(ctx context.Context) error {
 	var all []model.Series
-	if err := s.db.NewSelect().Model(&all).Order("id").Scan(ctx); err != nil {
+	if err := s.db.NewSelect().Model(&all).Where("preview = ?", false).Order("id").Scan(ctx); err != nil {
 		return err
 	}
 	owner := map[string]int64{}

@@ -142,6 +142,10 @@ func (p *Principal) Sees(ser *model.Series) bool {
 	if p.Can(LibraryManage) {
 		return true
 	}
+	if ser != nil && ser.Preview {
+		// previews are opened from search, outside any library scope
+		return p.Can(RequestsCreate) || p.Can(RequestsManage)
+	}
 	return p.Scope.Allows(ser)
 }
 

@@ -520,6 +520,11 @@ type Series struct {
 	AddedAt             time.Time  `bun:"added_at,notnull" json:"addedAt"`
 	UpdatedAt           time.Time  `bun:"updated_at,notnull" json:"updatedAt"`
 	LastMetadataRefresh *time.Time `bun:"last_metadata_refresh" json:"lastMetadataRefresh,omitempty"`
+	// Preview marks a title opened from search without adding it: chapters
+	// stream from the source, nothing is downloaded, and it is left out of
+	// the library until added. PreviewSeenAt is when it was last opened.
+	Preview       bool       `bun:"preview,notnull" json:"preview,omitempty"`
+	PreviewSeenAt *time.Time `bun:"preview_seen_at" json:"-"`
 }
 
 // Monitor options applied after the first chapter sync of a new series.

@@ -1030,6 +1030,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/previews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Open a title without adding it to the library (its chapters stream from the source) */
+        post: operations["previews-open"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/processing": {
         parameters: {
             query?: never;
@@ -5906,6 +5923,7 @@ export interface components {
             monitorNew: string;
             monitored: boolean;
             path: string;
+            preview?: boolean;
             /** Format: int64 */
             profileId: number;
             reading?: components["schemas"]["ReadingInfo"];
@@ -6284,6 +6302,19 @@ export interface components {
             refreshGapMinSec?: number;
             /** Format: int64 */
             requestsPerMinute?: number;
+        };
+        TitlePreview: {
+            created: boolean;
+            inLibrary: boolean;
+            /** Format: int64 */
+            seriesId: number;
+        };
+        TitlePreviewInput: {
+            language?: string;
+            metadata?: components["schemas"]["MetadataRef"];
+            source?: components["schemas"]["SourceLink"];
+            title?: string;
+            titles?: string[];
         };
         UIPreferences: {
             /** @enum {string} */
@@ -9228,6 +9259,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Permission"][];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "previews-open": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TitlePreviewInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TitlePreview"];
                 };
             };
             /** @description Error */

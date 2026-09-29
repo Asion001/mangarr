@@ -138,7 +138,7 @@ func (s *Service) Create(ctx context.Context, p *access.Principal, moduleID int6
 		return nil, false, err
 	}
 	var existing []model.Series
-	if err := s.DB.NewSelect().Model(&existing).Column("id", "title", "metadata", "tags", "root_folder_id").Scan(ctx); err != nil {
+	if err := s.DB.NewSelect().Model(&existing).Column("id", "title", "metadata", "tags", "root_folder_id").Where("preview = ?", false).Scan(ctx); err != nil {
 		return nil, false, err
 	}
 	for i := range existing {
