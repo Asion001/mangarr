@@ -11,6 +11,7 @@ package jobs
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"runtime/debug"
@@ -80,8 +81,12 @@ type Queue struct {
 	onDone []func(cmd *model.Command)
 }
 
-// Hold stops starting commands (true) or starts again (false); running
-// ones finish. Used while the database moves.
+// ErrHeld: the queue is held while the database moves or is restored, so
+// new commands would land in a table that is being replaced.
+var ErrHeld = errors.New("the database is being moved or restored")
+
+// Hold stops starting and accepting commands (true) or starts again
+// (false); running ones finish. Used while the database moves.
 func (q *Queue) Hold(on bool) {
 	q.mu.Lock()
 	q.held = on
@@ -140,6 +145,10 @@ func (q *Queue) Push(ctx context.Context, name string, body map[string]any, trig
 		_ = json.Unmarshal(b, &body)
 	}
 	q.mu.Lock()
+	if q.held {
+		q.mu.Unlock()
+		return nil, ErrHeld
+	}
 	if _, ok := q.defs[name]; !ok {
 		q.mu.Unlock()
 		return nil, fmt.Errorf("unknown command %q", name)

@@ -307,7 +307,9 @@ func (s *Scheduler) checkAt(ctx context.Context, now time.Time) {
 			continue
 		}
 		if _, err := s.queue.Push(ctx, t.Name, t.Body, "scheduled"); err != nil {
-			s.log.Error("scheduler: push", "task", t.Name, "err", err)
+			if !errors.Is(err, ErrHeld) { // due again once the database is back
+				s.log.Error("scheduler: push", "task", t.Name, "err", err)
+			}
 			continue
 		}
 		_, _ = s.db.NewUpdate().Model((*model.ScheduledTask)(nil)).Set("last_start = ?", now).Where("name = ?", row.Name).Exec(ctx)

@@ -2,6 +2,7 @@ package jobs_test
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"sync/atomic"
@@ -94,5 +95,24 @@ func TestQueueFailureRecorded(t *testing.T) {
 	}
 	if got.Status != model.CommandFailed || got.Error == "" {
 		t.Fatalf("expected failure, got %+v", got)
+	}
+}
+
+// TestQueueHeldRefusesPush: while the database is replaced nothing may add
+// a command row, or the restore's copy clashes with it.
+func TestQueueHeldRefusesPush(t *testing.T) {
+	d := dbtest.SQLite(t)
+	q := jobs.NewQueue(d, events.NewBus(), slog.New(slog.NewTextHandler(io.Discard, nil)), 1)
+	q.Register(jobs.Definition{Name: "Noop", Handler: func(context.Context, *jobs.Run) error { return nil }})
+	q.Hold(true)
+	if _, err := q.Push(t.Context(), "Noop", nil, "manual"); !errors.Is(err, jobs.ErrHeld) {
+		t.Fatalf("push while held: %v", err)
+	}
+	if n, _ := d.NewSelect().Model((*model.Command)(nil)).Count(t.Context()); n != 0 {
+		t.Fatalf("%d command rows written while held", n)
+	}
+	q.Hold(false)
+	if _, err := q.Push(t.Context(), "Noop", nil, "manual"); err != nil {
+		t.Fatal(err)
 	}
 }
