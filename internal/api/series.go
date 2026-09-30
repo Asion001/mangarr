@@ -687,6 +687,18 @@ func (s *Server) groupedSeriesResources(ctx context.Context, list []model.Series
 		}
 		groups[key] = append(groups[key], ser)
 	}
+	var grouped []int64 // editions of titles shown in more than one language
+	for _, editions := range groups {
+		if len(editions) > 1 {
+			for _, edition := range editions {
+				grouped = append(grouped, edition.ID)
+			}
+		}
+	}
+	titles, err := s.titleCounts(ctx, grouped)
+	if err != nil {
+		return nil, err
+	}
 	out := make([]SeriesResource, 0, len(groups))
 	for _, key := range order {
 		editions := groups[key]
@@ -703,7 +715,60 @@ func (s *Server) groupedSeriesResources(ctx context.Context, list []model.Series
 			r.WorkTitle = work.Title
 			r.Title, r.SortTitle = work.Title, work.SortTitle
 		}
+		if t, ok := titles[key]; ok {
+			// a chapter in two languages is one chapter of the title
+			r.Stats.ChapterCount, r.Stats.FileCount, r.Stats.ReadCount, r.Stats.InProgressCount = t.Chapters, t.Files, t.Read, t.InProgress
+		}
 		out = append(out, r)
+	}
+	return out, nil
+}
+
+// titleCount is a work's chapters counted by number across its editions.
+type titleCount struct {
+	WorkID     int64 `bun:"work_id"`
+	Chapters   int   `bun:"chapters"`
+	Files      int   `bun:"files"`
+	Read       int   `bun:"read_count"`
+	InProgress int   `bun:"in_progress"`
+}
+
+// titleCounts counts, per work, the chapters of the given editions by
+// number: how many there are, how many have a file in some language, and how
+// many the counted readers finished or started.
+func (s *Server) titleCounts(ctx context.Context, editions []int64) (map[int64]titleCount, error) {
+	out := map[int64]titleCount{}
+	if len(editions) == 0 {
+		return out, nil
+	}
+	var rows []titleCount
+	if err := s.app.DB.NewSelect().TableExpr("chapters AS c").Join("JOIN series AS s ON s.id = c.series_id").
+		ColumnExpr("s.work_id").
+		ColumnExpr("COUNT(DISTINCT c.number_key) AS chapters").
+		ColumnExpr("COUNT(DISTINCT CASE WHEN c.file_id IS NOT NULL THEN c.number_key END) AS files").
+		Where("c.series_id IN (?)", bun.In(editions)).GroupExpr("s.work_id").Scan(ctx, &rows); err != nil {
+		return nil, err
+	}
+	for _, r := range rows {
+		out[r.WorkID] = r
+	}
+	readers := s.statsReaders(ctx)
+	if len(readers) == 0 {
+		return out, nil
+	}
+	rows = nil
+	if err := s.app.DB.NewSelect().TableExpr("chapter_read_states AS rs").
+		Join("JOIN chapters AS c ON c.id = rs.chapter_id").Join("JOIN series AS s ON s.id = rs.series_id").
+		ColumnExpr("s.work_id").
+		ColumnExpr("COUNT(DISTINCT CASE WHEN rs.completed THEN c.number_key END) AS read_count").
+		ColumnExpr("COUNT(DISTINCT CASE WHEN NOT rs.completed AND rs.page > 0 THEN c.number_key END) AS in_progress").
+		Where("rs.series_id IN (?) AND rs.reader_id IN (?)", bun.In(editions), bun.In(readers)).GroupExpr("s.work_id").Scan(ctx, &rows); err != nil {
+		return nil, err
+	}
+	for _, r := range rows {
+		t := out[r.WorkID]
+		t.Read, t.InProgress = r.Read, r.InProgress
+		out[r.WorkID] = t
 	}
 	return out, nil
 }

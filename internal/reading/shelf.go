@@ -57,7 +57,52 @@ func (s *Service) OnDeck(ctx context.Context, readerID int64) ([]NextUp, error) 
 	sort.SliceStable(out, func(i, j int) bool {
 		return lastRead(out[i].Series).After(lastRead(out[j].Series))
 	})
-	return out, nil
+	return oncePerTitle(out, bySeries), nil
+}
+
+// oncePerTitle keeps one entry per title: of a title's language editions
+// (they share their progress) the one the reader last read in, else the
+// first in order.
+func oncePerTitle(list []NextUp, books map[int64][]BookInfo) []NextUp {
+	title := func(n NextUp) int64 {
+		if n.Series.Series.WorkID > 0 {
+			return n.Series.Series.WorkID
+		}
+		return -n.Series.Series.ID
+	}
+	// the edition whose chapter the title's latest progress was reported on
+	seriesOf := map[int64]int64{}
+	for sid, bs := range books {
+		for _, b := range bs {
+			seriesOf[b.Chapter.ID] = sid
+		}
+	}
+	lastIn := map[int64]int64{}
+	latest := map[int64]time.Time{}
+	for _, n := range list {
+		for _, b := range books[n.Series.Series.ID] {
+			if b.State == nil {
+				continue
+			}
+			at := b.State.SyncedAt
+			if sid, ok := seriesOf[b.State.SourceChapterID]; ok && (lastIn[title(n)] == 0 || at.After(latest[title(n)])) {
+				lastIn[title(n)], latest[title(n)] = sid, at
+			}
+		}
+	}
+	out := make([]NextUp, 0, len(list))
+	at := map[int64]int{}
+	for _, n := range list {
+		i, seen := at[title(n)]
+		switch {
+		case !seen:
+			at[title(n)] = len(out)
+			out = append(out, n)
+		case lastIn[title(n)] == n.Series.Series.ID:
+			out[i] = n
+		}
+	}
+	return out
 }
 
 func lastRead(si SeriesInfo) time.Time {

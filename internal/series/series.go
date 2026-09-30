@@ -234,6 +234,14 @@ func (s *Service) Add(ctx context.Context, req AddRequest) (*model.Series, error
 	if _, err := s.lib.EnsureSeriesDir(ctx, ser); err != nil {
 		s.log.Warn("create series folder", "series", ser.Title, "err", err)
 	}
+	if req.WorkID > 0 {
+		// a new edition of a known title shows that title's cover and info
+		if n, _ := s.ShareMetadata(ctx, ser.WorkID); n > 0 {
+			if shared, err := s.Get(ctx, ser.ID); err == nil {
+				ser = shared
+			}
+		}
+	}
 	if !req.NoRefresh {
 		if _, err := s.queue.Push(ctx, "RefreshSeries", map[string]any{"seriesId": ser.ID}, "series-add"); err != nil {
 			s.log.Warn("queue refresh", "err", err)
@@ -419,6 +427,7 @@ func (s *Service) SetWork(ctx context.Context, seriesID, workID int64) error {
 		return readstate.Purge(ctx, tx)
 	})
 	if err == nil {
+		_, _ = s.ShareMetadata(ctx, workID)
 		s.bus.Changed("series", "updated", seriesID)
 	}
 	return err
@@ -547,6 +556,7 @@ func (s *Service) Update(ctx context.Context, id int64, req UpdateRequest) (*mod
 	if err != nil {
 		return nil, err
 	}
+	_, _ = s.ShareMetadata(ctx, ser.WorkID) // an edited status or lock reaches the title's other editions
 	s.bus.Changed("series", "updated", ser.ID)
 	return ser, nil
 }
@@ -753,8 +763,13 @@ func (s *Service) RefreshMetadata(ctx context.Context, id int64) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	oldCover := ser.Metadata.CoverURL
+	oldCover, before := ser.Metadata.CoverURL, sharedPrint(ser)
 	changed := metadataagg.Apply(ser, resolved)
+	if first := s.firstEdition(ctx, ser); first != nil {
+		// the title's shared info is its first edition's; only the text is this one's
+		overlayShared(ser, first)
+		changed = sharedPrint(ser) != before
+	}
 	now := time.Now().UTC()
 	ser.LastMetadataRefresh = &now
 	if changed {
@@ -770,6 +785,7 @@ func (s *Service) RefreshMetadata(ctx context.Context, id int64) (bool, error) {
 		}
 		s.bus.Changed("series", "updated", ser.ID)
 	}
+	_, _ = s.ShareMetadata(ctx, ser.WorkID)
 	return changed, nil
 }
 
@@ -791,8 +807,9 @@ func (s *Service) LinkMetadata(ctx context.Context, id int64, ref metadataagg.Re
 		return nil, err
 	}
 	_ = s.lib.RefreshCover(ctx, ser, nil)
+	_, _ = s.ShareMetadata(ctx, ser.WorkID)
 	s.bus.Changed("series", "updated", ser.ID)
-	return ser, nil
+	return s.Get(ctx, ser.ID)
 }
 
 // cleanNames trims names and drops empty and duplicate ones.

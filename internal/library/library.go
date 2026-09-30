@@ -3,6 +3,7 @@
 package library
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -255,4 +256,31 @@ func LockSeries(id int64) (unlock func()) {
 	l := seriesLock(id)
 	l.Lock()
 	return l.Unlock
+}
+
+// CopyCover gives series to the cover file of series from (editions of one
+// title share a cover). It reports whether to's cover changed; without a
+// cover file to copy it does nothing.
+func (l *Library) CopyCover(ctx context.Context, from, to *model.Series) (bool, error) {
+	src := l.CoverPath(ctx, from)
+	if src == "" {
+		return false, nil
+	}
+	data, err := os.ReadFile(src)
+	if err != nil {
+		return false, err
+	}
+	dir, err := l.SeriesDir(ctx, to)
+	if err != nil {
+		return false, err
+	}
+	if _, err := os.Stat(dir); err != nil {
+		return false, nil // no folder yet: its first sidecars bring the cover
+	}
+	dst := filepath.Join(dir, "cover.jpg")
+	if cur, err := os.ReadFile(dst); err == nil && bytes.Equal(cur, data) {
+		return false, nil
+	}
+	fmode, _ := l.Modes(ctx)
+	return true, writeAtomic(dst, data, fmode)
 }

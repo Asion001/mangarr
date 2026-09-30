@@ -100,8 +100,14 @@ func (s *Service) Stats(ctx context.Context, readerID int64) (ReadingStats, erro
 		return out, err
 	}
 	for _, item := range completed {
-		out.CompletedChapters += item.Count
 		get(item.SeriesID).completed += item.Count
+	}
+	// a chapter finished in a title with several language editions is one
+	// chapter (the editions share the state)
+	if err := s.DB.NewSelect().TableExpr("chapter_read_states").ColumnExpr("COUNT(DISTINCT id)").
+		Where("reader_id = ? AND completed = ?", readerID, true).
+		Where("series_id IN (?)", bun.In(ids)).Scan(ctx, &out.CompletedChapters); err != nil {
+		return out, err
 	}
 
 	for month, seconds := range byMonth {
