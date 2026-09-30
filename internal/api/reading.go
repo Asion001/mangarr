@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 
 	"github.com/Asion001/mangarr/internal/access"
 	"github.com/Asion001/mangarr/internal/komgaapi"
+	"github.com/Asion001/mangarr/internal/library"
 	"github.com/Asion001/mangarr/internal/model"
 )
 
@@ -158,6 +160,38 @@ func (s *Server) registerReading() {
 			}
 			s.app.Bus.Changed("reading", "key-created", rk.ID)
 			return &struct{ Body NewReadingKey }{NewReadingKey{ReadingKey: *rk, Key: key}}, nil
+		})
+
+	huma.Register(s.api, huma.Operation{OperationID: "reading-keys-update", Method: http.MethodPut, Path: "/api/v1/reading/keys/{id}", Tags: tags,
+		Summary: "Set a device's language order: a title in several languages is then shown to it once (yours; admins any)"},
+		func(ctx context.Context, in *struct {
+			ID   int64 `path:"id"`
+			Body struct {
+				Languages []string `json:"languages" doc:"Language codes, preferred first; empty lists every language edition on its own"`
+			}
+		}) (*struct{ Body model.ReadingKey }, error) {
+			p := access.From(ctx)
+			languages := []string{}
+			for _, l := range in.Body.Languages {
+				if l = library.NormalizeLanguage(l); l != "" && !slices.Contains(languages, l) {
+					languages = append(languages, l)
+				}
+			}
+			var rk model.ReadingKey
+			q := s.app.DB.NewSelect().Model(&rk).Where("id = ?", in.ID)
+			if !p.IsAdmin() {
+				q = q.Where("COALESCE(user_id, 0) = ?", p.UserID)
+			}
+			if err := q.Scan(ctx); err != nil {
+				return nil, huma.Error404NotFound("no such key")
+			}
+			rk.Languages = languages
+			if _, err := s.app.DB.NewUpdate().Model(&rk).Column("languages").WherePK().Exec(ctx); err != nil {
+				return nil, toHTTPError(err)
+			}
+			s.app.Komga.InvalidateKeys()
+			s.app.Bus.Changed("reading", "key-updated", in.ID)
+			return &struct{ Body model.ReadingKey }{rk}, nil
 		})
 
 	huma.Register(s.api, huma.Operation{OperationID: "reading-keys-delete", Method: http.MethodDelete, Path: "/api/v1/reading/keys/{id}", Tags: tags,

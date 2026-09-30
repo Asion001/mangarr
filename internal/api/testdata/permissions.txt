@@ -125,6 +125,7 @@ readers-update PUT /api/v1/readers/{id} -> admin
 reading-keys GET /api/v1/reading/keys -> apps
 reading-keys-create POST /api/v1/reading/keys -> apps
 reading-keys-delete DELETE /api/v1/reading/keys/{id} -> apps
+reading-keys-update PUT /api/v1/reading/keys/{id} -> apps
 reading-mihon-backup POST /api/v1/reading/mihon-backup -> apps
 reading-shelf GET /api/v1/reading/shelf -> signedin
 reading-status GET /api/v1/reading/status -> apps

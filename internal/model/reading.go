@@ -21,7 +21,11 @@ type ReadingKey struct {
 	// Comment names the device ("KMReader iPad").
 	Comment string `bun:"comment,notnull" json:"comment"`
 	// LastClient is the app that last used the key (from its User-Agent).
-	LastClient string     `bun:"last_client,notnull" json:"lastClient"`
+	LastClient string `bun:"last_client,notnull" json:"lastClient"`
+	// Languages is the device's language order. With one, a title that has
+	// several language editions is shown once, its chapters in the first of
+	// these languages that has them; empty lists every edition on its own.
+	Languages  []string   `bun:"languages,notnull" json:"languages"`
 	CreatedAt  time.Time  `bun:"created_at,notnull" json:"createdAt"`
 	LastUsedAt *time.Time `bun:"last_used_at" json:"lastUsedAt,omitempty"`
 }

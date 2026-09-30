@@ -83,6 +83,7 @@ var operationPermissions = map[string][]string{
 	"reading-keys":         {access.Apps},
 	"reading-keys-create":  {access.Apps},
 	"reading-keys-delete":  {access.Apps},
+	"reading-keys-update":  {access.Apps},
 	"reading-mihon-backup": {access.Apps},
 
 	// finding series (to add, or to request)

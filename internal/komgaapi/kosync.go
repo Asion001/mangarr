@@ -123,7 +123,7 @@ func (h *koSyncHandlers) putProgress(w http.ResponseWriter, r *http.Request) {
 	if page == 0 && update.Percentage > 0 {
 		page = int(update.Percentage * float64(h.s.deps.Reading.CachedPageCount(doc.ChapterID)))
 	}
-	_, err = h.s.deps.Reading.Record(r.Context(), readerID, []reading.Change{{ChapterID: b.Chapter.ID, SeriesID: b.Chapter.SeriesID, Completed: completed, Page: page}}, reading.By{Origin: model.EventOriginApp, Client: "KOReader", Device: update.Device})
+	_, err = h.s.deps.Reading.Record(r.Context(), readerID, []reading.Change{{ChapterID: b.Chapter.ID, SeriesID: b.EditionID, Completed: completed, Page: page}}, reading.By{Origin: model.EventOriginApp, Client: "KOReader", Device: update.Device})
 	if err != nil {
 		koJSON(w, http.StatusInternalServerError, map[string]any{"message": "couldn't save progress"})
 		return

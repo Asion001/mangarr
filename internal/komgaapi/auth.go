@@ -19,6 +19,7 @@ import (
 	"github.com/Asion001/mangarr/internal/access"
 	"github.com/Asion001/mangarr/internal/auth"
 	"github.com/Asion001/mangarr/internal/model"
+	"github.com/Asion001/mangarr/internal/reading"
 )
 
 // Session lifetime of tokens issued to apps.
@@ -38,6 +39,8 @@ type Principal struct {
 	Client string
 	// User is the account (with its reader and the series it may see).
 	User *access.Principal
+	// Languages is the key's language order (see model.ReadingKey).
+	Languages []string
 }
 
 type principalKey struct{}
@@ -131,7 +134,7 @@ func (s *Service) CreateKey(ctx context.Context, userID int64, comment, client s
 	key := NewKey()
 	now := time.Now().UTC()
 	md5Key := md5.Sum([]byte(key))
-	rk := &model.ReadingKey{KeyHash: HashKey(key), KOReaderHash: HashKey(hex.EncodeToString(md5Key[:])), Prefix: key[:8], UserID: userID, Comment: strings.TrimSpace(comment), LastClient: client, CreatedAt: now}
+	rk := &model.ReadingKey{KeyHash: HashKey(key), KOReaderHash: HashKey(hex.EncodeToString(md5Key[:])), Prefix: key[:8], UserID: userID, Comment: strings.TrimSpace(comment), LastClient: client, Languages: []string{}, CreatedAt: now}
 	if rk.Comment == "" {
 		rk.Comment = "reading app"
 	}
@@ -246,7 +249,7 @@ func (s *Service) authenticate(r *http.Request) (p Principal, issue bool, ok boo
 			return false // the key's user was disabled or deleted
 		}
 		s.touchKey(rk, p.Client)
-		p.KeyID, p.Device, p.User = rk.ID, rk.Comment, u
+		p.KeyID, p.Device, p.User, p.Languages = rk.ID, rk.Comment, u, rk.Languages
 		return true
 	}
 	if key := r.Header.Get("X-API-Key"); key != "" {
@@ -404,6 +407,7 @@ func (s *Service) requireAuth(next http.Handler) http.Handler {
 			s.setSession(w, r, p)
 		}
 		ctx := context.WithValue(r.Context(), principalKey{}, p)
+		ctx = reading.WithLanguages(ctx, p.Languages)              // the reading service shows a title once with it
 		next.ServeHTTP(w, r.WithContext(access.With(ctx, p.User))) // the reading service limits series by it
 	})
 }

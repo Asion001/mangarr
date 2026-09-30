@@ -4802,6 +4802,12 @@
           "key": {
             "type": "string"
           },
+          "languages": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "lastClient": {
             "type": "string"
           },
@@ -4823,6 +4829,7 @@
           "prefix",
           "comment",
           "lastClient",
+          "languages",
           "createdAt"
         ],
         "type": "object"
@@ -6460,6 +6467,22 @@
         ],
         "type": "object"
       },
+      "Reading-keys-updateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "languages": {
+            "description": "Language codes, preferred first; empty lists every language edition on its own",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "languages"
+        ],
+        "type": "object"
+      },
       "Reading-mihon-backupRequest": {
         "additionalProperties": false,
         "properties": {
@@ -6511,6 +6534,12 @@
             "format": "int64",
             "type": "integer"
           },
+          "languages": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "lastClient": {
             "type": "string"
           },
@@ -6531,6 +6560,7 @@
           "prefix",
           "comment",
           "lastClient",
+          "languages",
           "createdAt"
         ],
         "type": "object"
@@ -6548,6 +6578,12 @@
           "id": {
             "format": "int64",
             "type": "integer"
+          },
+          "languages": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "lastClient": {
             "type": "string"
@@ -6572,6 +6608,7 @@
           "prefix",
           "comment",
           "lastClient",
+          "languages",
           "createdAt"
         ],
         "type": "object"
@@ -16300,6 +16337,56 @@
           }
         },
         "summary": "Revoke a device key (yours; admins any)",
+        "tags": [
+          "Reading apps"
+        ]
+      },
+      "put": {
+        "operationId": "reading-keys-update",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Reading-keys-updateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadingKey"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Set a device's language order: a title in several languages is then shown to it once (yours; admins any)",
         "tags": [
           "Reading apps"
         ]

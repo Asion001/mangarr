@@ -1594,7 +1594,8 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        put?: never;
+        /** Set a device's language order: a title in several languages is then shown to it once (yours; admins any) */
+        put: operations["reading-keys-update"];
         post?: never;
         /** Revoke a device key (yours; admins any) */
         delete: operations["reading-keys-delete"];
@@ -4922,6 +4923,7 @@ export interface components {
             /** Format: int64 */
             id: number;
             key: string;
+            languages: string[];
             lastClient: string;
             /** Format: date-time */
             lastUsedAt?: string;
@@ -5436,6 +5438,10 @@ export interface components {
             /** @description Device name, e.g. "Mihon phone" */
             comment: string;
         };
+        "Reading-keys-updateRequest": {
+            /** @description Language codes, preferred first; empty lists every language edition on its own */
+            languages: string[];
+        };
         "Reading-mihon-backupRequest": {
             /** @description Public HTTP(S) address of mangarr's Komga-compatible API */
             address: string;
@@ -5452,6 +5458,7 @@ export interface components {
             createdAt: string;
             /** Format: int64 */
             id: number;
+            languages: string[];
             lastClient: string;
             /** Format: date-time */
             lastUsedAt?: string;
@@ -5465,6 +5472,7 @@ export interface components {
             createdAt: string;
             /** Format: int64 */
             id: number;
+            languages: string[];
             lastClient: string;
             /** Format: date-time */
             lastUsedAt?: string;
@@ -10505,6 +10513,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NewReadingKey"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "reading-keys-update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Reading-keys-updateRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadingKey"];
                 };
             };
             /** @description Error */

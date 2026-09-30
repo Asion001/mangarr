@@ -1,11 +1,12 @@
 import { t as tr, t } from "../../lib/i18n/core";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Copy, KeyRound, Plus, Trash2 } from "lucide-react";
+import { ArrowUp, Copy, KeyRound, Languages, Plus, Trash2, X } from "lucide-react";
 import { Link } from "react-router";
 import { api, unwrap, type S } from "../../api/client";
 import { Badge, Button, Card, Confirm, ErrorBox, Field, IconButton, Input, Loading, Modal, PageHeader, SaveBar, Switch, Table, Tabs, Td, Th } from "../../components/ui";
-import { relative } from "../../lib/format";
+import { LanguageSelect } from "../../components/LanguageSelect";
+import { languageName, relative } from "../../lib/format";
 import { useToast } from "../../lib/toast";
 import { useSettingsDoc } from "./useSettingsDoc";
 
@@ -167,6 +168,7 @@ export function DevicesCard({ all = false }: { all?: boolean }) {
   const keys = useQuery({ queryKey: ["reading", "keys", all], queryFn: () => unwrap(api.GET("/api/v1/reading/keys", { params: { query: { all } } })) });
   const [adding, setAdding] = useState(false);
   const [deleting, setDeleting] = useState<Key | null>(null);
+  const [languagesOf, setLanguagesOf] = useState<Key | null>(null);
   const remove = async () => {
     if (!deleting) return;
     try {
@@ -204,6 +206,7 @@ export function DevicesCard({ all = false }: { all?: boolean }) {
                 <Th>{t("Device")}</Th>
                 {all && <Th>{t("Account")}</Th>}
                 <Th>{t("Key")}</Th>
+                <Th>{t("Languages")}</Th>
                 <Th>{t("Last used")}</Th>
                 <Th>{t("Added")}</Th>
                 <Th />
@@ -217,9 +220,15 @@ export function DevicesCard({ all = false }: { all?: boolean }) {
                   <Td>
                     <Code>{`${k.prefix}…`}</Code>
                   </Td>
+                  <Td className="text-muted">
+                    {k.languages?.length ? k.languages.map(languageName).join(" → ") : t("Each language separately")}
+                  </Td>
                   <Td className="text-muted">{k.lastUsedAt ? `${relative(k.lastUsedAt)}${k.lastClient ? ` · ${k.lastClient}` : ""}` : tr("never")}</Td>
                   <Td className="text-muted">{relative(k.createdAt)}</Td>
-                  <Td>
+                  <Td className="whitespace-nowrap">
+                    <IconButton title={t("Reading languages")} onClick={() => setLanguagesOf(k)}>
+                      <Languages className="size-4" />
+                    </IconButton>
                     <IconButton title={t("Revoke key")} onClick={() => setDeleting(k)}>
                       <Trash2 className="size-4" />
                     </IconButton>
@@ -231,6 +240,7 @@ export function DevicesCard({ all = false }: { all?: boolean }) {
         </div>
       )}
       {adding && <AddDeviceModal onClose={() => setAdding(false)} />}
+      {languagesOf && <DeviceLanguagesModal device={languagesOf} onClose={() => setLanguagesOf(null)} />}
       <Confirm
         open={!!deleting}
         title={t("Revoke key")}
@@ -241,6 +251,64 @@ export function DevicesCard({ all = false }: { all?: boolean }) {
         onClose={() => setDeleting(null)}
       />
     </Card>
+  );
+}
+
+/** DeviceLanguagesModal sets a device's language order: with one, a title in
+ * several languages shows once on the device. */
+function DeviceLanguagesModal({ device, onClose }: { device: Key; onClose: () => void }) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [order, setOrder] = useState<string[]>(device.languages ?? []);
+  const [saving, setSaving] = useState(false);
+  const save = async () => {
+    setSaving(true);
+    try {
+      await unwrap(api.PUT("/api/v1/reading/keys/{id}", { params: { path: { id: device.id } }, body: { languages: order } }));
+      qc.invalidateQueries({ queryKey: ["reading", "keys"] });
+      onClose();
+    } catch (e) {
+      toast.fromError(e);
+    } finally {
+      setSaving(false);
+    }
+  };
+  const moveUp = (i: number) => setOrder((o) => o.map((code, j) => (j === i - 1 ? o[i] : j === i ? o[i - 1] : code)));
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={`${t("Reading languages")}: ${device.comment || tr("Unnamed")}`}
+      footer={
+        <>
+          <Button onClick={onClose}>{t("Cancel")}</Button>
+          <Button variant="primary" loading={saving} onClick={save}>{t("Save")}</Button>
+        </>
+      }
+    >
+      <p className="mb-3 text-sm text-muted">
+        {t("A title you have in several languages shows once on this device. Each chapter comes in the first of these languages that has it, and reading progress is shared between languages. With no languages here, each language shows as its own series.")}
+      </p>
+      {order.length > 0 && (
+        <ol className="mb-3 flex flex-col gap-1">
+          {order.map((code, i) => (
+            <li key={code} className="flex items-center gap-2 rounded-md bg-panel-2 px-3 py-1.5 text-sm">
+              <span className="w-5 text-muted">{i + 1}.</span>
+              <span className="flex-1">{languageName(code)}</span>
+              {i > 0 && (
+                <IconButton title={t("Move up")} onClick={() => moveUp(i)}>
+                  <ArrowUp className="size-4" />
+                </IconButton>
+              )}
+              <IconButton title={t("Remove")} onClick={() => setOrder((o) => o.filter((c) => c !== code))}>
+                <X className="size-4" />
+              </IconButton>
+            </li>
+          ))}
+        </ol>
+      )}
+      <LanguageSelect value="" placeholder={t("Add a language…")} onChange={(code) => code && !order.includes(code) && setOrder((o) => [...o, code])} />
+    </Modal>
   );
 }
 

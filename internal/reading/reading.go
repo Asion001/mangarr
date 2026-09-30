@@ -135,6 +135,26 @@ func (s *Service) AllSeries(ctx context.Context, readerID, id int64) ([]SeriesIn
 		}
 		list = kept
 	}
+	// a device with a language order sees a title once
+	var eds *editions
+	if id > 0 {
+		var err error
+		if eds, err = s.titleEditions(ctx, id); err != nil {
+			return nil, err
+		}
+		if eds != nil && len(list) == 1 {
+			list = eds.of[eds.shown[id]][:1]
+			id = list[0].ID
+		}
+	} else if eds = editionsFor(ctx, list); eds != nil {
+		kept := list[:0]
+		for i := range list {
+			if eds.shown[list[i].ID] == list[i].ID {
+				kept = append(kept, list[i])
+			}
+		}
+		list = kept
+	}
 	var counts []struct {
 		SeriesID int64        `bun:"series_id"`
 		Books    int          `bun:"books"`
@@ -208,6 +228,33 @@ func (s *Service) AllSeries(ctx context.Context, readerID, id int64) ([]SeriesIn
 		out = append(out, SeriesInfo{Series: ser, Books: a.books, Read: a.read, InProgress: a.prog, LastRead: a.lr,
 			LastChapterChange: a.changed, FirstRelease: a.first, LastRelease: a.last, Dir: filepath.Join(roots[ser.RootFolderID], ser.Path)})
 	}
+	if eds != nil {
+		// titles with several editions count their merged chapters
+		var ids []int64
+		for i := range out {
+			if all := eds.of[out[i].Series.ID]; len(all) > 1 {
+				for _, ed := range all {
+					ids = append(ids, ed.ID)
+				}
+			}
+		}
+		if len(ids) > 0 {
+			chapters, err := s.chaptersOf(ctx, ids)
+			if err != nil {
+				return nil, err
+			}
+			books, err := s.enrich(ctx, readerID, chapters, ids)
+			if err != nil {
+				return nil, err
+			}
+			merged := eds.merge(books)
+			for i := range out {
+				if len(eds.of[out[i].Series.ID]) > 1 {
+					count(&out[i], merged)
+				}
+			}
+		}
+	}
 	return out, nil
 }
 
@@ -225,9 +272,13 @@ func (s *Service) Series(ctx context.Context, readerID, id int64) (*SeriesInfo, 
 
 // BookInfo is a chapter with its file and the reader's state.
 type BookInfo struct {
+	// Chapter is the chapter; for a device with a language order its
+	// SeriesID is the edition the title is shown as (see EditionID).
 	Chapter model.Chapter
-	File    *model.ChapterFile
-	State   *model.ChapterReadState
+	// EditionID is the series the chapter really belongs to.
+	EditionID int64
+	File      *model.ChapterFile
+	State     *model.ChapterReadState
 	// Index is the chapter's 1-based position in its series (by number).
 	Index int
 	// Scanlator of the file (or the best known release).
@@ -241,6 +292,28 @@ func (s *Service) Books(ctx context.Context, readerID, seriesID int64) ([]BookIn
 	allowed, err := s.visibleSeries(ctx, seriesID)
 	if err != nil {
 		return nil, err
+	}
+	if seriesID > 0 {
+		// a device with a language order gets the title's merged chapters
+		eds, err := s.titleEditions(ctx, seriesID)
+		if err != nil {
+			return nil, err
+		}
+		if eds != nil {
+			var ids []int64
+			for _, ed := range eds.of[eds.shown[seriesID]] {
+				ids = append(ids, ed.ID)
+			}
+			chapters, err := s.chaptersOf(ctx, ids)
+			if err != nil {
+				return nil, err
+			}
+			books, err := s.enrich(ctx, readerID, chapters, ids)
+			if err != nil {
+				return nil, err
+			}
+			return eds.merge(books), nil
+		}
 	}
 	var chapters []model.Chapter
 	q := s.DB.NewSelect().Model(&chapters).Order("series_id", "number_sort", "id")
@@ -259,7 +332,28 @@ func (s *Service) Books(ctx context.Context, readerID, seriesID int64) ([]BookIn
 		}
 		chapters = kept
 	}
-	return s.enrich(ctx, readerID, chapters, seriesID)
+	var only []int64
+	if seriesID > 0 {
+		only = []int64{seriesID}
+	}
+	books, err := s.enrich(ctx, readerID, chapters, only)
+	if err != nil || seriesID > 0 || len(languagesOf(ctx)) == 0 {
+		return books, err
+	}
+	var list []model.Series
+	if err := s.DB.NewSelect().Model(&list).Column("id", "work_id", "language", "preview").Where("preview = ?", false).Scan(ctx); err != nil {
+		return nil, err
+	}
+	if allowed != nil {
+		kept := list[:0]
+		for i := range list {
+			if allowed[list[i].ID] {
+				kept = append(kept, list[i])
+			}
+		}
+		list = kept
+	}
+	return editionsFor(ctx, list).merge(books), nil
 }
 
 // Book loads one chapter.
@@ -281,20 +375,27 @@ func (s *Service) Book(ctx context.Context, readerID, chapterID int64) (*BookInf
 			return &all[i], nil
 		}
 	}
+	if len(languagesOf(ctx)) > 0 {
+		// the device's title shows another language's copy of this chapter;
+		// the chapter itself is still readable
+		return s.Book(withoutLanguages(ctx), readerID, chapterID)
+	}
 	return nil, ErrNotFound
 }
 
-func (s *Service) enrich(ctx context.Context, readerID int64, chapters []model.Chapter, seriesID int64) ([]BookInfo, error) {
+// enrich adds files, states and scanlators to chapters (only: the series
+// they are of, nil for any).
+func (s *Service) enrich(ctx context.Context, readerID int64, chapters []model.Chapter, only []int64) ([]BookInfo, error) {
 	var files []model.ChapterFile
 	fq := s.DB.NewSelect().Model(&files)
 	var states []model.ChapterReadState
 	sq := s.DB.NewSelect().Model(&states).Where("reader_id = ?", readerID)
 	var rels []model.ChapterRelease
 	relq := s.DB.NewSelect().Model(&rels).Column("chapter_id", "scanlator").Where("chapter_id IS NOT NULL").Where("removed = ?", false)
-	if seriesID > 0 {
-		fq = fq.Where("series_id = ?", seriesID)
-		sq = sq.Where("series_id = ?", seriesID)
-		relq = relq.Where("series_id = ?", seriesID)
+	if len(only) > 0 {
+		fq = fq.Where("series_id IN (?)", bun.In(only))
+		sq = sq.Where("series_id IN (?)", bun.In(only))
+		relq = relq.Where("series_id IN (?)", bun.In(only))
 	}
 	if err := fq.Scan(ctx); err != nil {
 		return nil, err
@@ -322,7 +423,7 @@ func (s *Service) enrich(ctx context.Context, readerID int64, chapters []model.C
 	idx := map[int64]int{}
 	for _, ch := range chapters {
 		idx[ch.SeriesID]++
-		b := BookInfo{Chapter: ch, State: stateBy[ch.ID], Index: idx[ch.SeriesID], Scanlator: scanBy[ch.ID]}
+		b := BookInfo{Chapter: ch, EditionID: ch.SeriesID, State: stateBy[ch.ID], Index: idx[ch.SeriesID], Scanlator: scanBy[ch.ID]}
 		if ch.FileID != nil {
 			if f := fileBy[*ch.FileID]; f != nil {
 				b.File = f

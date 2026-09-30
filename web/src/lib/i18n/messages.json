@@ -1,4 +1,20 @@
 {
+  "Each language separately": {
+    "ru": "Каждый язык отдельно",
+    "uk": "Кожна мова окремо"
+  },
+  "Reading languages": {
+    "ru": "Языки чтения",
+    "uk": "Мови читання"
+  },
+  "Add a language…": {
+    "ru": "Добавить язык…",
+    "uk": "Додати мову…"
+  },
+  "A title you have in several languages shows once on this device. Each chapter comes in the first of these languages that has it, and reading progress is shared between languages. With no languages here, each language shows as its own series.": {
+    "ru": "Тайтл, который есть у вас на нескольких языках, показывается на этом устройстве один раз. Каждая глава берётся на первом из этих языков, на котором она есть, а прогресс чтения общий для всех языков. Если языки не выбраны, каждый язык показывается отдельной серией.",
+    "uk": "Тайтл, який є у вас кількома мовами, показується на цьому пристрої один раз. Кожен розділ береться першою з цих мов, якою він є, а прогрес читання спільний для всіх мов. Якщо мови не вибрано, кожна мова показується окремою серією."
+  },
   "Switched off: downloads and processing wait for the workers": {
     "ru": "Выключен: загрузки и обработка ждут воркеров",
     "uk": "Вимкнено: завантаження та обробка чекають на воркерів"

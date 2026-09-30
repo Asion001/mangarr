@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -363,6 +364,162 @@ func TestEditionsSharedInfo(t *testing.T) {
 			}
 			if st := list[0].Stats; st.ChapterCount != 4 || st.ReadCount != 1 || st.InProgressCount != 1 {
 				t.Fatalf("title stats %+v, want 4 chapters, 1 read, 1 started", st)
+			}
+		})
+	}
+}
+
+// TestDeviceLanguageOrder checks what a reading app sees of a title with two
+// editions: both editions without a language order; with one, the title
+// once, each chapter from the first language that has it downloaded.
+func TestDeviceLanguageOrder(t *testing.T) {
+	for dialect, dsn := range dbtest.DSNs(t) {
+		t.Run(dialect, func(t *testing.T) {
+			e := newTestApp(t, dsn)
+			now := time.Now().UTC()
+			work := &model.Work{Title: "Abyss", SortTitle: "abyss", CreatedAt: now, UpdatedAt: now}
+			if _, err := e.App.DB.NewInsert().Model(work).Exec(e.Ctx); err != nil {
+				t.Fatal(err)
+			}
+			chapter := map[string]int64{} // "en 1" → chapter id
+			add := func(lang string, numbers []int, files []int) *model.Series {
+				ser := &model.Series{WorkID: work.ID, Title: "Abyss " + lang, SortTitle: "abyss", Status: model.StatusOngoing, Monitored: true,
+					MonitorNew: model.MonitorAll, RootFolderID: e.RFID, Path: "Abyss " + lang, ProfileID: 1, Language: lang, Tags: []int64{}, AddedAt: now, UpdatedAt: now}
+				if _, err := e.App.DB.NewInsert().Model(ser).Exec(e.Ctx); err != nil {
+					t.Fatal(err)
+				}
+				for _, n := range numbers {
+					c := &model.Chapter{SeriesID: ser.ID, NumberKey: strconv.Itoa(n), NumberSort: float64(n), Monitored: true,
+						State: model.ChapterMissing, FirstSeenAt: now, UpdatedAt: now}
+					if _, err := e.App.DB.NewInsert().Model(c).Exec(e.Ctx); err != nil {
+						t.Fatal(err)
+					}
+					chapter[lang+" "+strconv.Itoa(n)] = c.ID
+					for _, f := range files {
+						if f != n {
+							continue
+						}
+						cf := &model.ChapterFile{ChapterID: c.ID, SeriesID: ser.ID, RelativePath: "Ch." + strconv.Itoa(n) + ".cbz", Size: 1, PageCount: 20, Format: "cbz", ImportedAt: now}
+						if _, err := e.App.DB.NewInsert().Model(cf).Exec(e.Ctx); err != nil {
+							t.Fatal(err)
+						}
+						c.FileID, c.State = &cf.ID, model.ChapterImported
+						if _, err := e.App.DB.NewUpdate().Model(c).Column("file_id", "state").WherePK().Exec(e.Ctx); err != nil {
+							t.Fatal(err)
+						}
+					}
+				}
+				return ser
+			}
+			// English has 1-3, only 1 downloaded; Russian has 1-4, 1 and 2 downloaded
+			en := add("en", []int{1, 2, 3}, []int{1})
+			ru := add("ru", []int{1, 2, 3, 4}, []int{1, 2})
+			rid, err := e.App.Reading.ReaderID(e.Ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := e.App.Reading.Record(e.Ctx, rid, []reading.Change{{ChapterID: chapter["ru 1"], SeriesID: ru.ID, Completed: true}},
+				reading.By{Origin: model.EventOriginApp, Client: "test"}); err != nil {
+				t.Fatal(err)
+			}
+
+			all, err := e.App.Reading.AllSeries(e.Ctx, rid, 0)
+			if err != nil || len(all) != 2 {
+				t.Fatalf("without an order: %d series, %v; want both editions", len(all), err)
+			}
+
+			ctx := reading.WithLanguages(e.Ctx, []string{"en", "ru"})
+			all, err = e.App.Reading.AllSeries(ctx, rid, 0)
+			if err != nil || len(all) != 1 || all[0].Series.ID != en.ID {
+				t.Fatalf("english first: %+v, %v; want the title once, as the english edition", all, err)
+			}
+			if all[0].Books != 4 || all[0].Read != 1 {
+				t.Fatalf("english first: %d chapters, %d read; want 4 and 1", all[0].Books, all[0].Read)
+			}
+			books, err := e.App.Reading.Books(ctx, rid, en.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			// 1: both downloaded → English; 2: only Russian downloaded; 3: neither → English; 4: only Russian has it
+			want := []int64{chapter["en 1"], chapter["ru 2"], chapter["en 3"], chapter["ru 4"]}
+			if len(books) != len(want) {
+				t.Fatalf("english first: %d chapters, want %d", len(books), len(want))
+			}
+			for i, b := range books {
+				if b.Chapter.ID != want[i] || b.Chapter.SeriesID != en.ID || b.Index != i+1 {
+					t.Fatalf("chapter %d: id %d of series %d at %d; want id %d of series %d", i+1, b.Chapter.ID, b.Chapter.SeriesID, b.Index, want[i], en.ID)
+				}
+			}
+			if books[0].State == nil || !books[0].State.Completed {
+				t.Fatalf("english 1 = %+v, want read (it was read in russian)", books[0].State)
+			}
+			if books[1].EditionID != ru.ID {
+				t.Fatalf("chapter 2 belongs to series %d, want the russian edition", books[1].EditionID)
+			}
+			// the other edition's id still opens the title, and its shadowed chapter still opens
+			if si, err := e.App.Reading.Series(ctx, rid, ru.ID); err != nil || si.Series.ID != en.ID || si.Books != 4 {
+				t.Fatalf("russian id: %+v, %v; want the english edition with 4 chapters", si, err)
+			}
+			if b, err := e.App.Reading.Book(ctx, rid, chapter["ru 1"]); err != nil || b.Chapter.ID != chapter["ru 1"] {
+				t.Fatalf("russian 1: %+v, %v; want it readable", b, err)
+			}
+			deck, err := e.App.Reading.OnDeck(ctx, rid)
+			if err != nil || len(deck) != 1 || deck[0].Book.Chapter.ID != chapter["ru 2"] {
+				t.Fatalf("on deck %+v, %v; want chapter 2 from the russian edition", deck, err)
+			}
+
+			// over the wire: a device lists both editions until it gets an order
+			key, rk, err := e.App.Komga.CreateKey(e.Ctx, 0, "phone", "test")
+			if err != nil {
+				t.Fatal(err)
+			}
+			komga := httptest.NewServer(e.App.Komga.Handler())
+			defer komga.Close()
+			listed := func() int {
+				t.Helper()
+				req, _ := http.NewRequest(http.MethodGet, komga.URL+"/api/v1/series", nil)
+				req.Header.Set("X-API-Key", key)
+				resp, err := http.DefaultClient.Do(req)
+				if err != nil || resp.StatusCode != 200 {
+					t.Fatalf("series: %v %v", err, resp.StatusCode)
+				}
+				defer resp.Body.Close()
+				var page struct {
+					Content []map[string]any `json:"content"`
+				}
+				if err := json.NewDecoder(resp.Body).Decode(&page); err != nil {
+					t.Fatal(err)
+				}
+				return len(page.Content)
+			}
+			if n := listed(); n != 2 {
+				t.Fatalf("device without an order lists %d series, want 2", n)
+			}
+			srv := httptest.NewServer(api.New(e.App))
+			defer srv.Close()
+			g, _ := e.App.Settings.General(e.Ctx)
+			req, _ := http.NewRequest(http.MethodPut, srv.URL+"/api/v1/reading/keys/"+strconv.FormatInt(rk.ID, 10), strings.NewReader(`{"languages":["EN","ru","en"]}`))
+			req.Header.Set("X-Api-Key", g.APIKey)
+			req.Header.Set("Content-Type", "application/json")
+			resp, err := http.DefaultClient.Do(req)
+			if err != nil || resp.StatusCode != 200 {
+				t.Fatalf("set languages: %v %v", err, resp.StatusCode)
+			}
+			var saved model.ReadingKey
+			_ = json.NewDecoder(resp.Body).Decode(&saved)
+			resp.Body.Close()
+			if len(saved.Languages) != 2 || saved.Languages[0] != "en" || saved.Languages[1] != "ru" {
+				t.Fatalf("saved languages %v, want [en ru]", saved.Languages)
+			}
+			if n := listed(); n != 1 {
+				t.Fatalf("device with an order lists %d series, want 1", n)
+			}
+
+			// Russian first: the title is the Russian edition, all its own chapters
+			ctx = reading.WithLanguages(e.Ctx, []string{"ru"})
+			books, err = e.App.Reading.Books(ctx, rid, en.ID)
+			if err != nil || len(books) != 4 || books[0].Chapter.ID != chapter["ru 1"] || books[2].Chapter.ID != chapter["ru 3"] || books[0].Chapter.SeriesID != ru.ID {
+				t.Fatalf("russian first: %+v, %v; want the russian chapters", books, err)
 			}
 		})
 	}

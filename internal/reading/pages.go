@@ -395,7 +395,7 @@ func (s *Service) downloadOnOpen(ctx context.Context, b *BookInfo) {
 	if err != nil || !cfg.DownloadOnOpen {
 		return
 	}
-	n, err := s.Downloads.EvaluateAt(ctx, b.Chapter.SeriesID, []int64{b.Chapter.ID}, true, model.PriorityReading)
+	n, err := s.Downloads.EvaluateAt(ctx, b.EditionID, []int64{b.Chapter.ID}, true, model.PriorityReading)
 	if err != nil {
 		s.Log.Warn("download on open failed", "chapter", b.Chapter.ID, "error", err)
 		return
