@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"golang.org/x/image/draw"
+	"github.com/Asion001/mangarr/internal/imagescale"
 
 	"github.com/Asion001/mangarr/internal/downloads"
 	"github.com/Asion001/mangarr/internal/model"
@@ -53,8 +53,7 @@ func shrink(pg downloads.PageFile, maxWidth int, toPNG bool, workDir string) (do
 	w := shrinkLimit(pg, maxWidth)
 	b := src.Bounds()
 	h := b.Dy() * w / b.Dx()
-	dst := image.NewRGBA(image.Rect(0, 0, w, h))
-	draw.CatmullRom.Scale(dst, dst.Bounds(), src, b, draw.Src, nil)
+	dst := imagescale.CatmullRom(src, w, h)
 
 	format := "png"
 	if pg.Format == "jpeg" && !toPNG {

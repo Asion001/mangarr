@@ -21,7 +21,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"golang.org/x/image/draw"
+	"github.com/Asion001/mangarr/internal/imagescale"
 	_ "golang.org/x/image/webp"
 )
 
@@ -360,9 +360,7 @@ func (s *Server) finish(ctx context.Context, src string, p Params) ([]byte, stri
 	}
 	if b := img.Bounds(); p.MaxWidth > 0 && b.Dx() > p.MaxWidth {
 		h := b.Dy() * p.MaxWidth / b.Dx()
-		dst := image.NewRGBA(image.Rect(0, 0, p.MaxWidth, h))
-		draw.CatmullRom.Scale(dst, dst.Bounds(), img, b, draw.Src, nil)
-		img = dst
+		img = imagescale.CatmullRom(img, p.MaxWidth, h)
 	}
 	format := p.Format
 	if format == "webp" && s.cfg.CWebP == "" {
