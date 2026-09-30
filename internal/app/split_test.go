@@ -11,6 +11,7 @@ import (
 	"github.com/Asion001/mangarr/internal/dbtest"
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/modules/source"
+	"github.com/Asion001/mangarr/internal/readstate"
 	"github.com/Asion001/mangarr/internal/series"
 	"github.com/Asion001/mangarr/internal/testutil/fakesource"
 )
@@ -51,7 +52,7 @@ func TestReprocessSplitsTallPagesAndRemapsProgress(t *testing.T) {
 		{ReaderID: readers[1].ID, ChapterID: chapter.ID, SeriesID: ser.ID, Page: 2, Completed: true, ReadAt: &now, SyncedAt: now},
 	}
 	for _, state := range states {
-		if _, err := e.App.DB.NewInsert().Model(state).Exec(e.Ctx); err != nil {
+		if err := readstate.Save(e.Ctx, e.App.DB, state); err != nil {
 			t.Fatal(err)
 		}
 	}

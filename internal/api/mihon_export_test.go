@@ -14,6 +14,7 @@ import (
 	"github.com/Asion001/mangarr/internal/backupimport"
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/reading"
+	"github.com/Asion001/mangarr/internal/readstate"
 	"github.com/Asion001/mangarr/internal/settings"
 )
 
@@ -61,8 +62,10 @@ func TestMihonBackupExportsVisibleLibraryProgressAndDevice(t *testing.T) {
 		{ReaderID: readerID, SeriesID: series.ID, ChapterID: chapters[0].ID, Completed: true, ReadAt: &readAt, SyncedAt: readAt},
 		{ReaderID: readerID, SeriesID: series.ID, ChapterID: chapters[1].ID, Page: 5, SyncedAt: now},
 	}
-	if _, err := app.DB.NewInsert().Model(&states).Exec(ctx); err != nil {
-		t.Fatal(err)
+	for i := range states {
+		if err := readstate.Save(ctx, app.DB, &states[i]); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	resp, err := http.Post(srv.URL+"/api/v1/reading/mihon-backup", "application/json", strings.NewReader(`{"address":"https://manga.example.test/base"}`))

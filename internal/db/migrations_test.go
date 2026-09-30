@@ -119,6 +119,82 @@ func TestMigrationsPreserveDataFromEarlierVersions(t *testing.T) {
 	}
 }
 
+// TestTitleReadStatesMigration checks that per-edition read states become
+// one state per title and chapter number (the furthest wins), still show on
+// every edition's chapter, and survive migrating back down.
+func TestTitleReadStatesMigration(t *testing.T) {
+	for _, dialect := range []Dialect{SQLite, Postgres} {
+		t.Run(string(dialect), func(t *testing.T) {
+			d := migrationTestDB(t, dialect)
+			p := migrationProvider(t, d)
+			ctx := context.Background()
+			if _, err := p.UpTo(ctx, 31); err != nil {
+				t.Fatal(err)
+			}
+			const at = "'2024-01-02T03:04:05Z'"
+			for _, q := range []string{
+				`INSERT INTO root_folders (id, path, language, created_at) VALUES (1, '/library', 'en', ` + at + `)`,
+				`INSERT INTO profiles (id, name, created_at, updated_at) VALUES (1, 'Default', ` + at + `, ` + at + `)`,
+				`INSERT INTO works (id, title, sort_title, created_at, updated_at) VALUES (5, 'Abyss', 'abyss', ` + at + `, ` + at + `)`,
+				// two editions of one title, and a series without a work
+				`INSERT INTO series (id, work_id, title, sort_title, root_folder_id, path, profile_id, added_at, updated_at) VALUES
+					(1, 5, 'Abyss EN', 'abyss', 1, 'en', 1, ` + at + `, ` + at + `),
+					(2, 5, 'Abyss RU', 'abyss', 1, 'ru', 1, ` + at + `, ` + at + `),
+					(3, NULL, 'Loose', 'loose', 1, 'loose', 1, ` + at + `, ` + at + `)`,
+				`INSERT INTO chapters (id, series_id, number_key, number_sort, first_seen_at, updated_at) VALUES
+					(11, 1, '1', 1, ` + at + `, ` + at + `), (12, 1, '2', 2, ` + at + `, ` + at + `),
+					(21, 2, '1', 1, ` + at + `, ` + at + `), (22, 2, '2', 2, ` + at + `, ` + at + `),
+					(31, 3, '1', 1, ` + at + `, ` + at + `)`,
+				`INSERT INTO readers (id, name, created_at) VALUES (1, 'ann', ` + at + `)`,
+				// chapter 1: finished in English, started later in Russian;
+				// chapter 2: only started in Russian
+				`INSERT INTO chapter_read_states (reader_id, chapter_id, series_id, completed, page, synced_at) VALUES
+					(1, 11, 1, TRUE, 0, '2024-01-02T03:04:05Z'),
+					(1, 21, 2, FALSE, 3, '2024-03-02T03:04:05Z'),
+					(1, 22, 2, FALSE, 4, '2024-03-02T03:04:05Z'),
+					(1, 31, 3, TRUE, 0, '2024-01-02T03:04:05Z')`,
+			} {
+				if _, err := d.ExecContext(ctx, q); err != nil {
+					t.Fatalf("seed: %v\n%s", err, q)
+				}
+			}
+			if _, err := p.Up(ctx); err != nil {
+				t.Fatalf("migrate to latest: %v", err)
+			}
+			var titles int
+			if err := d.QueryRowContext(ctx, `SELECT COUNT(*) FROM title_read_states`).Scan(&titles); err != nil || titles != 3 {
+				t.Fatalf("%d title states, %v; want 3", titles, err)
+			}
+			check := func(chapter int64, completed bool, page int, source int64) {
+				t.Helper()
+				var c bool
+				var pg int
+				var src int64
+				if err := d.QueryRowContext(ctx, `SELECT completed, page, source_chapter_id FROM chapter_read_states WHERE reader_id = 1 AND chapter_id = `+fmt.Sprint(chapter)).
+					Scan(&c, &pg, &src); err != nil {
+					t.Fatalf("chapter %d: %v", chapter, err)
+				}
+				if c != completed || pg != page || src != source {
+					t.Fatalf("chapter %d: completed=%v page=%d source=%d, want %v %d %d", chapter, c, pg, src, completed, page, source)
+				}
+			}
+			check(11, true, 0, 11)
+			check(21, true, 0, 11)
+			check(12, false, 4, 22)
+			check(22, false, 4, 22)
+			check(31, true, 0, 31)
+
+			if _, err := p.DownTo(ctx, 31); err != nil {
+				t.Fatalf("migrate down: %v", err)
+			}
+			var rows int
+			if err := d.QueryRowContext(ctx, `SELECT COUNT(*) FROM chapter_read_states WHERE reader_id = 1`).Scan(&rows); err != nil || rows != 5 {
+				t.Fatalf("%d states after migrating down, %v; want 5", rows, err)
+			}
+		})
+	}
+}
+
 func TestFinalMigrationSchemasAgree(t *testing.T) {
 	ctx := context.Background()
 	sqliteDB := migrationTestDB(t, SQLite)
@@ -252,7 +328,7 @@ func migrationSchema(t *testing.T, d *DB) []schemaColumn {
 			}
 		}
 	} else {
-		rows, err := d.QueryContext(ctx, `SELECT table_name, column_name, is_nullable FROM information_schema.columns WHERE table_schema = current_schema() AND table_name <> 'goose_db_version' ORDER BY table_name, ordinal_position`)
+		rows, err := d.QueryContext(ctx, `SELECT table_name, column_name, is_nullable FROM information_schema.columns WHERE table_schema = current_schema() AND table_name NOT IN (SELECT table_name FROM information_schema.views WHERE table_schema = current_schema()) AND table_name <> 'goose_db_version' ORDER BY table_name, ordinal_position`)
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -9,6 +9,7 @@ import (
 	"github.com/Asion001/mangarr/internal/downloads"
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/modules/source"
+	"github.com/Asion001/mangarr/internal/readstate"
 	"github.com/Asion001/mangarr/internal/series"
 	"github.com/Asion001/mangarr/internal/testutil/fakesource"
 )
@@ -79,7 +80,7 @@ func TestPreviewStaysOutOfTheLibraryUntilAdded(t *testing.T) {
 				t.Fatal(err)
 			}
 			state := &model.ChapterReadState{ReaderID: reader.ID, ChapterID: chapters[0].ID, SeriesID: pv.ID, Page: 2, SyncedAt: time.Now().UTC()}
-			if _, err := e.App.DB.NewInsert().Model(state).Exec(e.Ctx); err != nil {
+			if err := readstate.Save(e.Ctx, e.App.DB, state); err != nil {
 				t.Fatal(err)
 			}
 

@@ -9,6 +9,7 @@ import (
 	"github.com/uptrace/bun"
 
 	"github.com/Asion001/mangarr/internal/model"
+	"github.com/Asion001/mangarr/internal/readstate"
 )
 
 // ProgressChanged is published (with Event.SeriesID) when reading progress
@@ -53,8 +54,8 @@ type Outcome struct {
 //   - otherwise the latest report wins;
 //   - states get origin "app", so a library server's sync doesn't lower or
 //     delete them until it reports the chapter itself;
-//   - finishing or unreading a chapter does the same in the title's other
-//     language editions (see mirrorEditions).
+//   - progress belongs to the title, so a change shows in every language
+//     edition; the other editions are announced too (announceEditions).
 func (s *Service) Record(ctx context.Context, readerID int64, changes []Change, by By) ([]Outcome, error) {
 	if len(changes) == 0 {
 		return nil, nil
@@ -97,7 +98,7 @@ func (s *Service) Record(ctx context.Context, readerID int64, changes []Change, 
 	}
 	s.logOutcomes(ctx, readerID, out, by, now)
 	s.announce(readerID, out, by)
-	for sid := range s.mirrorEditions(ctx, readerID, out) {
+	for sid := range s.announceEditions(ctx, readerID, out) {
 		changed[sid] = true
 	}
 	for sid := range changed {
@@ -116,8 +117,7 @@ func apply(ctx context.Context, tx bun.Tx, readerID int64, st *model.ChapterRead
 		if st == nil {
 			return model.OutcomeUnchanged, nil
 		}
-		_, err := tx.NewDelete().Model(st).WherePK().Exec(ctx)
-		return model.OutcomeUnread, err
+		return model.OutcomeUnread, readstate.Delete(ctx, tx, st.ID)
 	case st == nil:
 		if !c.Completed && c.Page <= 0 {
 			return model.OutcomeUnchanged, nil
@@ -127,8 +127,7 @@ func apply(ctx context.Context, tx bun.Tx, readerID int64, st *model.ChapterRead
 		if c.Completed {
 			st.ReadAt = &now
 		}
-		_, err := tx.NewInsert().Model(st).Exec(ctx)
-		return model.OutcomeApplied, err
+		return model.OutcomeApplied, readstate.Save(ctx, tx, st)
 	case st.Completed && !c.Completed:
 		return model.OutcomeKept, nil // a page update doesn't un-finish a chapter
 	case st.Completed == c.Completed && (c.Page <= 0 || c.Page == st.Page):
@@ -142,8 +141,7 @@ func apply(ctx context.Context, tx bun.Tx, readerID int64, st *model.ChapterRead
 		st.Page = c.Page
 	}
 	st.SyncedAt, st.Origin = now, model.ReadOriginApp
-	_, err := tx.NewUpdate().Model(st).Column("completed", "page", "read_at", "synced_at", "origin").WherePK().Exec(ctx)
-	return model.OutcomeApplied, err
+	return model.OutcomeApplied, readstate.Save(ctx, tx, st)
 }
 
 // chapterState is a chapter with the reader's state (nil: unread).

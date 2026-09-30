@@ -20,6 +20,7 @@ import (
 	"github.com/Asion001/mangarr/internal/logging"
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/modules/source"
+	"github.com/Asion001/mangarr/internal/readstate"
 	"github.com/Asion001/mangarr/internal/sourcecache"
 	"github.com/Asion001/mangarr/internal/testutil/fakesource"
 )
@@ -167,7 +168,7 @@ func TestDiscoverShelfLibraryFiltersSortsAndVisibility(t *testing.T) {
 			t.Fatal(err)
 		}
 		rs := &model.ChapterReadState{ReaderID: e.reader, ChapterID: chapter.ID, SeriesID: b.ID, Completed: true, SyncedAt: e.now}
-		if _, err := e.s.app.DB.NewInsert().Model(rs).Exec(e.ctx); err != nil {
+		if err := readstate.Save(e.ctx, e.s.app.DB, rs); err != nil {
 			t.Fatal(err)
 		}
 		a.Metadata.Genres = []string{"Drama"}
@@ -420,7 +421,7 @@ func TestDiscoverShelfCursorRechecksLibraryState(t *testing.T) {
 			t.Fatal(err)
 		}
 		progress := &model.ChapterReadState{ReaderID: e.reader, ChapterID: chapter.ID, SeriesID: b.ID, Page: 1, SyncedAt: e.now}
-		if _, err := e.s.app.DB.NewInsert().Model(progress).Exec(e.ctx); err != nil {
+		if err := readstate.Save(e.ctx, e.s.app.DB, progress); err != nil {
 			t.Fatal(err)
 		}
 		// Newly started and no-longer-matching candidates disappear; renaming

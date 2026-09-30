@@ -11,6 +11,7 @@ import (
 	"github.com/Asion001/mangarr/internal/api"
 	"github.com/Asion001/mangarr/internal/dbtest"
 	"github.com/Asion001/mangarr/internal/model"
+	"github.com/Asion001/mangarr/internal/readstate"
 )
 
 // TestSeriesReadStats checks the series list's read counts and the series
@@ -46,7 +47,7 @@ func TestSeriesReadStats(t *testing.T) {
 				// bob doesn't count for cleanup, so he doesn't count here
 				{ReaderID: bob.ID, ChapterID: chs[3].ID, SeriesID: ser.ID, Completed: true, ReadAt: &now, SyncedAt: now},
 			} {
-				if _, err := e.App.DB.NewInsert().Model(st).Exec(e.Ctx); err != nil {
+				if err := readstate.Save(e.Ctx, e.App.DB, st); err != nil {
 					t.Fatal(err)
 				}
 			}

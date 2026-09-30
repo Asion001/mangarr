@@ -19,6 +19,7 @@ import (
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/modules"
 	"github.com/Asion001/mangarr/internal/modules/library"
+	"github.com/Asion001/mangarr/internal/readstate"
 )
 
 type Syncer struct {
@@ -198,9 +199,11 @@ func (s *Syncer) syncAccount(ctx context.Context, acc *model.ReaderAccount, idx 
 			}
 		}
 		// Chapters that still have files but are no longer reported were
-		// marked unread on the server.
+		// marked unread on the server. A state reported on another language
+		// edition's chapter is that chapter's to clear: this one may just
+		// not have been written to the server yet.
 		for chID, st := range byChapter {
-			if seen[chID] {
+			if seen[chID] || st.SourceChapterID != chID {
 				continue
 			}
 			if !withFile[chID] {
@@ -209,7 +212,7 @@ func (s *Syncer) syncAccount(ctx context.Context, acc *model.ReaderAccount, idx 
 			if s.isProtected(st.SeriesID) || st.Origin != "" {
 				continue // imported states wait until they're written to the server
 			}
-			if _, err := tx.NewDelete().Model(st).WherePK().Exec(ctx); err != nil {
+			if err := readstate.Delete(ctx, tx, st.ID); err != nil {
 				return err
 			}
 			changes = append(changes, Change{SeriesID: st.SeriesID, ChapterID: chID, Outcome: model.OutcomeUnread})
@@ -223,8 +226,8 @@ func (s *Syncer) syncAccount(ctx context.Context, acc *model.ReaderAccount, idx 
 	return updated, err
 }
 
-// apply stores one reported book's progress (st is the current state, nil
-// when none). Restored or imported progress is never lowered, and a server
+// apply stores one reported book's progress (st is the current state of
+// the book's chapter, nil when none). Restored or imported progress is never lowered, and a server
 // report takes over imported (backup) states. It returns
 // model.OutcomeApplied, model.OutcomeKept (a lower report was ignored) or
 // "" (nothing new).
@@ -239,8 +242,13 @@ func (s *Syncer) apply(ctx context.Context, idb bun.IDB, readerID int64, st *mod
 		}
 		st = &model.ChapterReadState{ReaderID: readerID, ChapterID: ref.chapterID, SeriesID: ref.seriesID,
 			Completed: bp.Completed, Page: bp.Page, ReadAt: readAt, SyncedAt: now}
-		_, err := idb.NewInsert().Model(st).Exec(ctx)
-		return model.OutcomeApplied, err
+		return model.OutcomeApplied, readstate.Save(ctx, idb, st)
+	}
+	if st.SourceChapterID != ref.chapterID && !(bp.Completed && !st.Completed) {
+		// the state came from another language edition of the title: this
+		// edition's book can finish the chapter, but its lower (or merely
+		// different) position says nothing about the title's
+		return "", nil
 	}
 	if st.Origin == "" && st.Completed == bp.Completed && st.Page == bp.Page && (readAt == nil || (st.ReadAt != nil && st.ReadAt.Equal(*readAt))) {
 		return "", nil
@@ -257,7 +265,7 @@ func (s *Syncer) apply(ctx context.Context, idb bun.IDB, readerID int64, st *mod
 	}
 	// the server knows this chapter now; it owns the state from here on
 	st.Completed, st.Page, st.ReadAt, st.SyncedAt, st.Origin = bp.Completed, bp.Page, readAt, now, ""
-	_, err := idb.NewUpdate().Model(st).Column("completed", "page", "read_at", "synced_at", "origin").WherePK().Exec(ctx)
+	err := readstate.Save(ctx, idb, st)
 	if sameValues {
 		return "", err // only the owner changed
 	}
@@ -292,7 +300,7 @@ func (s *Syncer) ApplyEvent(ctx context.Context, acc *model.ReaderAccount, ev li
 		switch {
 		case !found:
 		case cur.Origin == "" && !s.isProtected(ref.seriesID):
-			if _, err := s.db.NewDelete().Model(&cur).WherePK().Exec(ctx); err != nil {
+			if err := readstate.Delete(ctx, s.db, cur.ID); err != nil {
 				return 0, err
 			}
 			outcome = model.OutcomeUnread
@@ -422,6 +430,9 @@ func (s *Syncer) PushSeries(ctx context.Context, seriesID int64, unread []int64)
 			p, ok := pathOf[st.ChapterID]
 			if !ok || (!st.Completed && st.Page == 0) {
 				continue
+			}
+			if !st.Completed && st.SourceChapterID != st.ChapterID {
+				continue // a page of another language edition's file
 			}
 			r, has := remote[p]
 			if has && (r.Completed || (!st.Completed && r.Page >= st.Page)) {

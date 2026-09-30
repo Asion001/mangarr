@@ -1,0 +1,60 @@
+-- +goose Up
+-- Reading progress belongs to a title, not to one language edition: a state
+-- is keyed by the title (the work, or minus the series id for a series
+-- without one) and the chapter number. chapter_read_states becomes a view
+-- that shows each state on that chapter of every edition, so reads stay per
+-- chapter; writes go to title_read_states (internal/readstate).
+CREATE TABLE title_read_states (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    reader_id  INTEGER   NOT NULL REFERENCES readers (id) ON DELETE CASCADE,
+    title_id   INTEGER   NOT NULL,
+    number_key TEXT      NOT NULL,
+    -- the chapter the state was last reported on (its page numbers)
+    chapter_id INTEGER   NOT NULL,
+    completed  BOOLEAN   NOT NULL DEFAULT FALSE,
+    page       INTEGER   NOT NULL DEFAULT 0,
+    read_at    TIMESTAMP,
+    synced_at  TIMESTAMP NOT NULL,
+    origin     TEXT      NOT NULL DEFAULT ''
+);
+-- editions that disagree keep the furthest, then the latest, state
+INSERT INTO title_read_states (reader_id, title_id, number_key, chapter_id, completed, page, read_at, synced_at, origin)
+SELECT reader_id, title_id, number_key, chapter_id, completed, page, read_at, synced_at, origin
+FROM (SELECT rs.reader_id, COALESCE(s.work_id, -s.id) AS title_id, c.number_key, rs.chapter_id, rs.completed, rs.page, rs.read_at, rs.synced_at, rs.origin,
+             ROW_NUMBER() OVER (PARTITION BY rs.reader_id, COALESCE(s.work_id, -s.id), c.number_key
+                                ORDER BY rs.completed DESC, rs.synced_at DESC, rs.id DESC) AS rn
+      FROM chapter_read_states AS rs
+      JOIN chapters AS c ON c.id = rs.chapter_id
+      JOIN series AS s ON s.id = c.series_id) AS ranked
+WHERE rn = 1;
+CREATE UNIQUE INDEX title_read_states_identity ON title_read_states (reader_id, title_id, number_key);
+CREATE INDEX title_read_states_title ON title_read_states (title_id, number_key);
+CREATE INDEX series_title ON series ((COALESCE(work_id, -id)));
+DROP TABLE chapter_read_states;
+CREATE VIEW chapter_read_states AS
+SELECT t.id, t.reader_id, c.id AS chapter_id, c.series_id, t.completed, t.page, t.read_at, t.synced_at, t.origin,
+       t.chapter_id AS source_chapter_id
+FROM title_read_states AS t
+JOIN series AS s ON COALESCE(s.work_id, -s.id) = t.title_id
+JOIN chapters AS c ON c.series_id = s.id AND c.number_key = t.number_key;
+
+-- +goose Down
+CREATE TABLE chapter_read_states_table (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    reader_id  INTEGER   NOT NULL REFERENCES readers (id) ON DELETE CASCADE,
+    chapter_id INTEGER   NOT NULL REFERENCES chapters (id) ON DELETE CASCADE,
+    series_id  INTEGER   NOT NULL,
+    completed  BOOLEAN   NOT NULL DEFAULT FALSE,
+    page       INTEGER   NOT NULL DEFAULT 0,
+    read_at    TIMESTAMP,
+    synced_at  TIMESTAMP NOT NULL,
+    origin     TEXT      NOT NULL DEFAULT ''
+);
+INSERT INTO chapter_read_states_table (reader_id, chapter_id, series_id, completed, page, read_at, synced_at, origin)
+SELECT reader_id, chapter_id, series_id, completed, page, read_at, synced_at, origin FROM chapter_read_states;
+DROP VIEW chapter_read_states;
+ALTER TABLE chapter_read_states_table RENAME TO chapter_read_states;
+CREATE UNIQUE INDEX chapter_read_states_identity ON chapter_read_states (reader_id, chapter_id);
+CREATE INDEX chapter_read_states_series ON chapter_read_states (series_id);
+DROP INDEX series_title;
+DROP TABLE title_read_states;

@@ -11,6 +11,7 @@ import (
 
 	"github.com/Asion001/mangarr/internal/dbtest"
 	"github.com/Asion001/mangarr/internal/model"
+	"github.com/Asion001/mangarr/internal/readstate"
 )
 
 // komgaFixture is a series with four chapters: 1 read, 2 in progress (page
@@ -83,7 +84,7 @@ func newKomgaFixture(t *testing.T, dsn string) *komgaFixture {
 		{ReaderID: rid, ChapterID: f.chs[0].ID, SeriesID: ser.ID, Completed: true, ReadAt: &read, SyncedAt: now},
 		{ReaderID: rid, ChapterID: f.chs[1].ID, SeriesID: ser.ID, Page: 5, SyncedAt: now},
 	} {
-		if _, err := e.App.DB.NewInsert().Model(st).Exec(e.Ctx); err != nil {
+		if err := readstate.Save(e.Ctx, e.App.DB, st); err != nil {
 			t.Fatal(err)
 		}
 	}

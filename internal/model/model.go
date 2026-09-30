@@ -849,19 +849,45 @@ type ReaderAccount struct {
 	CreatedAt     time.Time         `bun:"created_at,notnull" json:"createdAt"`
 }
 
+// ChapterReadState is a reader's progress in a chapter. Progress belongs to
+// the title: chapter_read_states is a view that shows a TitleReadState on
+// that chapter of every language edition, so this is read-only. Write
+// through internal/readstate.
 type ChapterReadState struct {
 	bun.BaseModel `bun:"table:chapter_read_states"`
-	ID            int64      `bun:"id,pk,autoincrement" json:"id"`
-	ReaderID      int64      `bun:"reader_id,notnull" json:"readerId"`
-	ChapterID     int64      `bun:"chapter_id,notnull" json:"chapterId"`
-	SeriesID      int64      `bun:"series_id,notnull" json:"seriesId"`
-	Completed     bool       `bun:"completed,notnull" json:"completed"`
-	Page          int        `bun:"page,notnull" json:"page"`
-	ReadAt        *time.Time `bun:"read_at" json:"readAt,omitempty"`
-	SyncedAt      time.Time  `bun:"synced_at,notnull" json:"syncedAt"`
+	// ID is the TitleReadState's: editions of a title share it.
+	ID        int64      `bun:"id,pk" json:"id"`
+	ReaderID  int64      `bun:"reader_id,notnull" json:"readerId"`
+	ChapterID int64      `bun:"chapter_id,notnull" json:"chapterId"`
+	SeriesID  int64      `bun:"series_id,notnull" json:"seriesId"`
+	Completed bool       `bun:"completed,notnull" json:"completed"`
+	Page      int        `bun:"page,notnull" json:"page"`
+	ReadAt    *time.Time `bun:"read_at" json:"readAt,omitempty"`
+	SyncedAt  time.Time  `bun:"synced_at,notnull" json:"syncedAt"`
 	// Origin is "" for states read from a library server and ReadOriginBackup
 	// for imported ones (kept until a server reports the chapter).
 	Origin string `bun:"origin,notnull" json:"origin,omitempty"`
+	// SourceChapterID is the chapter the state was last reported on; it
+	// differs from ChapterID when it came from another language edition.
+	SourceChapterID int64 `bun:"source_chapter_id" json:"-"`
+}
+
+// TitleReadState is a reader's progress in one chapter number of a title,
+// shared by the title's language editions.
+type TitleReadState struct {
+	bun.BaseModel `bun:"table:title_read_states"`
+	ID            int64 `bun:"id,pk,autoincrement"`
+	ReaderID      int64 `bun:"reader_id,notnull"`
+	// TitleID is the work's id, or minus the series id without a work.
+	TitleID   int64  `bun:"title_id,notnull"`
+	NumberKey string `bun:"number_key,notnull"`
+	// ChapterID is the chapter the state was last reported on.
+	ChapterID int64      `bun:"chapter_id,notnull"`
+	Completed bool       `bun:"completed,notnull"`
+	Page      int        `bun:"page,notnull"`
+	ReadAt    *time.Time `bun:"read_at"`
+	SyncedAt  time.Time  `bun:"synced_at,notnull"`
+	Origin    string     `bun:"origin,notnull"`
 }
 
 // ReadOriginBackup marks read states imported from a backup.

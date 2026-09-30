@@ -16,6 +16,7 @@ import (
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/modules"
 	"github.com/Asion001/mangarr/internal/modules/source"
+	"github.com/Asion001/mangarr/internal/readstate"
 	"github.com/Asion001/mangarr/internal/series"
 )
 
@@ -528,7 +529,7 @@ func ImportReadState(ctx context.Context, idb bun.IDB, readerID, seriesID int64,
 		if st == nil {
 			st = &model.ChapterReadState{ReaderID: readerID, ChapterID: id, SeriesID: seriesID, Completed: w.completed, Page: w.page,
 				ReadAt: readAt, SyncedAt: now, Origin: model.ReadOriginBackup}
-			if _, err := idb.NewInsert().Model(st).Exec(ctx); err != nil {
+			if err := readstate.Save(ctx, idb, st); err != nil {
 				return changed, err
 			}
 			changed++
@@ -539,7 +540,7 @@ func ImportReadState(ctx context.Context, idb bun.IDB, readerID, seriesID int64,
 			continue
 		}
 		st.Completed, st.Page, st.ReadAt, st.SyncedAt, st.Origin = w.completed, w.page, readAt, now, model.ReadOriginBackup
-		if _, err := idb.NewUpdate().Model(st).Column("completed", "page", "read_at", "synced_at", "origin").WherePK().Exec(ctx); err != nil {
+		if err := readstate.Save(ctx, idb, st); err != nil {
 			return changed, err
 		}
 		changed++

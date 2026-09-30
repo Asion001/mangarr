@@ -18,6 +18,7 @@ import (
 	"github.com/Asion001/mangarr/internal/db"
 	"github.com/Asion001/mangarr/internal/dbtest"
 	"github.com/Asion001/mangarr/internal/model"
+	"github.com/Asion001/mangarr/internal/readstate"
 	"github.com/Asion001/mangarr/internal/settings"
 )
 
@@ -174,7 +175,7 @@ func TestRestoreRecycledPreservesIdentityAndProgress(t *testing.T) {
 				t.Fatal(err)
 			}
 			state := &model.ChapterReadState{ReaderID: reader.ID, ChapterID: f.ChapterID, SeriesID: s.ID, Page: 4, Completed: complete, SyncedAt: time.Now()}
-			if _, err := d.NewInsert().Model(state).Exec(ctx); err != nil {
+			if err := readstate.Save(ctx, d, state); err != nil {
 				t.Fatal(err)
 			}
 		}

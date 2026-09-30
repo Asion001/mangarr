@@ -13,6 +13,7 @@ import (
 	"github.com/Asion001/mangarr/internal/history"
 	"github.com/Asion001/mangarr/internal/imagecheck"
 	"github.com/Asion001/mangarr/internal/model"
+	"github.com/Asion001/mangarr/internal/readstate"
 	"github.com/uptrace/bun"
 )
 
@@ -189,9 +190,12 @@ func RemapProgress(ctx context.Context, tx bun.IDB, chapterID int64, old, next *
 		return err
 	}
 	for i := range states {
+		if states[i].SourceChapterID != chapterID {
+			continue // the page is another edition's
+		}
 		page := RemapVersionPage(states[i].Page, states[i].Completed, old, next)
 		if page != states[i].Page {
-			if _, err := tx.NewUpdate().Model(&states[i]).Set("page = ?", page).WherePK().Exec(ctx); err != nil {
+			if err := readstate.SetPage(ctx, tx, states[i].ID, page); err != nil {
 				return err
 			}
 		}

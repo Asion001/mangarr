@@ -13,6 +13,7 @@ import (
 	"github.com/Asion001/mangarr/internal/catalogs"
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/modules/source"
+	"github.com/Asion001/mangarr/internal/readstate"
 	"github.com/Asion001/mangarr/internal/testutil/fakesource"
 )
 
@@ -53,8 +54,8 @@ func TestDiscoverAggregatesPersonalLibraryAndCachedSources(t *testing.T) {
 		t.Fatal(err)
 	}
 	readAt := now.Add(-2 * time.Hour)
-	if _, err := app.DB.NewInsert().Model(&model.ChapterReadState{ReaderID: readerID, ChapterID: readChapter.ID,
-		SeriesID: readSeries.ID, Completed: true, ReadAt: &readAt, SyncedAt: readAt}).Exec(ctx); err != nil {
+	if err := readstate.Save(ctx, app.DB, &model.ChapterReadState{ReaderID: readerID, ChapterID: readChapter.ID,
+		SeriesID: readSeries.ID, Completed: true, ReadAt: &readAt, SyncedAt: readAt}); err != nil {
 		t.Fatal(err)
 	}
 

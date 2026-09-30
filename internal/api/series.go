@@ -753,16 +753,7 @@ func (s *Server) registerSeries() {
 			if _, err := s.visibleSeries(ctx, in.ID); err != nil {
 				return nil, err
 			}
-			if err := s.app.Series.SetWork(ctx, in.ID, in.Body.WorkID); err != nil {
-				return nil, seriesError(err)
-			}
-			if in.Body.WorkID > 0 {
-				// what was read in either edition is read in both
-				if _, err := s.app.Reading.CatchUpEditions(ctx, in.Body.WorkID); err != nil {
-					s.app.Log.Warn("language edition progress", "work", in.Body.WorkID, "err", err)
-				}
-			}
-			return nil, nil
+			return nil, seriesError(s.app.Series.SetWork(ctx, in.ID, in.Body.WorkID))
 		})
 
 	huma.Register(s.api, huma.Operation{OperationID: "series-lookup", Method: http.MethodGet, Path: "/api/v1/series/lookup", Tags: tags,

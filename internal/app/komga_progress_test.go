@@ -154,7 +154,7 @@ func TestKomgaAPIProgress(t *testing.T) {
 			_, _ = f.e.App.DB.NewInsert().Model(acc).Exec(f.e.Ctx)
 			var server model.ChapterReadState
 			_ = f.e.App.DB.NewSelect().Model(&server).Where("reader_id = ? AND chapter_id = ?", f.reader, f.chs[0].ID).Scan(f.e.Ctx)
-			_, _ = f.e.App.DB.NewUpdate().Model(&server).Set("origin = ''").WherePK().Exec(f.e.Ctx)
+			_, _ = f.e.App.DB.NewUpdate().Model((*model.TitleReadState)(nil)).Set("origin = ''").Where("id = ?", server.ID).Exec(f.e.Ctx)
 			lib.SetProgress("k", []library.BookProgress{})
 			if _, err := f.e.App.ReadSync.SyncAccount(f.e.Ctx, acc); err != nil {
 				t.Fatal(err)

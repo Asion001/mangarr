@@ -10,6 +10,7 @@ import (
 	"github.com/Asion001/mangarr/internal/db"
 	"github.com/Asion001/mangarr/internal/dbtest"
 	"github.com/Asion001/mangarr/internal/model"
+	"github.com/Asion001/mangarr/internal/readstate"
 )
 
 func TestStatsScopesAndAggregates(t *testing.T) {
@@ -61,7 +62,7 @@ func TestStatsScopesAndAggregates(t *testing.T) {
 		} {
 			state := &model.ChapterReadState{ReaderID: reader.ID, SeriesID: pair.series.ID, ChapterID: pair.chapter.ID,
 				Completed: true, ReadAt: &now, SyncedAt: now}
-			if _, err := database.NewInsert().Model(state).Exec(ctx); err != nil {
+			if err := readstate.Save(ctx, database, state); err != nil {
 				t.Fatal(err)
 			}
 		}

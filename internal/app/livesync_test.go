@@ -10,6 +10,7 @@ import (
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/modules/library"
 	"github.com/Asion001/mangarr/internal/modules/source"
+	"github.com/Asion001/mangarr/internal/readstate"
 	"github.com/Asion001/mangarr/internal/series"
 	"github.com/Asion001/mangarr/internal/testutil/fakelibrary"
 	"github.com/Asion001/mangarr/internal/testutil/fakesource"
@@ -73,7 +74,7 @@ func TestLiveReadSync(t *testing.T) {
 	// an imported state isn't cleared by the server not knowing it yet
 	imported := &model.ChapterReadState{ReaderID: r.ID, ChapterID: files["2"].ChapterID, SeriesID: ser.ID, Completed: true,
 		SyncedAt: time.Now().UTC(), Origin: model.ReadOriginBackup}
-	_, _ = e.App.DB.NewInsert().Model(imported).Exec(e.Ctx)
+	_ = readstate.Save(e.Ctx, e.App.DB, imported)
 	push(library.ProgressEvent{Book: &library.BookProgress{LocalPath: path("2")}, Deleted: true})
 	push(library.ProgressEvent{Book: &library.BookProgress{LocalPath: filepath.Join(e.Root, "Elsewhere", "x.cbz"), Completed: true}})
 	time.Sleep(200 * time.Millisecond)

@@ -179,9 +179,8 @@ func (a *App) housekeeping(ctx context.Context, r *jobs.Run) error {
 	if _, err := a.Reading.PruneEvents(ctx); err != nil {
 		a.Log.Warn("read events purge", "err", err)
 	}
-	// chapters that reached an edition after they were read in another
-	if _, err := a.Reading.CatchUpEditions(ctx, 0); err != nil {
-		a.Log.Warn("language edition progress", "err", err)
+	if err := a.Reading.PurgeOrphans(ctx); err != nil {
+		a.Log.Warn("reading progress purge", "err", err)
 	}
 	previews, err := a.Series.PurgePreviews(ctx, time.Now().UTC().Add(-series.PreviewTTL))
 	if err != nil {

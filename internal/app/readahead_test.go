@@ -11,6 +11,7 @@ import (
 	"github.com/Asion001/mangarr/internal/dbtest"
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/modules/source"
+	"github.com/Asion001/mangarr/internal/readstate"
 	"github.com/Asion001/mangarr/internal/series"
 	"github.com/Asion001/mangarr/internal/testutil/fakesource"
 )
@@ -46,7 +47,7 @@ func TestReadAhead(t *testing.T) {
 			rid, _ := e.App.Reading.ReaderID(e.Ctx)
 			old := time.Now().Add(-60 * 24 * time.Hour).UTC()
 			st := &model.ChapterReadState{ReaderID: rid, ChapterID: list[0].ID, SeriesID: ser.ID, Completed: true, ReadAt: &old, SyncedAt: old}
-			if _, err := e.App.DB.NewInsert().Model(st).Exec(e.Ctx); err != nil {
+			if err := readstate.Save(e.Ctx, e.App.DB, st); err != nil {
 				t.Fatal(err)
 			}
 			if n, err := e.App.Reading.ReadAhead(e.Ctx, rid, ser.ID); err != nil || n != 0 {
@@ -55,7 +56,7 @@ func TestReadAhead(t *testing.T) {
 			if n, _ := e.App.DB.NewSelect().Model((*model.Chapter)(nil)).Where("series_id = ? AND monitored", ser.ID).Count(e.Ctx); n != 0 {
 				t.Fatalf("old history monitored %d chapters", n)
 			}
-			_, _ = e.App.DB.NewDelete().Model(st).WherePK().Exec(e.Ctx)
+			_ = readstate.Delete(e.Ctx, e.App.DB, st.ID)
 
 			key, _, _ := e.App.Komga.CreateKey(e.Ctx, 0, "test", "test")
 			srv := httptest.NewServer(e.App.Komga.Handler())

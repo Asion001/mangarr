@@ -23,6 +23,7 @@ import (
 	"github.com/Asion001/mangarr/internal/modules"
 	"github.com/Asion001/mangarr/internal/modules/source"
 	"github.com/Asion001/mangarr/internal/naming"
+	"github.com/Asion001/mangarr/internal/readstate"
 	"github.com/Asion001/mangarr/internal/sourcepriority"
 	"github.com/Asion001/mangarr/internal/sourcesearch"
 )
@@ -365,6 +366,10 @@ func (s *Service) ReconcileWorks(ctx context.Context) error {
 				if _, err := tx.NewUpdate().Model((*model.Series)(nil)).Set("work_id = ?", workID).Where("id = ?", ser.ID).Exec(ctx); err != nil {
 					return err
 				}
+				// reading progress follows the edition to its title
+				if err := readstate.Retitle(ctx, tx, ser.ID, readstate.TitleID(&ser), workID); err != nil {
+					return err
+				}
 			}
 			for provider, id := range ser.Metadata.ExternalIDs {
 				if provider != "mal" && id != "" {
@@ -372,8 +377,10 @@ func (s *Service) ReconcileWorks(ctx context.Context) error {
 				}
 			}
 		}
-		_, err := tx.NewDelete().Model((*model.Work)(nil)).Where("id NOT IN (SELECT DISTINCT work_id FROM series)").Exec(ctx)
-		return err
+		if _, err := tx.NewDelete().Model((*model.Work)(nil)).Where("id NOT IN (SELECT DISTINCT work_id FROM series)").Exec(ctx); err != nil {
+			return err
+		}
+		return readstate.Purge(ctx, tx)
 	})
 }
 
@@ -404,7 +411,12 @@ func (s *Service) SetWork(ctx context.Context, seriesID, workID int64) error {
 		if old > 0 && old != workID {
 			_, _ = tx.NewDelete().Model((*model.Work)(nil)).Where("id = ? AND NOT EXISTS (SELECT 1 FROM series WHERE work_id = ?)", old, old).Exec(ctx)
 		}
-		return nil
+		// what was read in this edition is read in the title it joins, and a
+		// separated edition keeps what was read of it
+		if err := readstate.Retitle(ctx, tx, seriesID, readstate.TitleID(ser), workID); err != nil {
+			return err
+		}
+		return readstate.Purge(ctx, tx)
 	})
 	if err == nil {
 		s.bus.Changed("series", "updated", seriesID)
@@ -561,6 +573,7 @@ func (s *Service) Delete(ctx context.Context, id int64, deleteFiles bool) error 
 	}
 	_, _ = s.db.NewDelete().Model((*model.Work)(nil)).Where("id = ? AND NOT EXISTS (SELECT 1 FROM series WHERE work_id = ?)", ser.WorkID, ser.WorkID).Exec(ctx)
 	_, _ = s.db.NewDelete().Model((*model.History)(nil)).Where("series_id = ?", id).Exec(ctx)
+	_ = readstate.Purge(ctx, s.db) // the title's progress goes with its last edition
 	s.bus.Publish(events.Event{Type: events.SeriesDeleted, SeriesID: id, Payload: events.MessagePayload{Title: "Series deleted", Message: ser.Title}})
 	s.bus.Changed("series", "deleted", id)
 	return nil
