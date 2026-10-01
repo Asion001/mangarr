@@ -45,7 +45,10 @@ func FindAvifenc() *Avifenc {
 	if err != nil {
 		return nil
 	}
-	out, _ := run(context.Background(), bin, "--version")
+	out, err := run(context.Background(), bin, "--version")
+	if err != nil {
+		return nil // can't start (e.g. a missing runtime library)
+	}
 	help, _ := run(context.Background(), bin, "--help")
 	return &Avifenc{Bin: bin, Version: firstLine(out), Progressive: bytes.Contains(help, []byte("--progressive"))}
 }
@@ -102,7 +105,10 @@ func FindCjxl() *Cjxl {
 	if err != nil {
 		return nil
 	}
-	out, _ := run(context.Background(), bin, "--version")
+	out, err := run(context.Background(), bin, "--version")
+	if err != nil {
+		return nil
+	}
 	return &Cjxl{Bin: bin, Version: firstLine(out)}
 }
 

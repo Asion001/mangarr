@@ -45,6 +45,7 @@ func main() {
 	noBrowser := flag.Bool("no-browser", false, "don't open the status page in the browser")
 	flag.Parse()
 	settle()
+	useBundledEncoders()
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -214,6 +215,21 @@ func defaults() map[string]string {
 		}
 	}
 	return d
+}
+
+// useBundledEncoders puts the encoders folder next to the program (avifenc,
+// cwebp and cjxl in the release zip) first on PATH, so pages are encoded by
+// the native tools instead of the much slower built-in encoder.
+func useBundledEncoders() {
+	exe, err := os.Executable()
+	if err != nil {
+		return
+	}
+	dir := filepath.Join(filepath.Dir(exe), "encoders")
+	if fi, err := os.Stat(dir); err != nil || !fi.IsDir() {
+		return
+	}
+	_ = os.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 }
 
 func withDefaults(getenv func(string) string) func(string) string {

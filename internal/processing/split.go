@@ -8,7 +8,10 @@ import (
 	"image/jpeg"
 	"image/png"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
+	"sync"
 
 	"github.com/gen2brain/avif"
 	"github.com/gen2brain/webp"
@@ -17,6 +20,7 @@ import (
 	"github.com/Asion001/mangarr/internal/cbz"
 	"github.com/Asion001/mangarr/internal/downloads"
 	"github.com/Asion001/mangarr/internal/imagecheck"
+	"github.com/Asion001/mangarr/internal/imageenc"
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/progress"
 )
@@ -41,7 +45,7 @@ func splitTallPages(ctx context.Context, pages []downloads.PageFile, sources []i
 		parts := []downloads.PageFile{pg}
 		if processable[i] && isStrip(pg, threshold) && splitSupported(pg.Format) {
 			var err error
-			parts, err = splitTallPage(pg, max(1, int(float64(pg.Width)*segment)), toPNG, workDir)
+			parts, err = splitTallPage(ctx, pg, max(1, int(float64(pg.Width)*segment)), toPNG, workDir)
 			if err != nil {
 				return nil, nil, nil, split, err
 			}
@@ -78,7 +82,7 @@ func splitSupported(format string) bool {
 	return false // animations and JPEG XL stay untouched
 }
 
-func splitTallPage(pg downloads.PageFile, limit int, toPNG bool, workDir string) ([]downloads.PageFile, error) {
+func splitTallPage(ctx context.Context, pg downloads.PageFile, limit int, toPNG bool, workDir string) ([]downloads.PageFile, error) {
 	f, err := os.Open(pg.Path)
 	if err != nil {
 		return nil, err
@@ -115,7 +119,7 @@ func splitTallPage(pg downloads.PageFile, limit int, toPNG bool, workDir string)
 		draw.Draw(segment, segment.Bounds(), src, image.Pt(b.Min.X, b.Min.Y+points[i]), draw.Src)
 		name := fmt.Sprintf("%s-%03d%s", trimImageExt(pg.Name), i+1, imagecheck.Ext(format))
 		path := filepath.Join(dir, name)
-		if err := encodeSplit(path, format, segment); err != nil {
+		if err := encodeSplit(ctx, path, format, segment); err != nil {
 			return nil, fmt.Errorf("split %s part %d: %w", pg.Name, i+1, err)
 		}
 		out = append(out, downloads.PageFile{Name: name, Path: path, Format: format, Width: b.Dx(), Height: h})
@@ -123,9 +127,52 @@ func splitTallPage(pg downloads.PageFile, limit int, toPNG bool, workDir string)
 	return out, nil
 }
 
+// encodeNative hands img to an external encoder through a temporary PNG.
+func encodeNative(ctx context.Context, path string, img image.Image, encode func(src string) error) error {
+	tmp := path + ".src.png"
+	defer os.Remove(tmp)
+	f, err := os.Create(tmp)
+	if err != nil {
+		return err
+	}
+	err = (&png.Encoder{CompressionLevel: png.BestSpeed}).Encode(f, img)
+	if closeErr := f.Close(); err == nil {
+		err = closeErr
+	}
+	if err != nil {
+		return err
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	return encode(tmp)
+}
+
 func trimImageExt(name string) string { return name[:len(name)-len(filepath.Ext(name))] }
 
-func encodeSplit(path, format string, img image.Image) error {
+// The native encoders, when installed: the built-in WebP and AVIF encoders
+// are WebAssembly builds that run on one core and several times slower.
+var (
+	cwebpBin   = sync.OnceValue(func() string { p, _ := exec.LookPath("cwebp"); return p })
+	avifencBin = sync.OnceValue(imageenc.FindAvifenc)
+)
+
+func encodeSplit(ctx context.Context, path, format string, img image.Image) error {
+	switch {
+	case format == "webp" && cwebpBin() != "":
+		return encodeNative(ctx, path, img, func(src string) error {
+			out, err := exec.CommandContext(ctx, cwebpBin(), "-quiet", "-mt", "-q", "90", "-m", "4", src, "-o", path).CombinedOutput()
+			if err != nil {
+				return fmt.Errorf("cwebp: %w: %s", err, out)
+			}
+			return nil
+		})
+	case format == "avif" && avifencBin() != nil:
+		return encodeNative(ctx, path, img, func(src string) error {
+			o := imageenc.Options{Quality: 60, Speed: 8, Jobs: runtime.NumCPU()}
+			return avifencBin().Encode(ctx, src, "png", path, o, false)
+		})
+	}
 	f, err := os.Create(path)
 	if err != nil {
 		return err

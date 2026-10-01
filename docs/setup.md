@@ -465,8 +465,9 @@ image read both. After the first re-encoded chapter mangarr asks Komga whether
 it could read it; if not, re-encoding pauses with a health error until you
 resume it (System → Status).
 
-- Encoders: the full image includes `avifenc` and `cjxl` (fast). The slim image
-  uses a built-in AVIF encoder that works everywhere but is much slower.
+- Encoders: the full image and the desktop worker zips include `avifenc`,
+  `cwebp` and (except macOS and Windows) `cjxl`, which use every core. The slim
+  image uses a built-in AVIF encoder that works everywhere but is much slower.
 - AVIF pages are written progressive (layered) whenever the encoder can: the
   full image's `avifenc` 1.4+ does, the slim built-in encoder writes plain AVIF.
   Chrome shows a low-detail page first and sharpens it as it downloads; other
@@ -573,10 +574,12 @@ Notes:
 A gaming PC makes a good upscaler, and it doesn't need Docker. Each release
 has a `mangarr-worker` zip for Windows (x64), macOS (Apple silicon) and
 Linux (x64): the program, with the waifu2x / Real-CUGAN / Real-ESRGAN
-upscalers in an `upscalers` folder next to it. They use the computer's own
-GPU driver through Vulkan, so NVIDIA, AMD and Intel cards all work (Linux
-needs the Vulkan loader, `libvulkan1`, installed). Every build of `main`
-leaves the same zips on its CI run, under Artifacts.
+upscalers in an `upscalers` folder and the native encoders (`avifenc`,
+`cwebp`, and `cjxl` on Linux) in an `encoders` folder next to it (Windows's
+`avifenc` needs the Visual C++ runtime; without it the worker falls back to
+the slower built-in encoder). The upscalers use the computer's own GPU
+driver through Vulkan, so NVIDIA, AMD and Intel cards all work (Linux needs
+the Vulkan loader, `libvulkan1`, installed). Every build of `main` leaves the same zips on its CI run, under Artifacts.
 
 1. System → Workers → **Add worker** and copy the key.
 2. Unzip anywhere and start `mangarr-worker` (`mangarr-worker.exe` on

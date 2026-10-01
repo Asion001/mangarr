@@ -97,7 +97,7 @@ func TestSplitTallPagesUsesQuietRowsAndRenumbers(t *testing.T) {
 func TestSplitTallPagePreservesWebPWithoutEncoder(t *testing.T) {
 	dir := t.TempDir()
 	page := writeTestImage(t, dir, "strip.webp", "webp", patternedStrip(64, 360, 180))
-	parts, err := splitTallPage(page, 200, false, dir)
+	parts, err := splitTallPage(context.Background(), page, 200, false, dir)
 	if err != nil {
 		t.Fatal(err)
 	}
