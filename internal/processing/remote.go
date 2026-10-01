@@ -94,6 +94,14 @@ func (r *Remote) Process(ctx context.Context, cfg model.ProfileConfig, pages []d
 	if r.Tasks == nil {
 		return res, Unavailable{errors.New("processing runs on workers, but there is no task ledger")}
 	}
+	if t := worktasks.Adopted(ctx); t != nil {
+		// the server restarted while a worker had these pages: wait for that
+		// worker rather than start over
+		if spec, err := ParseSpec(t.Spec); err == nil && samePages(spec, pages) {
+			return r.await(ctx, t.ID, spec, pages)
+		}
+		_ = r.Tasks.CancelTask(context.WithoutCancel(ctx), t.ID)
+	}
 	needsUpscale := false
 	if cfg.Upscale.Enabled {
 		for _, p := range pages {
@@ -123,7 +131,6 @@ func (r *Remote) Process(ctx context.Context, cfg model.ProfileConfig, pages []d
 	for _, p := range pages {
 		spec.Pages = append(spec.Pages, TaskPage{Name: p.Name, Path: p.Path, Format: p.Format, Width: p.Width, Height: p.Height})
 	}
-	defer os.Remove(spec.Output)
 	raw, err := specMap(spec)
 	if err != nil {
 		return res, err
@@ -131,35 +138,60 @@ func (r *Remote) Process(ctx context.Context, cfg model.ProfileConfig, pages []d
 	raw[worktasks.SpecNeedsUpscale] = needsUpscale
 	task := &model.WorkerTask{JobID: jobID, Kind: model.TaskEncode, Spec: raw, PagesTotal: len(pages)}
 	if err := r.Tasks.Add(ctx, task); err != nil {
+		os.Remove(spec.Output)
 		return res, err
 	}
-	done := r.Tasks.Await(task.ID)
-	defer r.Tasks.Forget(task.ID)
+	return r.await(ctx, task.ID, spec, pages)
+}
+
+// await waits for a worker to finish a processing task and reads what it
+// made. Stopping here leaves the task with its worker: a server that stops
+// picks it up again when it starts, and a cancelled job cancels its tasks
+// itself.
+func (r *Remote) await(ctx context.Context, taskID int64, spec TaskSpec, pages []downloads.PageFile) (downloads.ProcessResult, error) {
+	res := downloads.ProcessResult{Pages: pages}
+	done := r.Tasks.Await(taskID)
+	defer r.Tasks.Forget(taskID)
 	progress.Report(ctx, progress.Event{Stage: progress.StageEncode, Total: len(pages)})
 
 	// a fast worker on shared storage may be done before Await was called
 	var t model.WorkerTask
-	if err := r.Tasks.DB().NewSelect().Model(&t).Column("state").Where("id = ?", task.ID).Scan(ctx); err == nil && !t.Open() {
+	if err := r.Tasks.DB().NewSelect().Model(&t).Column("state").Where("id = ?", taskID).Scan(ctx); err == nil && !t.Open() {
 		if t.State != model.TaskDone {
-			return res, r.failure(ctx, task.ID, worktasks.ErrGivenUp)
+			os.Remove(spec.Output)
+			return res, r.failure(ctx, taskID, worktasks.ErrGivenUp)
 		}
 	} else {
 		select {
 		case err := <-done:
 			if err != nil {
-				return res, r.failure(ctx, task.ID, err)
+				os.Remove(spec.Output)
+				return res, r.failure(ctx, taskID, err)
 			}
 		case <-ctx.Done():
-			_ = r.Tasks.CancelTask(context.WithoutCancel(ctx), task.ID)
 			return res, ctx.Err()
 		}
 	}
+	defer os.Remove(spec.Output)
 	out, err := collect(spec, pages)
 	if err != nil {
 		return res, fmt.Errorf("the worker's result: %w", err)
 	}
 	progress.Report(ctx, progress.Event{Stage: progress.StageEncode, Done: len(pages), Total: len(pages)})
 	return out, nil
+}
+
+// samePages reports whether a task works on exactly these pages.
+func samePages(spec TaskSpec, pages []downloads.PageFile) bool {
+	if len(spec.Pages) != len(pages) {
+		return false
+	}
+	for i, p := range pages {
+		if spec.Pages[i].Path != p.Path {
+			return false
+		}
+	}
+	return true
 }
 
 // failure turns a task that ended badly into the error the download manager

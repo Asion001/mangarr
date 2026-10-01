@@ -6,6 +6,7 @@ package worktasks
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -543,17 +544,42 @@ func (l *Ledger) OfJob(ctx context.Context, jobID int64) ([]model.WorkerTask, er
 	return out, err
 }
 
-// OpenJobs is the set of jobs with a task still to be done, so the download
-// manager leaves them alone.
-func (l *Ledger) OpenJobs(ctx context.Context) (map[int64]bool, error) {
+// OpenJobs is the set of jobs with a task still to be done, of the given
+// kinds (any kind when none are given), so the download manager leaves them
+// alone.
+func (l *Ledger) OpenJobs(ctx context.Context, kinds ...string) (map[int64]bool, error) {
 	var ids []int64
-	err := l.db.NewSelect().Model((*model.WorkerTask)(nil)).Column("job_id").
-		Where("state IN (?)", bun.In([]string{model.TaskPending, model.TaskLeased})).Scan(ctx, &ids)
+	q := l.db.NewSelect().Model((*model.WorkerTask)(nil)).Column("job_id").
+		Where("state IN (?)", bun.In([]string{model.TaskPending, model.TaskLeased}))
+	if len(kinds) > 0 {
+		q = q.Where("kind IN (?)", bun.In(kinds))
+	}
+	err := q.Scan(ctx, &ids)
 	out := map[int64]bool{}
 	for _, id := range ids {
 		out[id] = true
 	}
 	return out, err
+}
+
+// Orphan is the processing task a job left with a worker when the server
+// stopped while waiting for it: still open, or done after the job went back
+// to the queue (since), with nobody here to collect it.
+func (l *Ledger) Orphan(ctx context.Context, jobID int64, since time.Time) (*model.WorkerTask, error) {
+	var t model.WorkerTask
+	err := l.db.NewSelect().Model(&t).Where("job_id = ? AND kind = ?", jobID, model.TaskEncode).
+		WhereGroup(" AND ", func(q *bun.SelectQuery) *bun.SelectQuery {
+			return q.Where("state IN (?)", bun.In([]string{model.TaskPending, model.TaskLeased})).
+				WhereOr("state = ? AND finished_at > ?", model.TaskDone, since)
+		}).
+		OrderExpr("id DESC").Limit(1).Scan(ctx)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &t, nil
 }
 
 // Prune deletes finished tasks older than keep, so the ledger stays the
@@ -682,6 +708,20 @@ func (l *Ledger) CancelTask(ctx context.Context, taskID int64) error {
 }
 
 // ---- which job a piece of work belongs to ------------------------------------
+
+type adoptKey struct{}
+
+// WithAdopted marks a context as picking up a processing task a worker
+// already has, instead of handing out a new one.
+func WithAdopted(ctx context.Context, t *model.WorkerTask) context.Context {
+	return context.WithValue(ctx, adoptKey{}, t)
+}
+
+// Adopted is the task WithAdopted put in the context, if any.
+func Adopted(ctx context.Context) *model.WorkerTask {
+	t, _ := ctx.Value(adoptKey{}).(*model.WorkerTask)
+	return t
+}
 
 type jobKey struct{}
 

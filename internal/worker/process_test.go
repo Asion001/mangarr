@@ -222,3 +222,73 @@ func seedJob(t *testing.T, d *db.DB) int64 {
 	}
 	return job.ID
 }
+
+// TestRestartPicksUpProcessing: the server stops while a worker has a
+// chapter's processing. The task stays with the worker, and when the server
+// runs the job again it collects what the worker made instead of handing
+// out the pages a second time.
+func TestRestartPicksUpProcessing(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	d := dbtest.SQLite(t)
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	tasks := worktasks.New(d, log)
+	jobID := seedJob(t, d)
+	workerID := seedProcessWorker(t, d)
+	workDir := t.TempDir()
+	pages := []downloads.PageFile{writePNG(t, workDir, "0001.png", 1000, 1500)}
+	cfg := model.ProfileConfig{Pages: model.PageRules{MaxWidth: 500}}
+
+	// the server waits for a worker, then stops
+	stopping, stop := context.WithCancel(worktasks.WithJob(ctx, jobID))
+	go func() {
+		for {
+			if open, _ := tasks.OpenJobs(ctx); open[jobID] {
+				stop()
+				return
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+	}()
+	if _, err := (&processing.Remote{Tasks: tasks}).Process(stopping, cfg, pages, workDir); err == nil {
+		t.Fatal("processing finished without a worker")
+	}
+	requeued := time.Now().UTC()
+
+	// the worker carries on and finishes while the server is away
+	task, err := tasks.Claim(ctx, workerID, []string{model.TaskEncode})
+	if err != nil || task == nil || task.Cancel {
+		t.Fatalf("the task didn't stay with the worker: %v %+v", err, task)
+	}
+	w, err := New(Config{ServerURL: "http://unused", Key: "mgw_test", SharedStorage: true, Log: log})
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := w.process(ctx, Task{ID: task.ID, JobID: task.JobID, Kind: task.Kind, Spec: task.Spec})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := tasks.Finish(ctx, task.ID, workerID, worktasks.Progress{PagesDone: res.Pages}); err != nil {
+		t.Fatal(err)
+	}
+
+	// the server is back and runs the job again
+	orphan, err := tasks.Orphan(ctx, jobID, requeued)
+	if err != nil || orphan == nil || orphan.ID != task.ID {
+		t.Fatalf("the finished task wasn't found: %v %+v", err, orphan)
+	}
+	out, err := (&processing.Remote{Tasks: tasks}).Process(worktasks.WithAdopted(worktasks.WithJob(ctx, jobID), orphan), cfg, pages, workDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out.Pages) != 1 || out.Pages[0].Width != 500 {
+		t.Fatalf("result: %+v", out)
+	}
+	all, _ := tasks.OfJob(ctx, jobID)
+	if len(all) != 1 {
+		t.Fatalf("the pages went out again: %d tasks", len(all))
+	}
+	if again, _ := tasks.Orphan(ctx, jobID, time.Now().UTC()); again != nil {
+		t.Fatalf("a task collected before the job ran again counts as an orphan: %+v", again)
+	}
+}

@@ -69,8 +69,9 @@ func (m *Manager) dispatch(ctx context.Context) {
 		}
 		return
 	}
-	// jobs a worker holds are not ours to run
-	onWorkers, err := m.openJobs(ctx)
+	// jobs a worker downloads are not ours to run; one a worker processes
+	// runs to wait for it (see run)
+	onWorkers, err := m.openJobs(ctx, model.TaskDownload)
 	if err != nil {
 		m.log.Warn("could not read the worker tasks", "err", err)
 	}

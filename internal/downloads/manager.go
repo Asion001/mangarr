@@ -67,14 +67,19 @@ func NewManager(d *db.DB, bus *events.Bus, mods *modules.Manager, st *settings.S
 }
 
 // Start recovers interrupted jobs and starts the scheduling loop. Jobs a
-// worker still holds are left alone: the restart was ours, not theirs, and
-// their pages are still arriving in staging.
+// worker still downloads are left alone: the restart was ours, not theirs,
+// and their pages are still arriving in staging. Jobs a worker is
+// processing go back to the queue, and running again picks up that
+// worker's task (see run).
 func (m *Manager) Start(ctx context.Context) error {
 	live, err := m.openJobs(ctx)
 	if err != nil {
 		return err
 	}
 	if err := m.failCrashedProcessing(ctx, live); err != nil {
+		return err
+	}
+	if live, err = m.openJobs(ctx, model.TaskDownload); err != nil {
 		return err
 	}
 	now := time.Now().UTC()
@@ -87,17 +92,22 @@ func (m *Manager) Start(ctx context.Context) error {
 	if _, err := q.Exec(ctx); err != nil {
 		return err
 	}
-	m.pruneStaging(ctx, live)
+	keep, err := m.openJobs(ctx)
+	if err != nil {
+		return err
+	}
+	m.pruneStaging(ctx, keep)
 	go m.loop(ctx)
 	return nil
 }
 
-// openJobs is the jobs a worker is still busy with.
-func (m *Manager) openJobs(ctx context.Context) (map[int64]bool, error) {
+// openJobs is the jobs a worker is still busy with, with tasks of these
+// kinds (any kind when none are given).
+func (m *Manager) openJobs(ctx context.Context, kinds ...string) (map[int64]bool, error) {
 	if m.Tasks == nil {
 		return nil, nil
 	}
-	return m.Tasks.OpenJobs(ctx)
+	return m.Tasks.OpenJobs(ctx, kinds...)
 }
 
 func keys(m map[int64]bool) []int64 {

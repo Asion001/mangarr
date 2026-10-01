@@ -2,8 +2,10 @@ package downloads
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
+	"time"
 
 	"github.com/Asion001/mangarr/internal/decision"
 	"github.com/Asion001/mangarr/internal/model"
@@ -68,6 +70,7 @@ func (m *Manager) load(ctx context.Context, job *model.DownloadJob) (*jobCtx, er
 // run claims a local attempt and owns its staging directory until finish returns.
 // Stage errors go through fail; worker downloads join the pipeline at finish.
 func (m *Manager) run(ctx context.Context, job model.DownloadJob) {
+	requeued := job.UpdatedAt
 	if !m.claim(ctx, &job) {
 		return
 	}
@@ -86,6 +89,13 @@ func (m *Manager) run(ctx context.Context, job model.DownloadJob) {
 	defer os.RemoveAll(workDir)
 	if err := os.MkdirAll(workDir, 0o775); err != nil {
 		m.fail(ctx, &job, jc, infraError{err})
+		return
+	}
+	if t, pages := m.orphan(ctx, job.ID, requeued); t != nil {
+		// a worker is processing (or has processed) this chapter's pages
+		// from before a restart: go straight to waiting for it
+		log.Info("picking up the processing a worker has", "task", t.ID)
+		m.finish(worktasks.WithAdopted(ctx, t), job, jc, pages, workDir)
 		return
 	}
 	var pages []PageFile
@@ -122,4 +132,35 @@ func (m *Manager) run(ctx context.Context, job model.DownloadJob) {
 
 func (m *Manager) nextCandidate(ctx context.Context, jc *jobCtx) (*decision.Candidate, bool, error) {
 	return m.searcher.NextCandidateConfigured(ctx, jc.series.ID, jc.chapter.ID, jc.job.ForceDownload, jc.job.ConfigOverride)
+}
+
+// orphan finds the processing task this job left with a worker when the
+// server stopped, with the pages it works on, when they are all still here.
+func (m *Manager) orphan(ctx context.Context, jobID int64, requeued time.Time) (*model.WorkerTask, []PageFile) {
+	if m.Tasks == nil {
+		return nil, nil
+	}
+	t, err := m.Tasks.Orphan(ctx, jobID, requeued)
+	if err != nil || t == nil {
+		return nil, nil
+	}
+	var spec struct {
+		Pages []PageFile `json:"pages"`
+	}
+	raw, err := json.Marshal(t.Spec)
+	if err == nil {
+		err = json.Unmarshal(raw, &spec)
+	}
+	ok := err == nil && len(spec.Pages) > 0
+	for _, p := range spec.Pages {
+		if _, err := os.Stat(p.Path); err != nil {
+			ok = false
+		}
+	}
+	if !ok {
+		// its pages are gone: start over
+		_ = m.Tasks.CancelTask(context.WithoutCancel(ctx), t.ID)
+		return nil, nil
+	}
+	return t, spec.Pages
 }
