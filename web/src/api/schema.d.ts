@@ -4763,6 +4763,7 @@ export interface components {
             locale: "auto" | "en" | "ru" | "uk" | "ua";
             /** @enum {string} */
             mode: "reading" | "editing";
+            options?: components["schemas"]["UIOptions"];
         };
         MediaManagement: {
             chapterFormat: string;
@@ -6327,11 +6328,15 @@ export interface components {
             title?: string;
             titles?: string[];
         };
+        UIOptions: {
+            otherLanguageChapters?: boolean;
+        };
         UIPreferences: {
             /** @enum {string} */
             locale: "auto" | "en" | "ru" | "uk";
             /** @enum {string} */
             mode: "reading" | "editing";
+            options: components["schemas"]["UIOptions"];
             /** Format: date-time */
             updatedAt: string;
         };

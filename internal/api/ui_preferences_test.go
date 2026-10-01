@@ -31,6 +31,13 @@ func TestUIPreferencesIsolation(t *testing.T) {
 	if code := boss.do("GET", path, "", &v); code != 200 || v.Locale != "ru" || v.Mode != "editing" {
 		t.Fatalf("isolation: %d %+v", code, v)
 	}
+	if code := boss.do("PUT", path, `{"locale":"ru","mode":"editing","options":{"otherLanguageChapters":false}}`, &v); code != 200 || v.Options.OtherLanguageChapters == nil || *v.Options.OtherLanguageChapters {
+		t.Fatalf("options: %d %+v", code, v)
+	}
+	// a save without options keeps them
+	if code := boss.do("PUT", path, `{"locale":"en","mode":"editing"}`, &v); code != 200 || v.Options.OtherLanguageChapters == nil {
+		t.Fatalf("options kept: %d %+v", code, v)
+	}
 	if code := boss.do("PUT", path, `{"locale":"xx","mode":"reading"}`, nil); code != 422 {
 		t.Fatalf("invalid locale: %d", code)
 	}

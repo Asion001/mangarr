@@ -1,10 +1,12 @@
 import { t as tr, t } from "../../lib/i18n/core";
+import { useUIOption } from "../../lib/uiPreferences";
+import { OtherLanguageChapters } from "./OtherLanguageChapters";
 import { Fragment, memo, useCallback, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowDownToLine, ArrowUpToLine, BookOpen, History, Check, ChevronDown, ChevronRight, ExternalLink, HelpCircle, Pause, Play, RotateCcw, RotateCw, Search, Sparkles, Eye, Trash2 } from "lucide-react";
 import { Link } from "react-router";
 import clsx from "clsx";
-import { api, unwrap, type Chapter } from "../../api/client";
+import { api, unwrap, type Chapter, type S } from "../../api/client";
 import { useChapters, useQueue } from "../../api/queries";
 import { Badge, Button, Card, Confirm, ErrorBox, Loading, Modal, Progress, Switch, Table, Td, Th } from "../../components/ui";
 import { bytes, date, relative } from "../../lib/format";
@@ -40,8 +42,9 @@ const toggle = (set: Set<number>, id: number) => {
 };
 
 /** nextChapterId is the chapter to read next: the one row with a primary Continue. */
-export function ChaptersTable({ seriesId, manage = true, nextChapterId }: { seriesId: number; manage?: boolean; nextChapterId?: number }) {
+export function ChaptersTable({ seriesId, manage = true, nextChapterId, editions = [] }: { seriesId: number; manage?: boolean; nextChapterId?: number; editions?: S["EditionSummary"][] }) {
   const { data, isLoading, error } = useChapters(seriesId);
+  const borrow = useUIOption("otherLanguageChapters", true) && editions.length > 1;
   // same query as the sidebar's queue count, so no extra request
   const queuePaused = !!useQueue({ pageSize: 1 }, manage).data?.state?.paused;
   const qc = useQueryClient();
@@ -228,6 +231,7 @@ export function ChaptersTable({ seriesId, manage = true, nextChapterId }: { seri
     >
       {isLoading && <Loading />}
       {error && <ErrorBox error={error} />}
+      {borrow && data && filter !== "missing" && <OtherLanguageChapters seriesId={seriesId} editions={editions} own={data} />}
       {data && data.length === 0 && <p className="text-sm text-muted">{t("No chapters yet. Refresh the series to fetch the chapter list.")}</p>}
       {list.length > 0 && (
         <div ref={tableTop}>

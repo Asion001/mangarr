@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bell, Download, KeyRound, Link2, LogOut, Monitor, Pencil, Plus, Trash2, Unlink } from "lucide-react";
 import { api, apiUrl, unwrap, type Implementation, type ModuleResource } from "../../api/client";
 import { DynamicForm, defaultsOf } from "../../components/DynamicForm";
-import { Badge, Button, Card, Confirm, ErrorBox, Field, IconButton, Input, Modal, PageHeader, Select, Tabs } from "../../components/ui";
+import { Badge, Button, Card, Confirm, ErrorBox, Field, IconButton, Input, Modal, PageHeader, Select, Switch, Tabs } from "../../components/ui";
 import { ModuleEditor, type Draft } from "../settings/Modules";
 import { appAddress, appTabs, DevicesCard, Guide, type App } from "../settings/ReadingApps";
 import { useAccount } from "../../lib/account";
@@ -404,5 +404,5 @@ function LibraryAccountsCard() {
 function InterfaceCard() {
   const {preferences,save,saving,error} = useUIPreferences();
   const toast=useToast();
-  return <Card title={t("Interface")}><Field label={t("Interface language")}><Select disabled={saving} value={preferences.locale} onChange={e=>{void save({locale:e.target.value as typeof preferences.locale}).catch(e=>toast.fromError(e));}}><option value="auto">{t("Automatic")}</option><option value="en">English</option><option value="ru">Русский</option><option value="uk">Українська</option></Select></Field>{error ? <p role="alert">{t("Could not save preferences")}</p> : null}</Card>;
+  return <Card title={t("Interface")}><Field label={t("Interface language")}><Select disabled={saving} value={preferences.locale} onChange={e=>{void save({locale:e.target.value as typeof preferences.locale}).catch(e=>toast.fromError(e));}}><option value="auto">{t("Automatic")}</option><option value="en">English</option><option value="ru">Русский</option><option value="uk">Українська</option></Select></Field><div className="mt-4"><Switch disabled={saving} checked={preferences.options?.otherLanguageChapters ?? true} onChange={(v)=>{void save({options:{otherLanguageChapters:v}}).catch(e=>toast.fromError(e));}} label={t("Show chapters from other languages")} /><p className="mt-1 text-sm text-muted">{t("When a title has several language editions, chapters only another edition has appear in the list with a language tag.")}</p></div>{error ? <p role="alert">{t("Could not save preferences")}</p> : null}</Card>;
 }

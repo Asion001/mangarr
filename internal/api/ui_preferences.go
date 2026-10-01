@@ -40,13 +40,22 @@ func (s *Server) registerUIPreferences() {
 			Body struct {
 				Locale string `json:"locale" enum:"auto,en,ru,uk,ua" required:"true"`
 				Mode   string `json:"mode" enum:"reading,editing" required:"true"`
+				// Options replaces the stored options; left out, they are kept.
+				Options *model.UIOptions `json:"options,omitempty"`
 			}
 		}) (*output, error) {
 			p := access.From(ctx)
 			if p.Kind != access.KindUser {
 				return nil, huma.Error400BadRequest("Accountless UI preferences are stored in this browser")
 			}
-			v := model.UIPreferences{UserID: p.UserID, Locale: in.Body.Locale, Mode: in.Body.Mode, UpdatedAt: time.Now().UTC()}
+			var old model.UIPreferences
+			if err := s.app.DB.NewSelect().Model(&old).Where("user_id = ?", p.UserID).Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
+				return nil, toHTTPError(err)
+			}
+			v := model.UIPreferences{UserID: p.UserID, Locale: in.Body.Locale, Mode: in.Body.Mode, Options: old.Options, UpdatedAt: time.Now().UTC()}
+			if in.Body.Options != nil {
+				v.Options = *in.Body.Options
+			}
 			if v.Locale == "ua" {
 				v.Locale = "uk"
 			}
@@ -54,7 +63,7 @@ func (s *Server) registerUIPreferences() {
 				v.Mode = "reading"
 			}
 			_, err := s.app.DB.NewInsert().Model(&v).On("CONFLICT (user_id) DO UPDATE").
-				Set("locale = EXCLUDED.locale").Set("mode = EXCLUDED.mode").Set("updated_at = EXCLUDED.updated_at").Exec(ctx)
+				Set("locale = EXCLUDED.locale").Set("mode = EXCLUDED.mode").Set("options = EXCLUDED.options").Set("updated_at = EXCLUDED.updated_at").Exec(ctx)
 			return &output{v}, toHTTPError(err)
 		})
 }

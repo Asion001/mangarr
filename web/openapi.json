@@ -4251,6 +4251,9 @@
               "editing"
             ],
             "type": "string"
+          },
+          "options": {
+            "$ref": "#/components/schemas/UIOptions"
           }
         },
         "required": [
@@ -9550,6 +9553,15 @@
         },
         "type": "object"
       },
+      "UIOptions": {
+        "additionalProperties": false,
+        "properties": {
+          "otherLanguageChapters": {
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
       "UIPreferences": {
         "additionalProperties": false,
         "properties": {
@@ -9569,6 +9581,9 @@
             ],
             "type": "string"
           },
+          "options": {
+            "$ref": "#/components/schemas/UIOptions"
+          },
           "updatedAt": {
             "format": "date-time",
             "type": "string"
@@ -9577,6 +9592,7 @@
         "required": [
           "locale",
           "mode",
+          "options",
           "updatedAt"
         ],
         "type": "object"
