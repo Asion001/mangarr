@@ -1,4 +1,5 @@
 import { t as tr, t } from "../../lib/i18n/core";
+import { LanguageMenu } from "../../components/LanguageChooser";
 import { useMemo, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import clsx from "clsx";
@@ -103,7 +104,7 @@ export function AddCatalogs({ module }: { module: ModuleResource }) {
       <div className="flex flex-wrap items-center gap-2">
         <Input className="max-w-80" aria-label={t("Search extensions")} placeholder={t("Search {n} extensions…", { n: all.length })} value={q} onChange={(e) => setQ(e.target.value)} />
         <div role="group" aria-label={t("Languages")} className="flex flex-wrap gap-1.5">
-          {langs.slice(0, 12).map((l) => {
+          {langs.filter((l) => preferred.includes(l) || chosen.includes(l)).map((l) => {
             const on = chosen.includes(l);
             return (
               <button
@@ -117,6 +118,13 @@ export function AddCatalogs({ module }: { module: ModuleResource }) {
               </button>
             );
           })}
+          <LanguageMenu
+            label={t("More…")}
+            options={langs}
+            exclude={[...preferred, ...chosen]}
+            onPick={(l) => setPicked([...chosen, l])}
+            className="rounded-full border border-dashed border-border px-2.5 py-0.5 text-xs font-medium text-fg hover:border-muted"
+          />
         </div>
         <span className="flex-1" />
         <span className="text-sm text-muted">
@@ -145,7 +153,7 @@ export function AddCatalogs({ module }: { module: ModuleResource }) {
       <section aria-labelledby="ext-rest" className="rounded-xl border border-border bg-panel">
         <header className="flex flex-wrap items-center gap-3 px-4 py-3">
           <h2 id="ext-rest" className="flex-1 text-sm font-semibold">
-            {showInstalled ? t("All extensions") : t("Not installed")} <span className="font-normal text-muted">{chosen.length ? t("for {langs}", { langs: chosen.join(", ") }) + " · " : ""}{rest.length}</span>
+            {showInstalled ? t("All extensions") : t("Not installed")} <span className="font-normal text-muted">{chosen.length ? t("for {langs}", { langs: chosen.map(languageName).join(", ") }) + " · " : ""}{rest.length}</span>
           </h2>
           <Switch checked={showInstalled} onChange={setShowInstalled} label={t("Show installed too")} />
         </header>

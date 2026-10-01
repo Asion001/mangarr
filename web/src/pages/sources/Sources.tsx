@@ -63,7 +63,7 @@ export function SourcesPage() {
         subtitle={
           src && (
             <>
-              {[langs.length ? t("Searching {langs}", { langs: langs.join(", ") }) : t("Searching every language"), src.hideNsfw ? t("NSFW hidden") : t("NSFW shown")].join(" · ")} ·{" "}
+              {[langs.length ? t("Searching {langs}", { langs: langs.map(languageName).join(", ") }) : t("Searching every language"), src.hideNsfw ? t("NSFW hidden") : t("NSFW shown")].join(" · ")} ·{" "}
               <Link to="/settings/search" className="text-accent-2 hover:underline">{t("change in Settings → Search")}</Link>
             </>
           )

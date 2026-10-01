@@ -1,4 +1,5 @@
 import { t as tr, t } from "../../lib/i18n/core";
+import { LanguageChips, useSearchLanguages } from "../../components/LanguageChooser";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -120,25 +121,20 @@ export function AddSearchStep() {
   const [q, setQ] = useQueryParam("q");
   const [lang, setLang] = useQueryParam("lang");
   const { data: catalogs } = useCatalogs();
-  const languages = Array.from(new Set(["en", "ru", ...(catalogs?.items ?? []).map((c) => c.lang).filter((v) => v !== "all" && v !== "multi")])).sort();
+  const languages = Array.from(new Set((catalogs?.items ?? []).filter((c) => !c.hidden).map((c) => c.lang).filter((v) => v && v !== "all" && v !== "multi")));
+  const searchLanguages = useSearchLanguages();
   const [title, setTitle] = useState(q);
   const pick = (r: LookupResult) => {
     qc.setQueryData(["lookup-item", r.moduleId, r.id], r);
     nav(`/add/${r.moduleId}/${encodeURIComponent(r.id)}/sources${lang ? `?lang=${encodeURIComponent(lang)}` : ""}`);
   };
-  const chip = (on: boolean) => clsx("rounded-full border px-3 py-1 text-sm", on ? "border-accent bg-accent/15 text-fg" : "border-border text-muted hover:text-fg");
   return (
     <>
       <PageHeader title={t("Add series")} subtitle={t("Find it, check where chapters come from, add.")} />
       <div className="flex flex-col gap-6 lg:flex-row">
         <div className="min-w-0 flex-1">
-          <div role="group" aria-label={t("Language")} className="mb-3 flex flex-wrap items-center gap-2">
-            <button type="button" aria-pressed={!lang} className={chip(!lang)} onClick={() => setLang("", { replace: false })}>{t("Any language")}</button>
-            {languages.map((value) => (
-              <button key={value} type="button" aria-pressed={lang === value} className={chip(lang === value)} onClick={() => setLang(value, { replace: false })}>
-                {value}
-              </button>
-            ))}
+          <div className="mb-3">
+            <LanguageChips value={lang} onChange={(v) => setLang(v, { replace: false })} primary={searchLanguages} options={languages} />
           </div>
           <MetadataSearch
             query={q}

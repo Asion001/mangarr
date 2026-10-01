@@ -7,7 +7,8 @@ import { Check, ChevronRight, GripVertical, MoreHorizontal } from "lucide-react"
 import { api, apiUrl, unwrap, type Catalog, type ModuleResource, type S } from "../../api/client";
 import { useCatalogs, useRootFolders, useSeriesList } from "../../api/queries";
 import { Badge, Button, EmptyState, ErrorBox, Input, Loading, Menu, Modal, Select, Switch } from "../../components/ui";
-import { languageMatches, languageName, relative } from "../../lib/format";
+import { languageMatches, languageName, relative, sortLanguages } from "../../lib/format";
+import { useSearchLanguages } from "../../components/LanguageChooser";
 import { useToast } from "../../lib/toast";
 import { SourceSettings } from "./SourceSettings";
 
@@ -47,9 +48,16 @@ export function Catalogs({ module }: { module: ModuleResource }) {
   const byGlobal = useMemo(() => [...mine].sort((a, b) => a.priority - b.priority || a.displayName.localeCompare(b.displayName)), [mine]);
   const healthOf = useMemo(() => new Map((health.data ?? []).map((h) => [`${h.moduleId}:${h.sourceId}`, h])), [health.data]);
 
+  // only languages you use: a folder, a series, a search language or a saved order
+  const searchLanguages = useSearchLanguages();
   const languages = useMemo(
-    () => Array.from(new Set([...mine.map((c) => c.lang), ...(roots.data ?? []).map((r) => r.language)].filter((l) => l && l !== "all" && l !== "multi"))).sort(),
-    [mine, roots.data],
+    () => sortLanguages([
+      ...(roots.data ?? []).map((r) => r.language),
+      ...(series ?? []).map((x) => x.language),
+      ...searchLanguages,
+      ...(lists.data ?? []).filter((l) => l.scope.startsWith("language:")).map((l) => l.scope.slice("language:".length)),
+    ].filter((l) => l && l !== "*" && l !== "all" && l !== "multi")),
+    [roots.data, series, searchLanguages, lists.data],
   );
   const scopes = [
     { value: "global", label: tr("Every library"), language: "" },

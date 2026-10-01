@@ -1,4 +1,5 @@
 import { t } from "../../lib/i18n/core";
+import { LanguageList } from "../../components/LanguageChooser";
 import { type S } from "../../api/client";
 import { useCatalogs, useProfiles, useRootFolders } from "../../api/queries";
 import { Badge, Button, Card, ErrorBox, Field, Input, Loading, PageHeader, SaveBar, Select, Switch } from "../../components/ui";
@@ -68,24 +69,16 @@ export function SearchSettingsPage() {
                 onChange={(hideNsfw) => doc.patch({ hideNsfw })}
                 label={t("Hide NSFW catalogs everywhere (search, browse, add series)")}
               />
-              <div className="flex flex-wrap items-center gap-1.5 text-sm">
-                <span className="mr-1 text-muted">{t("Search languages by default:")}</span>
-                {catalogLangs.map((l) => {
-                  const on = (v.defaultLanguages ?? []).includes(l);
-                  return (
-                    <button
-                      key={l}
-                      type="button"
-                      aria-pressed={on}
-                      disabled={!!doc.lock("defaultLanguages")}
-                      onClick={() => doc.patch({ defaultLanguages: on ? v.defaultLanguages.filter((x) => x !== l) : [...(v.defaultLanguages ?? []), l] })}
-                      className={`rounded border px-2 py-0.5 text-xs ${on ? "border-accent bg-accent/15 text-fg" : "border-border text-muted hover:text-fg"}`}
-                    >
-                      {languageName(l)}
-                    </button>
-                  );
-                })}
-                {!(v.defaultLanguages ?? []).length && <span className="text-xs text-muted">{t("(none selected = all languages)")}</span>}
+              <div className="flex max-w-md flex-col gap-2 text-sm">
+                <span className="font-medium">{t("Search languages by default")}</span>
+                <span className="text-muted">{t("Add series and source search look in these languages first.")}</span>
+                <LanguageList
+                  value={v.defaultLanguages ?? []}
+                  onChange={(defaultLanguages) => doc.patch({ defaultLanguages })}
+                  options={catalogLangs}
+                  disabled={!!doc.lock("defaultLanguages")}
+                  empty={t("None chosen: every language is searched.")}
+                />
               </div>
             </div>
           </Card>

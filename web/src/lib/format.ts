@@ -74,6 +74,7 @@ export function languageName(code: string): string {
   const normalized = code.trim().toLowerCase();
   if (!normalized || normalized === "und") return t("Unknown language");
   if (normalized === "all" || normalized === "multi") return t("Several languages");
+  if (normalized === "other") return t("Other languages");
   try {
     const name = new Intl.DisplayNames(getLocale(), { type: "language" }).of(normalized);
     if (name && name !== normalized) return name.charAt(0).toLocaleUpperCase(getLocale()) + name.slice(1);
@@ -81,6 +82,22 @@ export function languageName(code: string): string {
     // not a valid BCP 47 tag: show it as the source wrote it
   }
   return code;
+}
+
+/** sortLanguages orders codes by their names in the interface language. */
+export function sortLanguages(codes: Iterable<string>): string[] {
+  return [...new Set(codes)].sort((a, b) => languageName(a).localeCompare(languageName(b), getLocale()));
+}
+
+/** languageHints returns the codes whose names clash with another code's
+ * in the list ("mo" and "ro" are both Romanian), which show their code too. */
+export function languageHints(codes: string[]): Set<string> {
+  const byName = new Map<string, string[]>();
+  for (const c of codes) {
+    const n = languageName(c).toLocaleLowerCase(getLocale());
+    byName.set(n, [...(byName.get(n) ?? []), c]);
+  }
+  return new Set([...byName.values()].filter((cs) => cs.length > 1).flat());
 }
 
 /** languageMatches lets language filters find both the saved code and its localized name. */

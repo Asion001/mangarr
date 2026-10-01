@@ -1,11 +1,12 @@
 import { t as tr, t } from "../../lib/i18n/core";
+import { LanguageMenu } from "../../components/LanguageChooser";
 import { useMemo, useState } from "react";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, ChevronDown, Search, SlidersHorizontal } from "lucide-react";
 import { api, apiUrl, unwrap, type Catalog, type S, type SearchGroup, type SourceManga } from "../../api/client";
 import { useCatalogs } from "../../api/queries";
 import { Cover } from "../../components/Cover";
-import { Badge, Button, ErrorBox, Input, Modal, Select, Spinner } from "../../components/ui";
+import { Badge, Button, ErrorBox, Input, Modal, Spinner } from "../../components/ui";
 import { languageMatches, languageName, relative } from "../../lib/format";
 import { useSettingsDoc } from "../settings/useSettingsDoc";
 
@@ -81,14 +82,16 @@ export function ScopeBar({
         <SlidersHorizontal className="mr-1 inline size-3" />
         {scope === "custom" ? `${keys.length} picked` : tr("Pick…")}
       </button>
-      <Select className="ml-auto w-28" value={lang} onChange={(e) => setLang(e.target.value)} title={t("Language")}>
-        <option value="">{scope === "active" ? tr("default langs") : tr("all langs")}</option>
-        {langs.map((l) => (
-          <option key={l} value={l}>
-            {languageName(l)}
-          </option>
-        ))}
-      </Select>
+      <span className="ml-auto">
+        <LanguageMenu
+          align="right"
+          label={<>{lang ? languageName(lang) : scope === "active" ? t("Your languages") : t("All languages")} ▾</>}
+          options={langs.filter((l) => l !== "all" && l !== "multi")}
+          top={[{ label: scope === "active" ? t("Your languages") : t("All languages"), value: "" }]}
+          onPick={setLang}
+          className="h-8 rounded-md border border-border bg-bg px-2.5 text-xs"
+        />
+      </span>
       {picking && (
         <CatalogPicker
           items={items.filter((c) => !c.hidden)}
