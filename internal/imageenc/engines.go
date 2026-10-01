@@ -60,7 +60,7 @@ func (a *Avifenc) args(src, dst string, o Options, gray, tune bool) []string {
 	if gray {
 		yuv = "400"
 	}
-	args := []string{"-j", "1", "-s", strconv.Itoa(o.Speed), "-q", strconv.Itoa(o.Quality), "-d", "8", "-y", yuv}
+	args := []string{"-j", strconv.Itoa(max(o.Jobs, 1)), "-s", strconv.Itoa(o.Speed), "-q", strconv.Itoa(o.Quality), "-d", "8", "-y", yuv}
 	if tune {
 		args = append(args, "-c", "aom", "-a", "tune=iq")
 	}
@@ -112,7 +112,7 @@ func (c *Cjxl) Slow() bool                 { return false }
 func (c *Cjxl) Accepts(format string) bool { return format == "jpeg" || format == "png" }
 
 func (c *Cjxl) Encode(ctx context.Context, src, srcFormat, dst string, o Options, _ bool) error {
-	args := []string{src, dst, "-e", strconv.Itoa(min(max(o.Speed, 1), 9)), "--num_threads", "1", "--quiet"}
+	args := []string{src, dst, "-e", strconv.Itoa(min(max(o.Speed, 1), 9)), "--num_threads", strconv.Itoa(max(o.Jobs, 1)), "--quiet"}
 	if srcFormat == "jpeg" {
 		args = append(args, "--lossless_jpeg=1")
 	} else {

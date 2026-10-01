@@ -281,3 +281,23 @@ func TestEncodePagesPixelBudget(t *testing.T) {
 		t.Fatalf("%d pages encoded at once within a budget of two", peak)
 	}
 }
+
+func TestJobsSplitCoresByPageSize(t *testing.T) {
+	e := &Encoder{Threads: 8, MaxPixels: 64 << 20}
+	for _, c := range []struct {
+		w, h, want int
+	}{
+		{0, 0, 1},         // unknown size
+		{1400, 2000, 1},   // normal page: one core each
+		{1400, 23000, 4},  // ~half the budget: half the cores
+		{2048, 60000, 8},  // fills the budget alone: every core
+		{2048, 200000, 8}, // larger than the budget
+	} {
+		if got := e.jobs(Page{Width: c.w, Height: c.h}); got != c.want {
+			t.Errorf("%dx%d: jobs %d, want %d", c.w, c.h, got, c.want)
+		}
+	}
+	if got := (&Encoder{Threads: 8}).jobs(Page{Width: 2048, Height: 60000}); got != 1 {
+		t.Errorf("no budget: jobs %d, want 1", got)
+	}
+}

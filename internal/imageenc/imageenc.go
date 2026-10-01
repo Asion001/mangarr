@@ -31,6 +31,10 @@ type Options struct {
 	Quality     int    // AVIF 1-100
 	Speed       int    // avifenc -s (0-10) / cjxl -e (1-9)
 	Progressive bool   // layered AVIF for incremental display
+	// Jobs is the encoder threads for one page (0 or 1 = single-threaded).
+	// Normal pages are encoded one per core; a tall strip that has the
+	// memory budget to itself gets the cores the other pages would use.
+	Jobs int
 }
 
 // Resolve applies the preset of cfg and its overrides.
@@ -113,6 +117,16 @@ const DefaultMaxPixels = 64 << 20
 // New returns an encoder using the given engines (earlier = preferred).
 func New(engines ...Engine) *Encoder {
 	return &Encoder{engines: engines, Threads: max(runtime.NumCPU()-1, 1), MaxPixels: DefaultMaxPixels}
+}
+
+// jobs is the encoder threads for p: its share of Threads by pixels, since
+// a page using 1/k of the budget runs alongside about k-1 others.
+func (e *Encoder) jobs(p Page) int {
+	if e.MaxPixels <= 0 {
+		return 1
+	}
+	t := int64(max(e.Threads, 1))
+	return int(min(max((t*e.pixels(p)+e.MaxPixels-1)/e.MaxPixels, 1), t))
 }
 
 // pixels is what a page weighs against MaxPixels.
@@ -247,6 +261,7 @@ func (e *Encoder) encodeWithin(ctx context.Context, budget *semaphore.Weighted, 
 		}
 		defer budget.Release(n)
 	}
+	o.Jobs = e.jobs(p)
 	return e.encodeOne(ctx, eng, p, cfg, o, outDir)
 }
 
