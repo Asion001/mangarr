@@ -2,10 +2,13 @@ package sourcepriority
 
 import (
 	"context"
+	"slices"
 	"testing"
 
+	"github.com/Asion001/mangarr/internal/db"
 	"github.com/Asion001/mangarr/internal/dbtest"
 	"github.com/Asion001/mangarr/internal/model"
+	"github.com/Asion001/mangarr/internal/settings"
 )
 
 func TestOrderLibraryThenLanguageThenGlobal(t *testing.T) {
@@ -88,4 +91,52 @@ func TestRanksUsesLibraryThenLanguageAndKeepsCustom(t *testing.T) {
 			t.Fatalf("custom link %d: got %d want %d", link.ID, custom[link.ID], link.Priority)
 		}
 	}
+}
+
+// TestLanguageDefaultIsTheLanguageOrder: old "language:xx" orders move into
+// the language defaults, which then decide the order.
+func TestLanguageDefaultIsTheLanguageOrder(t *testing.T) {
+	dbtest.ForEachDialect(t, func(t *testing.T, d *db.DB) {
+		ctx := context.Background()
+		st := settings.NewStore(d)
+		if err := st.Set(ctx, settings.KeySources, settings.Sources{LanguageDefaults: []settings.LanguageDefault{
+			{Language: "en", Sources: []string{"1:x"}},
+			{Language: "ru"},
+		}}); err != nil {
+			t.Fatal(err)
+		}
+		for _, l := range []model.SourcePriorityList{
+			{Scope: LanguageScope("en"), Sources: []string{"1:y"}}, // the default already lists sources: it wins
+			{Scope: LanguageScope("ru"), Sources: []string{"1:b", "1:a"}},
+			{Scope: LanguageScope("ja"), Sources: []string{"1:j"}},
+			{Scope: LibraryScope(3), Sources: []string{"1:l"}},
+		} {
+			if _, err := d.NewInsert().Model(&l).Exec(ctx); err != nil {
+				t.Fatal(err)
+			}
+		}
+		n, err := MergeLanguageLists(ctx, d, st)
+		if err != nil || n != 3 {
+			t.Fatalf("merged %d, %v", n, err)
+		}
+		src, _ := st.Sources(ctx)
+		got := map[string][]string{}
+		for _, def := range src.LanguageDefaults {
+			got[def.Language] = def.Sources
+		}
+		if !slices.Equal(got["en"], []string{"1:x"}) || !slices.Equal(got["ru"], []string{"1:b", "1:a"}) || !slices.Equal(got["ja"], []string{"1:j"}) {
+			t.Fatalf("defaults: %v", got)
+		}
+		left, _ := d.NewSelect().Model((*model.SourcePriorityList)(nil)).Count(ctx)
+		if left != 1 {
+			t.Fatalf("%d rows left, want only the library one", left)
+		}
+		ranks, err := Resolve(ctx, d, 0, "RU", []Entry{{"1:a", 1}, {"1:b", 2}, {"1:z", 0}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if ranks["1:b"] != 0 || ranks["1:a"] != 1 || ranks["1:z"] != 2 {
+			t.Fatalf("ranks %v", ranks)
+		}
+	})
 }

@@ -30,6 +30,7 @@ import (
 	"github.com/Asion001/mangarr/internal/reading"
 	"github.com/Asion001/mangarr/internal/settings"
 	"github.com/Asion001/mangarr/internal/sourcecache"
+	"github.com/Asion001/mangarr/internal/sourcepriority"
 	"github.com/Asion001/mangarr/internal/sourcesearch"
 	"github.com/Asion001/mangarr/internal/worktasks"
 )
@@ -118,6 +119,12 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger, ring *loggin
 	}
 	if err := a.ensureDefaults(ctx); err != nil {
 		return nil, err
+	}
+	// one source list per language: the language defaults (#27)
+	if n, err := sourcepriority.MergeLanguageLists(ctx, d, a.Settings); err != nil {
+		return nil, fmt.Errorf("language source lists: %w", err)
+	} else if n > 0 {
+		log.Info("moved per-language source orders into the language defaults", "lists", n)
 	}
 	a.Auth = auth.NewService(d, a.Settings, cfg.AuthDisabled)
 	if err := a.upgradeAccounts(ctx); err != nil {

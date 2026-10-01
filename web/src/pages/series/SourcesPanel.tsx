@@ -5,7 +5,7 @@ import clsx from "clsx";
 import { ArrowDown, ArrowUp, ExternalLink, MoreHorizontal, Plus } from "lucide-react";
 import { api, unwrap, type Series, type SeriesSource, type SourceManga } from "../../api/client";
 import { Badge, Button, Card, Confirm, IconButton, Menu, Switch } from "../../components/ui";
-import { relative } from "../../lib/format";
+import { languageName, relative } from "../../lib/format";
 import { useToast } from "../../lib/toast";
 import { SourceSearchModal, type PickGroup } from "./SourceSearch";
 
@@ -101,7 +101,7 @@ export function SourcesPanel({ series }: { series: Series }) {
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs text-muted">{t("Order")}</span>
           <div role="group" aria-label={t("Source order")} className="flex rounded-md border border-border bg-bg p-0.5">
-            {([["inherit", t("Library default source list")], ["custom", t("Custom")]] as const).map(([mode, text]) => {
+            {([["inherit", series.language ? t("Follows {lang} defaults", { lang: languageName(series.language) }) : t("Follows the defaults")], ["custom", t("Custom list")]] as const).map(([mode, text]) => {
               const on = (mode === "inherit") === inherited;
               return (
                 <button key={mode} type="button" aria-pressed={on} onClick={() => !on && void setMode(mode)} className={clsx("rounded px-2.5 py-1 text-xs font-medium", on ? "bg-panel-2 text-fg" : "text-muted hover:text-fg")}>

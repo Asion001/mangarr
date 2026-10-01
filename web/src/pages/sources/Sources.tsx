@@ -1,4 +1,6 @@
 import { t as tr, t } from "../../lib/i18n/core";
+import { LanguageDefaults } from "./LanguageDefaults";
+import { useAccount } from "../../lib/account";
 import { useMemo, useState, type ReactNode } from "react";
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
@@ -16,7 +18,7 @@ import { CatalogIcon, Catalogs } from "./Catalogs";
 import { SourceSettings } from "./SourceSettings";
 import { SwitchEngine } from "./SwitchEngine";
 
-type Tab = "catalogs" | "add" | "browse";
+type Tab = "defaults" | "catalogs" | "add" | "browse";
 // older addresses of the tabs this page replaced
 const moved: Record<string, Tab> = { extensions: "add", stores: "add", priorities: "catalogs" };
 
@@ -31,6 +33,7 @@ export function SourcesPage() {
   const [switching, setSwitching] = useState(false);
   const { data: catalogs } = useCatalogs();
   const src = useSettingsDoc<S["Sources"]>("sources").value;
+  const { isAdmin } = useAccount();
   const hasExtensions = !!current?.capabilities.includes("extensions");
   const { data: extensions } = useExtensions(current ?? ({ id: 0, capabilities: [] } as unknown as ModuleResource));
 
@@ -47,6 +50,7 @@ export function SourcesPage() {
   const on = (catalogs?.items ?? []).filter((c) => c.moduleId === current?.id && c.enabled && !c.hidden).length;
   const updates = (extensions ?? []).filter((e) => e.installed && e.hasUpdate).length;
   const tabs: { value: Tab; label: ReactNode }[] = [
+    ...(isAdmin ? [{ value: "defaults" as const, label: <>{t("Language defaults")} <span className="font-normal text-muted">{src?.languageDefaults?.length ?? 0}</span></> }] : []),
     { value: "catalogs", label: <>{t("My catalogs")} <span className="font-normal text-muted">{on}</span></> },
     ...(hasExtensions
       ? [{ value: "add" as const, label: <>{t("Add catalogs")} {updates > 0 && <span className="ml-1 rounded-full bg-accent/15 px-1.5 py-0.5 text-[11px] font-semibold text-accent-2">{t("{n} updates", { n: updates })}</span>}</> }]
@@ -99,6 +103,7 @@ export function SourcesPage() {
           </button>
         ))}
       </nav>
+      {tab === "defaults" && <LanguageDefaults />}
       {current && tab === "catalogs" && <Catalogs module={current} />}
       {current && tab === "add" && <AddCatalogs module={current} />}
       {current && tab === "browse" && <Browse module={current} />}

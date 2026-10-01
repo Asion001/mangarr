@@ -1,14 +1,21 @@
 // Package sourcepriority resolves library, language and global catalog order.
-// It does not enable sources, create links or queue downloads.
+// It does not enable sources, create links or queue downloads. A language's
+// order is its language default's source list (Settings → Search); the
+// older "language:xx" rows only count until MergeLanguageLists moves them.
 package sourcepriority
 
 import (
 	"context"
+	"database/sql"
+	"encoding/json"
+	"errors"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/Asion001/mangarr/internal/model"
+	"github.com/Asion001/mangarr/internal/settings"
 	"github.com/uptrace/bun"
 )
 
@@ -78,6 +85,11 @@ func Resolve(ctx context.Context, d bun.IDB, rootID int64, lang string, entries 
 			language = l.Sources
 		}
 	}
+	if def, err := languageDefault(ctx, d, lang); err != nil {
+		return nil, err
+	} else if len(def) > 0 {
+		language = def
+	}
 	return Order(entries, library, language), nil
 }
 
@@ -133,4 +145,66 @@ func Apply(ctx context.Context, d bun.IDB, ser model.Series, links []model.Serie
 		return links[i].ID < links[j].ID
 	})
 	return nil
+}
+
+// languageDefault is the source list of the language default for lang, read
+// from the stored settings document so it works inside a transaction.
+func languageDefault(ctx context.Context, d bun.IDB, lang string) ([]string, error) {
+	if Language(lang) == "" {
+		return nil, nil
+	}
+	var row model.Setting
+	err := d.NewSelect().Model(&row).Where("key = ?", settings.KeySources).Scan(ctx)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var src settings.Sources
+	if err := json.Unmarshal([]byte(row.Value), &src); err != nil {
+		return nil, nil // a broken document leaves the global order
+	}
+	if def, ok := src.ForLanguage(Language(lang)); ok {
+		return def.Sources, nil
+	}
+	return nil, nil
+}
+
+// MergeLanguageLists moves the old per-language orders ("language:xx" rows
+// from My catalogs) into the language defaults, so each language has one
+// list. A language default that already lists sources wins. It returns how
+// many rows it moved.
+func MergeLanguageLists(ctx context.Context, d bun.IDB, st *settings.Store) (int, error) {
+	var rows []model.SourcePriorityList
+	if err := d.NewSelect().Model(&rows).Where("scope LIKE ?", "language:%").Scan(ctx); err != nil || len(rows) == 0 {
+		return 0, err
+	}
+	src, err := st.Sources(ctx)
+	if err != nil {
+		return 0, err
+	}
+	changed := false
+	for _, r := range rows {
+		lang := Language(strings.TrimPrefix(r.Scope, "language:"))
+		if len(r.Sources) == 0 {
+			continue
+		}
+		i := slices.IndexFunc(src.LanguageDefaults, func(def settings.LanguageDefault) bool { return Language(def.Language) == lang })
+		switch {
+		case i < 0:
+			src.LanguageDefaults = append(src.LanguageDefaults, settings.LanguageDefault{Language: lang, Sources: r.Sources})
+			changed = true
+		case len(src.LanguageDefaults[i].Sources) == 0:
+			src.LanguageDefaults[i].Sources = r.Sources
+			changed = true
+		}
+	}
+	if changed {
+		if err := st.Set(ctx, settings.KeySources, src); err != nil {
+			return 0, err
+		}
+	}
+	_, err = d.NewDelete().Model((*model.SourcePriorityList)(nil)).Where("scope LIKE ?", "language:%").Exec(ctx)
+	return len(rows), err
 }

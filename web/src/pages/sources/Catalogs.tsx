@@ -51,21 +51,10 @@ export function Catalogs({ module }: { module: ModuleResource }) {
   const byGlobal = useMemo(() => [...mine].sort((a, b) => a.priority - b.priority || a.displayName.localeCompare(b.displayName)), [mine]);
   const healthOf = useMemo(() => new Map((health.data ?? []).map((h) => [`${h.moduleId}:${h.sourceId}`, h])), [health.data]);
 
-  // only languages you use: a folder, a series, a search language or a saved order
   const searchLanguages = useSearchLanguages();
-  const languages = useMemo(
-    () => sortLanguages([
-      ...(roots.data ?? []).map((r) => r.language),
-      ...(series ?? []).map((x) => x.language),
-      ...searchLanguages,
-      ...(lists.data ?? []).filter((l) => l.scope.startsWith("language:")).map((l) => l.scope.slice("language:".length)),
-    ].filter((l) => l && l !== "*" && l !== "all" && l !== "multi")),
-    [roots.data, series, searchLanguages, lists.data],
-  );
   const scopes = [
     { value: "global", label: tr("Every library"), language: "" },
     ...(roots.data ?? []).map((r) => ({ value: `library:${r.id}`, label: `${r.path.split("/").filter(Boolean).pop() || r.path}${r.language ? ` (${languageName(r.language)})` : ""}`, language: r.language })),
-    ...languages.map((l) => ({ value: `language:${l}`, label: tr("{lang} series", { lang: languageName(l) }), language: l })),
   ];
   const current = scopes.find((s) => s.value === scope) ?? scopes[0];
   useEffect(() => {

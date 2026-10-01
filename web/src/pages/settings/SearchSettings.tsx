@@ -1,9 +1,9 @@
 import { t } from "../../lib/i18n/core";
 import { LanguageList } from "../../components/LanguageChooser";
+import { Link } from "react-router";
 import { type S } from "../../api/client";
-import { useCatalogs, useProfiles, useRootFolders } from "../../api/queries";
-import { Badge, Button, Card, ErrorBox, Field, Input, Loading, PageHeader, SaveBar, Select, Switch } from "../../components/ui";
-import { LanguageSelect } from "../../components/LanguageSelect";
+import { useCatalogs } from "../../api/queries";
+import { Card, ErrorBox, Field, Input, Loading, PageHeader, SaveBar, Select, Switch } from "../../components/ui";
 import { languageName } from "../../lib/format";
 import { useSettingsDoc } from "./useSettingsDoc";
 
@@ -32,25 +32,12 @@ const throttleFields: { key: keyof Throttle; label: string; help?: string }[] = 
 export function SearchSettingsPage() {
   const doc = useSettingsDoc<Sources>("sources");
   const { data: catalogs } = useCatalogs();
-  const { data: roots } = useRootFolders();
-  // the language's own folder, else the one the automatic folder would make
-  const folderFor = (lang: string) => {
-    const own = roots?.find((root) => root.language.toLowerCase() === lang.toLowerCase());
-    const auto = roots?.find((root) => root.language === "*");
-    return own?.path ?? (auto && lang ? `${auto.path.replace(/\/+$/, "")}/${lang.toLowerCase()}` : "—");
-  };
-  const { data: profiles } = useProfiles();
   const v = doc.value;
   const catalogLangs = Array.from(new Set((catalogs?.items ?? []).filter((c) => !c.hidden).map((c) => c.lang))).filter((l) => l && l !== "all" && l !== "multi").sort((a, b) => languageName(a).localeCompare(languageName(b)));
   const qs = v?.quickSearch;
   const setQS = (p: Partial<Sources["quickSearch"]>) => v && doc.patch({ quickSearch: { ...v.quickSearch, ...p } });
   const setT = (p: Partial<Throttle>) => v && doc.patch({ throttle: { ...v.throttle, ...p } });
   const preset = presets[v?.throttle.preset || "normal"];
-  const languageDefaults = v?.languageDefaults ?? [];
-  const patchLanguage = (index: number, patch: Partial<Sources["languageDefaults"][number]>) => {
-    if (!v) return;
-    doc.patch({ languageDefaults: languageDefaults.map((item, i) => i === index ? { ...item, ...patch } : item) });
-  };
   return (
     <>
       <PageHeader
@@ -83,70 +70,10 @@ export function SearchSettingsPage() {
             </div>
           </Card>
           <Card title={t("Language defaults")} className="mb-6">
-            <p className="mb-4 text-sm text-muted">{t("Choose the source order, profile and reading direction used for each language.")}</p>
-            <div className="flex flex-col gap-4">
-              {languageDefaults.map((item, index) => {
-                const chosen = new Set(item.sources);
-                return (
-                  <div key={`${item.language}-${index}`} className="rounded-lg border border-border p-3">
-                    <div className="mb-3 grid gap-3 md:grid-cols-4">
-                      <Field label={t("Language")}>
-                        <LanguageSelect value={item.language} onChange={(language) => patchLanguage(index, { language })} />
-                      </Field>
-                      <Field label={t("Folder")} help={t("Set in Media management")}>
-                        <span className="block truncate py-2 font-mono text-xs text-muted">{folderFor(item.language)}</span>
-                      </Field>
-                      <Field label={t("Profile")}>
-                        <Select value={item.profileId || 0} onChange={(e) => patchLanguage(index, { profileId: Number(e.target.value) })}>
-                          <option value={0}>{t("Default")}</option>
-                          {profiles?.map((profile) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
-                        </Select>
-                      </Field>
-                      <Field label={t("Reading direction")}>
-                        <Select value={item.readingDirection || ""} onChange={(e) => patchLanguage(index, { readingDirection: e.target.value as typeof item.readingDirection })}>
-                          <option value="">{t("Automatic")}</option>
-                          <option value="rtl">{t("Right to left (manga)")}</option>
-                          <option value="ltr">{t("Left to right")}</option>
-                          <option value="webtoon">{t("Webtoon (long strip)")}</option>
-                        </Select>
-                      </Field>
-                    </div>
-                    <div className="mb-2 text-sm font-medium">{t("Source priority")}</div>
-                    <div className="mb-2 flex flex-col gap-1">
-                      {item.sources.map((key, sourceIndex) => {
-                        const catalog = catalogs?.items.find((candidate) => `${candidate.moduleId}:${candidate.id}` === key);
-                        return (
-                          <div key={key} className="flex items-center gap-2 rounded bg-panel-2 px-2 py-1 text-sm">
-                            <span className="w-5 text-muted">{sourceIndex + 1}.</span>
-                            <span className="flex-1">{catalog?.displayName ?? key}</span>
-                            {catalog?.lang && <Badge>{languageName(catalog.lang)}</Badge>}
-                            <Button size="sm" disabled={sourceIndex === 0} onClick={() => patchLanguage(index, { sources: swap(item.sources, sourceIndex, sourceIndex - 1) })}>{t("Up")}</Button>
-                            <Button size="sm" disabled={sourceIndex === item.sources.length - 1} onClick={() => patchLanguage(index, { sources: swap(item.sources, sourceIndex, sourceIndex + 1) })}>{t("Down")}</Button>
-                            <Button size="sm" onClick={() => patchLanguage(index, { sources: item.sources.filter((value) => value !== key) })}>{t("Remove")}</Button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    <div className="flex gap-2">
-                      <Select value="" onChange={(e) => e.target.value && patchLanguage(index, { sources: [...item.sources, e.target.value] })}>
-                        <option value="">{t("Add source…")}</option>
-                        {catalogs?.items.filter((catalog) => !catalog.hidden && !chosen.has(`${catalog.moduleId}:${catalog.id}`)).map((catalog) => (
-                          <option key={`${catalog.moduleId}:${catalog.id}`} value={`${catalog.moduleId}:${catalog.id}`}>{catalog.displayName} ({languageName(catalog.lang)})</option>
-                        ))}
-                      </Select>
-                      <Button onClick={() => doc.patch({ languageDefaults: languageDefaults.filter((_, i) => i !== index) })}>{t("Remove")}</Button>
-                    </div>
-                  </div>
-                );
-              })}
-              <Button
-                onClick={() => {
-                  const known = Array.from(new Set(["en", "ru", ...(catalogs?.items ?? []).map((catalog) => catalog.lang)])).filter((language) => language !== "all" && language !== "multi");
-                  const language = known.find((candidate) => !languageDefaults.some((item) => item.language === candidate)) ?? "";
-                  doc.patch({ languageDefaults: [...languageDefaults, { language, sources: [], profileId: 0, readingDirection: "" }] });
-                }}
-              >{t("Add language")}</Button>
-            </div>
+            <p className="text-sm text-muted">
+              {t("Each language's ordered source list, profile and reading direction now live in one place.")}{" "}
+              <Link to="/sources/defaults" className="text-accent-2 hover:underline">{t("Edit them in Sources › Language defaults")}</Link>
+            </p>
           </Card>
           <Card title={t("Quick search")} className="mb-6">
             <div className="flex flex-col gap-4">
@@ -206,10 +133,4 @@ export function SearchSettingsPage() {
       <SaveBar dirty={doc.dirty} saving={doc.saving} onSave={() => void doc.save()} onDiscard={doc.reset} />
     </>
   );
-}
-
-function swap<T>(values: T[], a: number, b: number): T[] {
-  const copy = [...values];
-  [copy[a], copy[b]] = [copy[b], copy[a]];
-  return copy;
 }

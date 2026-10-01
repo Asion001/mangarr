@@ -4,11 +4,13 @@ import (
 	"context"
 	"net/http"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/Asion001/mangarr/internal/catalogs"
 	"github.com/Asion001/mangarr/internal/model"
+	"github.com/Asion001/mangarr/internal/settings"
 	"github.com/Asion001/mangarr/internal/sourcepriority"
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/uptrace/bun"
@@ -73,6 +75,24 @@ func (s *Server) registerSourcePriorities() {
 				return nil, huma.Error400BadRequest("source keys must be unique moduleId:sourceId values")
 			}
 			seen[key] = true
+		}
+		if kind == "language" {
+			// a language's order is its language default's source list
+			src, err := s.app.Settings.Sources(ctx)
+			if err != nil {
+				return nil, toHTTPError(err)
+			}
+			i := slices.IndexFunc(src.LanguageDefaults, func(d settings.LanguageDefault) bool { return sourcepriority.Language(d.Language) == value })
+			if i < 0 {
+				src.LanguageDefaults = append(src.LanguageDefaults, settings.LanguageDefault{Language: value})
+				i = len(src.LanguageDefaults) - 1
+			}
+			src.LanguageDefaults[i].Sources = append([]string{}, in.Body.Sources...)
+			if err := s.app.Settings.Set(ctx, settings.KeySources, src); err != nil {
+				return nil, toHTTPError(err)
+			}
+			s.app.Catalogs.Bump()
+			return &struct{ Body model.SourcePriorityList }{model.SourcePriorityList{Scope: scope, Sources: src.LanguageDefaults[i].Sources}}, nil
 		}
 		row := model.SourcePriorityList{Scope: scope, Sources: in.Body.Sources}
 		if row.Sources == nil {
