@@ -45,7 +45,7 @@ test('saves signed-in editor mode and language without response-only fields',asy
   await page.getByRole('group',{name:'Mode'}).getByRole('button',{name:'Manage',exact:true}).click();
   await page.getByRole('combobox').first().selectOption('ru');
   await expect.poll(()=>saves).toEqual([
-    {locale:'auto',mode:'editing'},
-    {locale:'ru',mode:'editing'},
+    {locale:'auto',mode:'editing',options:{}},
+    {locale:'ru',mode:'editing',options:{}},
   ]);
 });

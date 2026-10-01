@@ -65,7 +65,7 @@ for (const mode of ["downloads", "processing"]) {
     await expect(row(page, 3).getByRole("cell").nth(1)).toHaveText("3");
     await expect(row(page, 1).getByRole("button")).toHaveCount(0);
     await expect(toolbar(page, "Up")).toBeDisabled();
-    await expect(page.getByText("Select chapters to act on them")).toBeVisible();
+    await expect(page.getByText("Nothing selected")).toBeVisible();
     await row(page, 2).getByRole("checkbox").check();
     await page.screenshot({ path: testInfo.outputPath("queue-desktop.png"), fullPage: true });
     await toolbar(page, "Up").click();
