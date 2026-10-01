@@ -16,6 +16,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -198,24 +199,26 @@ func (s *Server) ProcessDevice(ctx context.Context, p Params, images []Image) ([
 	if !contains(eng.Scales, p.Scale) {
 		return nil, "", badRequest{fmt.Errorf("model %s supports scales %v", eng.Name, eng.Scales)}
 	}
-	s.queued.Add(1)
-	var device string
-	select {
-	case device = <-s.slots:
-		s.queued.Add(-1)
-	case <-ctx.Done():
-		s.queued.Add(-1)
-		return nil, "", ctx.Err()
-	}
-	defer func() { s.slots <- device }()
-	ctx, cancel := context.WithTimeout(ctx, s.cfg.Timeout)
-	defer cancel()
 	start := time.Now()
-	out, err := s.process(ctx, eng, p, images, device)
+	out, device, err := s.process(ctx, eng, p, images)
 	if err == nil {
 		s.log.Info("upscaled batch", "model", p.Model, "gpu", device, "scale", p.Scale, "pages", len(out), "duration", time.Since(start).Round(time.Millisecond))
 	}
 	return out, device, err
+}
+
+// acquire waits for a free GPU and returns it with the function that frees
+// it again (safe to call twice).
+func (s *Server) acquire(ctx context.Context) (string, func(), error) {
+	s.queued.Add(1)
+	defer s.queued.Add(-1)
+	select {
+	case device := <-s.slots:
+		var once sync.Once
+		return device, func() { once.Do(func() { s.slots <- device }) }, nil
+	case <-ctx.Done():
+		return "", nil, ctx.Err()
+	}
 }
 
 func parseGPUs(value string) ([]string, error) {
@@ -286,13 +289,45 @@ func zipImages(images []Image) ([]byte, error) {
 }
 
 // process writes the images to disk, runs the engine and reads the results.
-func (s *Server) process(ctx context.Context, eng Engine, p Params, images []Image, device string) ([]Image, error) {
+// It holds a GPU only while the engine runs: writing the pages out before
+// and finishing them after is CPU work, and another batch can use the GPU
+// meanwhile instead of it sitting idle.
+func (s *Server) process(ctx context.Context, eng Engine, p Params, images []Image) ([]Image, string, error) {
 	work, err := os.MkdirTemp(s.cfg.TmpDir, "upscale-*")
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	defer os.RemoveAll(work)
 	in, outDir := filepath.Join(work, "in"), filepath.Join(work, "out")
+	names, err := writeInput(images, in, outDir)
+	if err != nil {
+		return nil, "", err
+	}
+	device, release, err := s.acquire(ctx)
+	if err != nil {
+		return nil, "", err
+	}
+	defer release()
+	// the time limit is for the work, not for waiting on a GPU
+	ctx, cancel := context.WithTimeout(ctx, s.cfg.Timeout)
+	defer cancel()
+	var runErr error
+	if runner, ok := s.runner.(DeviceRunner); ok {
+		runErr = runner.RunDevice(ctx, eng, in, outDir, p.Scale, p.Noise, device)
+	} else {
+		runErr = s.runner.Run(ctx, eng, in, outDir, p.Scale, p.Noise)
+	}
+	release()
+	if runErr != nil {
+		return nil, device, runErr
+	}
+	out, err := s.finishAll(ctx, outDir, names, p)
+	return out, device, err
+}
+
+// writeInput puts a batch where the engine reads it and returns the pages'
+// base names.
+func writeInput(images []Image, in, outDir string) ([]string, error) {
 	if err := os.MkdirAll(in, 0o755); err != nil {
 		return nil, err
 	}
@@ -330,22 +365,32 @@ func (s *Server) process(ctx context.Context, eng Engine, p Params, images []Ima
 	if len(names) == 0 {
 		return nil, badRequest{errors.New("no images in request")}
 	}
-	var runErr error
-	if runner, ok := s.runner.(DeviceRunner); ok {
-		runErr = runner.RunDevice(ctx, eng, in, outDir, p.Scale, p.Noise, device)
-	} else {
-		runErr = s.runner.Run(ctx, eng, in, outDir, p.Scale, p.Noise)
+	return names, nil
+}
+
+// finishAll finishes a batch's pages a few at a time: one after another,
+// resizing and encoding them took longer than the engine run itself.
+func (s *Server) finishAll(ctx context.Context, outDir string, names []string, p Params) ([]Image, error) {
+	out := make([]Image, len(names))
+	errs := make([]error, len(names))
+	sem := make(chan struct{}, max(min(runtime.NumCPU()/2, 4), 1))
+	var wg sync.WaitGroup
+	for i, base := range names {
+		sem <- struct{}{}
+		wg.Add(1)
+		go func() {
+			defer func() { <-sem; wg.Done() }()
+			data, ext, err := s.finish(ctx, filepath.Join(outDir, base+".png"), p)
+			if err != nil {
+				errs[i] = fmt.Errorf("%s: %w", base, err)
+				return
+			}
+			out[i] = Image{Name: base + ext, Data: data}
+		}()
 	}
-	if err := runErr; err != nil {
+	wg.Wait()
+	if err := errors.Join(errs...); err != nil {
 		return nil, err
-	}
-	out := make([]Image, 0, len(names))
-	for _, base := range names {
-		data, ext, err := s.finish(ctx, filepath.Join(outDir, base+".png"), p)
-		if err != nil {
-			return nil, fmt.Errorf("%s: %w", base, err)
-		}
-		out = append(out, Image{Name: base + ext, Data: data})
 	}
 	return out, nil
 }

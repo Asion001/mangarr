@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Asion001/mangarr/internal/downloads"
@@ -209,14 +210,40 @@ func (p *Processor) Process(ctx context.Context, cfg model.UpscaleConfig, pages 
 	// a worker may run its own model instead of the profile's: the file
 	// records what the pages were really upscaled with
 	ctx, used := upscale.WithUsed(ctx)
+	// ChunksInFlight runs overlap: the next one is on the GPU while the last
+	// one's pages are being finished, so the GPU doesn't wait between them
+	ctx, cancel := context.WithCancelCause(ctx)
+	defer cancel(nil)
+	var (
+		mu  sync.Mutex
+		wg  sync.WaitGroup
+		sem = make(chan struct{}, max(ChunksInFlight, 1))
+	)
+run:
 	for b, group := range groups {
 		for _, idxs := range chunks(pages, group, b.scale) {
-			if err := p.upscaleChunk(ctx, up, mdl, cfg, b.format, b.scale, b.maxWidth, pages, idxs, out, outDir); err != nil {
-				return nil, false, "", err
+			select {
+			case sem <- struct{}{}:
+			case <-ctx.Done():
+				break run
 			}
-			done += len(idxs)
-			progress.Report(ctx, progress.Event{Stage: progress.StageUpscale, Done: done, Total: total})
+			wg.Add(1)
+			go func() {
+				defer func() { <-sem; wg.Done() }()
+				if err := p.upscaleChunk(ctx, up, mdl, cfg, b.format, b.scale, b.maxWidth, pages, idxs, out, outDir); err != nil {
+					cancel(err)
+					return
+				}
+				mu.Lock()
+				done += len(idxs)
+				progress.Report(ctx, progress.Event{Stage: progress.StageUpscale, Done: done, Total: total})
+				mu.Unlock()
+			}()
 		}
+	}
+	wg.Wait()
+	if err := context.Cause(ctx); err != nil {
+		return nil, false, "", err
 	}
 	name := mdl.Name
 	if names := used(); len(names) > 0 {
@@ -229,6 +256,11 @@ func (p *Processor) Process(ctx context.Context, cfg model.UpscaleConfig, pages 
 // memory bounded, stay far from the upscaler's time limit on slow GPUs and
 // show progress.
 var ChunkPages = 8
+
+// ChunksInFlight is how many runs of one chapter go at once. Two is enough
+// to keep the GPU busy while the other run's pages are written and finished,
+// and keeps no more than two runs' pages in memory.
+var ChunksInFlight = 2
 
 // ChunkPixels caps the upscaled pixels in one run as well. Every upscaled
 // page of a run is held in memory until the run is done, and eight 4x
