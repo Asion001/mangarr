@@ -37,6 +37,7 @@ A worker holds a key of its own and asks the server for work, so it needs no por
 | `MANGARR_WORKER_PREFETCH` | `0` | Pages it fetches ahead of its uploads (0 = what the server says). |
 | `MANGARR_WORKER_PAGE_CONCURRENCY` | `0` | Pages it fetches at a time when System → Workers leaves it at 0 (0 = 4). |
 | `MANGARR_WORKER_SHARED_STORAGE` | `false` | true when this worker sees the server's data folder at the same path (the same volume mounted at /config): it then reads and writes pages there instead of sending them over HTTP. Falls back to HTTP for any task whose files it can't see. |
+| `MANGARR_WORKER_AUTO_UPDATE` | `true` | false keeps a desktop worker on its version when the server is newer (it only says an update is waiting). A worker in a container never replaces itself: its image is updated from outside. |
 
 ## The upscaling engine
 
@@ -96,6 +97,7 @@ Read wherever the engine runs: in the server, or on a worker with the upscale ro
 | `MANGARR_DOWNLOADS_MAX_CONCURRENT_PROCESSING` | int | `4` | Chapter files processed at once. |
 | `MANGARR_DOWNLOADS_WORKER_PREFETCH` | int | `50` | Pages a worker fetches ahead of what it has uploaded. |
 | `MANGARR_DOWNLOADS_MAX_LOCAL_TASKS` | int | `0` | Tasks this server runs itself at once (0 = only the other limits, -1 = none: downloads and processing wait for the workers). |
+| `MANGARR_DOWNLOADS_WORKER_UPDATES` | bool | `true` | Offer this server's version to workers on an older release; desktop workers update themselves. |
 
 ### cleanup
 

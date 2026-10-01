@@ -25,7 +25,7 @@
   .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
   .pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-weight: 600; font-size: 12px; background: var(--bar); }
   .pill::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
-  .pill.ready::before { background: var(--ok); } .pill.waiting::before, .pill.starting::before { background: var(--warn); }
+  .pill.ready::before { background: var(--ok); } .pill.waiting::before, .pill.starting::before, .pill.updating::before { background: var(--warn); }
   .pill.failed::before { background: var(--bad); }
   .pill.off::before { background: var(--muted); }
   button { font: inherit; border: 1px solid var(--line); background: var(--panel); color: var(--text); border-radius: 8px; padding: 6px 14px; cursor: pointer; }
@@ -100,6 +100,8 @@
         <input type="number" min="0" name="MANGARR_UPSCALER_TILE"></label>
       <label><span><input type="checkbox" name="MANGARR_WORKER_KEEP_AWAKE"> Keep this computer awake while the worker is switched on</span>
         <small>Switched off in System → Workers on the server, or stopped here, and the computer may sleep as usual.</small></label>
+      <label><span><input type="checkbox" name="MANGARR_WORKER_AUTO_UPDATE"> Update automatically when the server is updated</span>
+        <small>It finishes the chapters in hand, downloads the new version, checks it and restarts. A version that fails to start is rolled back.</small></label>
       <div class="row"><button class="primary" type="submit">Save and restart</button><span id="saved" class="muted"></span></div>
       <small class="muted">Saved in <span id="file"></span>. Settings given as environment variables can't be changed here.</small>
     </form>
@@ -146,7 +148,7 @@ const el = (tag, attrs = {}, ...kids) => {
   for (const k of kids) e.append(k);
   return e;
 };
-const stateText = { starting: "Connecting", waiting: "Waiting for the server", ready: "Working", off: "Switched off on the server", stopped: "Stopped", failed: "Stopped with an error" };
+const stateText = { starting: "Connecting", waiting: "Waiting for the server", ready: "Working", off: "Switched off on the server", updating: "Updating", stopped: "Stopped", failed: "Stopped with an error" };
 
 async function call(path, body) {
   const r = await fetch(path, { method: "POST", headers: { "X-Mangarr-Worker": "1", "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : "{}" });
@@ -169,6 +171,8 @@ function render(s) {
   if (s.problem) problems.push(s.problem);
   if (s.awakeError) problems.push("Can't keep this computer awake: " + s.awakeError);
   if (w.error && (st === "waiting" || st === "failed")) problems.push(w.error);
+  if (w.update && st === "updating") problems.push(`Updating to ${w.update} once the chapters in hand are done.`);
+  else if (w.update) problems.push(`The server runs ${w.update}; this worker is ${s.version} and doesn't update itself (the log says why).`);
   const roles = (s.settings.find((f) => f.name === "MANGARR_WORKER_ROLES") || {}).value || "";
   if (st === "ready" && roles.includes("upscale") && !(w.models || []).length)
     problems.push("No upscalers were found in the upscalers folder, so this computer doesn't upscale. Check Settings.");
@@ -274,7 +278,8 @@ $("form").addEventListener("submit", async (e) => {
   const form = e.target, body = {};
   for (const name of ["MANGARR_SERVER_URL", "MANGARR_WORKER_KEY", "MANGARR_WORKER_CONCURRENT", "MANGARR_UPSCALER_TOOLS_DIR", "MANGARR_UPSCALER_GPU", "MANGARR_UPSCALER_TILE"])
     if (!form.elements[name].disabled) body[name] = form.elements[name].value;
-  if (!form.elements.MANGARR_WORKER_KEEP_AWAKE.disabled) body.MANGARR_WORKER_KEEP_AWAKE = form.elements.MANGARR_WORKER_KEEP_AWAKE.checked ? "true" : "false";
+  for (const name of ["MANGARR_WORKER_KEEP_AWAKE", "MANGARR_WORKER_AUTO_UPDATE"])
+    if (!form.elements[name].disabled) body[name] = form.elements[name].checked ? "true" : "false";
   body.MANGARR_WORKER_ROLES = [...$("roles").querySelectorAll("input:checked")].map((c) => c.value).join(",");
   $("saved").textContent = "Saving…";
   try {

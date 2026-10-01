@@ -17,6 +17,8 @@ import (
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/processing"
 	"github.com/Asion001/mangarr/internal/settings"
+	"github.com/Asion001/mangarr/internal/version"
+	"github.com/Asion001/mangarr/internal/workerupdate"
 	"github.com/Asion001/mangarr/internal/worktasks"
 )
 
@@ -57,6 +59,9 @@ type WorkerWelcome struct {
 	// OutputChunkBytes keeps processing-result uploads below proxy limits.
 	OutputChunkBytes int    `json:"outputChunkBytes"`
 	ServerTime       string `json:"serverTime"`
+	// Update is this server's version when the worker runs an older
+	// release and should move to it.
+	Update *workerupdate.Offer `json:"update,omitempty"`
 }
 
 // WorkerTaskOutput is one task, as handed to a worker, with its limits as
@@ -68,6 +73,8 @@ type WorkerTaskOutput struct {
 	Label           string `json:"label,omitempty"`
 	Concurrent      int    `json:"concurrent"`
 	PageConcurrency int    `json:"pageConcurrency"`
+	// Update is this server's version when the worker should move to it.
+	Update *workerupdate.Offer `json:"update,omitempty"`
 }
 
 // taskLabel names a job's chapter for a worker's status page ("" when the
@@ -93,6 +100,17 @@ func workerConcurrent(w *model.Worker, dl settings.Downloads) int {
 		return w.Concurrent
 	}
 	return max(dl.MaxConcurrentPerWorker, 1)
+}
+
+// workerUpdate is the update a worker is offered: this server's version,
+// when updates are on and the worker runs an older release. A worker that
+// differs keeps getting work meanwhile; a desktop one stops taking it to
+// update, one in a container only says it should be updated.
+func workerUpdate(w *model.Worker, dl settings.Downloads) *workerupdate.Offer {
+	if !dl.WorkerUpdates {
+		return nil
+	}
+	return workerupdate.For(version.Version, w.Version, w.Platform)
 }
 
 // workerPoll is how long a lease request waits for work before answering
@@ -137,7 +155,7 @@ func (s *Server) registerWorkerProtocol() {
 				LeaseSeconds: int(worktasks.Lease / time.Second), PollSeconds: int(workerPoll / time.Second),
 				Prefetch: dl.WorkerPrefetch, Concurrent: workerConcurrent(w, dl), PageConcurrency: w.PageConcurrency,
 				OutputChunkBytes: workerOutputChunkBytes,
-				ServerTime:       now.Format(time.RFC3339)}
+				ServerTime:       now.Format(time.RFC3339), Update: workerUpdate(w, dl)}
 			return &struct{ Body WorkerWelcome }{welcome}, nil
 		})
 
@@ -156,7 +174,7 @@ func (s *Server) registerWorkerProtocol() {
 			}
 			kinds := allowedRoles(w, in.Body.Kinds)
 			dl, _ := s.app.Settings.Downloads(ctx)
-			out := WorkerTaskOutput{Concurrent: workerConcurrent(w, dl), PageConcurrency: w.PageConcurrency}
+			out := WorkerTaskOutput{Concurrent: workerConcurrent(w, dl), PageConcurrency: w.PageConcurrency, Update: workerUpdate(w, dl)}
 			deadline := time.Now().Add(workerPoll)
 			for {
 				task, err := s.app.Tasks.Claim(ctx, w.ID, kinds, dl.MaxWorkerTasks, dl.MaxConcurrentPerWorker)

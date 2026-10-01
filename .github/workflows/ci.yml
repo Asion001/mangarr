@@ -140,7 +140,7 @@ jobs:
       - uses: actions/upload-artifact@v7
         with:
           name: mangarr-worker-${{ matrix.target }}
-          path: dist/*.zip
+          path: dist/*
           compression-level: 0
           retention-days: 30
       - name: attach to the release
@@ -150,7 +150,7 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --verify-tag --generate-notes || true
-          gh release upload "$TAG" dist/*.zip --clobber
+          gh release upload "$TAG" dist/*.zip dist/*.zip.sha256 --clobber
 
   images:
     needs: [test, web, generated]

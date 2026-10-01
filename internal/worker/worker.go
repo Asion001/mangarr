@@ -22,6 +22,7 @@ import (
 
 	"github.com/Asion001/mangarr/internal/imageenc"
 	"github.com/Asion001/mangarr/internal/upscaler"
+	"github.com/Asion001/mangarr/internal/workerupdate"
 	"github.com/Asion001/mangarr/internal/worktasks"
 )
 
@@ -56,7 +57,24 @@ type Config struct {
 	Fetch *http.Client
 	// Status keeps what it is doing for a status page (nil: nothing is kept).
 	Status *Status
+	// AutoUpdate lets it move to the server's version when the server is
+	// newer (MANGARR_WORKER_AUTO_UPDATE).
+	AutoUpdate bool
+	// SelfUpdate says whoever runs the worker can replace its program: Run
+	// then stops for an update with an *UpdateError. Without it (a
+	// container) the worker only says an update is waiting.
+	SelfUpdate bool
+	// Skip is a version not to move to: one that was rolled back here.
+	Skip string
+	// Connected is called after every successful hello.
+	Connected func()
 }
+
+// UpdateError is what Run returns when it stopped to move to the server's
+// version: it took no new work, finished what it held and said goodbye.
+type UpdateError struct{ Offer workerupdate.Offer }
+
+func (e *UpdateError) Error() string { return "stopped to update to " + e.Offer.Version }
 
 // Worker is the running worker.
 type Worker struct {
@@ -77,6 +95,11 @@ type Worker struct {
 
 	mu   sync.Mutex
 	held map[int64]bool // tasks in progress, for a clean goodbye
+	// told is the newer version already logged as waiting.
+	told string
+
+	// update is the version it stops to move to, once offered.
+	update atomic.Pointer[workerupdate.Offer]
 
 	status *Status
 }
@@ -93,6 +116,8 @@ type Welcome struct {
 	PageConcurrency  int      `json:"pageConcurrency"`
 	OutputChunkBytes int      `json:"outputChunkBytes"`
 	ServerTime       string   `json:"serverTime"`
+	// Update is the server's version when this worker should move to it.
+	Update *workerupdate.Offer `json:"update,omitempty"`
 }
 
 // Task is one piece of work, as the server hands it over.
@@ -162,6 +187,21 @@ func (w *Worker) Run(ctx context.Context) error {
 			w.bye()
 			w.status.Set(StateStopped, nil)
 			return nil
+		}
+		if o := w.update.Load(); o != nil {
+			// take nothing new; what it holds is finished first, so an
+			// update never costs a chapter
+			if w.status.State() != StateUpdating {
+				w.log.Info("the server runs a newer version: finishing the tasks in hand, then updating",
+					"version", o.Version, "tasks", active.Load())
+				w.status.Set(StateUpdating, nil)
+			}
+			wg.Wait()
+			if ctx.Err() != nil {
+				continue
+			}
+			w.bye()
+			return &UpdateError{Offer: *o}
 		}
 		if active.Load() >= int64(w.taskLimit()) {
 			select {
@@ -281,6 +321,10 @@ func (w *Worker) hello(ctx context.Context) error {
 			w.concurrent.Store(int64(out.Concurrent))
 			w.pages.Store(int64(out.PageConcurrency))
 			w.status.welcome(out, models, devices)
+			if w.cfg.Connected != nil {
+				w.cfg.Connected()
+			}
+			w.offered(out.Update)
 			return nil
 		}
 		if ctx.Err() != nil {
@@ -322,6 +366,8 @@ func (w *Worker) lease(ctx context.Context) (*Task, error) {
 		Label           string `json:"label"`
 		Concurrent      *int   `json:"concurrent"`
 		PageConcurrency *int   `json:"pageConcurrency"`
+		// Update says the server moved to a newer version.
+		Update *workerupdate.Offer `json:"update"`
 	}
 	if err := w.call(ctx, http.MethodPost, "/api/v1/worker/lease", map[string]any{"kinds": w.welcome.Roles}, &out); err != nil {
 		return nil, err
@@ -336,7 +382,43 @@ func (w *Worker) lease(ctx context.Context) (*Task, error) {
 	if out.Task != nil {
 		out.Task.Label = out.Label
 	}
+	w.offered(out.Update)
 	return out.Task, nil
+}
+
+// offered takes in what the server said about its version: an update this
+// worker can apply makes it stop taking work; one it can't is logged once
+// and shown on the status page.
+func (w *Worker) offered(o *workerupdate.Offer) {
+	if o == nil {
+		w.status.SetUpdate("")
+		return
+	}
+	w.status.SetUpdate(o.Version)
+	if w.update.Load() != nil {
+		return
+	}
+	if w.cfg.SelfUpdate && w.cfg.AutoUpdate && o.URL != "" && o.Version != w.cfg.Skip {
+		w.update.Store(o)
+		return
+	}
+	w.mu.Lock()
+	first := w.told != o.Version
+	w.told = o.Version
+	w.mu.Unlock()
+	if !first {
+		return
+	}
+	switch {
+	case !w.cfg.SelfUpdate:
+		w.log.Warn("the server runs a newer version; update this worker's image", "version", o.Version, "image", o.Image)
+	case o.Version == w.cfg.Skip:
+		w.log.Warn("the server runs a newer version, which didn't start here before; update this worker by hand", "version", o.Version)
+	case o.URL == "":
+		w.log.Warn("the server runs a newer version, with no worker zip for this platform; update this worker by hand", "version", o.Version)
+	default:
+		w.log.Info("the server runs a newer version; automatic updates are off (MANGARR_WORKER_AUTO_UPDATE)", "version", o.Version)
+	}
 }
 
 // do performs one task and tells the server how it went.

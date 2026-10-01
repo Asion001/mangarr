@@ -19,12 +19,15 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"syscall"
+	"time"
 
 	"github.com/Asion001/mangarr/internal/upscaler"
 	"github.com/Asion001/mangarr/internal/version"
 	"github.com/Asion001/mangarr/internal/worker"
 	"github.com/Asion001/mangarr/internal/workerui"
+	"github.com/Asion001/mangarr/internal/workerupdate"
 )
 
 func main() {
@@ -41,6 +44,7 @@ func main() {
 	listen := flag.String("listen", envOr("MANGARR_WORKER_UI_LISTEN", "127.0.0.1:8790"), "where the status page listens")
 	noBrowser := flag.Bool("no-browser", false, "don't open the status page in the browser")
 	flag.Parse()
+	settle()
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -64,16 +68,34 @@ func runHeadless(ctx context.Context) int {
 	if engine, err := upscaler.LoadEngineConfig(getenv); err == nil {
 		cfg.Upscaler = upscaler.NewEngine(engine, log)
 	}
-	w, err := worker.New(cfg)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+	exe, canUpdate := updatable()
+	cfg.SelfUpdate, cfg.Skip = canUpdate, workerupdate.Skipped(exe)
+	cfg.Connected = func() { workerupdate.Confirm(exe) }
+	for {
+		w, err := worker.New(cfg)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		err = w.Run(ctx)
+		var update *worker.UpdateError
+		if !errors.As(err, &update) {
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				return 1
+			}
+			return 0
+		}
+		log.Info("updating", "from", version.Version, "to", update.Offer.Version, "zip", update.Offer.URL)
+		if err := workerupdate.Apply(ctx, nil, update.Offer, exe, version.Version); err != nil {
+			log.Error("the update failed; carrying on with this version", "version", update.Offer.Version, "err", err)
+			cfg.Skip = update.Offer.Version
+			continue
+		}
+		log.Info("updated; restarting", "version", update.Offer.Version)
+		restart(exe, log)
 		return 1
 	}
-	if err := w.Run(ctx); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return 1
-	}
-	return 0
 }
 
 // runWithUI serves the status page and runs the worker from its settings.
@@ -86,8 +108,17 @@ func runWithUI(ctx context.Context, listen string, browser bool) int {
 		return 1
 	}
 	ui := workerui.New(store, logs, log, version.Version)
+	exe, canUpdate := updatable()
+	if canUpdate {
+		ui.Update = func(ctx context.Context, o workerupdate.Offer) error {
+			return workerupdate.Apply(ctx, nil, o, exe, version.Version)
+		}
+		ui.Skip = workerupdate.Skipped(exe)
+	}
+	ui.Connected = func() { workerupdate.Confirm(exe) }
 	url := "http://" + listen + "/"
-	if _, err := workerui.Serve(ctx, listen, ui.Handler()); err != nil {
+	ln, err := workerui.Serve(ctx, listen, ui.Handler())
+	if err != nil {
 		if errors.Is(err, workerui.ErrRunning) {
 			// most likely this worker, started again: show the one running
 			fmt.Println("the worker is already running; opening", url)
@@ -107,10 +138,69 @@ func runWithUI(ctx context.Context, listen string, browser bool) int {
 			log.Info("open the status page in a browser", "url", url)
 		}
 	}
-	<-ctx.Done()
-	log.Info("stopping")
-	ui.Stop()
-	return 0
+	select {
+	case <-ctx.Done():
+		log.Info("stopping")
+		ui.Stop()
+		return 0
+	case <-ui.Updated():
+		// the page's port is freed for the new program; the open page
+		// reconnects to it on its own
+		_ = ln.Close()
+		restart(exe, log, "-no-browser")
+		return 1
+	}
+}
+
+// updatable is this program's path and whether it may replace itself: not
+// inside a container, whose image is what gets updated.
+func updatable() (string, bool) {
+	exe, err := os.Executable()
+	if err != nil {
+		return "", false
+	}
+	if resolved, err := filepath.EvalSymlinks(exe); err == nil {
+		exe = resolved
+	}
+	for _, f := range []string{"/.dockerenv", "/run/.containerenv"} {
+		if _, err := os.Stat(f); err == nil {
+			return exe, false
+		}
+	}
+	return exe, true
+}
+
+// settle checks on an update that just happened: after a few starts that
+// never reached the server, the program before it is put back.
+func settle() {
+	exe, ok := updatable()
+	if !ok {
+		return
+	}
+	back, m, err := workerupdate.Settle(exe)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "checking the last update:", err)
+		return
+	}
+	if back {
+		fmt.Fprintf(os.Stderr, "%s didn't reach the server after %d starts; going back to %s\n", m.To, m.Starts-1, m.From)
+		restart(exe, slog.Default())
+	}
+}
+
+// restart starts exe again with this program's arguments (plus extra ones
+// not already there). It returns only when that fails.
+func restart(exe string, log *slog.Logger, extra ...string) {
+	args := os.Args[1:]
+	for _, a := range extra {
+		if !slices.Contains(args, a) {
+			args = append(args, a)
+		}
+	}
+	time.Sleep(200 * time.Millisecond) // let the log reach its readers
+	if err := workerupdate.Restart(exe, args); err != nil {
+		log.Error("could not restart; start the worker again by hand", "err", err)
+	}
 }
 
 // defaults are the settings this build starts with: the upscalers in the

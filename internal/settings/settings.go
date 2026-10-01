@@ -114,6 +114,9 @@ type Downloads struct {
 	// itself, not counting what it hands to workers; 0 sets no cap of its own
 	// and a negative value (LocalOff) switches this server's own work off.
 	MaxLocalTasks int `json:"maxLocalTasks" desc:"Tasks this server runs itself at once (0 = only the other limits, -1 = none: downloads and processing wait for the workers)."`
+	// WorkerUpdates offers this server's version to workers running an
+	// older release, which desktop workers then move to on their own.
+	WorkerUpdates bool `json:"workerUpdates" desc:"Offer this server's version to workers on an older release; desktop workers update themselves."`
 }
 
 // LocalOff reports whether this server does no downloading or processing
@@ -334,7 +337,8 @@ func DefaultMediaManagement() MediaManagement {
 
 func DefaultDownloads() Downloads {
 	return Downloads{MaxConcurrent: 3, MaxPerSource: 1, PageConcurrency: 3, PageRetries: 3, MaxAttempts: 3, DefaultCheckIntervalMinutes: 360,
-		WorkerPlacement: PlaceAuto, MaxConcurrentPerWorker: 2, MaxWorkerTasks: 8, MaxConcurrentProcessing: 4, WorkerPrefetch: 50}
+		WorkerPlacement: PlaceAuto, MaxConcurrentPerWorker: 2, MaxWorkerTasks: 8, MaxConcurrentProcessing: 4, WorkerPrefetch: 50,
+		WorkerUpdates: true}
 }
 
 func DefaultCleanup() Cleanup {

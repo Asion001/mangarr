@@ -14,6 +14,9 @@ const (
 	StateOff      = "off"      // switched off in System → Workers: waits to be switched on
 	StateStopped  = "stopped"
 	StateFailed   = "failed" // gave up (a refused key, say)
+	// StateUpdating takes no new work: it finishes what it holds and then
+	// moves to the server's version.
+	StateUpdating = "updating"
 )
 
 // recentKept is how many finished tasks the status page lists.
@@ -32,6 +35,8 @@ type Status struct {
 	active map[int64]*Activity
 	recent []Finished
 	totals Totals
+	// update is a newer version the server runs ("" when it is current).
+	update string
 }
 
 // Activity is one task in progress.
@@ -82,6 +87,8 @@ type Snapshot struct {
 	Active  []Activity `json:"active"`
 	Recent  []Finished `json:"recent"`
 	Totals  Totals     `json:"totals"`
+	// Update is the newer version the server runs, when there is one.
+	Update string `json:"update,omitempty"`
 }
 
 // NewStatus starts an empty status.
@@ -106,6 +113,16 @@ func (s *Status) Set(state string, err error) {
 	if state == StateStopped || state == StateFailed {
 		clear(s.active)
 	}
+}
+
+// SetUpdate records the newer version the server runs ("" for none).
+func (s *Status) SetUpdate(version string) {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	s.update = version
+	s.mu.Unlock()
 }
 
 // State is the worker's state now.
@@ -192,7 +209,8 @@ func (s *Status) Snapshot(limit int) Snapshot {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	out := Snapshot{State: s.state, Error: s.err, Since: s.since, Name: s.hello.Name, Roles: slices.Clone(s.hello.Roles), Limit: limit,
-		Models: slices.Clone(s.models), Devices: slices.Clone(s.devs), Active: []Activity{}, Recent: slices.Clone(s.recent), Totals: s.totals}
+		Models: slices.Clone(s.models), Devices: slices.Clone(s.devs), Active: []Activity{}, Recent: slices.Clone(s.recent), Totals: s.totals,
+		Update: s.update}
 	out.Totals.ByKind = map[string]int{}
 	for k, v := range s.totals.ByKind {
 		out.Totals.ByKind[k] = v

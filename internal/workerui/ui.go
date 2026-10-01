@@ -18,6 +18,7 @@ import (
 	"github.com/Asion001/mangarr/internal/awake"
 	"github.com/Asion001/mangarr/internal/upscaler"
 	"github.com/Asion001/mangarr/internal/worker"
+	"github.com/Asion001/mangarr/internal/workerupdate"
 )
 
 //go:embed index.html
@@ -42,12 +43,25 @@ type UI struct {
 	cancel  context.CancelFunc
 	done    chan struct{}
 	problem string // why it isn't running, when that isn't the worker's own doing
+
+	// Update puts the offered version's program in place of this one (nil:
+	// this worker doesn't update itself). Skip is a version not to take.
+	Update func(context.Context, workerupdate.Offer) error
+	Skip   string
+	// Connected is called whenever the worker has said hello.
+	Connected func()
+	updated   chan struct{}
+	once      sync.Once
 }
 
 // New makes the UI; log should write through logs.Handler so the page sees it.
 func New(store *Store, logs *Logs, log *slog.Logger, version string) *UI {
-	return &UI{store: store, logs: logs, log: log, version: version, status: worker.NewStatus()}
+	return &UI{store: store, logs: logs, log: log, version: version, status: worker.NewStatus(), updated: make(chan struct{})}
 }
+
+// Updated is closed once a new version is in place: the program should
+// restart into it.
+func (u *UI) Updated() <-chan struct{} { return u.updated }
 
 // Start starts the worker with the current settings. It reports a setting
 // that keeps it from starting; the worker's own trouble (a server that
@@ -64,6 +78,7 @@ func (u *UI) Start() error {
 		return err
 	}
 	cfg.Log, cfg.Version, cfg.Status = u.log, u.version, u.status
+	cfg.SelfUpdate, cfg.Skip, cfg.Connected = u.Update != nil, u.Skip, u.Connected
 	if engine, err := upscaler.LoadEngineConfig(u.store.Getenv); err == nil {
 		cfg.Upscaler = upscaler.NewEngine(engine, u.log)
 	} else {
@@ -79,7 +94,16 @@ func (u *UI) Start() error {
 	u.w, u.cancel, u.done, u.problem = w, cancel, done, ""
 	go func() {
 		defer close(done)
-		if err := w.Run(ctx); err != nil {
+		err := w.Run(ctx)
+		var update *worker.UpdateError
+		switch {
+		case errors.As(err, &update):
+			err = u.update(ctx, update.Offer)
+			if err == nil {
+				return // restarting: the worker stays "updating" until then
+			}
+			u.log.Error("the update failed; carrying on with this version", "version", update.Offer.Version, "err", err)
+		case err != nil:
 			u.log.Error("the worker stopped", "err", err)
 		}
 		u.mu.Lock()
@@ -88,7 +112,25 @@ func (u *UI) Start() error {
 		}
 		u.mu.Unlock()
 		cancel()
+		if update != nil && ctx.Err() == nil {
+			go func() { _ = u.Start() }()
+		}
 	}()
+	return nil
+}
+
+// update applies an update; a failed one is not tried again while this
+// program runs.
+func (u *UI) update(ctx context.Context, o workerupdate.Offer) error {
+	u.log.Info("updating", "from", u.version, "to", o.Version, "zip", o.URL)
+	if err := u.Update(ctx, o); err != nil {
+		u.mu.Lock()
+		u.Skip = o.Version
+		u.mu.Unlock()
+		return err
+	}
+	u.log.Info("updated; restarting", "version", o.Version)
+	u.once.Do(func() { close(u.updated) })
 	return nil
 }
 

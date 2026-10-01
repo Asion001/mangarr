@@ -16,6 +16,7 @@ var Vars = [][3]string{
 	{"MANGARR_WORKER_PREFETCH", "", "0"},
 	{"MANGARR_WORKER_PAGE_CONCURRENCY", "", "0"},
 	{"MANGARR_WORKER_SHARED_STORAGE", "", "false"},
+	{"MANGARR_WORKER_AUTO_UPDATE", "", "true"},
 }
 
 // Help describes each variable for the configuration reference.
@@ -27,6 +28,7 @@ var Help = map[string]string{
 	"MANGARR_WORKER_PREFETCH":         "Pages it fetches ahead of its uploads (0 = what the server says).",
 	"MANGARR_WORKER_PAGE_CONCURRENCY": "Pages it fetches at a time when System → Workers leaves it at 0 (0 = 4).",
 	"MANGARR_WORKER_SHARED_STORAGE":   "true when this worker sees the server's data folder at the same path (the same volume mounted at /config): it then reads and writes pages there instead of sending them over HTTP. Falls back to HTTP for any task whose files it can't see.",
+	"MANGARR_WORKER_AUTO_UPDATE":      "false keeps a desktop worker on its version when the server is newer (it only says an update is waiting). A worker in a container never replaces itself: its image is updated from outside.",
 }
 
 // LoadConfig reads a worker's configuration from the environment.
@@ -68,6 +70,9 @@ func LoadConfig(getenv func(string) string) (Config, error) {
 		if c.SharedStorage, err = strconv.ParseBool(v); err != nil {
 			return c, fmt.Errorf("MANGARR_WORKER_SHARED_STORAGE: %w", err)
 		}
+	}
+	if c.AutoUpdate, err = strconv.ParseBool(get("MANGARR_WORKER_AUTO_UPDATE")); err != nil {
+		return c, fmt.Errorf("MANGARR_WORKER_AUTO_UPDATE: %w", err)
 	}
 	if c.ServerURL == "" {
 		return c, fmt.Errorf("MANGARR_SERVER_URL: a worker needs the address of its server")

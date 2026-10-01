@@ -26,6 +26,7 @@ var Fields = []string{
 	"MANGARR_UPSCALER_GPU",
 	"MANGARR_UPSCALER_TILE",
 	KeepAwakeVar,
+	"MANGARR_WORKER_AUTO_UPDATE",
 }
 
 // Store keeps the page's settings in a JSON file, as the same variables

@@ -2385,6 +2385,9 @@
           "workerPrefetch": {
             "format": "int64",
             "type": "integer"
+          },
+          "workerUpdates": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -2399,7 +2402,8 @@
           "maxWorkerTasks",
           "maxConcurrentProcessing",
           "workerPrefetch",
-          "maxLocalTasks"
+          "maxLocalTasks",
+          "workerUpdates"
         ],
         "type": "object"
       },
@@ -5043,6 +5047,28 @@
           "chapterId",
           "number",
           "available"
+        ],
+        "type": "object"
+      },
+      "Offer": {
+        "additionalProperties": false,
+        "properties": {
+          "checksumUrl": {
+            "type": "string"
+          },
+          "image": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "image"
         ],
         "type": "object"
       },
@@ -11060,6 +11086,9 @@
             "format": "int64",
             "type": "integer"
           },
+          "updateTo": {
+            "type": "string"
+          },
           "upscaleModel": {
             "type": "string"
           },
@@ -11208,6 +11237,9 @@
           },
           "task": {
             "$ref": "#/components/schemas/WorkerTask"
+          },
+          "update": {
+            "$ref": "#/components/schemas/Offer"
           }
         },
         "required": [
@@ -11254,6 +11286,9 @@
           },
           "serverTime": {
             "type": "string"
+          },
+          "update": {
+            "$ref": "#/components/schemas/Offer"
           },
           "workerId": {
             "format": "int64",

@@ -4215,6 +4215,7 @@ export interface components {
             workerPlacement: string;
             /** Format: int64 */
             workerPrefetch: number;
+            workerUpdates: boolean;
         };
         DsnBodyBody: {
             /** @description postgres://user:password@host:5432/database?sslmode=disable, or sqlite:///path/file.db */
@@ -5014,6 +5015,12 @@ export interface components {
             chapterId: number;
             number: string;
             title?: string;
+        };
+        Offer: {
+            checksumUrl?: string;
+            image: string;
+            url?: string;
+            version: string;
         };
         OwnTargetInput: {
             enabled: boolean;
@@ -6813,6 +6820,7 @@ export interface components {
             tasksDone: number;
             /** Format: int64 */
             tasksFailed: number;
+            updateTo?: string;
             upscaleModel: string;
             version: string;
         };
@@ -6862,6 +6870,7 @@ export interface components {
             /** Format: int64 */
             pageConcurrency: number;
             task?: components["schemas"]["WorkerTask"];
+            update?: components["schemas"]["Offer"];
         };
         WorkerWelcome: {
             /** Format: int64 */
@@ -6879,6 +6888,7 @@ export interface components {
             prefetch: number;
             roles: string[];
             serverTime: string;
+            update?: components["schemas"]["Offer"];
             /** Format: int64 */
             workerId: number;
         };

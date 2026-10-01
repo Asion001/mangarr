@@ -126,6 +126,11 @@ export function WorkersPage() {
                   <div className="font-mono text-xs text-muted">
                     {w.prefix}… {w.version && `· ${w.version}`} {w.platform && `· ${w.platform}`} {w.lastIp && `· ${w.lastIp}`}
                   </div>
+                  {w.updateTo && (
+                    <div className="mt-1">
+                      <Badge tone="warn" title={t("A desktop worker updates itself when automatic updates are on; a container needs its image updated.")}>{t("Update to") + " " + w.updateTo}</Badge>
+                    </div>
+                  )}
                 </Td>
                 <Td>
                   <div className="flex flex-wrap gap-1">
@@ -218,6 +223,14 @@ export function WorkersPage() {
             <Field label={t("Default tasks per worker")} help={t("Per-worker overrides can be set above. 0 uses the default.")}>
               <Input type="number" min={1} value={limits.value.maxConcurrentPerWorker} onChange={(e) => limits.patch({ maxConcurrentPerWorker: Number(e.target.value) })} />
             </Field>
+            <div className="md:col-span-3">
+              <Switch
+                checked={limits.value.workerUpdates}
+                onChange={(v) => limits.patch({ workerUpdates: v })}
+                label={t("Update workers with this server")}
+              />
+              <p className="mt-1 text-xs text-muted">{t("Workers on an older release are told about this version. Desktop workers finish what they hold, update themselves and restart; containers only report it.")}</p>
+            </div>
           </div>
         )}
       </Card>

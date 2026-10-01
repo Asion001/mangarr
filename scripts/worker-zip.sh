@@ -3,6 +3,10 @@
 # ncnn upscalers in upscalers/ next to it, the layout the program looks for.
 #
 #   scripts/worker-zip.sh windows amd64 dist   -> dist/mangarr-worker-windows-amd64.zip
+#                                                 dist/mangarr-worker-windows-amd64.zip.sha256
+#
+# The checksum is what a worker checks the zip against before it updates
+# itself (internal/workerupdate).
 #
 # VERSION, BUILD and COMMIT are stamped in when set. The upscaler versions
 # match docker/Dockerfile.
@@ -65,4 +69,6 @@ EOF
 
 rm -f "$out/$name.zip"
 (cd "$work" && zip -qr -9 "$out/$name.zip" "$name")
+if command -v sha256sum >/dev/null 2>&1; then sum=$(sha256sum "$out/$name.zip"); else sum=$(shasum -a 256 "$out/$name.zip"); fi
+echo "${sum%% *}  $name.zip" > "$out/$name.zip.sha256"
 echo "$out/$name.zip"
