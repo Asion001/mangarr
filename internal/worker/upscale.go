@@ -61,7 +61,9 @@ func (w *Worker) upscale(ctx context.Context, t Task) (result, error) {
 	if len(images) == 0 {
 		return result{}, errors.New("the batch has no pages")
 	}
-	beat := w.beating(ctx, t, len(images), nil)
+	ctx, abort := context.WithCancel(ctx)
+	defer abort()
+	beat := w.beating(ctx, t, len(images), nil, abort)
 	defer beat()
 
 	w.status.stage(t.ID, "upscaling", 0, len(images))
@@ -86,8 +88,9 @@ func (w *Worker) upscale(ctx context.Context, t Task) (result, error) {
 
 // beating keeps a task's lease while something slow runs, and stops when
 // the returned function is called. With live progress it also tells the
-// server how far the task is, every few seconds while that moves.
-func (w *Worker) beating(ctx context.Context, t Task, pages int, live *liveProgress) func() {
+// server how far the task is, every few seconds while that moves. When the
+// server cancels the task or gives it to someone else, abort stops the work.
+func (w *Worker) beating(ctx context.Context, t Task, pages int, live *liveProgress, abort context.CancelFunc) func() {
 	stop := make(chan struct{})
 	done := make(chan struct{})
 	go func() {
@@ -121,10 +124,17 @@ func (w *Worker) beating(ctx context.Context, t Task, pages int, live *liveProgr
 					Cancel bool `json:"cancel"`
 				}
 				err := w.call(ctx, http.MethodPost, fmt.Sprintf("/api/v1/worker/tasks/%d/heartbeat", t.ID), body, &out)
-				if err != nil {
+				switch {
+				case err != nil && gone(err):
+					w.log.Info("the server gave this task to someone else; stopping it", "task", t.ID)
+					abort()
+				case err != nil:
 					// a lost heartbeat loses the task when the lease runs out,
 					// so it is worth a line in the log
 					w.log.Warn("heartbeat didn't reach the server", "task", t.ID, "err", err)
+				case out.Cancel:
+					w.log.Info("the server cancelled this task; stopping it", "task", t.ID)
+					abort()
 				}
 			}
 		}

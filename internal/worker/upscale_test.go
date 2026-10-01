@@ -80,7 +80,7 @@ func TestProgressReachesTheServer(t *testing.T) {
 	w := &Worker{cfg: Config{ServerURL: srv.URL, Key: "test", HTTP: srv.Client()}, log: slog.New(slog.DiscardHandler),
 		welcome: Welcome{LeaseSeconds: 300}}
 	live := &liveProgress{}
-	stop := w.beating(context.Background(), Task{ID: 7}, 20, live)
+	stop := w.beating(context.Background(), Task{ID: 7}, 20, live, func() {})
 	defer stop()
 	live.set(progress.Event{Stage: progress.StageUpscale, Done: 3, Total: 12})
 	select {
@@ -96,5 +96,34 @@ func TestProgressReachesTheServer(t *testing.T) {
 	case body := <-got:
 		t.Fatalf("a heartbeat without news: %v", body)
 	case <-time.After(100 * time.Millisecond):
+	}
+}
+
+// TestCancelStopsTheWork: a task the server cancels, or gave to another
+// worker, stops here instead of running on to the end.
+func TestCancelStopsTheWork(t *testing.T) {
+	defer func(old time.Duration) { progressEvery = old }(progressEvery)
+	progressEvery = 10 * time.Millisecond
+	for name, reply := range map[string]func(http.ResponseWriter){
+		"cancelled": func(rw http.ResponseWriter) { _, _ = rw.Write([]byte(`{"cancel":true}`)) },
+		"gone":      func(rw http.ResponseWriter) { http.Error(rw, "not yours", http.StatusConflict) },
+	} {
+		t.Run(name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) { reply(rw) }))
+			defer srv.Close()
+			w := &Worker{cfg: Config{ServerURL: srv.URL, Key: "test", HTTP: srv.Client()}, log: slog.New(slog.DiscardHandler),
+				welcome: Welcome{LeaseSeconds: 300}}
+			ctx, abort := context.WithCancel(context.Background())
+			defer abort()
+			live := &liveProgress{}
+			stop := w.beating(ctx, Task{ID: 7}, 20, live, abort)
+			defer stop()
+			live.set(progress.Event{Stage: progress.StageEncode, Done: 1, Total: 20})
+			select {
+			case <-ctx.Done():
+			case <-time.After(2 * time.Second):
+				t.Fatal("the work went on")
+			}
+		})
 	}
 }

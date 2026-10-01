@@ -39,7 +39,9 @@ func (w *Worker) process(ctx context.Context, t Task) (result, error) {
 		live.set(ev)
 		w.status.stage(t.ID, stageNames[ev.Stage], ev.Done, ev.Total)
 	})
-	beat := w.beating(ctx, t, len(spec.Pages), live)
+	ctx, abort := context.WithCancel(ctx)
+	defer abort()
+	beat := w.beating(ctx, t, len(spec.Pages), live, abort)
 	defer beat()
 	w.status.stage(t.ID, "fetching pages", 0, len(spec.Pages))
 

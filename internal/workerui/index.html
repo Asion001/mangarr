@@ -187,9 +187,10 @@ function render(s) {
   if (!w.active.length) active.append(el("div", { class: "muted" }, s.running ? "Nothing right now — waiting for work." : "Not running."));
   for (const a of w.active) {
     const pct = a.pagesTotal ? Math.round(100 * a.pagesDone / a.pagesTotal) : 0;
-    const counted = a.stage === "downloading";
+    // stages that count pages as they go; the others show a moving bar
+    const counted = ["downloading", "upscaling", "splitting", "encoding"].includes(a.stage) && a.pagesTotal > 0;
     const bar = el("div", { class: "bar" + (counted ? "" : " busy") }, el("i", { style: `width:${pct}%` }));
-    const pages = a.pagesTotal ? (counted ? `${a.pagesDone} / ${a.pagesTotal} pages` : `${a.pagesTotal} pages`) : "";
+    const pages = a.pagesTotal ? (counted ? `${a.pagesDone} / ${a.pagesTotal} pages (${pct}%)` : `${a.pagesTotal} pages`) : "";
     active.append(el("div", { class: "task" },
       el("div", { class: "row" }, el("span", { class: "kind" }, a.kind), el("b", {}, a.label || `task ${a.id}`), el("span", { class: "grow" }),
         el("span", { class: "muted" }, `${a.stage} · ${pages} · ${ago(a.started)}`)),
