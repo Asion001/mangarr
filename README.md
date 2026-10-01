@@ -163,6 +163,11 @@ re-encoding out of the server container entirely, run the server with
 that shares its data folder (`docs/setup.md`, "Processing in a separate
 container").
 
+Without Docker, a desktop (Windows, macOS or Linux) runs the
+`mangarr-worker` zip from a release: the program with the upscalers next to
+it, and a status page in the browser to set it up and watch its progress
+(`docs/setup.md`, "A worker on a desktop").
+
 ## Configuration
 
 | Variable | Default | Description |

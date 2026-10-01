@@ -110,6 +110,45 @@ jobs:
       - name: reject generated schema drift
         run: git diff --exit-code -- web/openapi.json web/src/api/schema.d.ts
 
+  # the desktop worker: mangarr-worker with the upscalers, one zip per
+  # platform (docs/setup.md, "A worker on a desktop"); attached to the
+  # release on a tag, kept as the run's artifacts otherwise
+  worker-zips:
+    needs: [test]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    strategy:
+      matrix:
+        target: [windows-amd64, darwin-arm64, linux-amd64]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: build
+        env:
+          TARGET: ${{ matrix.target }}
+          VERSION: ${{ github.ref_name }}
+          BUILD: ${{ github.run_number }}
+          COMMIT: ${{ github.sha }}
+        run: ./scripts/worker-zip.sh "${TARGET%-*}" "${TARGET#*-}" dist
+      - uses: actions/upload-artifact@v7
+        with:
+          name: mangarr-worker-${{ matrix.target }}
+          path: dist/*.zip
+          compression-level: 0
+          retention-days: 30
+      - name: attach to the release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --verify-tag --generate-notes || true
+          gh release upload "$TAG" dist/*.zip --clobber
+
   images:
     needs: [test, web, generated]
     if: github.event_name == 'push'
