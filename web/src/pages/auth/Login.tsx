@@ -1,4 +1,5 @@
 import { t as tr, t } from "../../lib/i18n/core";
+import { useDocumentTitle } from "../../lib/documentTitle";
 import { useState, type FormEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { KeyRound, LogIn } from "lucide-react";
@@ -39,6 +40,7 @@ export function LoginPage({ setup }: { setup: boolean }) {
     }
   };
 
+  useDocumentTitle(setup ? tr("Create the administrator account") : tr("Sign in"));
   return (
     <div className="flex min-h-full items-center justify-center p-4">
       <form onSubmit={submit} className="w-full max-w-sm rounded-xl border border-border bg-panel p-6 shadow-xl">

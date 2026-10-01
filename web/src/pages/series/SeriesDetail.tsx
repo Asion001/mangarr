@@ -1,4 +1,5 @@
 import { useUIMode } from "../../lib/uiPreferences";
+import { useDocumentTitle } from "../../lib/documentTitle";
 import { t as tr, t } from "../../lib/i18n/core";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
@@ -24,6 +25,7 @@ export function SeriesDetail() {
   const { data: s, isLoading, error } = useSeries(id);
   const { data: library } = useSeriesList();
   const { data: chapters } = useChapters(id);
+  useDocumentTitle(s?.title);
   const push = usePushCommand();
   const { can, account } = useAccount();
   const { editing } = useUIMode();

@@ -51,6 +51,9 @@ func (s *Server) staticHandler() http.Handler {
 		if p != "" && p != "index.html" {
 			if f, err := root.Open(p); err == nil {
 				_ = f.Close()
+				if strings.HasSuffix(p, ".webmanifest") {
+					w.Header().Set("Content-Type", "application/manifest+json")
+				}
 				if strings.HasPrefix(p, "assets/") {
 					w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 				}

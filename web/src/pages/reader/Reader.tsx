@@ -1,4 +1,5 @@
 import { t as tr, t } from "../../lib/i18n/core";
+import { useDocumentTitle } from "../../lib/documentTitle";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -184,12 +185,7 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
     return () => window.clearTimeout(t);
   }, [chapterId]);
 
-  useEffect(() => {
-    if (ch) document.title = `${ch.seriesTitle} ch. ${ch.number} · mangarr`;
-    return () => {
-      document.title = "mangarr";
-    };
-  }, [ch]);
+  useDocumentTitle(ch ? `${ch.seriesTitle} ch. ${ch.number}` : undefined);
 
   const toggleFull = () => {
     if (document.fullscreenElement) void document.exitFullscreen();

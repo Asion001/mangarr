@@ -1,4 +1,5 @@
 import { t, label } from "../lib/i18n/core";
+import { useTitleBadge } from "../lib/documentTitle";
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { RouteBoundary } from "./RouteBoundary";
@@ -123,6 +124,7 @@ export function Layout() {
   const { data: queue } = useQueue({ pageSize: 1 }, can("library.manage"));
   const queued = queue?.total ?? 0;
   const queuePaused = !!queue?.state?.paused;
+  useTitleBadge(queued > 0 && !queuePaused ? `(${queued})` : "");
   const { data: health } = useHealth(isAdmin);
   const qc = useQueryClient();
   const issues = (health?.checks ?? []).filter((c) => c.type === "error" || c.type === "warning").length;

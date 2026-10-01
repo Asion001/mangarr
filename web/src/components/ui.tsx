@@ -1,4 +1,5 @@
 import { t, label as translateLabel } from "../lib/i18n/core";
+import { useDocumentTitle } from "../lib/documentTitle";
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
 import clsx from "clsx";
 import { ChevronDown, Loader2, Lock, X, Plus, Trash2 } from "lucide-react";
@@ -364,7 +365,8 @@ export function SaveBar({ dirty, saving, onSave, onDiscard }: { dirty: boolean; 
   );
 }
 
-export function PageHeader({ title, subtitle, actions }: { title: ReactNode; subtitle?: ReactNode; actions?: ReactNode }) {
+export function PageHeader({ title, subtitle, actions, docTitle }: { title: ReactNode; subtitle?: ReactNode; actions?: ReactNode; docTitle?: string }) {
+  useDocumentTitle(docTitle ?? (typeof title === "string" ? title : undefined));
   return (
     <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
       <div>

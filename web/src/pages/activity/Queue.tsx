@@ -233,6 +233,7 @@ export function QueuePage({ mode }: { mode: "downloads" | "processing" }) {
     <>
       <PageHeader
         title={mode === "processing" ? t("Processing queue") : t("Download queue")}
+        docTitle={`${mode === "processing" ? t("Processing queue") : t("Download queue")}${total > 0 ? ` (${total})` : ""}`}
         subtitle={mode === "processing" ? t("Every chapter waiting to be upscaled or encoded, in processing order") : t("Chapters waiting to be downloaded and imported, in download order")}
         actions={
           <>
