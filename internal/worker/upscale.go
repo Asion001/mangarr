@@ -39,6 +39,7 @@ func (w *Worker) upscale(ctx context.Context, t Task) (result, error) {
 	shared := w.cfg.SharedStorage && inPath != "" && outPath != ""
 	var in []byte
 	var err error
+	w.status.stage(t.ID, "fetching pages", -1, -1)
 	if shared {
 		// the batch is on the volume this worker shares with the server
 		if in, err = os.ReadFile(inPath); err != nil {
@@ -61,6 +62,7 @@ func (w *Worker) upscale(ctx context.Context, t Task) (result, error) {
 	beat := w.beating(ctx, t, len(images))
 	defer beat()
 
+	w.status.stage(t.ID, "upscaling", 0, len(images))
 	out, gpu, err := w.up.ProcessDevice(ctx, params, images)
 	if err != nil {
 		return result{Pages: 0, BytesIn: int64(len(in))}, err
@@ -69,6 +71,7 @@ func (w *Worker) upscale(ctx context.Context, t Task) (result, error) {
 	if err != nil {
 		return result{}, err
 	}
+	w.status.stage(t.ID, "sending back", len(out), -1)
 	if shared {
 		if err := writeAtomic(outPath, data); err != nil {
 			return result{}, err

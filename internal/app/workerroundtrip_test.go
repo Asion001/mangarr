@@ -51,7 +51,7 @@ func TestWorkerDownloadsAChapter(t *testing.T) {
 	ctx, stop := context.WithCancel(e.Ctx)
 	defer stop()
 	wk, err := worker.New(worker.Config{ServerURL: srv.URL, Key: key, Roles: []string{model.RoleDownload},
-		Version: "test", Log: slog.New(slog.NewTextHandler(io.Discard, nil))})
+		Version: "test", Log: slog.New(slog.NewTextHandler(io.Discard, nil)), Status: worker.NewStatus()})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,6 +90,14 @@ func TestWorkerDownloadsAChapter(t *testing.T) {
 		t.Fatalf("%d pages served to the worker, %d fetched here", sc.Served, sc.Fetches)
 	}
 
+	// the worker's own status page saw it, by name
+	waitFor(t, 10*time.Second, "the worker's status to count the chapter", func() bool { return wk.Snapshot().Totals.Done == 1 })
+	snap := wk.Snapshot()
+	if snap.State != worker.StateReady || snap.Name != "test-worker" || len(snap.Recent) != 1 ||
+		snap.Recent[0].Label != "Remote Work · Ch. 1" || snap.Recent[0].Pages != 5 || snap.Totals.Pages != 5 || len(snap.Active) != 0 {
+		t.Fatalf("status: %+v", snap)
+	}
+
 	// and the work is on the worker's account
 	var got model.Worker
 	if err := e.App.DB.NewSelect().Model(&got).Where("id = ?", w.ID).Scan(e.Ctx); err != nil {
@@ -115,5 +123,8 @@ func TestWorkerDownloadsAChapter(t *testing.T) {
 	case <-done:
 	case <-time.After(10 * time.Second):
 		t.Fatal("the worker did not stop")
+	}
+	if st := wk.Snapshot().State; st != worker.StateStopped {
+		t.Fatalf("state after stopping: %s", st)
 	}
 }

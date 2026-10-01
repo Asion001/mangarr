@@ -568,6 +568,35 @@ Notes:
 - `MANGARR_MODE=upscaler` still starts a worker (it says so), but the old
   push-based node with its own port and the server's admin key is gone.
 
+### A worker on a desktop (Windows, macOS, Linux)
+
+A gaming PC makes a good upscaler, and it doesn't need Docker. Each release
+has a `mangarr-worker` zip for Windows (x64), macOS (Apple silicon) and
+Linux (x64): the program, with the waifu2x / Real-CUGAN / Real-ESRGAN
+upscalers in an `upscalers` folder next to it. They use the computer's own
+GPU driver through Vulkan, so NVIDIA, AMD and Intel cards all work (Linux
+needs the Vulkan loader, `libvulkan1`, installed). Every build of `main`
+leaves the same zips on its CI run, under Artifacts.
+
+1. System → Workers → **Add worker** and copy the key.
+2. Unzip anywhere and start `mangarr-worker` (`mangarr-worker.exe` on
+   Windows). It opens its status page, http://127.0.0.1:8790, in the
+   browser.
+3. Enter the server's address and the key, tick the roles, and save. The
+   page then shows what the worker is doing (each task with its progress),
+   totals since it started, the last tasks and its log. **Stop** hands back
+   what it holds; closing the window or Ctrl+C stops it too.
+
+Settings are kept in the user's config folder (`%AppData%\mangarr-worker`
+on Windows) and can still be set as environment variables, which win and
+show as locked on the page. `-listen` (or `MANGARR_WORKER_UI_LISTEN`) moves
+the page, `-no-browser` doesn't open it, and `-headless` runs from the
+environment alone without a page. The page only answers on this computer.
+
+On macOS, a downloaded zip is quarantined: run
+`xattr -dr com.apple.quarantine` on the unzipped folder once, or the
+upscalers won't start.
+
 ### Processing in a separate container
 
 Upscaling and re-encoding are the heaviest things mangarr does, and in the

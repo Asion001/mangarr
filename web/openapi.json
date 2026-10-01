@@ -10927,6 +10927,9 @@
             "format": "int64",
             "type": "integer"
           },
+          "label": {
+            "type": "string"
+          },
           "pageConcurrency": {
             "format": "int64",
             "type": "integer"

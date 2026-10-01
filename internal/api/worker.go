@@ -62,9 +62,28 @@ type WorkerWelcome struct {
 // WorkerTaskOutput is one task, as handed to a worker, with its limits as
 // they are now: they can be changed in System → Workers while it runs.
 type WorkerTaskOutput struct {
-	Task            *model.WorkerTask `json:"task,omitempty"`
-	Concurrent      int               `json:"concurrent"`
-	PageConcurrency int               `json:"pageConcurrency"`
+	Task *model.WorkerTask `json:"task,omitempty"`
+	// Label names the task's chapter ("Series · Ch. 12") for the worker's
+	// own status page.
+	Label           string `json:"label,omitempty"`
+	Concurrent      int    `json:"concurrent"`
+	PageConcurrency int    `json:"pageConcurrency"`
+}
+
+// taskLabel names a job's chapter for a worker's status page ("" when the
+// job is gone).
+func (s *Server) taskLabel(ctx context.Context, jobID int64) string {
+	var row struct {
+		Title  string `bun:"title"`
+		Number string `bun:"number_key"`
+	}
+	err := s.app.DB.NewSelect().TableExpr("download_jobs AS j").ColumnExpr("s.title, c.number_key").
+		Join("JOIN series AS s ON s.id = j.series_id").Join("JOIN chapters AS c ON c.id = j.chapter_id").
+		Where("j.id = ?", jobID).Scan(ctx, &row)
+	if err != nil {
+		return ""
+	}
+	return row.Title + " · Ch. " + row.Number
 }
 
 // workerConcurrent is how many tasks a worker may hold at once: its own
@@ -151,7 +170,7 @@ func (s *Server) registerWorkerProtocol() {
 					if task.Kind == model.TaskEncode && w.UpscaleModel != "" {
 						task.Spec["upscaleModel"] = w.UpscaleModel // this worker's own, not stored
 					}
-					out.Task = task
+					out.Task, out.Label = task, s.taskLabel(ctx, task.JobID)
 					return &struct{ Body WorkerTaskOutput }{out}, nil
 				}
 				if time.Now().After(deadline) {

@@ -6763,6 +6763,7 @@ export interface components {
         WorkerTaskOutput: {
             /** Format: int64 */
             concurrent: number;
+            label?: string;
             /** Format: int64 */
             pageConcurrency: number;
             task?: components["schemas"]["WorkerTask"];

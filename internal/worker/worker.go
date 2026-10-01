@@ -54,6 +54,8 @@ type Config struct {
 	// separate so a proxy can be put in front of one and not the other).
 	HTTP  *http.Client
 	Fetch *http.Client
+	// Status keeps what it is doing for a status page (nil: nothing is kept).
+	Status *Status
 }
 
 // Worker is the running worker.
@@ -75,6 +77,8 @@ type Worker struct {
 
 	mu   sync.Mutex
 	held map[int64]bool // tasks in progress, for a clean goodbye
+
+	status *Status
 }
 
 // Welcome is what the server tells a worker at hello.
@@ -98,6 +102,8 @@ type Task struct {
 	Kind       string         `json:"kind"`
 	Spec       map[string]any `json:"spec"`
 	PagesTotal int            `json:"pagesTotal"`
+	// Label names the chapter, for the status page (set from the lease).
+	Label string `json:"-"`
 }
 
 // PageSpec is one page to fetch, with the request the site expects.
@@ -126,7 +132,7 @@ func New(cfg Config) (*Worker, error) {
 		cfg.Fetch = &http.Client{Timeout: 2 * time.Minute}
 	}
 	cfg.ServerURL = strings.TrimRight(cfg.ServerURL, "/")
-	w := &Worker{cfg: cfg, log: cfg.Log, held: map[int64]bool{}, enc: imageenc.Detect()}
+	w := &Worker{cfg: cfg, log: cfg.Log, held: map[int64]bool{}, enc: imageenc.Detect(), status: cfg.Status}
 	if slices.Contains(cfg.Roles, "upscale") && cfg.Upscaler != nil {
 		w.up = cfg.Upscaler
 	}
@@ -135,7 +141,13 @@ func New(cfg Config) (*Worker, error) {
 
 // Run says hello and then takes tasks until the context ends.
 func (w *Worker) Run(ctx context.Context) error {
+	w.status.Set(StateStarting, nil)
 	if err := w.hello(ctx); err != nil {
+		if ctx.Err() != nil {
+			w.status.Set(StateStopped, nil)
+			return nil
+		}
+		w.status.Set(StateFailed, err)
 		return err
 	}
 	w.log.Info("worker ready", "name", w.welcome.Name, "roles", w.welcome.Roles, "server", w.cfg.ServerURL)
@@ -148,6 +160,7 @@ func (w *Worker) Run(ctx context.Context) error {
 		if ctx.Err() != nil {
 			wg.Wait()
 			w.bye()
+			w.status.Set(StateStopped, nil)
 			return nil
 		}
 		if active.Load() >= int64(w.taskLimit()) {
@@ -189,6 +202,9 @@ func (w *Worker) Run(ctx context.Context) error {
 	}
 }
 
+// Snapshot is what the worker is doing now, for a status page.
+func (w *Worker) Snapshot() Snapshot { return w.status.Snapshot(w.taskLimit()) }
+
 // taskLimit is how many tasks it takes at once: its own setting, or what the
 // server said last.
 func (w *Worker) taskLimit() int {
@@ -215,8 +231,13 @@ func (w *Worker) pageLimit() int {
 func (w *Worker) hello(ctx context.Context) error {
 	info := map[string]any{"cpus": runtime.NumCPU(), worktasks.InfoProcess: true, "sharedStorage": w.cfg.SharedStorage}
 	roles := w.cfg.Roles
+	var models, devices []string
 	if w.up != nil {
 		up := w.up.Info()
+		for _, m := range up.Models {
+			models = append(models, m.Name)
+		}
+		devices = up.Devices
 		info["models"], info["devices"], info["formats"] = up.Models, up.Devices, up.Formats
 		if len(up.Models) == 0 {
 			// no engine on this machine: don't offer to upscale
@@ -242,6 +263,7 @@ func (w *Worker) hello(ctx context.Context) error {
 			w.welcome = out
 			w.concurrent.Store(int64(out.Concurrent))
 			w.pages.Store(int64(out.PageConcurrency))
+			w.status.welcome(out, models, devices)
 			return nil
 		}
 		if ctx.Err() != nil {
@@ -252,6 +274,7 @@ func (w *Worker) hello(ctx context.Context) error {
 			return fmt.Errorf("the server refused this worker's key: %w", err)
 		}
 		w.log.Warn("waiting for the server", "err", err, "retry", wait)
+		w.status.Set(StateWaiting, err)
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -267,9 +290,10 @@ func (w *Worker) hello(ctx context.Context) error {
 // so an idle worker makes one request every half minute or so.
 func (w *Worker) lease(ctx context.Context) (*Task, error) {
 	var out struct {
-		Task            *Task `json:"task"`
-		Concurrent      *int  `json:"concurrent"`
-		PageConcurrency *int  `json:"pageConcurrency"`
+		Task            *Task  `json:"task"`
+		Label           string `json:"label"`
+		Concurrent      *int   `json:"concurrent"`
+		PageConcurrency *int   `json:"pageConcurrency"`
 	}
 	if err := w.call(ctx, http.MethodPost, "/api/v1/worker/lease", map[string]any{"kinds": w.welcome.Roles}, &out); err != nil {
 		return nil, err
@@ -280,6 +304,9 @@ func (w *Worker) lease(ctx context.Context) (*Task, error) {
 	}
 	if out.PageConcurrency != nil {
 		w.pages.Store(int64(*out.PageConcurrency))
+	}
+	if out.Task != nil {
+		out.Task.Label = out.Label
 	}
 	return out.Task, nil
 }
@@ -298,6 +325,12 @@ func (w *Worker) do(ctx context.Context, t Task) {
 	started := time.Now()
 	var err error
 	var res result
+	w.status.begin(t)
+	defer func() {
+		if ctx.Err() == nil {
+			w.status.end(t, res, started, err)
+		}
+	}()
 	switch t.Kind {
 	case "download":
 		res, err = w.download(ctx, t)
@@ -317,9 +350,10 @@ func (w *Worker) do(ctx context.Context, t Task) {
 			map[string]any{"reason": err.Error(), "pages": res.Pages}, nil)
 		return
 	}
-	if err := w.call(ctx, http.MethodPost, fmt.Sprintf("/api/v1/worker/tasks/%d/complete", t.ID),
+	if err = w.call(ctx, http.MethodPost, fmt.Sprintf("/api/v1/worker/tasks/%d/complete", t.ID),
 		map[string]any{"pages": res.Pages, "bytesIn": res.BytesIn, "bytesOut": res.BytesOut, "gpu": res.GPU}, nil); err != nil {
 		w.log.Warn("could not report a finished task", "task", t.ID, "err", err)
+		err = fmt.Errorf("could not report it: %w", err)
 		return
 	}
 	w.log.Info("task done", "task", t.ID, "kind", t.Kind, "pages", res.Pages,

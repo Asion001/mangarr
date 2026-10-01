@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mangarr worker</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #fff; --text: #1d2330; --muted: #677085; --line: #e2e5eb;
+    --accent: #3b6fd9; --ok: #1f9d55; --warn: #c78100; --bad: #d1435b; --bar: #e8ecf3;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #14171d; --panel: #1c2028; --text: #e6e9ef; --muted: #9aa3b5; --line: #2c323d;
+      --accent: #6d9bff; --ok: #3ccf7f; --warn: #f0b33c; --bad: #ff6b81; --bar: #2a303b; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 980px; margin: 0 auto; padding: 20px 16px 40px; display: grid; gap: 16px; }
+  header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  h1 { font-size: 20px; margin: 0; }
+  h2 { font-size: 13px; margin: 0 0 10px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  .grow { flex: 1; }
+  .muted { color: var(--muted); }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-weight: 600; font-size: 12px; background: var(--bar); }
+  .pill::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  .pill.ready::before { background: var(--ok); } .pill.waiting::before, .pill.starting::before { background: var(--warn); }
+  .pill.failed::before { background: var(--bad); }
+  button { font: inherit; border: 1px solid var(--line); background: var(--panel); color: var(--text); border-radius: 8px; padding: 6px 14px; cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button:disabled { opacity: .5; cursor: default; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+  .tile { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; }
+  .tile b { display: block; font-size: 22px; font-variant-numeric: tabular-nums; }
+  .task { padding: 8px 0; border-top: 1px solid var(--line); }
+  .task:first-of-type { border-top: 0; }
+  .row { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+  .kind { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--accent); min-width: 72px; }
+  .bar { height: 6px; background: var(--bar); border-radius: 3px; overflow: hidden; margin-top: 6px; }
+  .bar > i { display: block; height: 100%; background: var(--accent); transition: width .4s; }
+  .bar.busy > i { width: 30% !important; animation: slide 1.2s ease-in-out infinite; }
+  @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
+  table { width: 100%; border-collapse: collapse; }
+  td, th { text-align: left; padding: 5px 8px 5px 0; border-top: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 500; border-top: 0; }
+  td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .err { color: var(--bad); }
+  #logs { font: 12px/1.5 var(--mono); height: 260px; overflow: auto; white-space: pre-wrap; word-break: break-word; margin: 0; }
+  #logs .WARN { color: var(--warn); } #logs .ERROR { color: var(--bad); } #logs .t { color: var(--muted); }
+  form { display: grid; gap: 10px; }
+  label { display: grid; gap: 4px; font-weight: 500; }
+  label small { font-weight: 400; color: var(--muted); }
+  input[type=text], input[type=password], input[type=number] { font: inherit; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); width: 100%; }
+  .checks { display: flex; gap: 16px; flex-wrap: wrap; font-weight: 400; }
+  .notice { border-left: 3px solid var(--warn); padding: 6px 10px; background: var(--bar); border-radius: 4px; }
+  details > summary { cursor: pointer; list-style: none; }
+  details > summary::-webkit-details-marker { display: none; }
+  details > summary h2 { display: inline; }
+  details[open] > summary { margin-bottom: 10px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>mangarr worker</h1>
+    <span id="state" class="pill">…</span>
+    <span id="who" class="muted"></span>
+    <span class="grow"></span>
+    <button id="toggle">…</button>
+  </header>
+
+  <div id="notice" class="notice" hidden></div>
+
+  <details class="panel" id="setup">
+    <summary><h2>Settings</h2> <span class="muted" id="engine"></span></summary>
+    <form id="form">
+      <label>Server address <small>The mangarr server this computer works for, e.g. https://mangarr.example.com</small>
+        <input type="text" name="MANGARR_SERVER_URL" placeholder="http://192.168.1.10:8787" autocomplete="off"></label>
+      <label>Worker key <small>From System → Workers → Add worker on the server. Leave blank to keep the saved one.</small>
+        <input type="password" name="MANGARR_WORKER_KEY" placeholder="mgw_…" autocomplete="off"></label>
+      <div><b>Roles</b> <small class="muted">What this computer offers; the server can narrow it.</small>
+        <div class="checks" id="roles">
+          <label><span><input type="checkbox" value="download"> Download</span></label>
+          <label><span><input type="checkbox" value="upscale"> Upscale</span></label>
+          <label><span><input type="checkbox" value="encode"> Encode</span></label>
+        </div></div>
+      <label>Tasks at once <small>0 uses what System → Workers says.</small>
+        <input type="number" min="0" name="MANGARR_WORKER_CONCURRENT"></label>
+      <label>Upscalers folder <small>Holds the waifu2x, realcugan and realesrgan folders (included in the download).</small>
+        <input type="text" name="MANGARR_UPSCALER_TOOLS_DIR"></label>
+      <label>GPU <small>auto, or the device number(s) to use, e.g. 0 or 0,1.</small>
+        <input type="text" name="MANGARR_UPSCALER_GPU"></label>
+      <div class="row"><button class="primary" type="submit">Save and restart</button><span id="saved" class="muted"></span></div>
+      <small class="muted">Saved in <span id="file"></span>. Settings given as environment variables can't be changed here.</small>
+    </form>
+  </details>
+
+  <div class="tiles">
+    <div class="tile"><span class="muted">Tasks done</span><b id="t-done">0</b></div>
+    <div class="tile"><span class="muted">Failed</span><b id="t-failed">0</b></div>
+    <div class="tile"><span class="muted">Pages</span><b id="t-pages">0</b></div>
+    <div class="tile"><span class="muted">Received</span><b id="t-in">0</b></div>
+    <div class="tile"><span class="muted">Sent</span><b id="t-out">0</b></div>
+  </div>
+
+  <section class="panel">
+    <h2>Now <span id="slots" class="muted"></span></h2>
+    <div id="active"></div>
+  </section>
+
+  <section class="panel">
+    <h2>Recent</h2>
+    <table>
+      <thead><tr><th>When</th><th>Task</th><th>Pages</th><th>Took</th><th>Data</th></tr></thead>
+      <tbody id="recent"></tbody>
+    </table>
+  </section>
+
+  <section class="panel">
+    <h2>Log</h2>
+    <pre id="logs"></pre>
+  </section>
+
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+let logSeq = 0, last = null, formFilled = false;
+
+const mb = (b) => b >= 1 << 30 ? (b / (1 << 30)).toFixed(2) + " GB" : (b / (1 << 20)).toFixed(1) + " MB";
+const dur = (s) => s < 60 ? s.toFixed(1) + " s" : s < 3600 ? Math.floor(s / 60) + " m " + Math.round(s % 60) + " s" : (s / 3600).toFixed(1) + " h";
+const ago = (iso) => dur(Math.max(0, (Date.now() - new Date(iso)) / 1000));
+const time = (iso) => new Date(iso).toLocaleTimeString();
+const el = (tag, attrs = {}, ...kids) => {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) k === "class" ? e.className = v : e.setAttribute(k, v);
+  for (const k of kids) e.append(k);
+  return e;
+};
+const stateText = { starting: "Connecting", waiting: "Waiting for the server", ready: "Working", stopped: "Stopped", failed: "Stopped with an error" };
+
+async function call(path, body) {
+  const r = await fetch(path, { method: "POST", headers: { "X-Mangarr-Worker": "1", "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : "{}" });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+function render(s) {
+  last = s;
+  const w = s.worker;
+  const st = s.running ? w.state : (w.state === "failed" ? "failed" : "stopped");
+  $("state").className = "pill " + st;
+  $("state").textContent = stateText[st] || st;
+  $("who").textContent = w.name ? `as “${w.name}” · ${(w.roles || []).join(", ")}` : "";
+  $("toggle").textContent = s.running ? "Stop" : "Start";
+  $("toggle").className = s.running ? "" : "primary";
+
+  const problems = [];
+  if (s.problem) problems.push(s.problem);
+  if (w.error && (st === "waiting" || st === "failed")) problems.push(w.error);
+  const roles = (s.settings.find((f) => f.name === "MANGARR_WORKER_ROLES") || {}).value || "";
+  if (st === "ready" && roles.includes("upscale") && !(w.models || []).length)
+    problems.push("No upscalers were found in the upscalers folder, so this computer doesn't upscale. Check Settings.");
+  $("notice").hidden = !problems.length;
+  $("notice").textContent = problems.join(" — ");
+
+  $("t-done").textContent = w.totals.done;
+  $("t-failed").textContent = w.totals.failed;
+  $("t-pages").textContent = w.totals.pages;
+  $("t-in").textContent = mb(w.totals.bytesIn);
+  $("t-out").textContent = mb(w.totals.bytesOut);
+
+  $("slots").textContent = s.running && w.limit ? `· ${w.active.length} of ${w.limit}` : "";
+  const active = $("active");
+  active.replaceChildren();
+  if (!w.active.length) active.append(el("div", { class: "muted" }, s.running ? "Nothing right now — waiting for work." : "Not running."));
+  for (const a of w.active) {
+    const pct = a.pagesTotal ? Math.round(100 * a.pagesDone / a.pagesTotal) : 0;
+    const counted = a.stage === "downloading";
+    const bar = el("div", { class: "bar" + (counted ? "" : " busy") }, el("i", { style: `width:${pct}%` }));
+    const pages = a.pagesTotal ? (counted ? `${a.pagesDone} / ${a.pagesTotal} pages` : `${a.pagesTotal} pages`) : "";
+    active.append(el("div", { class: "task" },
+      el("div", { class: "row" }, el("span", { class: "kind" }, a.kind), el("b", {}, a.label || `task ${a.id}`), el("span", { class: "grow" }),
+        el("span", { class: "muted" }, `${a.stage} · ${pages} · ${ago(a.started)}`)),
+      bar));
+  }
+
+  const recent = $("recent");
+  recent.replaceChildren();
+  if (!w.recent.length) recent.append(el("tr", {}, el("td", { colspan: 5, class: "muted" }, "Nothing yet.")));
+  for (const f of w.recent) {
+    const task = el("td", {}, el("span", { class: "kind" }, f.kind), " ", f.label || `task ${f.id}`);
+    if (f.error) task.append(el("div", { class: "err" }, f.error));
+    recent.append(el("tr", {}, el("td", { class: "num" }, time(f.at)), task, el("td", { class: "num" }, f.pages),
+      el("td", { class: "num" }, dur(f.seconds)), el("td", { class: "num" }, `${mb(f.bytesIn)} → ${mb(f.bytesOut)}`)));
+  }
+
+  const logs = $("logs");
+  const stick = logs.scrollTop + logs.clientHeight >= logs.scrollHeight - 8;
+  for (const l of s.logs) {
+    if (l.seq <= logSeq) continue;
+    logSeq = l.seq;
+    logs.append(el("div", { class: l.level }, el("span", { class: "t" }, time(l.time) + " "), `${l.level === "INFO" ? "" : l.level + " "}${l.msg}${l.attrs ? "  " + l.attrs : ""}`));
+  }
+  while (logs.childElementCount > 500) logs.firstChild.remove();
+  if (stick) logs.scrollTop = logs.scrollHeight;
+
+  const models = (w.models || []).length ? `upscalers: ${w.models.join(", ")}` : "";
+  const devices = (w.devices || []).length ? ` · GPU: ${w.devices.join(", ")}` : "";
+  $("engine").textContent = `${models}${devices} · ${s.platform} · ${s.version}`;
+  $("file").textContent = s.file;
+  if (!formFilled) fillForm(s);
+}
+
+function fillForm(s) {
+  formFilled = true;
+  const form = $("form");
+  for (const f of s.settings) {
+    if (f.name === "MANGARR_WORKER_ROLES") {
+      const on = f.value.split(",").map((x) => x.trim());
+      for (const c of $("roles").querySelectorAll("input")) { c.checked = on.includes(c.value); c.disabled = f.locked; }
+      continue;
+    }
+    const input = form.elements[f.name];
+    if (!input) continue;
+    input.value = f.value;
+    input.disabled = f.locked;
+    if (f.name === "MANGARR_WORKER_KEY" && f.set) input.placeholder = "saved — leave blank to keep it";
+  }
+  const configured = s.settings.every((f) => f.name !== "MANGARR_SERVER_URL" && f.name !== "MANGARR_WORKER_KEY" || f.value || f.set);
+  if (!configured) $("setup").open = true;
+}
+
+$("form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const form = e.target, body = {};
+  for (const name of ["MANGARR_SERVER_URL", "MANGARR_WORKER_KEY", "MANGARR_WORKER_CONCURRENT", "MANGARR_UPSCALER_TOOLS_DIR", "MANGARR_UPSCALER_GPU"])
+    if (!form.elements[name].disabled) body[name] = form.elements[name].value;
+  body.MANGARR_WORKER_ROLES = [...$("roles").querySelectorAll("input:checked")].map((c) => c.value).join(",");
+  $("saved").textContent = "Saving…";
+  try {
+    render(await call("/api/settings", body));
+    form.elements.MANGARR_WORKER_KEY.value = "";
+    formFilled = false;
+    $("saved").textContent = "Saved.";
+    if (last && last.running) $("setup").open = false;
+  } catch (err) {
+    $("saved").textContent = err.message;
+  }
+});
+
+$("toggle").addEventListener("click", async () => {
+  $("toggle").disabled = true;
+  try { render(await call(last && last.running ? "/api/stop" : "/api/start")); }
+  catch (err) { $("notice").hidden = false; $("notice").textContent = err.message; $("setup").open = true; }
+  finally { $("toggle").disabled = false; }
+});
+
+async function poll() {
+  try {
+    const r = await fetch("/api/state?logs=" + logSeq);
+    if (r.ok) render(await r.json());
+  } catch {
+    $("state").className = "pill failed";
+    $("state").textContent = "The worker program isn't running";
+  }
+  setTimeout(poll, 1000);
+}
+poll();
+</script>
+</body>
+</html>

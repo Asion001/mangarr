@@ -52,6 +52,7 @@ func (w *Worker) download(ctx context.Context, t Task) (result, error) {
 	if pace.maxConcurrent > 0 {
 		conc = min(conc, pace.maxConcurrent)
 	}
+	w.status.stage(t.ID, "downloading", 0, len(pages))
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -163,7 +164,7 @@ func (w *Worker) download(ctx context.Context, t Task) (result, error) {
 			break
 		}
 		bytesOut.Add(int64(len(page.data)))
-		done.Add(1)
+		w.status.stage(t.ID, "", int(done.Add(1)), -1)
 	}
 	cancel()
 	fetchers.Wait()

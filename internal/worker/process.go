@@ -34,6 +34,7 @@ func (w *Worker) process(ctx context.Context, t Task) (result, error) {
 	}
 	beat := w.beating(ctx, t, len(spec.Pages))
 	defer beat()
+	w.status.stage(t.ID, "fetching pages", 0, len(spec.Pages))
 
 	shared := w.sees(spec)
 	var (
@@ -70,6 +71,7 @@ func (w *Worker) process(ctx context.Context, t Task) (result, error) {
 	if w.up != nil {
 		proc.Up = upscaling.NewFixed(&engine{srv: w.up, model: spec.UpscaleModel})
 	}
+	w.status.stage(t.ID, "processing", -1, -1)
 	res, err := proc.Process(ctx, cfg, in, workDir)
 	if err != nil {
 		return result{Pages: 0, BytesIn: bytesIn}, err
@@ -82,6 +84,7 @@ func (w *Worker) process(ctx context.Context, t Task) (result, error) {
 	if err != nil {
 		return result{}, err
 	}
+	w.status.stage(t.ID, "sending back", len(res.Pages), -1)
 	if shared {
 		if err := writeAtomic(filepath.Join(spec.OutDir, processing.ResultFile), data); err != nil {
 			return result{}, err
