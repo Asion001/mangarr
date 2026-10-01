@@ -206,6 +206,7 @@ source-priorities-inherit POST /api/v1/source-priorities/inherit -> library.mana
 source-priorities-list GET /api/v1/source-priorities -> library.manage
 source-priorities-save PUT /api/v1/source-priorities -> library.manage
 sources-browse GET /api/v1/sources/{moduleId}/{sourceId}/browse -> library.manage | requests.manage
+sources-defaults-search POST /api/v1/sources/defaults-search -> library.manage | requests.manage
 sources-list GET /api/v1/sources -> library.manage | requests.manage
 sources-manga GET /api/v1/sources/{moduleId}/{sourceId}/manga -> library.manage | requests.manage
 sources-quick-search POST /api/v1/sources/quick-search -> library.manage | requests.manage

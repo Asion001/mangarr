@@ -335,3 +335,41 @@ func TestQuickSearchSkipsExcludedCatalogs(t *testing.T) {
 		}
 	}
 }
+
+// TestDefaultsSearchUsesEverySourceInTheList: a language default's sources
+// are all searched (not just until the first match), empty matches are set
+// aside, and a language without a list falls back to the quick search.
+func TestDefaultsSearchUsesEverySourceInTheList(t *testing.T) {
+	e := newCacheEnv(t, "defaults-search")
+	e.sc.Update(func() {
+		e.sc.Mangas["J|/tower"].Chapters = []fakesource.Chapter{{URL: "/c1", Name: "Ch. 1", Number: 1}}
+		e.sc.Mangas["N|/tower"].Chapters = []fakesource.Chapter{{URL: "/n1", Name: "Ch. 1", Number: 1}}
+		e.sc.Mangas["A|/tower"].Chapters = nil // licensed and removed
+	})
+	e.setSources(func(s *settings.Sources) {
+		s.DefaultLanguages = []string{"en", "ja"}
+		s.LanguageDefaults = []settings.LanguageDefault{{Language: "en", Sources: []string{e.key("A"), e.key("N")}}}
+	})
+	var res api.DefaultsResult
+	if code := doJSON(t, http.MethodPost, e.url+"/api/v1/sources/defaults-search", `{"query":"tower","titles":["Tower of God"]}`, &res); code != 200 {
+		t.Fatalf("defaults search: %d", code)
+	}
+	if len(res.Editions) != 2 || res.Editions[0].Lang != "en" || res.Editions[1].Lang != "ja" {
+		t.Fatalf("editions: %+v", res.Editions)
+	}
+	en := res.Editions[0]
+	if !en.FromDefaults || len(en.Sources) != 2 || en.Sources[0].Match != nil || en.Sources[0].Empty == nil || en.Sources[1].Match == nil || en.Sources[1].Match.SourceID != "N" {
+		t.Fatalf("english edition: %+v", en)
+	}
+	ja := res.Editions[1]
+	if ja.FromDefaults || len(ja.Sources) == 0 || ja.Sources[0].Match == nil || ja.Sources[0].Match.SourceID != "J" {
+		t.Fatalf("japanese edition: %+v", ja)
+	}
+	// no language given and none set: the caller has to ask
+	e.setSources(func(s *settings.Sources) { s.DefaultLanguages = []string{} })
+	res = api.DefaultsResult{}
+	doJSON(t, http.MethodPost, e.url+"/api/v1/sources/defaults-search", `{"query":"tower"}`, &res)
+	if !res.NoLanguages || len(res.Editions) != 0 {
+		t.Fatalf("without languages: %+v", res)
+	}
+}

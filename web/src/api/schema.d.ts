@@ -2603,6 +2603,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sources/defaults-search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Search every source in each language's default list (the search languages unless langs is given) */
+        post: operations["sources-defaults-search"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sources/quick-search": {
         parameters: {
             query?: never;
@@ -4010,6 +4027,34 @@ export interface components {
             /** Format: int64 */
             releaseId?: number;
             temporary: boolean;
+        };
+        DefaultsEdition: {
+            fromDefaults: boolean;
+            lang: string;
+            sources: components["schemas"]["DefaultsSource"][];
+        };
+        DefaultsInput: {
+            exclude?: string[];
+            langs?: string[];
+            query: string;
+            titles?: string[];
+        };
+        DefaultsResult: {
+            editions: components["schemas"]["DefaultsEdition"][];
+            /** Format: int64 */
+            generation: number;
+            noLanguages?: boolean;
+            /** Format: double */
+            threshold: number;
+        };
+        DefaultsSource: {
+            empty?: components["schemas"]["QuickCandidate"];
+            error?: string;
+            key: string;
+            match?: components["schemas"]["QuickCandidate"];
+            others: components["schemas"]["QuickCandidate"][];
+            searched: boolean;
+            sourceName: string;
         };
         DeviceSync: {
             client: string;
@@ -13146,6 +13191,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Catalog"][];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "sources-defaults-search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DefaultsInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DefaultsResult"];
                 };
             };
             /** @description Error */

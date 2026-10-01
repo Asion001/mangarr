@@ -16,7 +16,7 @@ import { useSettingsDoc } from "../settings/useSettingsDoc";
 import { LanguageSelect, useLanguageFolders } from "../../components/LanguageSelect";
 import { languageName } from "../../lib/format";
 import { ReadButton } from "./Preview";
-import { SourceSearchModal, pickKey, useCatalogTargets, useQuickSearch, type Picked, type Scope } from "./SourceSearch";
+import { SourceSearchModal, pickKey, useCatalogTargets, useDefaultsSearch, useQuickSearch, type Picked, type Scope } from "./SourceSearch";
 
 /** MetadataSearch looks up series across metadata modules. */
 export function MetadataSearch({
@@ -261,6 +261,9 @@ export function AddReviewStep() {
   const scope: Scope = keys.length ? "custom" : "active";
   const { data: profiles } = useProfiles();
   const sourceSettings = useSettingsDoc<S["Sources"]>("sources");
+  const useLangsFallback = useSearchLanguages();
+  const { data: catalogList } = useCatalogs();
+  const allLangs = Array.from(new Set((catalogList?.items ?? []).filter((c) => !c.hidden).map((c) => c.lang).filter((l) => l && l !== "all" && l !== "multi")));
   const [picked, setPicked] = usePicked(ctx.storageKey);
   const [searching, setSearching] = useState<{ mode: "change" | "add"; lang: string } | null>(null);
   const defaults: Options = { monitor: "all", latestCount: 10, fromChapter: 1, monitorNew: "all" };
@@ -296,36 +299,68 @@ export function AddReviewStep() {
   const query = params.get("sq") || ctx.title;
   const searchLang = ctx.language;
   const { gen } = useCatalogTargets(scope, searchLang, keys);
-  const quick = useQuickSearch({ query, titles: ctx.titles, scope, keys, lang: searchLang, enabled: !ctx.metaLoading && !!query, gen });
-  const threshold = quick.data?.threshold ?? 0.88;
-  // the best match is picked once, unless you already chose sources; for a
-  // request, the best match in every language is picked
+  // picked catalogs: the quick search; otherwise every source of each
+  // language's default list, for every search language (or the one chosen)
+  const custom = scope === "custom";
+  const quick = useQuickSearch({ query, titles: ctx.titles, scope, keys, lang: searchLang, enabled: custom && !ctx.metaLoading && !!query, gen });
+  const found = useDefaultsSearch({ query, titles: ctx.titles, lang: searchLang, enabled: !custom && !ctx.metaLoading && !!query, gen });
+  const searching_ = custom ? quick : found;
+  const threshold = (custom ? quick.data?.threshold : found.data?.threshold) ?? 0.88;
+  // what was found, prefilled once unless you already chose sources: one
+  // edition per language, its default sources in list order (first primary)
   useEffect(() => {
-    const m = quick.data?.match;
     const auto = ctx.storageKey + ":auto";
-    if (!m || sessionState.get(auto, false)) return;
-    sessionState.set(auto, true);
-    const best = [m];
-    if (ctx.requestId) {
-      for (const c of [...(quick.data?.top ?? [])].sort((a, b) => b.score - a.score)) {
-        if (c.score >= threshold && !best.some((b) => normLang(b.lang) === normLang(c.lang))) best.push(c);
+    if (sessionState.get(auto, false)) return;
+    let best: Picked[] = [];
+    if (custom) {
+      const m = quick.data?.match;
+      if (!m) return;
+      best = [pickOf(m)];
+      if (ctx.requestId) {
+        for (const c of [...(quick.data?.top ?? [])].sort((a, b) => b.score - a.score)) {
+          if (c.score >= threshold && !best.some((b) => editionLang(b) === normLang(c.lang))) best.push(pickOf(c));
+        }
       }
+    } else {
+      if (!found.data) return;
+      for (const ed of found.data.editions) for (const src of ed.sources) if (src.match) best.push({ ...pickOf(src.match), lang: normLang(src.match.lang) ? undefined : ed.lang });
+      if (!best.length) return;
     }
-    setPicked((cur) => (cur.length ? cur : best.map(pickOf)));
-  }, [quick.data]);
+    sessionState.set(auto, true);
+    setPicked((cur) => (cur.length ? cur : best));
+  }, [quick.data, found.data]);
 
+  const withParam = (ps: URLSearchParams, k: string, v: string) => {
+    const next = new URLSearchParams(ps);
+    next.set(k, v);
+    return `?${next}`;
+  };
   if (ctx.metaLoading) return <Loading />;
   if (ctx.metaError) return <ErrorBox error={ctx.metaError} />;
   if (!ctx.title) return <ErrorBox error="Missing series title" />;
 
-  // chapter counts we know: the quick search's candidates, else the result tile's count
+  // every confident result we know of, with the edition it would join
+  const cands: (S["QuickCandidate"] & { edition?: string; empty?: boolean })[] = custom
+    ? [...(quick.data?.match ? [quick.data.match] : []), ...(quick.data?.top ?? [])]
+    : (found.data?.editions ?? []).flatMap((ed) =>
+        ed.sources.flatMap((src) => [
+          ...(src.match ? [{ ...src.match, edition: ed.lang }] : []),
+          ...(src.others ?? []).map((c) => ({ ...c, edition: ed.lang })),
+          ...(src.empty ? [{ ...src.empty, edition: ed.lang, empty: true }] : []),
+        ]),
+      );
+  // chapter counts we know: the search's candidates, else the result tile's count
   const counts = new Map<string, number>();
-  for (const c of [...(quick.data?.top ?? []), ...(quick.data?.match ? [quick.data.match] : [])]) if (c.chapters) counts.set(pickKey(pickOf(c)), c.chapters.count);
+  for (const c of cands) if (c.chapters) counts.set(pickKey(pickOf(c)), c.chapters.count);
   const countOf = (p: Picked) => counts.get(pickKey(p)) ?? p.manga.chapterCount ?? undefined;
   const total = picked[0] ? countOf(picked[0]) : undefined;
   const queued = { all: total, future: 0, latest: total === undefined ? undefined : Math.min(o.latestCount, total), from: undefined, none: 0 }[o.monitor as "all"];
-  const also = (quick.data?.top ?? []).filter((c) => c.score >= threshold && !picked.some((p) => pickKey(p) === pickKey(pickOf(c)))).slice(0, 4);
-  const matchKey = quick.data?.match ? pickKey(pickOf(quick.data.match)) : "";
+  // also found: one chip per site and edition, the rest behind "N more"
+  const unpicked = cands.filter((c, i) => c.score >= threshold && !picked.some((p) => pickKey(p) === pickKey(pickOf(c))) && cands.findIndex((x) => pickKey(pickOf(x)) === pickKey(pickOf(c))) === i);
+  const siteKey = (c: S["QuickCandidate"] & { edition?: string }) => `${c.moduleId}:${c.sourceId}:${c.edition ?? ""}`;
+  const also = unpicked.filter((c, i) => unpicked.findIndex((x) => siteKey(x) === siteKey(c)) === i).slice(0, 6);
+  const moreAt = (c: S["QuickCandidate"] & { edition?: string }) => unpicked.filter((x) => siteKey(x) === siteKey(c)).length - 1;
+  const matchKey = custom && quick.data?.match ? pickKey(pickOf(quick.data.match)) : "";
   // moving swaps with the neighbour in the same edition
   const move = (p: Picked, dir: -1 | 1) =>
     setPicked((cur) => {
@@ -420,11 +455,33 @@ export function AddReviewStep() {
               <Button size="sm" onClick={() => setSearching({ mode: "add", lang: "" })}>{t("Search all sources")}</Button>
             </header>
             <div className="flex flex-col gap-3 p-3">
-              {quick.isFetching && !picked.length && (
-                <p className="flex items-center gap-2 p-2 text-sm text-muted"><Spinner />{t("Finding it at your sources…")}</p>
+              {searching_.isFetching && !picked.length && (
+                <p className="flex items-center gap-2 p-2 text-sm text-muted"><Spinner />{custom ? t("Finding it at your sources…") : t("Searching every source in your language defaults…")}</p>
               )}
-              {quick.error && <ErrorBox error={quick.error} />}
-              {!quick.isFetching && !picked.length && (
+              {searching_.error && <ErrorBox error={searching_.error} />}
+              {!custom && found.data?.noLanguages && (
+                <div className="flex flex-col gap-2 rounded-lg border border-warn/40 bg-warn/10 p-3 text-sm">
+                  <span className="font-medium">{t("Which language do you want this in?")}</span>
+                  <span className="text-muted">{t("No search language is set, so mangarr doesn't guess.")}</span>
+                  <LanguageChips value="" onChange={(l) => l && nav({ search: withParam(params, "lang", l) }, { replace: true })} primary={useLangsFallback} options={allLangs} anyLabel={t("Choose…")} />
+                </div>
+              )}
+              {!custom && found.data && found.data.editions.length > 0 && (
+                <ul aria-label={t("Sources searched")} className="flex flex-col gap-1 px-1 text-xs text-muted">
+                  {found.data.editions.map((ed) => (
+                    <li key={ed.lang} className="flex flex-wrap gap-x-3 gap-y-1">
+                      <span className="font-semibold text-fg">{languageName(ed.lang)}</span>
+                      {ed.sources.map((src) => (
+                        <span key={src.key} className={src.match ? "text-ok" : src.error ? "text-err" : ""} title={src.error}>
+                          {src.match ? "✓ " : ""}{src.sourceName}{src.match ? "" : src.empty ? ` · ${t("0 chapters")}` : src.error ? ` · ${t("failed")}` : !src.searched ? ` · ${t("not searched")}` : ` · ${t("not found")}`}
+                        </span>
+                      ))}
+                      {!ed.fromDefaults && <span>{t("(no language default: first match)")}</span>}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {!searching_.isFetching && !picked.length && !found.data?.noLanguages && (
                 <div className="flex flex-wrap items-center gap-3 rounded-lg border border-dashed border-border p-3 text-sm">
                   <span className="flex-1 text-muted">{t("No confident match at your sources. Search them to pick one.")}</span>
                   <Button size="sm" variant="primary" onClick={() => setSearching({ mode: "add", lang: "" })}>{t("Search sources")}</Button>
@@ -476,13 +533,17 @@ export function AddReviewStep() {
                 <div className="flex flex-wrap items-center gap-2 px-1 pt-1 text-sm">
                   <span className="text-muted">{also.length ? t("Also found, add as fallback:") : ""}</span>
                   {also.map((c) => {
-                    const lang = normLang(c.lang);
+                    const lang = normLang(c.lang) || c.edition || "";
+                    const more = moreAt(c);
                     return (
-                      <button key={pickKey(pickOf(c))} type="button" onClick={() => setPicked((cur) => [...cur, pickOf(c)])} className="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-3 py-1 hover:border-accent/60">
-                        <Plus className="size-3" />
-                        {c.sourceName}
-                        {lang && !pickedLangs.has(lang) ? ` · ${tr("new {lang} edition", { lang: languageName(lang) })}` : lang ? ` · ${languageName(lang)}` : ""}
-                        {c.chapters ? ` · ${t("{count} chapters", { count: c.chapters.count })}` : ""} · {Math.round(c.score * 100)}%
+                      <button key={pickKey(pickOf(c))} type="button" title={c.manga.title} onClick={() => setPicked((cur) => [...cur, { ...pickOf(c), lang: normLang(c.lang) ? undefined : c.edition }])} className={clsx("inline-flex max-w-full items-center gap-1 rounded-full border border-dashed px-3 py-1 hover:border-accent/60", c.empty ? "border-warn/50 text-warn" : "border-border")}>
+                        <Plus className="size-3 shrink-0" />
+                        <span className="truncate">
+                          {c.sourceName} · “{c.manga.title}”
+                          {lang && !pickedLangs.has(lang) ? ` · ${tr("new {lang} edition", { lang: languageName(lang) })}` : lang ? ` · ${languageName(lang)}` : ""}
+                          {c.chapters ? ` · ${t("{count} chapters", { count: c.chapters.count })}` : ""}
+                          {more > 0 ? ` · ${t("{n} more here", { n: more })}` : ""}
+                        </span>
                       </button>
                     );
                   })}

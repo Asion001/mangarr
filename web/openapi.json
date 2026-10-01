@@ -1799,6 +1799,124 @@
         ],
         "type": "object"
       },
+      "DefaultsEdition": {
+        "additionalProperties": false,
+        "properties": {
+          "fromDefaults": {
+            "type": "boolean"
+          },
+          "lang": {
+            "type": "string"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/DefaultsSource"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "lang",
+          "fromDefaults",
+          "sources"
+        ],
+        "type": "object"
+      },
+      "DefaultsInput": {
+        "additionalProperties": false,
+        "properties": {
+          "exclude": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "langs": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "query": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "titles": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "type": "object"
+      },
+      "DefaultsResult": {
+        "additionalProperties": false,
+        "properties": {
+          "editions": {
+            "items": {
+              "$ref": "#/components/schemas/DefaultsEdition"
+            },
+            "type": "array"
+          },
+          "generation": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "noLanguages": {
+            "type": "boolean"
+          },
+          "threshold": {
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "required": [
+          "editions",
+          "threshold",
+          "generation"
+        ],
+        "type": "object"
+      },
+      "DefaultsSource": {
+        "additionalProperties": false,
+        "properties": {
+          "empty": {
+            "$ref": "#/components/schemas/QuickCandidate"
+          },
+          "error": {
+            "type": "string"
+          },
+          "key": {
+            "type": "string"
+          },
+          "match": {
+            "$ref": "#/components/schemas/QuickCandidate"
+          },
+          "others": {
+            "items": {
+              "$ref": "#/components/schemas/QuickCandidate"
+            },
+            "type": "array"
+          },
+          "searched": {
+            "type": "boolean"
+          },
+          "sourceName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "sourceName",
+          "others",
+          "searched"
+        ],
+        "type": "object"
+      },
       "DeviceSync": {
         "additionalProperties": false,
         "properties": {
@@ -19863,6 +19981,47 @@
           }
         },
         "summary": "List usable catalogs of all active source modules (hidden NSFW catalogs excluded)",
+        "tags": [
+          "Sources"
+        ]
+      }
+    },
+    "/api/v1/sources/defaults-search": {
+      "post": {
+        "operationId": "sources-defaults-search",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DefaultsInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DefaultsResult"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Search every source in each language's default list (the search languages unless langs is given)",
         "tags": [
           "Sources"
         ]

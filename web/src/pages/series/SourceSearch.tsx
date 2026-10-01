@@ -68,14 +68,26 @@ export function ScopeBar({
   keys: string[];
   setKeys: (k: string[]) => void;
 }) {
-  const { counts, langs, items } = useCatalogTargets(scope, lang, keys);
+  const { counts, langs, items, settings } = useCatalogTargets(scope, lang, keys);
+  // one chip per search language: its language default (or its catalogs)
+  const mine = settings?.defaultLanguages ?? [];
+  const mineCount = (l: string) => selectCatalogs(items, settings, "active", l, []).length;
   const [picking, setPicking] = useState(false);
   const chip = (active: boolean) =>
     `rounded-full border px-3 py-1 text-xs font-medium ${active ? "border-accent bg-accent/15 text-fg" : "border-border text-muted hover:text-fg"}`;
   return (
     <div className="mb-4 flex flex-wrap items-center gap-2">
-      <button type="button" className={chip(scope === "active")} onClick={() => setScope("active")} title={t("Enabled catalogs in your default languages")}>{t("Active sources (")}{counts.active})
-      </button>
+      {mine.length ? (
+        mine.map((l) => (
+          <button key={l} type="button" className={chip(scope === "active" && lang === l)} onClick={() => (setScope("active"), setLang(l))}>
+            {t("{lang} defaults ({n})", { lang: languageName(l), n: mineCount(l) })}
+          </button>
+        ))
+      ) : (
+        <button type="button" className={chip(scope === "active" && !lang)} onClick={() => (setScope("active"), setLang(""))} title={t("Enabled catalogs in your default languages")}>
+          {t("Your sources ({n})", { n: counts.active })}
+        </button>
+      )}
       <button type="button" className={chip(scope === "all")} onClick={() => setScope("all")}>{t("All sources (")}{counts.all})
       </button>
       <button type="button" className={chip(scope === "custom")} onClick={() => setPicking(true)}>
@@ -320,6 +332,23 @@ export function useQuickSearch(opts: { query: string; titles: string[]; scope: S
             rootFolderId: opts.rootFolderId || undefined,
             exclude: opts.exclude?.length ? opts.exclude : undefined,
           },
+        }),
+      ),
+    enabled: opts.enabled && !!opts.query && opts.gen !== undefined,
+    staleTime: 10 * 60_000,
+    retry: 0,
+  });
+}
+
+/** useDefaultsSearch searches every source in each language's default list
+ * (the search languages, or just lang). */
+export function useDefaultsSearch(opts: { query: string; titles: string[]; lang: string; exclude?: string[]; enabled: boolean; gen?: number }) {
+  return useQuery({
+    queryKey: ["defaults-search", opts.gen, opts.query, opts.titles, opts.lang, opts.exclude],
+    queryFn: () =>
+      unwrap(
+        api.POST("/api/v1/sources/defaults-search", {
+          body: { query: opts.query, titles: opts.titles, langs: opts.lang ? [opts.lang] : undefined, exclude: opts.exclude?.length ? opts.exclude : undefined },
         }),
       ),
     enabled: opts.enabled && !!opts.query && opts.gen !== undefined,

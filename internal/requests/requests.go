@@ -222,18 +222,23 @@ func (s *Service) autoAdd(id int64) {
 		s.attemptFailed(ctx, id, "Set a language on a root folder (or default search languages) so requests know where to go; choose sources and retry Add.", err)
 		return
 	}
-	// the best confident match in each language becomes that language's edition
+	// each language's edition gets every source of its default list that
+	// has the title, in list order: the first is primary, the rest fallbacks
 	var links []series.SourceLink
 	var names []string
-	for _, lang := range langs {
-		res, err := s.Search.Quick(ctx, sourcesearch.QuickSearchInput{Query: r.Title, Titles: append([]string{r.Title}, r.Metadata.AltTitles...), Lang: lang}, sourcesearch.QuickOptions{})
-		if err != nil || res.Match == nil {
-			continue
+	found, err := s.Search.Defaults(ctx, sourcesearch.DefaultsInput{Query: r.Title, Titles: append([]string{r.Title}, r.Metadata.AltTitles...), Langs: langs})
+	if err == nil {
+		for _, ed := range found.Editions {
+			for _, src := range ed.Sources {
+				m := src.Match
+				if m == nil {
+					continue
+				}
+				links = append(links, series.SourceLink{ModuleID: m.ModuleID, SourceID: m.SourceID, URL: m.Manga.URL, EngineRef: m.Manga.EngineRef,
+					Title: m.Manga.Title, SourceName: m.SourceName, Lang: firstLang(m.Lang, ed.Lang)})
+				names = append(names, m.SourceName)
+			}
 		}
-		m := res.Match
-		links = append(links, series.SourceLink{ModuleID: m.ModuleID, SourceID: m.SourceID, URL: m.Manga.URL, EngineRef: m.Manga.EngineRef,
-			Title: m.Manga.Title, SourceName: m.SourceName, Lang: firstLang(m.Lang, lang)})
-		names = append(names, m.SourceName)
 	}
 	if len(links) == 0 {
 		s.Log.Info("request waits for a manager: no confident source", "request", r.Title, "languages", langs)

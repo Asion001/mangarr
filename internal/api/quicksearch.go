@@ -13,6 +13,8 @@ import (
 type (
 	QuickSearchInput  = sourcesearch.QuickSearchInput
 	QuickSearchResult = sourcesearch.QuickSearchResult
+	DefaultsInput     = sourcesearch.DefaultsInput
+	DefaultsResult    = sourcesearch.DefaultsResult
 )
 
 func (s *Server) registerQuickSearch() {
@@ -25,6 +27,16 @@ func (s *Server) registerQuickSearch() {
 				return nil, toHTTPError(err)
 			}
 			return &struct{ Body *QuickSearchResult }{res}, nil
+		})
+	huma.Register(s.api, huma.Operation{OperationID: "sources-defaults-search", Method: http.MethodPost, Path: "/api/v1/sources/defaults-search", Tags: []string{"Sources"},
+		Summary: "Search every source in each language's default list (the search languages unless langs is given)"},
+		func(ctx context.Context, in *struct{ Body DefaultsInput }) (*struct{ Body *DefaultsResult }, error) {
+			in.Body.Query = strings.TrimSpace(in.Body.Query)
+			res, err := s.app.Search.Defaults(ctx, in.Body)
+			if err != nil {
+				return nil, toHTTPError(err)
+			}
+			return &struct{ Body *DefaultsResult }{res}, nil
 		})
 }
 
