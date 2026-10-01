@@ -176,12 +176,29 @@ func (w *Worker) Run(ctx context.Context) error {
 			if ctx.Err() != nil {
 				continue
 			}
-			w.log.Warn("could not ask for work", "err", err)
+			wait := 10 * time.Second
+			if switchedOff(err) {
+				if w.status.State() != StateOff {
+					w.log.Info("switched off in System → Workers; waiting to be switched on")
+				}
+				w.status.Set(StateOff, nil)
+				wait = offPoll
+			} else {
+				w.log.Warn("could not ask for work", "err", err)
+				w.status.Set(StateWaiting, err)
+			}
 			select {
 			case <-ctx.Done():
-			case <-time.After(10 * time.Second):
+			case <-time.After(wait):
 			}
 			continue
+		}
+		switch w.status.State() {
+		case StateOff:
+			w.log.Info("switched on again")
+			w.status.Set(StateReady, nil)
+		case StateWaiting:
+			w.status.Set(StateReady, nil)
 		}
 		if task == nil {
 			continue
@@ -268,6 +285,17 @@ func (w *Worker) hello(ctx context.Context) error {
 		}
 		if ctx.Err() != nil {
 			return ctx.Err()
+		}
+		if switchedOff(err) {
+			// not refused, just off for now: ask again now and then
+			w.log.Info("switched off in System → Workers; waiting to be switched on")
+			w.status.Set(StateOff, nil)
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(offPoll):
+			}
+			continue
 		}
 		var he *httpError
 		if errors.As(err, &he) && (he.Status == http.StatusUnauthorized || he.Status == http.StatusForbidden) {
@@ -393,6 +421,16 @@ type httpError struct {
 }
 
 func (e *httpError) Error() string { return fmt.Sprintf("the server said %d: %s", e.Status, e.Body) }
+
+// offPoll is how often a worker that is switched off asks again.
+var offPoll = 30 * time.Second
+
+// switchedOff reports whether the server says this worker is switched off
+// (System → Workers), which it waits out rather than giving up.
+func switchedOff(err error) bool {
+	var he *httpError
+	return errors.As(err, &he) && he.Status == http.StatusForbidden && strings.Contains(he.Body, "switched off")
+}
 
 // gone reports whether the server has taken the task away (409): the worker
 // drops what it was doing and asks for something else.

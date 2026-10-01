@@ -190,6 +190,12 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 			_, _ = w.Write([]byte(`{"title":"Forbidden","status":403,"detail":"a worker key is only for /api/v1/worker/"}`))
 			return
 		}
+		if p == nil && strings.HasPrefix(r.URL.Path, workerPathPrefix) && s.app.Auth.SwitchedOff(r) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusForbidden)
+			_, _ = w.Write([]byte(`{"title":"Forbidden","status":403,"detail":"this worker is switched off"}`))
+			return
+		}
 		if p == nil && !isPublic(r.URL.Path) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnauthorized)

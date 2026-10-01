@@ -3,6 +3,7 @@ package api_test
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -121,6 +122,12 @@ func TestWorkerKeys(t *testing.T) {
 	// a switched-off worker's key no longer authenticates at all
 	if resp := do(http.MethodGet, "/api/v1/series", "", made.Key); resp.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("a disabled worker's key: %d", resp.StatusCode)
+	}
+	// though the worker endpoints tell it why, so it waits to be switched on
+	if resp := do(http.MethodPost, "/api/v1/worker/lease", `{}`, made.Key); resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("a disabled worker asking for work: %d", resp.StatusCode)
+	} else if b, _ := io.ReadAll(resp.Body); !strings.Contains(string(b), "switched off") {
+		t.Fatalf("a disabled worker asking for work: %s", b)
 	}
 	if resp := do(http.MethodDelete, path, "", admin); resp.StatusCode != http.StatusNoContent {
 		t.Fatalf("delete: %d", resp.StatusCode)

@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -76,6 +77,18 @@ func (s *Service) WorkerByKey(ctx context.Context, key string) (model.Worker, bo
 	}
 	w, ok := s.workers.byHash[HashWorkerKey(key)]
 	return w, ok
+}
+
+// SwitchedOff reports whether r carries the key of a worker that is
+// switched off. The key still doesn't authenticate; this only lets the
+// worker endpoints tell that worker why, so it waits instead of giving up.
+func (s *Service) SwitchedOff(r *http.Request) bool {
+	key := r.Header.Get("X-Api-Key")
+	if !strings.HasPrefix(key, WorkerKeyPrefix) {
+		return false
+	}
+	w, ok := s.WorkerByKey(r.Context(), key)
+	return ok && !w.Enabled
 }
 
 // touchWorker records that a worker was here, at most once a minute.

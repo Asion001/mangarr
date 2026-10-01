@@ -11,6 +11,7 @@ const (
 	StateStarting = "starting" // saying hello
 	StateWaiting  = "waiting"  // the server doesn't answer yet
 	StateReady    = "ready"    // asking for work
+	StateOff      = "off"      // switched off in System → Workers: waits to be switched on
 	StateStopped  = "stopped"
 	StateFailed   = "failed" // gave up (a refused key, say)
 )
@@ -105,6 +106,16 @@ func (s *Status) Set(state string, err error) {
 	if state == StateStopped || state == StateFailed {
 		clear(s.active)
 	}
+}
+
+// State is the worker's state now.
+func (s *Status) State() string {
+	if s == nil {
+		return ""
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.state
 }
 
 func (s *Status) welcome(w Welcome, models, devices []string) {

@@ -101,6 +101,7 @@ func runWithUI(ctx context.Context, listen string, browser bool) int {
 	if err := ui.Start(); err != nil {
 		log.Warn("not started yet: enter the server address and key on the status page", "err", err)
 	}
+	go ui.KeepAwake(ctx)
 	if browser {
 		if err := workerui.OpenBrowser(url); err != nil {
 			log.Info("open the status page in a browser", "url", url)
