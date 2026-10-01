@@ -4,11 +4,13 @@ import { Link } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import clsx from "clsx";
 import { Check } from "lucide-react";
-import { api, unwrap } from "../../api/client";
-import { useHealth, useModules } from "../../api/queries";
+import { api, basePath, unwrap } from "../../api/client";
+import { useCatalogs, useHealth, useModules } from "../../api/queries";
 import { Button, Input, Progress } from "../../components/ui";
 import { LanguageSelect } from "../../components/LanguageSelect";
+import { LanguageList, useSourcesSettings } from "../../components/LanguageChooser";
 import { useToast } from "../../lib/toast";
+import { browserLanguages } from "../../lib/format";
 
 const skippedKey = "mangarr:setup-skipped";
 const readSkipped = (): string[] => {
@@ -31,11 +33,17 @@ export function SetupChecklist() {
   const toast = useToast();
   const { data: health } = useHealth(true);
   const { data: modules } = useModules();
+  const { data: catalogs } = useCatalogs();
+  const sources = useSourcesSettings();
+  const catalogLangs = [...new Set((catalogs?.items ?? []).filter((c) => !c.hidden).map((c) => c.lang).filter((l) => l && l !== "all" && l !== "multi"))];
+  const [langs, setLangs] = useState<string[] | null>(null);
+  const reading = langs ?? browserLanguages(catalogLangs);
   const [skipped, setSkipped] = useState(readSkipped);
   const [busy, setBusy] = useState("");
   const [path, setPath] = useState("");
-  const [lang, setLang] = useState("en");
-  if (!health || !modules) return null;
+  const [folderLang, setLang] = useState("");
+  const lang = folderLang || (sources.data?.defaultLanguages ?? [])[0] || reading[0] || "en";
+  if (!health || !modules || !sources.data) return null;
   // optional modules are a choice, so Health says nothing about them
   const has = (kind: string) => modules.some((m) => m.kind === kind && m.enabled);
   // "No … is configured" checks mean setup is missing; the same sources also
@@ -78,6 +86,35 @@ export function SetupChecklist() {
         <div className="flex flex-wrap items-center gap-3">
           <Button variant="primary" size="sm" loading={busy === "source"} onClick={() => run("source", () => addModule("source", "native", "mangarr sources"))}>{t("Add mangarr sources")}</Button>
           <Link to="/settings/sources" className="text-sm text-accent-2 hover:underline">{t("Other engines")}</Link>
+        </div>
+      ),
+    },
+    {
+      id: "languages",
+      title: t("Which languages do you read?"),
+      kind: "required",
+      body: t("Picked from your browser. Only catalogs in these languages (and multi-language ones) are turned on, and Add series searches them."),
+      done: (sources.data.defaultLanguages ?? []).length > 0,
+      action: missing("Sources") ? (
+        <span className="text-sm text-muted">{t("Add a source first.")}</span>
+      ) : (
+        <div className="flex max-w-md flex-col gap-3">
+          <LanguageList value={reading} onChange={setLangs} options={catalogLangs} />
+          <Button
+            variant="primary"
+            size="sm"
+            className="self-start"
+            disabled={!reading.length}
+            loading={busy === "languages"}
+            onClick={() => run("languages", async () => {
+              await fetch(`${basePath}/api/v1/settings/sources`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...sources.data, defaultLanguages: reading }) }).then((r) => {
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
+              });
+              await Promise.all([qc.invalidateQueries({ queryKey: ["settings"] }), qc.invalidateQueries({ queryKey: ["catalogs"] })]);
+            })}
+          >
+            {t("Save languages")}
+          </Button>
         </div>
       ),
     },

@@ -1,5 +1,5 @@
 import { t as tr, t } from "../../lib/i18n/core";
-import { LanguageChips, useSearchLanguages } from "../../components/LanguageChooser";
+import { LanguageChips, useSearchLanguages, useSourcesSettings } from "../../components/LanguageChooser";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -123,6 +123,8 @@ export function AddSearchStep() {
   const { data: catalogs } = useCatalogs();
   const languages = Array.from(new Set((catalogs?.items ?? []).filter((c) => !c.hidden).map((c) => c.lang).filter((v) => v && v !== "all" && v !== "multi")));
   const searchLanguages = useSearchLanguages();
+  const account = useAccount();
+  const searchSettings = useSourcesSettings();
   const [title, setTitle] = useState(q);
   const pick = (r: LookupResult) => {
     qc.setQueryData(["lookup-item", r.moduleId, r.id], r);
@@ -135,6 +137,12 @@ export function AddSearchStep() {
         <div className="min-w-0 flex-1">
           <div className="mb-3">
             <LanguageChips value={lang} onChange={(v) => setLang(v, { replace: false })} primary={searchLanguages} options={languages} />
+            {account.isAdmin && searchSettings.data && !(searchSettings.data.defaultLanguages ?? []).length && !lang && (
+              <p className="mt-2 text-sm text-warn">
+                {t("No search language is set, so Add… takes the first match in any language. Pick a language above, or")}{" "}
+                <Link to="/settings/search" className="text-accent-2 hover:underline">{t("choose the languages you read")}</Link>.
+              </p>
+            )}
           </div>
           <MetadataSearch
             query={q}

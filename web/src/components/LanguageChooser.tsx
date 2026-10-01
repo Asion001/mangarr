@@ -9,12 +9,11 @@ import { useAccount } from "../lib/account";
 import { languageHints, languageMatches, languageName, sortLanguages } from "../lib/format";
 import { editionLang } from "./LanguageSelect";
 
-/** useSearchLanguages is Settings → Search's "search languages by default";
- * without access to it (not an admin) or with none set, the languages of
- * your root folders. */
-export function useSearchLanguages(): string[] {
+/** useSourcesSettings reads Settings → Search (admins only; shares the
+ * settings page's cache). */
+export function useSourcesSettings() {
   const { isAdmin } = useAccount();
-  const { data: src } = useQuery({
+  return useQuery({
     queryKey: ["settings", "sources"],
     enabled: isAdmin,
     queryFn: async () => {
@@ -23,6 +22,13 @@ export function useSearchLanguages(): string[] {
       return (await r.json()) as S["Sources"];
     },
   });
+}
+
+/** useSearchLanguages is Settings → Search's "search languages by default";
+ * without access to it (not an admin) or with none set, the languages of
+ * your root folders. */
+export function useSearchLanguages(): string[] {
+  const { data: src } = useSourcesSettings();
   const { data: roots } = useRootFolders();
   return useMemo(() => {
     const set = src?.defaultLanguages ?? [];

@@ -8,7 +8,7 @@ import { api, apiUrl, unwrap, type Catalog, type ModuleResource, type S } from "
 import { useCatalogs, useRootFolders, useSeriesList } from "../../api/queries";
 import { Badge, Button, EmptyState, ErrorBox, Input, Loading, Menu, Modal, Select, Switch } from "../../components/ui";
 import { languageMatches, languageName, relative, sortLanguages } from "../../lib/format";
-import { useSearchLanguages } from "../../components/LanguageChooser";
+import { LanguageMenu, useSearchLanguages } from "../../components/LanguageChooser";
 import { useToast } from "../../lib/toast";
 import { SourceSettings } from "./SourceSettings";
 
@@ -43,6 +43,9 @@ export function Catalogs({ module }: { module: ModuleResource }) {
   const [dragging, setDragging] = useState<number | null>(null);
   const [reviewing, setReviewing] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [onFilter, setOnFilter] = useState("");
+  const [onLang, setOnLang] = useState("");
+  const [picked, setPicked] = useState<Set<string>>(new Set());
 
   const mine = useMemo(() => (data?.items ?? []).filter((c) => c.moduleId === module.id && !c.hidden), [data, module.id]);
   const byGlobal = useMemo(() => [...mine].sort((a, b) => a.priority - b.priority || a.displayName.localeCompare(b.displayName)), [mine]);
@@ -78,6 +81,19 @@ export function Catalogs({ module }: { module: ModuleResource }) {
     for (const c of eligible) if (!out.includes(c)) out.push(c);
     return out;
   }, [eligible, saved]);
+  // the "on" list can be narrowed; dragging only works on the whole list
+  const filtering = !!onFilter || !!onLang;
+  const shownOn = ordered
+    .map((c, i) => ({ c, i }))
+    .filter(({ c }) => (!onLang || c.lang === onLang) && (!onFilter || c.displayName.toLowerCase().includes(onFilter.toLowerCase()) || languageMatches(c.lang, onFilter)));
+  const onLangs = sortLanguages(ordered.map((c) => c.lang));
+  // catalogs outside your search languages (multi-language ones stay)
+  const foreign = searchLanguages.length ? ordered.filter((c) => c.lang !== "all" && c.lang !== "multi" && !searchLanguages.includes(c.lang)) : [];
+  const turnOff = async (list: Catalog[]) => {
+    await update(Object.fromEntries(list.map((c) => [key(c), { enabled: false }])));
+    setPicked(new Set());
+    toast.success(tr("{n} catalogs turned off", { n: list.length }));
+  };
   const off = byGlobal.filter((c) => !c.enabled);
   const shownOff = offFilter ? off.filter((c) => c.displayName.toLowerCase().includes(offFilter.toLowerCase()) || languageMatches(c.lang, offFilter)) : off;
   const customSeries = (series ?? []).filter((s) => s.sourcePriorityMode === "custom");
@@ -179,22 +195,61 @@ export function Catalogs({ module }: { module: ModuleResource }) {
         <span className="text-xs text-muted">{t("Searched top to bottom. The first hit becomes a new series' primary source.")}</span>
       </div>
 
+      <div className="flex flex-wrap items-center gap-2">
+        <Input className="max-w-64" aria-label={t("Filter catalogs")} placeholder={t("Filter catalogs…")} value={onFilter} onChange={(e) => setOnFilter(e.target.value)} />
+        <LanguageMenu
+          label={<>{onLang ? languageName(onLang) : t("All languages")} ▾</>}
+          options={onLangs}
+          top={[{ label: t("All languages"), value: "" }]}
+          onPick={setOnLang}
+          className="h-9 rounded-md border border-border bg-panel-2 px-3 text-sm"
+        />
+        <span className="text-sm text-muted">{t("{n} on", { n: ordered.length })}</span>
+        <span className="flex-1" />
+        {picked.size > 0 ? (
+          <>
+            <span className="text-sm font-medium">{t("{count} selected", { count: picked.size })}</span>
+            <Button size="sm" onClick={() => void turnOff(ordered.filter((c) => picked.has(key(c))))}>{t("Turn off")}</Button>
+            <Button size="sm" variant="ghost" onClick={() => setPicked(new Set())}>{t("Clear")}</Button>
+          </>
+        ) : (
+          shownOn.length > 0 && <Button size="sm" variant="ghost" onClick={() => setPicked(new Set(shownOn.map(({ c }) => key(c))))}>{t("Select all {count}", { count: shownOn.length })}</Button>
+        )}
+        {foreign.length > 0 && (
+          <Button size="sm" title={t("Keeps catalogs in {langs} and multi-language ones", { langs: searchLanguages.map(languageName).join(", ") })} onClick={() => void turnOff(foreign)}>
+            {t("Turn off {n} outside my languages", { n: foreign.length })}
+          </Button>
+        )}
+      </div>
+
       <section aria-label={t("Catalogs that are on")} className="rounded-xl border border-border bg-panel">
         {ordered.length === 0 && <p className="p-4 text-sm text-muted">{t("No catalog is on for this scope. Turn one on below.")}</p>}
         <ol className="flex flex-col p-1.5">
-          {ordered.map((c, i) => {
+          {filtering && shownOn.length === 0 && <li className="p-3 text-sm text-muted">{t("No catalog matches.")}</li>}
+          {shownOn.map(({ c, i }, n) => {
             const st = status(c);
             const h = healthOf.get(key(c));
             return (
               <li
                 key={key(c)}
-                draggable={!busy}
+                draggable={!busy && !filtering}
                 onDragStart={() => setDragging(i)}
                 onDragEnd={() => setDragging(null)}
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={() => dragging !== null && void move(dragging, i)}
-                className={clsx("flex flex-wrap items-center gap-3 rounded-lg px-2 py-2.5 sm:flex-nowrap", i > 0 && "border-t border-border", dragging === i && "opacity-50")}
+                className={clsx("flex flex-wrap items-center gap-3 rounded-lg px-2 py-2.5 sm:flex-nowrap", n > 0 && "border-t border-border", dragging === i && "opacity-50")}
               >
+                <input
+                  type="checkbox"
+                  aria-label={t("Select {name}", { name: c.displayName })}
+                  checked={picked.has(key(c))}
+                  onChange={(e) => setPicked((cur) => {
+                    const next = new Set(cur);
+                    if (e.target.checked) next.add(key(c));
+                    else next.delete(key(c));
+                    return next;
+                  })}
+                />
                 <span className="hidden cursor-grab text-muted sm:block" aria-hidden="true">
                   <GripVertical className="size-4" />
                 </span>
@@ -253,6 +308,9 @@ export function Catalogs({ module }: { module: ModuleResource }) {
                 onChange={(e) => (setOffFilter(e.target.value), setShowOff(true))}
               />
             </div>
+            {showOff && offFilter && shownOff.length > 1 && shownOff.length <= 200 && (
+              <Button size="sm" className="mt-2" onClick={() => void update(Object.fromEntries(shownOff.map((c) => [key(c), { enabled: true }])))}>{t("Turn on {n} shown", { n: shownOff.length })}</Button>
+            )}
             {showOff && (
               <ul className="mt-2 grid gap-1 sm:grid-cols-2">
                 {shownOff.slice(0, 200).map((c) => (

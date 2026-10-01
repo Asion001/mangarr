@@ -105,3 +105,15 @@ export function languageMatches(code: string, query: string): boolean {
   const q = query.trim().toLocaleLowerCase(getLocale());
   return !q || code.toLocaleLowerCase(getLocale()).includes(q) || languageName(code).toLocaleLowerCase(getLocale()).includes(q);
 }
+
+/** browserLanguages maps the browser's languages onto catalog languages:
+ * the exact tag when a catalog has it ("pt-BR"), else its base ("pt"). */
+export function browserLanguages(available: string[], preferred: readonly string[] = typeof navigator === "undefined" ? [] : navigator.languages ?? []): string[] {
+  const have = new Map(available.map((code) => [code.toLowerCase(), code]));
+  const out: string[] = [];
+  for (const tag of preferred) {
+    const code = have.get(tag.toLowerCase()) ?? have.get(tag.toLowerCase().split("-")[0]);
+    if (code && !out.includes(code)) out.push(code);
+  }
+  return out;
+}

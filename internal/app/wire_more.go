@@ -54,11 +54,20 @@ func (a *App) wireMore(ctx context.Context) error {
 	a.Health.AddCheck(func(ctx context.Context) []health.Check {
 		var out []health.Check
 		list, _ := a.Catalogs.List(ctx, false)
+		on := 0
 		for _, c := range list {
+			if c.Enabled && !c.Hidden {
+				on++
+			}
 			if c.CooldownUntil != nil {
 				out = append(out, health.Check{Source: "Sources", Type: health.Warning, Link: "/sources/catalogs",
 					Message: fmt.Sprintf("%s is paused until %s after %s", c.DisplayName, c.CooldownUntil.Local().Format("15:04"), c.CooldownReason)})
 			}
+		}
+		// every language on: add series takes the first hit in any of them
+		if src, err := a.Settings.Sources(ctx); err == nil && len(src.DefaultLanguages) == 0 && on > 50 {
+			out = append(out, health.Check{Source: "Sources", Type: health.Warning, Link: "/settings/search", Key: "languages",
+				Message: fmt.Sprintf("%d catalogs are on and no search language is set; choose the languages you read", on)})
 		}
 		return out
 	})

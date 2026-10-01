@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { setLocale } from './i18n/core';
-import { calendarMonth, languageHints, languageMatches, languageName, readingTime, sortLanguages } from './format';
+import { calendarMonth, browserLanguages, languageHints, languageMatches, languageName, readingTime, sortLanguages } from './format';
 afterEach(()=>setLocale('en'));
 describe('reading statistics formats',()=>{
   it('formats reading time as hours and minutes',()=>{
@@ -37,5 +37,9 @@ describe('reading statistics formats',()=>{
     expect(languageName('zh-tw')).toBe('Chinese (Taiwan)');
     expect([...languageHints(['mo','ro','en'])].sort()).toEqual(['mo','ro']);
     expect(sortLanguages(['ru','en','de','en'])).toEqual(['en','de','ru'].sort((a,b)=>languageName(a).localeCompare(languageName(b))));
+  });
+  it('maps browser languages onto catalog languages',()=>{
+    expect(browserLanguages(['en','pt-BR','ru'],['pt-BR','en-US','de','ru-RU'])).toEqual(['pt-BR','en','ru']);
+    expect(browserLanguages(['pt'],['pt-BR'])).toEqual(['pt']);
   });
 });

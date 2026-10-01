@@ -199,8 +199,40 @@ func (s *Service) pref(moduleID int64, sourceID string) (model.CatalogPref, bool
 	return p, ok
 }
 
-func (s *Service) decorate(moduleID int64, moduleName string, si source.SourceInfo, hideNSFW bool) Catalog {
-	c := Catalog{ModuleID: moduleID, ModuleName: moduleName, SourceInfo: si, Enabled: true, Priority: DefaultPriority, Hidden: hideNSFW && si.NSFW}
+// DefaultOn says whether a catalog nobody switched on or off is on: every
+// catalog until search languages are chosen, then only those in a search
+// language or a language default, multi-language ones, and catalogs a
+// language default names.
+func DefaultOn(st settings.Sources, moduleID int64, sourceID, lang string) bool {
+	langs := slices.Clone(st.DefaultLanguages)
+	key := Key(moduleID, sourceID)
+	for _, d := range st.LanguageDefaults {
+		langs = append(langs, strings.ToLower(strings.TrimSpace(d.Language)))
+		if slices.Contains(d.Sources, key) {
+			return true
+		}
+	}
+	return langMatch(lang, langs)
+}
+
+// defaultOn is DefaultOn for a catalog by id, its language from the cached
+// lists (unknown: on).
+func (s *Service) defaultOn(moduleID int64, sourceID string) bool {
+	s.mu.Lock()
+	e, ok := s.lists[moduleID]
+	s.mu.Unlock()
+	if ok {
+		for _, si := range e.list {
+			if si.ID == sourceID {
+				return DefaultOn(s.sourceSettings(), moduleID, sourceID, si.Lang)
+			}
+		}
+	}
+	return true
+}
+
+func (s *Service) decorate(moduleID int64, moduleName string, si source.SourceInfo, st settings.Sources) Catalog {
+	c := Catalog{ModuleID: moduleID, ModuleName: moduleName, SourceInfo: si, Enabled: DefaultOn(st, moduleID, si.ID, si.Lang), Priority: DefaultPriority, Hidden: st.HideNSFW && si.NSFW}
 	if p, ok := s.pref(moduleID, si.ID); ok {
 		c.Enabled, c.Priority, c.Throttle = p.Enabled, p.Priority, p.Throttle
 	}
@@ -213,7 +245,7 @@ func (s *Service) decorate(moduleID int64, moduleName string, si source.SourceIn
 // List returns every catalog of the active source modules (including hidden
 // and disabled ones), sorted by language and name.
 func (s *Service) List(ctx context.Context, fresh bool) (out []Catalog, errs []string) {
-	hide := s.sourceSettings().HideNSFW
+	st := s.sourceSettings()
 	for _, m := range modules.ActiveAs[source.Module](s.mods, modules.KindSource) {
 		s.mu.Lock()
 		e, ok := s.lists[m.Def.ID]
@@ -230,7 +262,7 @@ func (s *Service) List(ctx context.Context, fresh bool) (out []Catalog, errs []s
 			s.mu.Unlock()
 		}
 		for _, si := range e.list {
-			out = append(out, s.decorate(m.Def.ID, m.Def.Name, si, hide))
+			out = append(out, s.decorate(m.Def.ID, m.Def.Name, si, st))
 		}
 	}
 	sort.SliceStable(out, func(i, j int) bool {
@@ -404,7 +436,7 @@ func (s *Service) Update(ctx context.Context, patches map[string]Patch) error {
 func (s *Service) updatePref(ctx context.Context, moduleID int64, sourceID string, fn func(*model.CatalogPref)) (model.CatalogPref, error) {
 	p, ok := s.pref(moduleID, sourceID)
 	if !ok {
-		p = model.CatalogPref{ModuleID: moduleID, SourceID: sourceID, Enabled: true, Priority: DefaultPriority}
+		p = model.CatalogPref{ModuleID: moduleID, SourceID: sourceID, Enabled: s.defaultOn(moduleID, sourceID), Priority: DefaultPriority}
 	}
 	fn(&p)
 	p.UpdatedAt = time.Now().UTC()
