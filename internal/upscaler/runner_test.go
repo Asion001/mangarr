@@ -102,3 +102,15 @@ func TestRunnerFindsWindowsBinaries(t *testing.T) {
 		t.Fatal("tool was found without its .exe")
 	}
 }
+
+func TestRunnerListsDevicesAsTheToolNumbersThem(t *testing.T) {
+	r, e, _ := fakeTool(t, "exit 0")
+	old := Catalog
+	defer func() { Catalog = old }()
+	e.Scales = []int{2}
+	Catalog = []Engine{e}
+	got := r.Devices(context.Background())
+	if len(got) != 2 || got[0] != "Intel(R) Graphics (ADL-N)" || !strings.HasPrefix(got[1], "llvmpipe") {
+		t.Fatalf("devices %q", got)
+	}
+}

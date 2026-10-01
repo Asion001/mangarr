@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -41,6 +42,9 @@ type Server struct {
 	slots     chan string
 	configErr error
 	queued    atomic.Int32
+
+	devOnce sync.Once
+	devs    []string
 }
 
 func NewServer(cfg Config, runner Runner, log *slog.Logger) *Server {
@@ -78,7 +82,7 @@ type Info struct {
 }
 
 func (s *Server) Info() Info {
-	info := Info{Version: s.cfg.Version, Devices: devices(), Models: []Engine{}, Formats: []string{"png", "jpeg"}, Queued: int(s.queued.Load())}
+	info := Info{Version: s.cfg.Version, Devices: s.devices(), Models: []Engine{}, Formats: []string{"png", "jpeg"}, Queued: int(s.queued.Load())}
 	if s.cfg.CWebP != "" {
 		info.Formats = append(info.Formats, "webp")
 	}
@@ -88,6 +92,24 @@ func (s *Server) Info() Info {
 		}
 	}
 	return info
+}
+
+// devices are the GPUs this engine sees, found once: as the tools number
+// them when they can say, or as vulkaninfo lists them.
+func (s *Server) devices() []string {
+	s.devOnce.Do(func() {
+		if dl, ok := s.runner.(interface {
+			Devices(context.Context) []string
+		}); ok {
+			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+			defer cancel()
+			s.devs = dl.Devices(ctx)
+		}
+		if len(s.devs) == 0 {
+			s.devs = devices()
+		}
+	})
+	return s.devs
 }
 
 // Devices lists the Vulkan devices (via vulkaninfo, when installed).

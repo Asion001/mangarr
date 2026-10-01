@@ -27,6 +27,7 @@
   .pill::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
   .pill.ready::before { background: var(--ok); } .pill.waiting::before, .pill.starting::before { background: var(--warn); }
   .pill.failed::before { background: var(--bad); }
+  .pill.off::before { background: var(--muted); }
   button { font: inherit; border: 1px solid var(--line); background: var(--panel); color: var(--text); border-radius: 8px; padding: 6px 14px; cursor: pointer; }
   button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
   button:disabled { opacity: .5; cursor: default; }
@@ -66,7 +67,9 @@
     <h1>mangarr worker</h1>
     <span id="state" class="pill">…</span>
     <span id="who" class="muted"></span>
+    <span id="awake" class="pill ready" title="System sleep is held off while this worker is switched on in System → Workers" hidden>Keeping this computer awake</span>
     <span class="grow"></span>
+    <button id="settings-btn">Settings</button>
     <button id="toggle">…</button>
   </header>
 
@@ -89,8 +92,14 @@
         <input type="number" min="0" name="MANGARR_WORKER_CONCURRENT"></label>
       <label>Upscalers folder <small>Holds the waifu2x, realcugan and realesrgan folders (included in the download).</small>
         <input type="text" name="MANGARR_UPSCALER_TOOLS_DIR"></label>
-      <label>GPU <small>auto, or the device number(s) to use, e.g. 0 or 0,1.</small>
-        <input type="text" name="MANGARR_UPSCALER_GPU"></label>
+      <div><b>GPUs</b> <small class="muted">Which graphics cards upscale. Tick several to use them at once: each runs its own batch.</small>
+        <div class="checks" id="gpus"></div>
+        <label><small>Or as numbers, the way the upscalers count them: auto, 0, or 0,1.</small>
+          <input type="text" name="MANGARR_UPSCALER_GPU"></label></div>
+      <label>Tile size <small>0 picks it automatically. Lower it (e.g. 256) if a GPU runs out of memory.</small>
+        <input type="number" min="0" name="MANGARR_UPSCALER_TILE"></label>
+      <label><span><input type="checkbox" name="MANGARR_WORKER_KEEP_AWAKE"> Keep this computer awake while the worker is switched on</span>
+        <small>Switched off in System → Workers on the server, or stopped here, and the computer may sleep as usual.</small></label>
       <div class="row"><button class="primary" type="submit">Save and restart</button><span id="saved" class="muted"></span></div>
       <small class="muted">Saved in <span id="file"></span>. Settings given as environment variables can't be changed here.</small>
     </form>
@@ -137,7 +146,7 @@ const el = (tag, attrs = {}, ...kids) => {
   for (const k of kids) e.append(k);
   return e;
 };
-const stateText = { starting: "Connecting", waiting: "Waiting for the server", ready: "Working", stopped: "Stopped", failed: "Stopped with an error" };
+const stateText = { starting: "Connecting", waiting: "Waiting for the server", ready: "Working", off: "Switched off on the server", stopped: "Stopped", failed: "Stopped with an error" };
 
 async function call(path, body) {
   const r = await fetch(path, { method: "POST", headers: { "X-Mangarr-Worker": "1", "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : "{}" });
@@ -153,10 +162,12 @@ function render(s) {
   $("state").textContent = stateText[st] || st;
   $("who").textContent = w.name ? `as “${w.name}” · ${(w.roles || []).join(", ")}` : "";
   $("toggle").textContent = s.running ? "Stop" : "Start";
+  $("awake").hidden = !s.awake;
   $("toggle").className = s.running ? "" : "primary";
 
   const problems = [];
   if (s.problem) problems.push(s.problem);
+  if (s.awakeError) problems.push("Can't keep this computer awake: " + s.awakeError);
   if (w.error && (st === "waiting" || st === "failed")) problems.push(w.error);
   const roles = (s.settings.find((f) => f.name === "MANGARR_WORKER_ROLES") || {}).value || "";
   if (st === "ready" && roles.includes("upscale") && !(w.models || []).length)
@@ -209,7 +220,31 @@ function render(s) {
   const devices = (w.devices || []).length ? ` · GPU: ${w.devices.join(", ")}` : "";
   $("engine").textContent = `${models}${devices} · ${s.platform} · ${s.version}`;
   $("file").textContent = s.file;
+  renderGPUs(s);
   if (!formFilled) fillForm(s);
+}
+
+// renderGPUs offers the detected GPUs as checkboxes that write the GPU
+// field: none ticked is auto, the rest are their numbers.
+let gpusShown = "";
+function renderGPUs(s) {
+  const key = JSON.stringify(s.gpus || []);
+  if (key === gpusShown) return;
+  gpusShown = key;
+  const box = $("gpus"), input = $("form").elements.MANGARR_UPSCALER_GPU;
+  box.replaceChildren();
+  if (!(s.gpus || []).length) { box.append(el("span", { class: "muted" }, "No GPUs found yet (the upscalers folder has to be right).")); return; }
+  const picked = () => input.value.split(",").map((x) => x.trim());
+  s.gpus.forEach((name, i) => {
+    const c = el("input", { type: "checkbox", value: String(i) });
+    c.checked = picked().includes(String(i));
+    c.disabled = input.disabled;
+    c.addEventListener("change", () => {
+      const on = [...box.querySelectorAll("input:checked")].map((x) => x.value);
+      input.value = on.length ? on.join(",") : "auto";
+    });
+    box.append(el("label", {}, el("span", {}, c, ` ${i} · ${name || "GPU " + i}`)));
+  });
 }
 
 function fillForm(s) {
@@ -223,8 +258,10 @@ function fillForm(s) {
     }
     const input = form.elements[f.name];
     if (!input) continue;
+    if (input.type === "checkbox") { input.checked = f.value !== "false"; input.disabled = f.locked; continue; }
     input.value = f.value;
     input.disabled = f.locked;
+    if (f.name === "MANGARR_UPSCALER_GPU") gpusShown = "";
     if (f.name === "MANGARR_WORKER_KEY" && f.set) input.placeholder = "saved — leave blank to keep it";
   }
   const configured = s.settings.every((f) => f.name !== "MANGARR_SERVER_URL" && f.name !== "MANGARR_WORKER_KEY" || f.value || f.set);
@@ -234,8 +271,9 @@ function fillForm(s) {
 $("form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const form = e.target, body = {};
-  for (const name of ["MANGARR_SERVER_URL", "MANGARR_WORKER_KEY", "MANGARR_WORKER_CONCURRENT", "MANGARR_UPSCALER_TOOLS_DIR", "MANGARR_UPSCALER_GPU"])
+  for (const name of ["MANGARR_SERVER_URL", "MANGARR_WORKER_KEY", "MANGARR_WORKER_CONCURRENT", "MANGARR_UPSCALER_TOOLS_DIR", "MANGARR_UPSCALER_GPU", "MANGARR_UPSCALER_TILE"])
     if (!form.elements[name].disabled) body[name] = form.elements[name].value;
+  if (!form.elements.MANGARR_WORKER_KEEP_AWAKE.disabled) body.MANGARR_WORKER_KEEP_AWAKE = form.elements.MANGARR_WORKER_KEEP_AWAKE.checked ? "true" : "false";
   body.MANGARR_WORKER_ROLES = [...$("roles").querySelectorAll("input:checked")].map((c) => c.value).join(",");
   $("saved").textContent = "Saving…";
   try {
@@ -247,6 +285,13 @@ $("form").addEventListener("submit", async (e) => {
   } catch (err) {
     $("saved").textContent = err.message;
   }
+});
+
+$("form").elements.MANGARR_UPSCALER_GPU.addEventListener("input", () => { gpusShown = ""; if (last) renderGPUs(last); });
+
+$("settings-btn").addEventListener("click", () => {
+  $("setup").open = !$("setup").open;
+  if ($("setup").open) $("setup").scrollIntoView({ behavior: "smooth" });
 });
 
 $("toggle").addEventListener("click", async () => {

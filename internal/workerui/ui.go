@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Asion001/mangarr/internal/awake"
 	"github.com/Asion001/mangarr/internal/upscaler"
 	"github.com/Asion001/mangarr/internal/worker"
 )
@@ -31,7 +32,12 @@ type UI struct {
 	version string
 	status  *worker.Status
 
+	awake    awake.Keeper
+	awakeErr string // why keeping awake failed, once
+
 	mu      sync.Mutex
+	gpuDir  string   // the upscalers folder gpuList was read from
+	gpuList []string // the GPUs the upscalers see, numbered as -g takes them
 	w       *worker.Worker
 	cancel  context.CancelFunc
 	done    chan struct{}
@@ -119,14 +125,20 @@ type field struct {
 }
 
 type state struct {
+	// Awake says the computer is kept from sleeping now.
+	Awake    bool            `json:"awake"`
+	AwakeErr string          `json:"awakeError,omitempty"`
 	Version  string          `json:"version"`
 	Platform string          `json:"platform"`
 	Running  bool            `json:"running"`
 	Problem  string          `json:"problem,omitempty"`
 	Worker   worker.Snapshot `json:"worker"`
 	Settings []field         `json:"settings"`
-	File     string          `json:"file"`
-	Logs     []Line          `json:"logs"`
+	// GPUs are the devices the upscalers see, in the order the GPU setting
+	// numbers them.
+	GPUs []string `json:"gpus"`
+	File string   `json:"file"`
+	Logs []Line   `json:"logs"`
 }
 
 func (u *UI) state(logSeq int64) state {
@@ -137,8 +149,12 @@ func (u *UI) state(logSeq int64) state {
 	if w != nil {
 		snap = w.Snapshot()
 	}
-	st := state{Version: u.version, Platform: runtime.GOOS + "/" + runtime.GOARCH, Running: u.running(), Problem: problem,
+	u.mu.Lock()
+	awakeErr := u.awakeErr
+	u.mu.Unlock()
+	st := state{Awake: u.awake.Holding(), AwakeErr: awakeErr, Version: u.version, Platform: runtime.GOOS + "/" + runtime.GOARCH, Running: u.running(), Problem: problem,
 		Worker: snap, File: u.store.Path(), Logs: u.logs.Since(logSeq)}
+	st.GPUs = u.gpus()
 	for _, name := range Fields {
 		f := field{Name: name, Value: u.store.Getenv(name), Locked: u.store.Locked(name)}
 		if f.Value == "" {
@@ -152,8 +168,79 @@ func (u *UI) state(logSeq int64) state {
 	return st
 }
 
+// gpus lists the GPUs in the current upscalers folder. Asking the tools
+// takes a moment, so a new folder is read in the background and the page
+// gets the list on a later poll.
+func (u *UI) gpus() []string {
+	dir := u.store.Getenv("MANGARR_UPSCALER_TOOLS_DIR")
+	if dir == "" {
+		dir = builtIn("MANGARR_UPSCALER_TOOLS_DIR")
+	}
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	if u.gpuDir != dir {
+		u.gpuDir, u.gpuList = dir, nil
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+			defer cancel()
+			list := upscaler.CLIRunner{ToolsDir: dir}.Devices(ctx)
+			u.mu.Lock()
+			if u.gpuDir == dir {
+				u.gpuList = list
+			}
+			u.mu.Unlock()
+		}()
+	}
+	return append([]string{}, u.gpuList...)
+}
+
+// KeepAwake holds sleep off while the worker is switched on and connected
+// (and MANGARR_WORKER_KEEP_AWAKE isn't false), until ctx ends.
+func (u *UI) KeepAwake(ctx context.Context) {
+	t := time.NewTicker(2 * time.Second)
+	defer t.Stop()
+	defer u.awake.Release()
+	for {
+		u.mu.Lock()
+		w := u.w
+		u.mu.Unlock()
+		on, _ := strconv.ParseBool(u.store.Getenv(KeepAwakeVar))
+		if u.store.Getenv(KeepAwakeVar) == "" {
+			on = true
+		}
+		want := on && u.running() && w != nil && w.Snapshot().State == worker.StateReady
+		switch {
+		case want && !u.awake.Holding():
+			if err := u.awake.Hold(); err != nil {
+				u.mu.Lock()
+				if u.awakeErr == "" {
+					u.log.Warn("could not keep this computer awake", "err", err)
+				}
+				u.awakeErr = err.Error()
+				u.mu.Unlock()
+			} else {
+				u.log.Info("keeping this computer awake while the worker is switched on")
+			}
+		case !want && u.awake.Holding():
+			u.awake.Release()
+			u.log.Info("this computer may sleep again")
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+		}
+	}
+}
+
+// KeepAwakeVar turns keeping the computer awake off ("false").
+const KeepAwakeVar = "MANGARR_WORKER_KEEP_AWAKE"
+
 // builtIn is the worker's own default for name, shown when nothing sets it.
 func builtIn(name string) string {
+	if name == KeepAwakeVar {
+		return "true"
+	}
 	for _, vars := range [][][3]string{worker.Vars, upscaler.EngineVars} {
 		for _, v := range vars {
 			if v[0] == name {

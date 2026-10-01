@@ -223,6 +223,51 @@ func errorTail(out []byte) string {
 	return tail
 }
 
+// deviceIndex reads a device line's number and name.
+var deviceIndex = regexp.MustCompile(`^\[(\d+) ([^\]]*)\]`)
+
+// Devices lists the GPUs the ncnn tools see, in the order -g numbers them.
+// It runs the first installed tool on an empty folder, which prints the
+// devices and stops; this works where vulkaninfo isn't installed (Windows,
+// macOS).
+func (r CLIRunner) Devices(ctx context.Context) []string {
+	for _, e := range Catalog {
+		if !r.Available(e) {
+			continue
+		}
+		dir, err := os.MkdirTemp("", "mangarr-devices-*")
+		if err != nil {
+			return nil
+		}
+		defer os.RemoveAll(dir)
+		in, out := filepath.Join(dir, "in"), filepath.Join(dir, "out")
+		_ = os.Mkdir(in, 0o755)
+		_ = os.Mkdir(out, 0o755)
+		args := []string{"-i", in, "-o", out, "-m", filepath.Join(r.ToolsDir, e.Tool, e.ModelDir), "-s", strconv.Itoa(e.Scales[0])}
+		if e.ModelName != "" {
+			args = append(args, "-n", e.ModelName)
+		}
+		cmd := exec.CommandContext(ctx, r.bin(e), args...)
+		cmd.Dir = filepath.Join(r.ToolsDir, e.Tool)
+		cmd.WaitDelay = 2 * time.Second
+		b, _ := cmd.CombinedOutput()
+		var names []string
+		for _, l := range strings.Split(string(b), "\n") {
+			m := deviceIndex.FindStringSubmatch(strings.TrimSpace(l))
+			if m == nil {
+				continue
+			}
+			i, _ := strconv.Atoi(m[1])
+			for len(names) <= i {
+				names = append(names, "")
+			}
+			names[i] = m[2]
+		}
+		return names
+	}
+	return nil
+}
+
 // ToolsAvailable reports whether any upscaler tool is installed in dir.
 func ToolsAvailable(dir string) bool {
 	r := CLIRunner{ToolsDir: dir}

@@ -587,6 +587,15 @@ leaves the same zips on its CI run, under Artifacts.
    totals since it started, the last tasks and its log. **Stop** hands back
    what it holds; closing the window or Ctrl+C stops it too.
 
+**Settings** (top right) changes them later. With several graphics cards,
+tick each under *GPUs*: each runs its own batch, so set *Tasks at once* (or
+the worker's row in System → Workers) to at least the number of cards. While
+the worker is switched on in System → Workers it keeps the computer from
+going to sleep (the screen may still turn off); switched off there, or
+stopped on the page, the computer sleeps as usual, and the worker picks up
+again when it is switched back on. *Keep this computer awake* turns that
+off.
+
 Settings are kept in the user's config folder (`%AppData%\mangarr-worker`
 on Windows) and can still be set as environment variables, which win and
 show as locked on the page. `-listen` (or `MANGARR_WORKER_UI_LISTEN`) moves
