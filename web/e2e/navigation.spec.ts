@@ -8,7 +8,7 @@ async function mock(page:Page, permissions=['admin']){
     else if(p.endsWith('/reading/shelf'))body={items:[]};
     else if(p.endsWith('/health'))body={checks:[]};
     else if(p.endsWith('/series/search'))body={items:[],page:1,pageSize:36,total:0,totalSize:0,languages:[]};
-    else if(p.endsWith('/series')||p.endsWith('/tags')||p.endsWith('/rootfolders')||p.endsWith('/read/continue'))body=[];
+    else if(p.endsWith('/series')||p.endsWith('/tags')||p.endsWith('/rootfolders')||p.endsWith('/read/continue')||p.endsWith('/modules'))body=[];
     else if(p.endsWith('/settings/general')) {await route.fulfill({status:503,json:{detail:'Test settings unavailable'}});return;}
     await route.fulfill({json:body});
   });
