@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -78,7 +79,16 @@ type CLIRunner struct {
 	Log *slog.Logger
 }
 
-func (r CLIRunner) bin(e Engine) string { return filepath.Join(r.ToolsDir, e.Tool, e.Binary) }
+func (r CLIRunner) bin(e Engine) string { return filepath.Join(r.ToolsDir, e.Tool, e.Binary+exeSuffix) }
+
+// exeSuffix is what the ncnn release zips name their binaries with here:
+// waifu2x-ncnn-vulkan.exe on Windows, no suffix elsewhere.
+var exeSuffix = func() string {
+	if runtime.GOOS == "windows" {
+		return ".exe"
+	}
+	return ""
+}()
 
 func (r CLIRunner) Available(e Engine) bool {
 	st, err := os.Stat(r.bin(e))

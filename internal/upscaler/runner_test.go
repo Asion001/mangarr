@@ -85,3 +85,20 @@ func TestRunnerErrorWithoutDeviceList(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+func TestRunnerFindsWindowsBinaries(t *testing.T) {
+	dir := t.TempDir()
+	e := Engine{Name: "fake", Tool: "fake", Binary: "tool", ModelDir: "models"}
+	_ = os.MkdirAll(filepath.Join(dir, "fake", "models"), 0o755)
+	_ = os.WriteFile(filepath.Join(dir, "fake", "tool.exe"), nil, 0o755)
+	old := exeSuffix
+	defer func() { exeSuffix = old }()
+	exeSuffix = ".exe"
+	if !(CLIRunner{ToolsDir: dir}).Available(e) {
+		t.Fatal("tool.exe was not found")
+	}
+	exeSuffix = ""
+	if (CLIRunner{ToolsDir: dir}).Available(e) {
+		t.Fatal("tool was found without its .exe")
+	}
+}
