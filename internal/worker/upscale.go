@@ -11,8 +11,10 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
+	"github.com/Asion001/mangarr/internal/progress"
 	"github.com/Asion001/mangarr/internal/upscaler"
 )
 
@@ -59,7 +61,7 @@ func (w *Worker) upscale(ctx context.Context, t Task) (result, error) {
 	if len(images) == 0 {
 		return result{}, errors.New("the batch has no pages")
 	}
-	beat := w.beating(ctx, t, len(images))
+	beat := w.beating(ctx, t, len(images), nil)
 	defer beat()
 
 	w.status.stage(t.ID, "upscaling", 0, len(images))
@@ -83,25 +85,42 @@ func (w *Worker) upscale(ctx context.Context, t Task) (result, error) {
 }
 
 // beating keeps a task's lease while something slow runs, and stops when
-// the returned function is called.
-func (w *Worker) beating(ctx context.Context, t Task, pages int) func() {
+// the returned function is called. With live progress it also tells the
+// server how far the task is, every few seconds while that moves.
+func (w *Worker) beating(ctx context.Context, t Task, pages int, live *liveProgress) func() {
 	stop := make(chan struct{})
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		every := max(w.welcome.LeaseSeconds/3, 10)
-		tick := time.NewTicker(time.Duration(every) * time.Second)
+		every := time.Duration(max(w.welcome.LeaseSeconds/3, 10)) * time.Second
+		check := every
+		if live != nil {
+			check = progressEvery
+		}
+		tick := time.NewTicker(check)
 		defer tick.Stop()
+		last := time.Now()
 		for {
 			select {
 			case <-stop:
 				return
 			case <-tick.C:
+				body := map[string]any{"pagesDone": 0, "pagesTotal": pages, "bytesIn": 0, "bytesOut": 0}
+				moved := false
+				if live != nil {
+					var ev progress.Event
+					if ev, moved = live.take(); ev.Stage != "" {
+						body["stage"], body["pagesDone"], body["pagesTotal"] = ev.Stage, ev.Done, ev.Total
+					}
+				}
+				if !moved && time.Since(last) < every {
+					continue
+				}
+				last = time.Now()
 				var out struct {
 					Cancel bool `json:"cancel"`
 				}
-				err := w.call(ctx, http.MethodPost, fmt.Sprintf("/api/v1/worker/tasks/%d/heartbeat", t.ID),
-					map[string]any{"pagesDone": 0, "pagesTotal": pages, "bytesIn": 0, "bytesOut": 0}, &out)
+				err := w.call(ctx, http.MethodPost, fmt.Sprintf("/api/v1/worker/tasks/%d/heartbeat", t.ID), body, &out)
 				if err != nil {
 					// a lost heartbeat loses the task when the lease runs out,
 					// so it is worth a line in the log
@@ -114,6 +133,32 @@ func (w *Worker) beating(ctx context.Context, t Task, pages int) func() {
 		close(stop)
 		<-done
 	}
+}
+
+// progressEvery is how often a task's progress goes to the server while it
+// moves.
+var progressEvery = 2 * time.Second
+
+// liveProgress is the latest progress of a task's processing.
+type liveProgress struct {
+	mu    sync.Mutex
+	ev    progress.Event
+	moved bool
+}
+
+func (l *liveProgress) set(ev progress.Event) {
+	l.mu.Lock()
+	l.ev, l.moved = ev, true
+	l.mu.Unlock()
+}
+
+// take returns the latest progress and whether it moved since the last take.
+func (l *liveProgress) take() (progress.Event, bool) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	moved := l.moved
+	l.moved = false
+	return l.ev, moved
 }
 
 // input downloads what a task works on.

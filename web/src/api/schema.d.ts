@@ -6728,6 +6728,7 @@ export interface components {
             pagesDone?: number;
             /** Format: int64 */
             pagesTotal?: number;
+            stage?: string;
         };
         "Worker-heartbeatResponse": {
             cancel: boolean;

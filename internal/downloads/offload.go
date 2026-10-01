@@ -14,6 +14,7 @@ import (
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/modules"
 	"github.com/Asion001/mangarr/internal/modules/source"
+	"github.com/Asion001/mangarr/internal/progress"
 	"github.com/Asion001/mangarr/internal/sourcegov"
 	"github.com/Asion001/mangarr/internal/worktasks"
 )
@@ -296,6 +297,17 @@ func (m *Manager) TaskAbandoned(ctx context.Context, task model.WorkerTask, reas
 func (m *Manager) TaskProgress(task model.WorkerTask, done, total int, bytesIn int64) {
 	job := &model.DownloadJob{ID: task.JobID}
 	m.progress(job, done, total, bytesIn)
+}
+
+// ProcessingProgress shows how far a worker is with a chapter's processing,
+// stage by stage, as if it ran here.
+func (m *Manager) ProcessingProgress(task model.WorkerTask, stage string, done, total int) {
+	switch stage {
+	case progress.StageUpscale, progress.StageSplit, progress.StageEncode:
+	default:
+		return // an older worker only keeps its lease
+	}
+	m.Live.Update(task.JobID, progress.Event{Stage: stage, Done: done, Total: total})
 }
 
 // collectPages reads what was uploaded into a working directory, in order.

@@ -15,6 +15,7 @@ import (
 	"github.com/Asion001/mangarr/internal/downloads"
 	"github.com/Asion001/mangarr/internal/modules/upscale"
 	"github.com/Asion001/mangarr/internal/processing"
+	"github.com/Asion001/mangarr/internal/progress"
 	"github.com/Asion001/mangarr/internal/upscaler"
 	"github.com/Asion001/mangarr/internal/upscaling"
 )
@@ -32,7 +33,13 @@ func (w *Worker) process(ctx context.Context, t Task) (result, error) {
 	if cfg.Upscale.Enabled && w.up == nil && needsUpscale(spec) {
 		return result{}, errors.New("these pages need upscaling and this worker has no upscaling engine: give the encode role to a worker that also upscales")
 	}
-	beat := w.beating(ctx, t, len(spec.Pages))
+	// each stage reports its pages, here and to the server
+	live := &liveProgress{}
+	ctx = progress.With(ctx, func(ev progress.Event) {
+		live.set(ev)
+		w.status.stage(t.ID, stageNames[ev.Stage], ev.Done, ev.Total)
+	})
+	beat := w.beating(ctx, t, len(spec.Pages), live)
 	defer beat()
 	w.status.stage(t.ID, "fetching pages", 0, len(spec.Pages))
 
@@ -71,7 +78,7 @@ func (w *Worker) process(ctx context.Context, t Task) (result, error) {
 	if w.up != nil {
 		proc.Up = upscaling.NewFixed(&engine{srv: w.up, model: spec.UpscaleModel})
 	}
-	w.status.stage(t.ID, "processing", -1, -1)
+	w.status.stage(t.ID, "processing", 0, len(in))
 	res, err := proc.Process(ctx, cfg, in, workDir)
 	if err != nil {
 		return result{Pages: 0, BytesIn: bytesIn}, err
@@ -99,6 +106,13 @@ func (w *Worker) process(ctx context.Context, t Task) (result, error) {
 		return result{}, err
 	}
 	return result{Pages: len(res.Pages), BytesIn: bytesIn, BytesOut: int64(len(pack))}, nil
+}
+
+// stageNames are the processing stages as the status page shows them.
+var stageNames = map[string]string{
+	progress.StageUpscale: "upscaling",
+	progress.StageSplit:   "splitting",
+	progress.StageEncode:  "encoding",
 }
 
 // sees reports whether this worker can work on a task's files where they

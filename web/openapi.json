@@ -10825,6 +10825,9 @@
           "pagesTotal": {
             "format": "int64",
             "type": "integer"
+          },
+          "stage": {
+            "type": "string"
           }
         },
         "type": "object"

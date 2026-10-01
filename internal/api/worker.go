@@ -278,6 +278,9 @@ func (s *Server) registerWorkerProtocol() {
 				PagesTotal int   `json:"pagesTotal,omitempty"`
 				BytesIn    int64 `json:"bytesIn,omitempty"`
 				BytesOut   int64 `json:"bytesOut,omitempty"`
+				// Stage is the processing stage the pages count (upscale,
+				// split or encode), for a processing task.
+				Stage string `json:"stage,omitempty"`
 			}
 		}) (*struct {
 			Body struct {
@@ -294,8 +297,13 @@ func (s *Server) registerWorkerProtocol() {
 			if err != nil {
 				return nil, workerConflict(err)
 			}
-			if task, err := s.app.Tasks.Held(ctx, in.ID, w.ID); err == nil && task.Kind == model.TaskDownload {
-				s.app.Downloads.TaskProgress(*task, in.Body.PagesDone, in.Body.PagesTotal, in.Body.BytesIn)
+			if task, err := s.app.Tasks.Held(ctx, in.ID, w.ID); err == nil {
+				switch task.Kind {
+				case model.TaskDownload:
+					s.app.Downloads.TaskProgress(*task, in.Body.PagesDone, in.Body.PagesTotal, in.Body.BytesIn)
+				case model.TaskEncode:
+					s.app.Downloads.ProcessingProgress(*task, in.Body.Stage, in.Body.PagesDone, in.Body.PagesTotal)
+				}
 			}
 			out := &struct {
 				Body struct {
