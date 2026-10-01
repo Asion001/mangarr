@@ -2359,6 +2359,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/settings/appearance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["settings-get-appearance"];
+        put: operations["settings-put-appearance"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/settings/cleanup": {
         parameters: {
             query?: never;
@@ -3588,6 +3604,16 @@ export interface components {
             /** Format: int64 */
             workId?: number;
         };
+        Appearance: {
+            accent: string;
+            /** @enum {string} */
+            locale: "auto" | "en" | "ru" | "uk";
+            loginMessage: string;
+            /** @enum {string} */
+            startPage: "series" | "discover" | "updates" | "continue";
+            /** @enum {string} */
+            theme: "dark" | "light" | "system";
+        };
         "Auth-passwordRequest": {
             /** @description Your current password */
             current?: string;
@@ -3595,6 +3621,7 @@ export interface components {
         };
         AuthStatus: {
             account?: components["schemas"]["Account"];
+            appearance: components["schemas"]["PublicAppearance"];
             authDisabled: boolean;
             authenticated: boolean;
             needsSetup: boolean;
@@ -5194,6 +5221,17 @@ export interface components {
             processTiming?: "" | "background" | "inline";
             upscale: components["schemas"]["UpscaleConfig"];
         };
+        PublicAppearance: {
+            accent: string;
+            instanceName: string;
+            /** @enum {string} */
+            locale: "auto" | "en" | "ru" | "uk";
+            loginMessage: string;
+            /** @enum {string} */
+            startPage: "series" | "discover" | "updates" | "continue";
+            /** @enum {string} */
+            theme: "dark" | "light" | "system";
+        };
         "Queue-bulkResponse": {
             /** Format: int64 */
             affected: number;
@@ -6374,7 +6412,18 @@ export interface components {
             titles?: string[];
         };
         UIOptions: {
+            accent?: string;
+            hiddenNav?: string[];
+            libraryPageSize?: string;
+            librarySort?: string;
+            /** @enum {string} */
+            libraryView?: "posters" | "table" | "";
             otherLanguageChapters?: boolean;
+            sidebarCollapsed?: boolean;
+            /** @enum {string} */
+            startPage?: "series" | "discover" | "updates" | "continue" | "";
+            /** @enum {string} */
+            theme?: "dark" | "light" | "system" | "";
         };
         UIPreferences: {
             /** @enum {string} */
@@ -12416,6 +12465,68 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "settings-get-appearance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Appearance"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "settings-put-appearance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Appearance"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Appearance"];
+                };
             };
             /** @description Error */
             default: {

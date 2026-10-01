@@ -24,6 +24,10 @@ func (s *Server) registerUIPreferences() {
 		func(ctx context.Context, _ *struct{}) (*output, error) {
 			p := access.From(ctx)
 			v := model.UIPreferences{Locale: "auto", Mode: "reading"}
+			// someone who never chose gets the instance's default language
+			if look, err := s.app.Settings.Appearance(ctx); err == nil && look.Locale != "" {
+				v.Locale = look.Locale
+			}
 			if p.Kind == access.KindUser {
 				err := s.app.DB.NewSelect().Model(&v).Where("user_id = ?", p.UserID).Scan(ctx)
 				if err != nil && !errors.Is(err, sql.ErrNoRows) {

@@ -28,7 +28,7 @@ import {
   Pause,
 } from "lucide-react";
 import { api } from "../api/client";
-import { useHealth, usePendingRequests, useQueue } from "../api/queries";
+import { useAuthStatus, useHealth, usePendingRequests, useQueue } from "../api/queries";
 import { useAccount, type Perm } from "../lib/account";
 
 import { useUIMode } from "../lib/uiPreferences";
@@ -79,9 +79,26 @@ export function Layout() {
   const [open, setOpen] = useState(false);
   const loc = useLocation();
   const navigate = useNavigate();
-  const { editing, canEdit, save, saving, ready } = useUIMode();
+  const { editing, canEdit, save, saving, ready, preferences } = useUIMode();
   const toast = useToast();
-  const [collapsed, setCollapsed] = useState(() => localStorage.getItem("mangarr:nav-collapsed") === "true");
+  const { data: status } = useAuthStatus();
+  const siteName = status?.appearance?.instanceName || "mangarr";
+  const hiddenNav = preferences.options?.hiddenNav ?? [];
+  // this browser's choice, else the account's
+  const storedCollapsed = (() => { try { return localStorage.getItem("mangarr:nav-collapsed"); } catch { return null; } })();
+  const [collapsedLocal, setCollapsed] = useState<boolean | null>(storedCollapsed === null ? null : storedCollapsed === "true");
+  const collapsed = collapsedLocal ?? !!preferences.options?.sidebarCollapsed;
+  // the start page, once per visit, when the app opens on the library
+  const started = useRef(false);
+  useEffect(() => {
+    if (started.current || !ready) return;
+    started.current = true;
+    let seen = false;
+    try { seen = sessionStorage.getItem("mangarr:started") === "1"; sessionStorage.setItem("mangarr:started", "1"); } catch { /* private mode */ }
+    const start = preferences.options?.startPage || status?.appearance?.startPage || "series";
+    const to = { series: "", discover: "/discover", updates: "/updates", continue: "/?filter=reading&sort=read" }[start] ?? "";
+    if (!seen && to && loc.pathname === "/" && !loc.search) navigate(to, { replace: true });
+  }, [ready]);
   const drawer = useRef<HTMLElement>(null);
   const attemptedRoute = useRef("");
   const management = /^(\/add|\/activity|\/wanted|\/sources|\/settings|\/system|\/cleanup|\/import)(\/|$)/.test(loc.pathname);
@@ -193,10 +210,10 @@ export function Layout() {
     const compact = collapsed && !mobile;
     return <div className="flex h-full min-h-0 flex-col p-3 text-sm" style={mobile ? {paddingTop:"max(0.75rem, env(safe-area-inset-top))",paddingBottom:"max(0.75rem, env(safe-area-inset-bottom))"} : undefined}>
       <div className="mb-3 flex shrink-0 items-center gap-2 px-1">
-        {!compact && <><img src="./favicon.svg" className="size-7" alt="" /><span className="flex-1 text-lg font-semibold">mangarr</span></>}
+        {!compact && <><img src="./favicon.svg" className="size-7" alt="" /><span className="flex-1 truncate text-lg font-semibold">{siteName}</span></>}
         <button className="rounded p-2 text-muted hover:bg-panel-2 hover:text-fg" aria-label={mobile?t("Close navigation"):compact?t("Expand navigation"):t("Collapse navigation")} title={mobile?t("Close navigation"):compact?t("Expand navigation"):t("Collapse navigation")} onClick={()=>{
           if(mobile)setOpen(false);
-          else {setCollapsed(!collapsed);localStorage.setItem("mangarr:nav-collapsed",String(!collapsed));}
+          else {setCollapsed(!collapsed);try{localStorage.setItem("mangarr:nav-collapsed",String(!collapsed));}catch{/* private mode */}void save({options:{sidebarCollapsed:!collapsed}}).catch(()=>undefined);}
         }}>{mobile?<X className="size-4"/>:compact?<PanelLeftOpen className="size-4"/>:<PanelLeftClose className="size-4"/>}</button>
       </div>
       {canEdit&&(compact
@@ -209,7 +226,7 @@ export function Layout() {
           </div>)}
       <nav aria-label={t("Navigation")} className="min-h-0 flex-1 overflow-y-auto overscroll-contain [&_a:focus-visible]:-outline-offset-2">
         {(["library","manage","admin"] as const).map(section=>{
-          const items = nav.filter(item => item.section === section && (!item.need || can(item.need)) && (editing || item.to === "/" || item.to === "/discover" || item.to === "/updates" || (item.to === "/requests" && can("requests.create"))));
+          const items = nav.filter(item => item.section === section && !hiddenNav.includes(item.to) && (!item.need || can(item.need)) && (editing || item.to === "/" || item.to === "/discover" || item.to === "/updates" || (item.to === "/requests" && can("requests.create"))));
           if (!items.length) return null;
           const title = {library:t("Library"),manage:t("Manage"),admin:t("Admin")}[section];
           return <div key={section} role="group" aria-label={title} className="mb-2 space-y-0.5">
@@ -248,7 +265,7 @@ export function Layout() {
     <div inert={open} className="flex min-w-0 flex-1 flex-col">
       <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border px-4 md:hidden">
         <button onClick={()=>setOpen(true)} aria-label={t("Open navigation")} aria-expanded={open} className="p-2 text-muted"><Menu className="size-5"/></button>
-        <span className="font-semibold">mangarr</span>
+        <span className="truncate font-semibold">{siteName}</span>
       </header>
       <main className="min-h-0 min-w-0 flex-1 overflow-y-auto p-4 md:p-6">
         {tabsFor&&<SectionTabs label={label(tabsFor.label)} items={tabsFor.children!}/>}

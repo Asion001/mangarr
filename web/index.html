@@ -16,6 +16,8 @@
     <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
     <link rel="manifest" href="./manifest.webmanifest" />
     <title>mangarr</title>
+    <!-- the last theme this browser showed, before the app loads (no dark flash on a light theme) -->
+    <script>try{if(localStorage.getItem("mangarr:theme")==="light"){document.documentElement.classList.replace("dark","light");document.documentElement.style.colorScheme="light"}}catch(e){}</script>
   </head>
   <body class="bg-bg text-fg">
     <div id="root"></div>

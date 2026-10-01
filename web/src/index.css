@@ -28,6 +28,22 @@ body { font-family: var(--font-sans); }
 ::selection { background: color-mix(in oklab, var(--color-accent) 40%, transparent); }
 * { scrollbar-color: var(--color-border) transparent; }
 input, select, textarea { color-scheme: dark; }
+
+/* light theme: the same tokens, darker accents and states so text keeps 4.5:1 */
+html.light {
+  --color-bg: #f6f7f9;
+  --color-panel: #ffffff;
+  --color-panel-2: #eef0f4;
+  --color-border: #d6dae2;
+  --color-fg: #161a22;
+  --color-muted: #5b6472;
+  --color-accent-2: #b4441c;
+  --color-ok: #1a7f37;
+  --color-warn: #9a6700;
+  --color-err: #cf222e;
+  --color-info: #0969da;
+}
+html.light input, html.light select, html.light textarea { color-scheme: light; }
 /* one visible keyboard focus ring everywhere (inputs keep their border) */
 @layer base {
   :focus-visible { outline: 2px solid var(--color-accent-2); outline-offset: 2px; }

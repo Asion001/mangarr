@@ -47,7 +47,7 @@ export function LoginPage({ setup }: { setup: boolean }) {
         <div className="mb-6 flex items-center gap-3">
           <img src="./favicon.svg" className="size-10" alt="" />
           <div>
-            <h1 className="text-lg font-semibold">mangarr</h1>
+            <h1 className="text-lg font-semibold">{status?.appearance?.instanceName || "mangarr"}</h1>
             <p className="text-sm text-muted">{setup ? tr("Create the administrator account") : tr("Sign in to continue")}</p>
           </div>
         </div>
@@ -87,6 +87,7 @@ export function LoginPage({ setup }: { setup: boolean }) {
           </Button>
           </>}
         </div>
+        {status?.appearance?.loginMessage && <p className="mt-5 whitespace-pre-line border-t border-border pt-4 text-sm text-muted">{status.appearance.loginMessage}</p>}
       </form>
     </div>
   );

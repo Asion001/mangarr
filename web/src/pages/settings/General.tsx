@@ -4,7 +4,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Copy, Eye, EyeOff, KeyRound, Plus, Trash2 } from "lucide-react";
 import { api, unwrap, type S } from "../../api/client";
 import { useTags } from "../../api/queries";
-import { Badge, Button, Card, EnvLock, ErrorBox, Field, IconButton, Input, Loading, PageHeader, SaveBar } from "../../components/ui";
+import { Badge, Button, Card, EnvLock, ErrorBox, Field, IconButton, Input, Loading, PageHeader, SaveBar, Select, Textarea } from "../../components/ui";
+import { AccentPicker, StartPageOptions } from "../../components/AccentPicker";
 import { useToast } from "../../lib/toast";
 import { useSettingsDoc } from "./useSettingsDoc";
 
@@ -66,10 +67,67 @@ export function GeneralPage() {
           </div>
         </Card>
       )}
+      <Appearance />
       <Tags />
       <Password />
       <SaveBar dirty={dirty} saving={saving} onSave={() => void save()} onDiscard={reset} />
     </>
+  );
+}
+
+/** Appearance is how the UI looks for everyone, and new users' defaults. */
+function Appearance() {
+  const doc = useSettingsDoc<S["Appearance"]>("appearance");
+  const qc = useQueryClient();
+  const v = doc.value;
+  // a document without its fields (an older server) shows nothing
+  if (!v?.theme) return null;
+  const save = async () => {
+    await doc.save();
+    await qc.invalidateQueries({ queryKey: ["auth"] });
+  };
+  return (
+    <Card title={t("Appearance")} className="mb-6">
+      <div className="flex flex-col gap-5">
+        <Field env={doc.lock("accent")} label={t("Accent colour")} help={t("Text on the accent keeps 4.5:1 contrast; the shade adjusts for light and dark themes.")}>
+          <AccentPicker value={v.accent} onChange={(accent) => doc.patch({ accent })} defaultLabel={t("mangarr orange")} />
+        </Field>
+        <Field env={doc.lock("loginMessage")} label={t("Sign-in page message")} help={t("Shown under the sign-in form, e.g. who to ask for an account.")}>
+          <Textarea value={v.loginMessage} maxLength={500} onChange={(e) => doc.patch({ loginMessage: e.target.value })} />
+        </Field>
+        <div>
+          <h3 className="mb-2 text-sm font-semibold">{t("Defaults for new users")}</h3>
+          <div className="grid gap-4 md:grid-cols-3">
+            <Field label={t("Theme")}>
+              <Select value={v.theme} onChange={(e) => doc.patch({ theme: e.target.value as S["Appearance"]["theme"] })}>
+                <option value="dark">{t("Dark")}</option>
+                <option value="light">{t("Light")}</option>
+                <option value="system">{t("Follow system")}</option>
+              </Select>
+            </Field>
+            <Field label={t("Start page")}>
+              <Select value={v.startPage} onChange={(e) => doc.patch({ startPage: e.target.value as S["Appearance"]["startPage"] })}>
+                <StartPageOptions />
+              </Select>
+            </Field>
+            <Field label={t("Interface language")}>
+              <Select value={v.locale} onChange={(e) => doc.patch({ locale: e.target.value as S["Appearance"]["locale"] })}>
+                <option value="auto">{t("Automatic")}</option>
+                <option value="en">English</option>
+                <option value="ru">Русский</option>
+                <option value="uk">Українська</option>
+              </Select>
+            </Field>
+          </div>
+        </div>
+        {doc.dirty && (
+          <div className="flex gap-2">
+            <Button variant="primary" loading={doc.saving} onClick={() => void save()}>{t("Save appearance")}</Button>
+            <Button onClick={doc.reset}>{t("Discard")}</Button>
+          </div>
+        )}
+      </div>
+    </Card>
   );
 }
 

@@ -368,6 +368,53 @@
         ],
         "type": "object"
       },
+      "Appearance": {
+        "additionalProperties": false,
+        "properties": {
+          "accent": {
+            "pattern": "^(#[0-9a-fA-F]{6})?$",
+            "type": "string"
+          },
+          "locale": {
+            "enum": [
+              "auto",
+              "en",
+              "ru",
+              "uk"
+            ],
+            "type": "string"
+          },
+          "loginMessage": {
+            "maxLength": 500,
+            "type": "string"
+          },
+          "startPage": {
+            "enum": [
+              "series",
+              "discover",
+              "updates",
+              "continue"
+            ],
+            "type": "string"
+          },
+          "theme": {
+            "enum": [
+              "dark",
+              "light",
+              "system"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "accent",
+          "loginMessage",
+          "theme",
+          "startPage",
+          "locale"
+        ],
+        "type": "object"
+      },
       "Auth-passwordRequest": {
         "additionalProperties": false,
         "properties": {
@@ -390,6 +437,9 @@
         "properties": {
           "account": {
             "$ref": "#/components/schemas/Account"
+          },
+          "appearance": {
+            "$ref": "#/components/schemas/PublicAppearance"
           },
           "authDisabled": {
             "type": "boolean"
@@ -414,7 +464,8 @@
           "needsSetup",
           "authenticated",
           "authDisabled",
-          "passwordLogin"
+          "passwordLogin",
+          "appearance"
         ],
         "type": "object"
       },
@@ -5627,6 +5678,57 @@
         ],
         "type": "object"
       },
+      "PublicAppearance": {
+        "additionalProperties": false,
+        "properties": {
+          "accent": {
+            "pattern": "^(#[0-9a-fA-F]{6})?$",
+            "type": "string"
+          },
+          "instanceName": {
+            "type": "string"
+          },
+          "locale": {
+            "enum": [
+              "auto",
+              "en",
+              "ru",
+              "uk"
+            ],
+            "type": "string"
+          },
+          "loginMessage": {
+            "maxLength": 500,
+            "type": "string"
+          },
+          "startPage": {
+            "enum": [
+              "series",
+              "discover",
+              "updates",
+              "continue"
+            ],
+            "type": "string"
+          },
+          "theme": {
+            "enum": [
+              "dark",
+              "light",
+              "system"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "instanceName",
+          "accent",
+          "loginMessage",
+          "theme",
+          "startPage",
+          "locale"
+        ],
+        "type": "object"
+      },
       "Queue-bulkResponse": {
         "additionalProperties": false,
         "properties": {
@@ -9674,8 +9776,57 @@
       "UIOptions": {
         "additionalProperties": false,
         "properties": {
+          "accent": {
+            "pattern": "^(#[0-9a-fA-F]{6})?$",
+            "type": "string"
+          },
+          "hiddenNav": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "type": "array"
+          },
+          "libraryPageSize": {
+            "maxLength": 4,
+            "type": "string"
+          },
+          "librarySort": {
+            "maxLength": 20,
+            "type": "string"
+          },
+          "libraryView": {
+            "enum": [
+              "posters",
+              "table",
+              ""
+            ],
+            "type": "string"
+          },
           "otherLanguageChapters": {
             "type": "boolean"
+          },
+          "sidebarCollapsed": {
+            "type": "boolean"
+          },
+          "startPage": {
+            "enum": [
+              "series",
+              "discover",
+              "updates",
+              "continue",
+              ""
+            ],
+            "type": "string"
+          },
+          "theme": {
+            "enum": [
+              "dark",
+              "light",
+              "system",
+              ""
+            ],
+            "type": "string"
           }
         },
         "type": "object"
@@ -19096,6 +19247,74 @@
         "summary": "Group this language edition with a work, or separate it with workId 0",
         "tags": [
           "Series"
+        ]
+      }
+    },
+    "/api/v1/settings/appearance": {
+      "get": {
+        "operationId": "settings-get-appearance",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Appearance"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "tags": [
+          "Settings"
+        ]
+      },
+      "put": {
+        "operationId": "settings-put-appearance",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Appearance"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Appearance"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "tags": [
+          "Settings"
         ]
       }
     },

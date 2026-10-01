@@ -10,6 +10,7 @@ import (
 	"github.com/Asion001/mangarr/internal/access"
 	"github.com/Asion001/mangarr/internal/auth"
 	"github.com/Asion001/mangarr/internal/model"
+	"github.com/Asion001/mangarr/internal/settings"
 )
 
 // Account is the signed-in user as the UI sees it.
@@ -37,6 +38,15 @@ type AuthStatus struct {
 	SSO *SSOLogin `json:"sso,omitempty"`
 	// PasswordLogin: passwords still work for everyone (off: administrators only).
 	PasswordLogin bool `json:"passwordLogin"`
+	// Appearance is the instance's look, needed before signing in.
+	Appearance PublicAppearance `json:"appearance"`
+}
+
+// PublicAppearance is what the sign-in page and the UI need of the
+// instance's look: its name, accent, sign-in message and user defaults.
+type PublicAppearance struct {
+	InstanceName string `json:"instanceName"`
+	settings.Appearance
 }
 
 // SSOLogin is the login page's single sign-on button.
@@ -91,6 +101,9 @@ func (s *Server) registerAuth() {
 			if p != nil {
 				st.User = p.Username
 			}
+			gen, _ := s.app.Settings.General(ctx)
+			look, _ := s.app.Settings.Appearance(ctx)
+			st.Appearance = PublicAppearance{InstanceName: gen.InstanceName, Appearance: look}
 			return &struct{ Body AuthStatus }{st}, nil
 		})
 

@@ -3,8 +3,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, unwrap } from '../api/client';
 import { useAccount } from './account';
 import { getLocale, resolveLocale, setLocale, subscribeLocale, type LocalePreference } from './i18n/core';
+import { useAuthStatus } from '../api/queries';
+import { applyAppearance, resolveTheme, type Theme } from './theme';
+import { setSiteName } from './documentTitle';
 
-export type UIOptions = {otherLanguageChapters?:boolean};
+export type UIOptions = {otherLanguageChapters?:boolean; theme?:''|'dark'|'light'|'system'; accent?:string; startPage?:''|'series'|'discover'|'updates'|'continue'; sidebarCollapsed?:boolean; hiddenNav?:string[]; libraryView?:''|'posters'|'table'; librarySort?:string; libraryPageSize?:string};
 export type UIPreferences = {locale:LocalePreference; mode:'reading'|'editing'; options:UIOptions};
 const defaults: UIPreferences = {locale:'auto',mode:'reading',options:{}};
 const Ctx = createContext<{preferences:UIPreferences; save:(p:Partial<UIPreferences>)=>Promise<void>; canEdit:boolean; saving:boolean; error:unknown; ready:boolean}>({preferences:defaults,save:async()=>{},canEdit:false,saving:false,error:null,ready:false});
@@ -35,6 +38,20 @@ export function UIPreferencesProvider({children}:{children:ReactNode}) {
     if(personal){const result=await unwrap(api.PUT('/api/v1/me/ui-preferences',{body:next}));qc.setQueryData(['ui-preferences',account?.id],result);}
     else {localStorage.setItem(key,JSON.stringify(next));setVersion(v=>v+1);}
   }});
+  // the instance's look, then yours on top: theme, accent and the name in the tab
+  const {data:status}=useAuthStatus();
+  const look=status?.appearance;
+  const theme=(preferences.options?.theme || look?.theme || 'dark') as Theme;
+  const accent=preferences.options?.accent || look?.accent || '';
+  useEffect(()=>{
+    const apply=()=>{applyAppearance(theme,accent);try{localStorage.setItem('mangarr:theme',resolveTheme(theme));}catch{/* private mode */}};
+    apply();
+    if(theme!=='system'||typeof matchMedia==='undefined')return;
+    const m=matchMedia('(prefers-color-scheme: light)');
+    m.addEventListener('change',apply);
+    return()=>m.removeEventListener('change',apply);
+  },[theme,accent]);
+  useEffect(()=>{if(look?.instanceName)setSiteName(look.instanceName);},[look?.instanceName]);
   // ready: the stored mode is known (the account is loaded, and a user's preferences fetched)
   const ready = !!account && (!personal || !query.isPending);
   return <Ctx.Provider value={{preferences,save:async(p)=>{await mutation.mutateAsync(p)},canEdit,saving:mutation.isPending,error:query.error ?? mutation.error,ready}}>{children}</Ctx.Provider>;

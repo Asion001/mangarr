@@ -9,6 +9,8 @@ import { Badge, Button, Card, Confirm, ErrorBox, Field, IconButton, Input, Modal
 import { ModuleEditor, type Draft } from "../settings/Modules";
 import { appAddress, appTabs, DevicesCard, Guide, type App } from "../settings/ReadingApps";
 import { useAccount } from "../../lib/account";
+import { useAuthStatus } from "../../api/queries";
+import { AccentPicker, StartPageOptions } from "../../components/AccentPicker";
 import { relative } from "../../lib/format";
 import { useToast } from "../../lib/toast";
 import { ReadingStatsCard } from "./ReadingStats";
@@ -404,5 +406,54 @@ function LibraryAccountsCard() {
 function InterfaceCard() {
   const {preferences,save,saving,error} = useUIPreferences();
   const toast=useToast();
-  return <Card title={t("Interface")}><Field label={t("Interface language")}><Select disabled={saving} value={preferences.locale} onChange={e=>{void save({locale:e.target.value as typeof preferences.locale}).catch(e=>toast.fromError(e));}}><option value="auto">{t("Automatic")}</option><option value="en">English</option><option value="ru">Русский</option><option value="uk">Українська</option></Select></Field><div className="mt-4"><Switch disabled={saving} checked={preferences.options?.otherLanguageChapters ?? true} onChange={(v)=>{void save({options:{otherLanguageChapters:v}}).catch(e=>toast.fromError(e));}} label={t("Show chapters from other languages")} /><p className="mt-1 text-sm text-muted">{t("When a title has several language editions, chapters only another edition has appear in the list with a language tag.")}</p></div>{error ? <p role="alert">{t("Could not save preferences")}</p> : null}</Card>;
+  const { data: status } = useAuthStatus();
+  const o = preferences.options ?? {};
+  const set = (options: Partial<typeof o>) => void save({ options }).catch((e) => toast.fromError(e));
+  const serverTheme = { dark: t("Dark"), light: t("Light"), system: t("Follow system") }[status?.appearance?.theme ?? "dark"];
+  // sidebar items you can hide (Series and your account always stay)
+  const hideable = [{ to: "/discover", label: t("Discover") }, { to: "/updates", label: t("Updates") }, { to: "/requests", label: t("Requests") }];
+  const hidden = o.hiddenNav ?? [];
+  return (
+    <Card title={t("Interface")}>
+      <div className="flex flex-col gap-5">
+        <div className="grid gap-4 md:grid-cols-3">
+          <Field label={t("Interface language")}>
+            <Select disabled={saving} value={preferences.locale} onChange={(e) => { void save({ locale: e.target.value as typeof preferences.locale }).catch((e) => toast.fromError(e)); }}>
+              <option value="auto">{t("Automatic")}</option><option value="en">English</option><option value="ru">Русский</option><option value="uk">Українська</option>
+            </Select>
+          </Field>
+          <Field label={t("Theme")}>
+            <Select value={o.theme ?? ""} onChange={(e) => set({ theme: e.target.value as typeof o.theme })}>
+              <option value="">{t("Server's ({theme})", { theme: serverTheme })}</option>
+              <option value="dark">{t("Dark")}</option>
+              <option value="light">{t("Light")}</option>
+              <option value="system">{t("Follow system")}</option>
+            </Select>
+          </Field>
+          <Field label={t("Start page")}>
+            <Select value={o.startPage ?? ""} onChange={(e) => set({ startPage: e.target.value as typeof o.startPage })}>
+              <option value="">{t("Server's default")}</option>
+              <StartPageOptions />
+            </Select>
+          </Field>
+        </div>
+        <Field label={t("Accent colour")}>
+          <AccentPicker value={o.accent ?? ""} onChange={(accent) => set({ accent })} defaultLabel={t("Server's")} />
+        </Field>
+        <div className="flex flex-col gap-2">
+          <span className="text-sm font-medium">{t("Sidebar")}</span>
+          {hideable.map((item) => (
+            <Switch key={item.to} checked={!hidden.includes(item.to)} onChange={(on) => set({ hiddenNav: on ? hidden.filter((x) => x !== item.to) : [...hidden, item.to] })} label={item.label} />
+          ))}
+          <Switch checked={!!o.sidebarCollapsed} onChange={(v) => { try { localStorage.removeItem("mangarr:nav-collapsed"); } catch { /* private mode */ } set({ sidebarCollapsed: v }); }} label={t("Start collapsed")} />
+          <p className="text-sm text-muted">{t("Saved to your account, so it follows you to other devices.")}</p>
+        </div>
+        <div>
+          <Switch disabled={saving} checked={o.otherLanguageChapters ?? true} onChange={(v) => set({ otherLanguageChapters: v })} label={t("Show chapters from other languages")} />
+          <p className="mt-1 text-sm text-muted">{t("When a title has several language editions, chapters only another edition has appear in the list with a language tag.")}</p>
+        </div>
+        {error ? <p role="alert">{t("Could not save preferences")}</p> : null}
+      </div>
+    </Card>
+  );
 }

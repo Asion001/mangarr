@@ -1,4 +1,4 @@
-import { useUIMode } from "../../lib/uiPreferences";
+import { useUIMode, useUIPreferences } from "../../lib/uiPreferences";
 import { t } from "../../lib/i18n/core";
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
@@ -51,12 +51,17 @@ export function SeriesIndex() {
   const manage = account.can("library.manage") && editing;
   const push = usePushCommand();
   const [q, setQ] = useQueryParam("q");
+  // the account's library defaults for a browser that has none yet
+  const { preferences: uiPrefs, save: saveUI } = useUIPreferences();
+  const ui = uiPrefs.options ?? {};
   const [filterParam, setFilter] = useStoredListParam("filter", "all", libraryStateKey("filter"), filters);
-  const [sortParam, setSort] = useStoredListParam("sort", "title", libraryStateKey("sort"), sorts);
+  const [sortParam, setSortOnly] = useStoredListParam("sort", ui.librarySort && (sorts as readonly string[]).includes(ui.librarySort) ? ui.librarySort : "title", libraryStateKey("sort"), sorts);
+  const setSort = (v: string) => { setSortOnly(v); void saveUI({ options: { librarySort: v } }).catch(() => undefined); };
   const [rootParam, setRoot] = useStoredListParam("root", "", libraryStateKey("root"));
   const [language, setLanguage] = useStoredListParam("language", "", libraryStateKey("language"));
   const [pageParam, setPage] = useListParam("page", "1");
-  const [pageSizeParam, setPageSize] = useStoredListParam("pageSize", "36", libraryStateKey("pageSize"), pageSizes);
+  const [pageSizeParam, setPageSizeOnly] = useStoredListParam("pageSize", ui.libraryPageSize && (pageSizes as readonly string[]).includes(ui.libraryPageSize) ? ui.libraryPageSize : "36", libraryStateKey("pageSize"), pageSizes);
+  const setPageSize = (v: string) => { setPageSizeOnly(v); void saveUI({ options: { libraryPageSize: v } }).catch(() => undefined); };
   const filter = filterParam as Filter;
   const sort = sortParam as Sort;
   const page = Math.max(1, Number(pageParam) || 1);
@@ -115,7 +120,7 @@ export function SeriesIndex() {
       setSelectingAll(false);
     }
   };
-  const [view, setView] = useState<"posters" | "table">(() => (localStorage.getItem("seriesView") as "posters" | "table") || "posters");
+  const [view, setView] = useState<"posters" | "table">(() => (localStorage.getItem("seriesView") as "posters" | "table") || ui.libraryView || "posters");
 
   const list = data?.items ?? [];
   const setFilterAndReset = (value: string) => { setFilter(value); setPage("1"); };
@@ -124,6 +129,7 @@ export function SeriesIndex() {
   const setViewPersist = (v: "posters" | "table") => {
     setView(v);
     localStorage.setItem("seriesView", v);
+    void saveUI({ options: { libraryView: v } }).catch(() => undefined);
   };
 
   return (

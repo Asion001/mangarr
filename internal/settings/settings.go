@@ -33,6 +33,28 @@ type General struct {
 	ImageCacheMaxMB int `json:"imageCacheMaxMb" desc:"Maximum size of the image cache (MB, 0 = unlimited)."`
 }
 
+// Appearance is how the web UI looks for everyone, and the defaults for
+// people who haven't chosen their own.
+type Appearance struct {
+	// Accent is the instance's accent colour (#rrggbb, empty = mangarr orange).
+	Accent string `json:"accent" pattern:"^(#[0-9a-fA-F]{6})?$" desc:"Accent colour (#rrggbb, empty = default)."`
+	// LoginMessage is shown on the sign-in page.
+	LoginMessage string `json:"loginMessage" maxLength:"500" desc:"Message on the sign-in page."`
+	// Theme, StartPage and Locale are the defaults for new users.
+	Theme     string `json:"theme" enum:"dark,light,system" desc:"Default theme."`
+	StartPage string `json:"startPage" enum:"series,discover,updates,continue" desc:"Default start page."`
+	Locale    string `json:"locale" enum:"auto,en,ru,uk" desc:"Default interface language."`
+}
+
+func DefaultAppearance() Appearance {
+	return Appearance{Theme: "dark", StartPage: "series", Locale: "auto"}
+}
+
+func (s *Store) Appearance(ctx context.Context) (Appearance, error) {
+	v := DefaultAppearance()
+	return v, s.Get(ctx, KeyAppearance, &v)
+}
+
 // MediaManagement controls file naming and import behavior.
 type MediaManagement struct {
 	// ChapterFormat is the file name template (without extension).
@@ -374,6 +396,7 @@ var Docs = []DocInfo{
 	{KeySources, "sources", "SOURCES", func() any { v := DefaultSources(); return &v }},
 	{KeySchedule, "schedule", "SCHEDULE", func() any { v := Schedule{Windows: []ScheduleWindow{}}; return &v }},
 	{KeyReading, "reading", "READING", func() any { v := DefaultReading(); return &v }},
+	{KeyAppearance, "appearance", "APPEARANCE", func() any { v := DefaultAppearance(); return &v }},
 }
 
 // SetOverlay pins fields of document key: raw is a partial JSON object that
@@ -405,6 +428,7 @@ const (
 	KeySchedule        = "schedule"
 	KeyReading         = "reading"
 	KeyQueueState      = "queue_state"
+	KeyAppearance      = "appearance"
 )
 
 // Warm loads every stored document into the cache. Afterwards Get never

@@ -160,6 +160,16 @@ Read wherever the engine runs: in the server, or on a worker with the upscale ro
 | `MANGARR_READING_READ_AHEAD_ENABLED` | bool | `true` | Monitor and download the next chapters after the one a reader is on. |
 | `MANGARR_READING_READ_AHEAD_CHAPTERS` | int | `3` | How many chapters to keep downloaded ahead of the reader. |
 
+### appearance
+
+| Variable | Type | Default | Description |
+|---|---|---|---|
+| `MANGARR_APPEARANCE_ACCENT` | string | `` | Accent colour (#rrggbb, empty = default). |
+| `MANGARR_APPEARANCE_LOGIN_MESSAGE` | string | `` | Message on the sign-in page. |
+| `MANGARR_APPEARANCE_THEME` | string | `dark` | Default theme. |
+| `MANGARR_APPEARANCE_START_PAGE` | string | `series` | Default start page. |
+| `MANGARR_APPEARANCE_LOCALE` | string | `auto` | Default interface language. |
+
 ## Modules
 
 Module instances are declared with `MANGARR_MODULE_<NAME>_IMPL=<kind>/<implementation>`; `<NAME>` is any identifier you choose (it keeps the instance's identity, so don't rename it). Then set fields with `MANGARR_MODULE_<NAME>_<FIELD>` and optionally:
