@@ -161,23 +161,7 @@ export function WorkersPage() {
                 </Td>
                 <Td className="text-muted">
                   {w.busy?.length ? (
-                    <div className="flex flex-col gap-1">
-                      {w.busy.map((b) => (
-                        <div key={b.taskId}>
-                          <div className="text-xs text-fg">
-                            {b.kind} · {b.series || "?"} {b.chapter && `ch. ${b.chapter}`}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="h-1 w-24 rounded bg-border">
-                              <div className="h-1 rounded bg-accent" style={{ width: `${b.pagesTotal ? (100 * b.pagesDone) / b.pagesTotal : 0}%` }} />
-                            </div>
-                            <span className="text-xs">
-                              {b.pagesDone}/{b.pagesTotal || "?"} · {bytes(b.bytesIn)}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                    <BusyList busy={w.busy} />
                   ) : (
                     <span className="text-xs">{t("idle · seen") + " "}{w.lastSeenAt ? relative(w.lastSeenAt) : t("never")}</span>
                   )}
@@ -368,6 +352,50 @@ function ServerRow({ engine, onUpdate, limits, onLimits }: {
       </Td>
       <Td />
     </tr>
+  );
+}
+
+type Busy = NonNullable<Worker["busy"]>[number];
+
+/** shownBusy is how many tasks a row lists before it folds the rest. */
+const shownBusy = 2;
+
+/**
+ * BusyList is what a worker is doing, one short line per task. A worker
+ * with many tasks shows the first few and a count, unfolded on request.
+ * Only downloads count pages as they go; the other tasks show their size.
+ */
+function BusyList({ busy }: { busy: Busy[] }) {
+  const [open, setOpen] = useState(false);
+  const shown = open ? busy : busy.slice(0, shownBusy);
+  const kinds = Object.entries(busy.reduce<Record<string, number>>((n, b) => ({ ...n, [b.kind]: (n[b.kind] ?? 0) + 1 }), {}));
+  return (
+    <div className="flex w-56 flex-col gap-1">
+      {busy.length > shownBusy && (
+        <div className="text-xs text-fg">{t("{count} tasks", { count: busy.length })}: {kinds.map(([k, n]) => `${n} ${k}`).join(", ")}</div>
+      )}
+      {shown.map((b) => (
+        <div key={b.taskId} className="flex items-center gap-2 text-xs" title={`${b.series || "?"}${b.chapter ? ` ch. ${b.chapter}` : ""} · ${bytes(b.bytesIn)}`}>
+          <span className="w-16 shrink-0 text-muted">{b.kind}</span>
+          <span className="min-w-0 flex-1 truncate text-fg">{b.series || "?"}{b.chapter && ` ${b.chapter}`}</span>
+          {b.pagesDone > 0 && b.pagesTotal > 0 ? (
+            <span className="flex shrink-0 items-center gap-1">
+              <span className="h-1 w-10 rounded bg-border">
+                <span className="block h-1 rounded bg-accent" style={{ width: `${(100 * b.pagesDone) / b.pagesTotal}%` }} />
+              </span>
+              {b.pagesDone}/{b.pagesTotal}
+            </span>
+          ) : (
+            <span className="shrink-0">{b.pagesTotal ? t("{count} pages", { count: b.pagesTotal }) : ""}</span>
+          )}
+        </div>
+      ))}
+      {busy.length > shownBusy && (
+        <button type="button" className="self-start text-xs text-accent hover:underline" onClick={() => setOpen(!open)}>
+          {open ? t("Show less") : t("Show all {count}", { count: busy.length })}
+        </button>
+      )}
+    </div>
   );
 }
 

@@ -51,3 +51,30 @@ test("this server and the remote workers share one list, each with its own upsca
   await expect.poll(() => (puts.find((p) => p.path.endsWith("/modules/3"))?.body.settings as Record<string, unknown> | undefined)?.model).toBe("waifu2x-cunet");
   await page.screenshot({ path: process.env.WORKERS_SHOT ?? "test-results/workers.png", fullPage: true });
 });
+
+test("a worker doing many tasks shows a short summary that unfolds", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("mangarr:ui:anonymous:0", JSON.stringify({ locale: "en", mode: "editing" })));
+  const busy = Array.from({ length: 6 }, (_, i) => ({
+    taskId: i + 1, kind: i === 0 ? "download" : "encode", series: "Long Title", chapter: String(i + 1),
+    pagesDone: i === 0 ? 3 : 0, pagesTotal: 12, bytesIn: 1000, started: now,
+  }));
+  await page.route("**/api/v1/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path.endsWith("/auth/status")) return route.fulfill({ json: { authenticated: true, authDisabled: true, account: { kind: "anonymous", id: 0, permissions: ["admin"] } } });
+    if (path.endsWith("/workers")) return route.fulfill({ json: [{ ...worker, busy }] });
+    if (path.endsWith("/modules")) return route.fulfill({ json: [pool] });
+    if (path.endsWith("/settings/downloads")) return route.fulfill({ json: { maxConcurrentProcessing: 4, maxWorkerTasks: 8, maxConcurrentPerWorker: 2 } });
+    if (path.endsWith("/health")) return route.fulfill({ json: { checks: [] } });
+    return route.fulfill({ json: [] });
+  });
+
+  await page.goto("/system/workers");
+  const row = page.getByRole("table").locator("tbody > tr", { hasText: "GPU box" });
+  await expect(row).toContainText("6 tasks: 1 download, 5 encode");
+  await expect(row.getByText("Long Title", { exact: false })).toHaveCount(2);
+  await expect(row).toContainText("3/12");
+  await row.getByRole("button", { name: "Show all 6" }).click();
+  await expect(row.getByText("Long Title", { exact: false })).toHaveCount(6);
+  await row.getByRole("button", { name: "Show less" }).click();
+  await expect(row.getByText("Long Title", { exact: false })).toHaveCount(2);
+});
