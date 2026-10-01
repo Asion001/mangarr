@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strconv"
 	"strings"
 	"time"
 
@@ -228,6 +229,9 @@ type QueuePage struct {
 	PageSize int       `json:"pageSize"`
 	// Counts are per status for the filter without its status part.
 	Counts map[string]int `json:"counts"`
+	// SeriesTotals are the matching entries per series (keyed by series id)
+	// for the series on this page, so a group cut by the page can say so.
+	SeriesTotals map[string]int `json:"seriesTotals"`
 }
 
 // ListPage returns a page of the queue: running jobs first, then by durable rank.
@@ -247,7 +251,7 @@ func (q *Queue) ListPageAt(ctx context.Context, f ListFilter, page, pageSize int
 	}
 	err := q.db.RunInTx(ctx, opts, func(ctx context.Context, tx bun.Tx) error {
 		page, pageSize = max(page, 1), min(max(pageSize, 1), 500)
-		out = &QueuePage{Items: []JobView{}, Page: page, PageSize: pageSize, Counts: map[string]int{}}
+		out = &QueuePage{Items: []JobView{}, Page: page, PageSize: pageSize, Counts: map[string]int{}, SeriesTotals: map[string]int{}}
 		if err := tx.NewSelect().Table("download_queue_order").Column("revision").Where("id = 1").Scan(ctx, &out.Revision); err != nil {
 			return err
 		}
@@ -278,6 +282,27 @@ func (q *Queue) ListPageAt(ctx context.Context, f ListFilter, page, pageSize int
 		}
 		for _, c := range counts {
 			out.Counts[c.Status] = c.N
+		}
+		seen := map[int64]bool{}
+		var series []int64
+		for _, it := range out.Items {
+			if !seen[it.SeriesID] {
+				seen[it.SeriesID] = true
+				series = append(series, it.SeriesID)
+			}
+		}
+		if len(series) == 0 {
+			return nil
+		}
+		var totals []struct {
+			SeriesID int64 `bun:"series_id"`
+			N        int   `bun:"n"`
+		}
+		if err := q.base(tx, f, true).Where("j.series_id IN (?)", bun.In(series)).ColumnExpr("j.series_id AS series_id, COUNT(*) AS n").GroupExpr("j.series_id").Scan(ctx, &totals); err != nil {
+			return err
+		}
+		for _, t := range totals {
+			out.SeriesTotals[strconv.FormatInt(t.SeriesID, 10)] = t.N
 		}
 		return nil
 	})

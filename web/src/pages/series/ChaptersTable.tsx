@@ -208,6 +208,9 @@ export function ChaptersTable({ seriesId, manage = true, nextChapterId }: { seri
               <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>{t("Clear")}</Button>
             </>
           )}
+          {manage && list.length > 0 && sel.length < list.length && (
+            <Button size="sm" variant="ghost" onClick={() => setSelected(new Set(list.map((chapter) => chapter.id)))}>{t("Select all {count}", { count: list.length })}</Button>
+          )}
           <select
             className="rounded-md border border-border bg-bg px-2 py-1 text-xs"
             value={filter}

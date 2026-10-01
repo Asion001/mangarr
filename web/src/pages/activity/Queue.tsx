@@ -16,6 +16,7 @@ const tone = (s: string) => (s === "completed" ? "ok" : s === "failed" ? "err" :
 // Finished chapters live in History, so the queue shows only what still
 // needs something: waiting, running and failed jobs.
 const statuses = ["downloading", "processing", "importing", "queued", "paused", "failed"] as const;
+const statusLabel = (s: string) => ({ downloading: t("downloading"), processing: t("processing"), importing: t("importing"), queued: t("queued"), paused: t("paused"), failed: t("failed"), completed: t("completed") } as Record<string, string>)[s] ?? s;
 type Action = "pause" | "resume" | "retry" | "remove" | "blocklist" | "top" | "bottom" | "before" | "after" | "sort";
 
 const groupKey = "mangarr:queue-group";
@@ -157,6 +158,17 @@ export function QueuePage({ mode }: { mode: "downloads" | "processing" }) {
   };
   const pageAllSelected = items.length > 0 && items.every((j) => selected.has(j.id));
   const count = allMatching ? total : selected.size;
+  const morePages = total > items.length;
+  // everything matching the filter, across pages; a single page is just its rows
+  const selectAll = () => {
+    setSelected(new Set(items.map((j) => j.id)));
+    setAllMatching(morePages);
+  };
+  const selectPage = () => (setAllMatching(false), setSelected(new Set(items.map((j) => j.id))));
+  // a paused queue shows its waiting jobs as paused, not "queued"
+  const shownStatus = (j: Job) => (j.status === "queued" && state?.paused ? "paused" : j.status);
+  const sortDisabled = allMatching ? total < 2 : selectedPending.length < 2;
+  const handPicked = allMatching ? t("Moving up or down works on a hand-picked selection") : undefined;
 
   const groups = useMemo(() => group ? queueGroups(items) : null, [items, group]);
 
@@ -195,7 +207,7 @@ export function QueuePage({ mode }: { mode: "downloads" | "processing" }) {
         {j.scanlator && ` · ${j.scanlator}`}
       </Td>
       <Td>
-        <Badge tone={tone(j.status)}>{j.status}</Badge>
+        <Badge tone={tone(shownStatus(j))}>{statusLabel(shownStatus(j))}</Badge>
         {j.attempt > 0 && j.status !== "completed" && <span className="ml-1 text-xs text-muted">{t("try") + " "}{j.attempt + 1}</span>}
         {j.worker && (
           <Badge tone="info" title={t("Being done on this worker")}>
@@ -287,7 +299,7 @@ export function QueuePage({ mode }: { mode: "downloads" | "processing" }) {
               onClick={() => (setStatus(on ? status.split(",").filter((x) => x !== s && x).join(",") : [...status.split(",").filter(Boolean), s].join(",")), setPage("1"), resetSelection())}
               className={`rounded-full border px-3 py-1 text-xs ${on ? "border-accent bg-accent/15 text-fg" : "border-border text-muted hover:text-fg"}`}
             >
-              {s} {n}
+              {statusLabel(s)} {n}
             </button>
           );
         })}
@@ -298,23 +310,40 @@ export function QueuePage({ mode }: { mode: "downloads" | "processing" }) {
       <p role="status" aria-live="polite" className="sr-only">{announcement}</p>
       {items.length > 0 && (
         <div className={`sticky top-0 z-10 mb-3 flex flex-wrap items-center gap-2 rounded-lg border bg-panel p-2 text-sm ${count > 0 ? "border-accent/40 shadow" : "border-border"}`}>
-          <span className={count > 0 ? "font-medium" : "text-muted"}>{count > 0 ? t("{count} selected", { count }) : t("Select chapters to act on them")}</span>
-          {pageAllSelected && !allMatching && total > items.length && (
-            <button className="text-accent-2 hover:underline" onClick={() => setAllMatching(true)}>{t("Select all") + " "}{total}{" " + t("matching")}</button>
+          <span className={count > 0 ? "font-medium" : "text-muted"}>{count > 0 ? t("{count} selected", { count }) : t("Nothing selected")}</span>
+          {!allMatching && !(pageAllSelected && !morePages) && (
+            <Button size="sm" variant="ghost" onClick={selectAll}>{morePages ? t("Select all {count}", { count: total }) : t("Select all")}</Button>
           )}
-          <div className="ml-auto flex flex-wrap gap-1">
-            <Button size="sm" disabled={reorderDisabled || !canMove(-1)} icon={<ArrowUp className="size-3.5" />} onClick={() => void moveSelected(-1)}>{t("Up")}</Button>
-            <Button size="sm" disabled={reorderDisabled || !canMove(1)} icon={<ArrowDown className="size-3.5" />} onClick={() => void moveSelected(1)}>{t("Down")}</Button>
-            <Button size="sm" disabled={reorderDisabled || !selectedPending.length} icon={<ArrowUpToLine className="size-3.5" />} onClick={() => run("top")}>{t("Top")}</Button>
-            <Button size="sm" disabled={reorderDisabled || !selectedPending.length} icon={<ArrowDownToLine className="size-3.5" />} onClick={() => run("bottom")}>{t("Bottom")}</Button>
-            <Button size="sm" disabled={reorderDisabled || allMatching || selectedPending.length < 2} title={t("Put the selected chapters in chapter order, in the places they already hold")} icon={<ListOrdered className="size-3.5" />} onClick={() => run("sort")}>{t("Sort by chapter")}</Button>
-            <span className="mx-1 hidden w-px self-stretch bg-border sm:block" />
+          {morePages && !pageAllSelected && (
+            <Button size="sm" variant="ghost" onClick={selectPage}>{t("Select page")}</Button>
+          )}
+          {count > 0 && <Button size="sm" variant="ghost" onClick={resetSelection}>{t("Clear")}</Button>}
+          {/* on phones the actions appear once something is selected */}
+          <div className={`ml-auto flex-wrap gap-1 ${count > 0 ? "flex" : "hidden md:flex"}`}>
+            {count > 0 && (
+              <span className="md:hidden">
+                <Menu label={t("Move")} icon={<ListOrdered className="size-3.5" />} items={[
+                  { label: t("Up"), onSelect: () => void moveSelected(-1), hidden: reorderDisabled || !canMove(-1) },
+                  { label: t("Down"), onSelect: () => void moveSelected(1), hidden: reorderDisabled || !canMove(1) },
+                  { label: t("Top"), onSelect: () => void run("top"), hidden: reorderDisabled || !selectedPending.length },
+                  { label: t("Bottom"), onSelect: () => void run("bottom"), hidden: reorderDisabled || !selectedPending.length },
+                  { label: t("Sort by chapter"), onSelect: () => void run("sort"), hidden: reorderDisabled || sortDisabled },
+                ]} />
+              </span>
+            )}
+            <span className="hidden flex-wrap gap-1 md:flex">
+              <Button size="sm" disabled={reorderDisabled || !canMove(-1)} title={handPicked} icon={<ArrowUp className="size-3.5" />} onClick={() => void moveSelected(-1)}>{t("Up")}</Button>
+              <Button size="sm" disabled={reorderDisabled || !canMove(1)} title={handPicked} icon={<ArrowDown className="size-3.5" />} onClick={() => void moveSelected(1)}>{t("Down")}</Button>
+              <Button size="sm" disabled={reorderDisabled || !selectedPending.length} icon={<ArrowUpToLine className="size-3.5" />} onClick={() => run("top")}>{t("Top")}</Button>
+              <Button size="sm" disabled={reorderDisabled || !selectedPending.length} icon={<ArrowDownToLine className="size-3.5" />} onClick={() => run("bottom")}>{t("Bottom")}</Button>
+              <Button size="sm" disabled={reorderDisabled || sortDisabled} title={t("Put the selected chapters in chapter order, in the places they already hold")} icon={<ListOrdered className="size-3.5" />} onClick={() => run("sort")}>{t("Sort by chapter")}</Button>
+            </span>
+            <span className="mx-1 hidden w-px self-stretch bg-border md:block" />
             <Button size="sm" disabled={!selectedJobs.some((job) => job.status === "queued" || isRunning(job))} icon={<Pause className="size-3.5" />} onClick={() => run("pause")}>{t("Pause")}</Button>
             <Button size="sm" disabled={!selectedJobs.some((job) => job.status === "paused")} icon={<Play className="size-3.5" />} onClick={() => run("resume")}>{t("Resume")}</Button>
             <Button size="sm" disabled={!selectedJobs.some((job) => job.status === "failed")} icon={<RotateCw className="size-3.5" />} onClick={() => run("retry")}>{t("Retry")}</Button>
-            <Button size="sm" disabled={!count} icon={<Ban className="size-3.5" />} onClick={() => setConfirm({ action: "blocklist", label: "Remove and blocklist" })}>{t("Blocklist")}</Button>
-            <Button size="sm" variant="danger" disabled={!count} icon={<Trash2 className="size-3.5" />} onClick={() => setConfirm({ action: "remove", label: "Remove" })}>{t("Remove")}</Button>
-            {count > 0 && <Button size="sm" variant="ghost" onClick={resetSelection}>{t("Clear")}</Button>}
+            <Button size="sm" disabled={!count} icon={<Ban className="size-3.5" />} onClick={() => setConfirm({ action: "blocklist", label: t("Remove and blocklist") })}>{t("Blocklist")}</Button>
+            <Button size="sm" variant="danger" disabled={!count} icon={<Trash2 className="size-3.5" />} onClick={() => setConfirm({ action: "remove", label: t("Remove") })}>{t("Remove")}</Button>
           </div>
         </div>
       )}
@@ -323,7 +352,7 @@ export function QueuePage({ mode }: { mode: "downloads" | "processing" }) {
       {data && total === 0 && <EmptyState title={t("Queue is empty")}>{t("New chapters are queued automatically when a monitored series gets an update.")}</EmptyState>}
       {items.length > 0 && (
         <ul className="flex flex-col gap-2 md:hidden">
-          {items.map((j, i) => <QueueCard key={j.id} job={j} position={positions.get(j.id)} selected={allMatching || selected.has(j.id)} onToggle={(shift) => toggle(i, shift)} live={j.status === "completed" || j.status === "failed" ? undefined : (liveMap.get(j.id) ?? j.live)} />)}
+          {items.map((j, i) => <QueueCard key={j.id} job={j} status={shownStatus(j)} position={positions.get(j.id)} selected={allMatching || selected.has(j.id)} onToggle={(shift) => toggle(i, shift)} live={j.status === "completed" || j.status === "failed" ? undefined : (liveMap.get(j.id) ?? j.live)} />)}
         </ul>
       )}
       {items.length > 0 && (
@@ -356,6 +385,8 @@ export function QueuePage({ mode }: { mode: "downloads" | "processing" }) {
                       seriesId={g.seriesId}
                       title={g.title}
                       count={g.jobs.length}
+                      seriesTotal={data?.seriesTotals?.[String(g.seriesId)] ?? g.jobs.length}
+                      onPage={items.filter((j) => j.seriesId === g.seriesId).length}
                       selected={g.jobs.every(({ job }) => selected.has(job.id))}
                       onSelect={(on) =>
                         setSelected((cur) => {
@@ -388,8 +419,8 @@ export function QueuePage({ mode }: { mode: "downloads" | "processing" }) {
         confirmLabel={confirm?.label}
         message={
           confirm?.action === "blocklist"
-            ? `Remove ${count} entries and blocklist their releases? Other sources may be tried.`
-            : `Remove ${count} ${count === 1 ? "entry" : "entries"} from the queue?`
+            ? t("Remove {count} entries and blocklist their releases? Other sources may be tried.", { count })
+            : count === 1 ? t("Remove this entry from the queue?") : t("Remove {count} entries from the queue?", { count })
         }
         onConfirm={async () => {
           if (confirm) await run(confirm.action);
@@ -405,6 +436,8 @@ function SeriesGroup({
   seriesId,
   title,
   count,
+  seriesTotal,
+  onPage,
   selected,
   onSelect,
   children,
@@ -412,6 +445,9 @@ function SeriesGroup({
   seriesId: number;
   title: string;
   count: number;
+  /** the series' entries in the whole queue, and how many this page shows */
+  seriesTotal: number;
+  onPage: number;
   selected: boolean;
   onSelect: (on: boolean) => void;
   children: React.ReactNode;
@@ -430,7 +466,9 @@ function SeriesGroup({
           <Link to={`/series/${seriesId}`} className="font-medium hover:text-accent-2">
             {title}
           </Link>
-          <span className="ml-2 text-xs text-muted">{count}{" " + t("chapters")}</span>
+          <span className="ml-2 text-xs text-muted">
+            {seriesTotal > onPage ? t("{shown} of {total} chapters", { shown: count, total: seriesTotal }) : t("{count} chapters", { count })}
+          </span>
         </Td>
       </tr>
       {open && children}
@@ -444,8 +482,8 @@ function QueuePosition({ job, position }: { job: Job; position?: number }) {
   return <span className="font-medium">{position}</span>;
 }
 
-function QueueCard({ job, position, selected, onToggle, live }: {
-  job: Job; position?: number; selected: boolean; onToggle: (shift: boolean) => void; live?: ReturnType<ReturnType<typeof useLiveProgress>["get"]>;
+function QueueCard({ job, position, selected, onToggle, live, status }: {
+  job: Job; position?: number; selected: boolean; onToggle: (shift: boolean) => void; live?: ReturnType<ReturnType<typeof useLiveProgress>["get"]>; status: string;
 }) {
   return (
     <li className={`flex gap-3 rounded-lg border p-3 ${selected ? "border-accent/50 bg-accent/5" : "border-border bg-panel"}`}>
@@ -459,7 +497,7 @@ function QueueCard({ job, position, selected, onToggle, live }: {
           <QueuePosition job={job} position={position} />
         </div>
         <div className="mt-2 flex items-center gap-2">
-          <Badge tone={tone(job.status)}>{job.status}</Badge>
+          <Badge tone={tone(status)}>{statusLabel(status)}</Badge>
           {live ? <span className="flex-1"><Progress value={live.total > 0 ? (live.done / live.total) * 100 : 0} tone="accent" /></span>
             : job.status === "failed" || job.status === "completed" ? <span className="flex-1"><Progress value={job.progress} tone={job.status === "failed" ? "err" : "ok"} /></span>
             : <span className="text-xs text-muted">{relative(job.updatedAt)}</span>}

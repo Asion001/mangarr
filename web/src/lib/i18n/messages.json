@@ -7826,5 +7826,57 @@
   "Default for the language": {
     "ru": "По умолчанию для языка",
     "uk": "Типовий для мови"
+  },
+  "downloading": {
+    "ru": "загрузка",
+    "uk": "завантаження"
+  },
+  "processing": {
+    "ru": "обработка",
+    "uk": "обробка"
+  },
+  "importing": {
+    "ru": "импорт",
+    "uk": "імпорт"
+  },
+  "queued": {
+    "ru": "в очереди",
+    "uk": "у черзі"
+  },
+  "completed": {
+    "ru": "готово",
+    "uk": "готово"
+  },
+  "Nothing selected": {
+    "ru": "Ничего не выбрано",
+    "uk": "Нічого не вибрано"
+  },
+  "Select all {count}": {
+    "ru": "Выбрать все ({count})",
+    "uk": "Вибрати всі ({count})"
+  },
+  "Moving up or down works on a hand-picked selection": {
+    "ru": "Перемещение вверх и вниз работает только для выбранных вручную",
+    "uk": "Переміщення вгору й униз працює лише для вибраних вручну"
+  },
+  "Remove and blocklist": {
+    "ru": "Удалить и заблокировать",
+    "uk": "Видалити й заблокувати"
+  },
+  "Remove {count} entries and blocklist their releases? Other sources may be tried.": {
+    "ru": "Удалить записи ({count}) и заблокировать их релизы? Могут быть испробованы другие источники.",
+    "uk": "Видалити записи ({count}) і заблокувати їхні релізи? Можуть бути випробувані інші джерела."
+  },
+  "Remove this entry from the queue?": {
+    "ru": "Удалить эту запись из очереди?",
+    "uk": "Видалити цей запис із черги?"
+  },
+  "Remove {count} entries from the queue?": {
+    "ru": "Удалить записи из очереди ({count})?",
+    "uk": "Видалити записи з черги ({count})?"
+  },
+  "{shown} of {total} chapters": {
+    "ru": "глав: {shown} из {total}",
+    "uk": "розділів: {shown} з {total}"
   }
 }

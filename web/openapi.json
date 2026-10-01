@@ -5599,6 +5599,13 @@
             "format": "int64",
             "type": "integer"
           },
+          "seriesTotals": {
+            "additionalProperties": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "type": "object"
+          },
           "state": {
             "$ref": "#/components/schemas/QueueState"
           },
@@ -5614,7 +5621,8 @@
           "total",
           "page",
           "pageSize",
-          "counts"
+          "counts",
+          "seriesTotals"
         ],
         "type": "object"
       },

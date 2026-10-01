@@ -5185,6 +5185,9 @@ export interface components {
              * @description Rank revision; send on later pages to detect intervening rank changes
              */
             revision: number;
+            seriesTotals: {
+                [key: string]: number;
+            };
             state: components["schemas"]["QueueState"];
             /** Format: int64 */
             total: number;

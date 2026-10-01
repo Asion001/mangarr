@@ -411,3 +411,27 @@ func TestQueueSortByChapterKeepsTheSelectionsPlaces(t *testing.T) {
 		}
 	})
 }
+
+// TestQueuePageSeriesTotals: a page cut short still reports the series'
+// whole count, so the group header can say "2 of 5 shown".
+func TestQueuePageSeriesTotals(t *testing.T) {
+	dbtest.ForEachDialect(t, func(t *testing.T, d *db.DB) {
+		q, chapters := rankFixture(t, d, 5)
+		enqueueRankJobs(t, q, chapters)
+		page, err := q.ListPage(t.Context(), ListFilter{}, 1, 2)
+		if err != nil {
+			t.Fatal(err)
+		}
+		key := fmt.Sprint(chapters[0].SeriesID)
+		if len(page.Items) != 2 || page.SeriesTotals[key] != 5 {
+			t.Fatalf("items=%d totals=%v", len(page.Items), page.SeriesTotals)
+		}
+		page, err = q.ListPage(t.Context(), ListFilter{Kind: model.JobKindDownload}, 1, 2)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if page.SeriesTotals[key] != 3 {
+			t.Fatalf("filtered totals=%v", page.SeriesTotals)
+		}
+	})
+}
