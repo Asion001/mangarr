@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"syscall"
@@ -143,6 +144,9 @@ func (r CLIRunner) run(ctx context.Context, e Engine, inDir, outDir string, scal
 	if tile > 0 {
 		args = append(args, "-t", strconv.Itoa(tile))
 	}
+	// the tool's memory and ours share one limit in a container: hand back
+	// what the last batch left behind before the tool starts taking its own
+	debug.FreeOSMemory()
 	cmd := exec.CommandContext(ctx, r.bin(e), args...)
 	cmd.Dir = filepath.Join(r.ToolsDir, e.Tool)
 	cmd.WaitDelay = 2 * time.Second // don't hang on pipes held open after a kill

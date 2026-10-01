@@ -210,8 +210,7 @@ func (p *Processor) Process(ctx context.Context, cfg model.UpscaleConfig, pages 
 	// records what the pages were really upscaled with
 	ctx, used := upscale.WithUsed(ctx)
 	for b, group := range groups {
-		for start := 0; start < len(group); start += ChunkPages {
-			idxs := group[start:min(start+ChunkPages, len(group))]
+		for _, idxs := range chunks(pages, group, b.scale) {
 			if err := p.upscaleChunk(ctx, up, mdl, cfg, b.format, b.scale, b.maxWidth, pages, idxs, out, outDir); err != nil {
 				return nil, false, "", err
 			}
@@ -230,6 +229,34 @@ func (p *Processor) Process(ctx context.Context, cfg model.UpscaleConfig, pages 
 // memory bounded, stay far from the upscaler's time limit on slow GPUs and
 // show progress.
 var ChunkPages = 8
+
+// ChunkPixels caps the upscaled pixels in one run as well. Every upscaled
+// page of a run is held in memory until the run is done, and eight 4x
+// webtoon strips come to well over a gigabyte — more than a worker with a
+// memory limit has next to the upscaler itself. A page bigger than this
+// still goes, on its own.
+var ChunkPixels = 120_000_000
+
+// chunks splits a group of pages into runs of at most ChunkPages pages and
+// ChunkPixels upscaled pixels.
+func chunks(pages []downloads.PageFile, group []int, scale int) [][]int {
+	var out [][]int
+	var cur []int
+	px := 0
+	for _, i := range group {
+		n := pages[i].Width * pages[i].Height * scale * scale
+		if len(cur) > 0 && (len(cur) >= ChunkPages || px+n > ChunkPixels) {
+			out = append(out, cur)
+			cur, px = nil, 0
+		}
+		cur = append(cur, i)
+		px += n
+	}
+	if len(cur) > 0 {
+		out = append(out, cur)
+	}
+	return out
+}
 
 func (p *Processor) upscaleChunk(ctx context.Context, up upscale.Module, mdl *upscale.Model, cfg model.UpscaleConfig, format string, scale, maxWidth int,
 	pages []downloads.PageFile, idxs []int, out []downloads.PageFile, outDir string) error {

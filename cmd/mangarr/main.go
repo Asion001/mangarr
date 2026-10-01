@@ -288,6 +288,9 @@ func runWorker() int {
 	}
 	log, _ := logging.Setup(os.Getenv("MANGARR_LOG_LEVEL"), os.Stdout)
 	cfg.Log, cfg.Version = log, version.Version
+	if limit := worker.SetMemoryLimit(os.Getenv); limit > 0 {
+		log.Info("go heap limited to half the container's memory", "mb", limit>>20)
+	}
 	// the upscaling engine is the same one the old node ran, configured the
 	// same way; a worker without the tools simply doesn't offer to upscale
 	if engine, err := upscaler.LoadEngineConfig(os.Getenv); err == nil {
