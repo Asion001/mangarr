@@ -191,12 +191,9 @@ func (c *Checker) checkModules(ctx context.Context, add func(Check)) {
 	if len(c.mods.Active(modules.KindSource)) == 0 {
 		add(Check{Source: "Sources", Type: Warning, Message: "No source module is configured; add one under Settings → Sources", Link: moduleLink("source")})
 	}
-	if len(c.mods.Active(modules.KindMetadata)) == 0 {
-		add(Check{Source: "Metadata", Type: Notice, Message: "No metadata module is configured; series use source metadata only", Link: moduleLink("metadata")})
-	}
-	if len(c.mods.Active(modules.KindLibrary)) == 0 {
-		add(Check{Source: "Library servers", Type: Notice, Message: "No library server (Komga/Kavita) is configured; reader apps won't see new chapters until they rescan on their own", Link: moduleLink("library")})
-	}
+	// No metadata module or library server is a choice, not a fault: mangarr
+	// works from source metadata and serves reading apps itself. The setup
+	// checklist on the Series page offers both.
 	for _, l := range c.mods.All("") {
 		if !l.Def.Enabled || l.Def.UserID != nil {
 			continue // users' own targets are theirs to fix

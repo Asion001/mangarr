@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import clsx from "clsx";
 import { Check } from "lucide-react";
 import { api, unwrap } from "../../api/client";
-import { useHealth } from "../../api/queries";
+import { useHealth, useModules } from "../../api/queries";
 import { Button, Input, Progress } from "../../components/ui";
 import { LanguageSelect } from "../../components/LanguageSelect";
 import { useToast } from "../../lib/toast";
@@ -30,11 +30,14 @@ export function SetupChecklist() {
   const qc = useQueryClient();
   const toast = useToast();
   const { data: health } = useHealth(true);
+  const { data: modules } = useModules();
   const [skipped, setSkipped] = useState(readSkipped);
   const [busy, setBusy] = useState("");
   const [path, setPath] = useState("");
   const [lang, setLang] = useState("en");
-  if (!health) return null;
+  if (!health || !modules) return null;
+  // optional modules are a choice, so Health says nothing about them
+  const has = (kind: string) => modules.some((m) => m.kind === kind && m.enabled);
   // "No … is configured" checks mean setup is missing; the same sources also
   // report failing sites or full disks, which aren't setup steps
   const missing = (source: string) => health.checks.some((c) => c.source === source && c.message.startsWith("No "));
@@ -54,6 +57,7 @@ export function SetupChecklist() {
       await unwrap(api.POST("/api/v1/health/check"));
       await qc.invalidateQueries({ queryKey: ["health"] });
       qc.invalidateQueries({ queryKey: ["rootfolders"] });
+      await qc.invalidateQueries({ queryKey: ["modules"] });
     } catch (e) {
       toast.fromError(e);
     } finally {
@@ -102,15 +106,15 @@ export function SetupChecklist() {
       title: t("Add a metadata provider"),
       kind: "recommended",
       body: t("Titles, synopsis, covers and genres from AniList. Without one, Add series can only add by title."),
-      done: !missing("Metadata"),
+      done: has("metadata"),
       action: <Button size="sm" loading={busy === "metadata"} onClick={() => run("metadata", () => addModule("metadata", "anilist", "AniList"))}>{t("Add AniList")}</Button>,
     },
     {
       id: "library",
       title: t("Connect Komga or Kavita"),
       kind: "optional",
-      body: t("Rescans after every import, and read progress for cleanup."),
-      done: !missing("Library servers"),
+      body: t("Reading apps can connect to mangarr directly (Komga-compatible API, OPDS, KOReader sync). Connect a library server only if you already run one: it is rescanned after every import and shares read progress."),
+      done: has("library"),
       action: (
         <Link to="/settings/library" className="text-sm text-accent-2 hover:underline">{t("Set up")}</Link>
       ),

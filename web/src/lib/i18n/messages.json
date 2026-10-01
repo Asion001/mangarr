@@ -5079,9 +5079,9 @@
     "ru": "Подключите Komga или Kavita",
     "uk": "Підключіть Komga або Kavita"
   },
-  "Rescans after every import, and read progress for cleanup.": {
-    "ru": "Пересканирование после каждого импорта и прогресс чтения для очистки.",
-    "uk": "Повторне сканування після кожного імпорту та прогрес читання для очищення."
+  "Reading apps can connect to mangarr directly (Komga-compatible API, OPDS, KOReader sync). Connect a library server only if you already run one: it is rescanned after every import and shares read progress.": {
+    "ru": "Приложения для чтения могут подключаться к mangarr напрямую (API, совместимый с Komga, OPDS, синхронизация KOReader). Подключайте сервер библиотеки, только если он у вас уже есть: он пересканируется после каждого импорта и делится прогрессом чтения.",
+    "uk": "Застосунки для читання можуть підключатися до mangarr напряму (API, сумісний із Komga, OPDS, синхронізація KOReader). Підключайте сервер бібліотеки, лише якщо він у вас уже є: він пересканується після кожного імпорту й ділиться прогресом читання."
   },
   "Set up": {
     "ru": "Настроить",
