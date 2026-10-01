@@ -129,7 +129,7 @@ func (m *Manager) workersFor(ctx context.Context, role, placement string) (bool,
 		return false, err
 	}
 	for _, w := range list {
-		if !w.HasRole(role) {
+		if !w.Offers(role) {
 			continue
 		}
 		if placement == "workers" {

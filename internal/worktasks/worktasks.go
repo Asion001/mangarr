@@ -233,7 +233,7 @@ func (l *Ledger) claimableKinds(ctx context.Context, workerID int64, kinds []str
 // without an upscaling model drops the upscale role when it says hello, even
 // though its key still carries it, so it never asks for that work.
 func takes(w *model.Worker, kind string) bool {
-	if !w.HasRole(kind) {
+	if !w.Offers(kind) {
 		return false
 	}
 	switch kind {

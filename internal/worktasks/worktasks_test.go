@@ -397,6 +397,48 @@ func TestUnclaimedComesBack(t *testing.T) {
 	})
 }
 
+// TestUnofferedRoleComesBack: a worker given the download role whose own
+// configuration leaves it out never asks for downloads, so a download
+// written for it is handed back even while it is online.
+func TestUnofferedRoleComesBack(t *testing.T) {
+	each(t, func(t *testing.T, d *db.DB) {
+		ctx := context.Background()
+		l := ledger(d)
+		job := seedJob(t, d)
+		worker := seedWorker(t, d, "encoder")
+		seen := time.Now().UTC()
+		info := map[string]any{model.InfoRoles: []string{model.RoleEncode, model.RoleUpscale}}
+		if _, err := d.NewUpdate().Model((*model.Worker)(nil)).Set("last_seen_at = ?", seen).Set("info = ?", info).
+			Where("id = ?", worker).Exec(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if ok, err := l.CanDo(ctx, model.TaskDownload); err != nil || ok {
+			t.Fatalf("a worker that doesn't offer downloads counts as able to: %v %v", ok, err)
+		}
+		var given []model.WorkerTask
+		l.Abandoned = func(task model.WorkerTask) { given = append(given, task) }
+		if err := l.Add(ctx, &model.WorkerTask{JobID: job, Kind: model.TaskDownload}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := d.NewUpdate().Model((*model.WorkerTask)(nil)).Set("created_at = ?", time.Now().UTC().Add(-time.Hour)).
+			Where("state = ?", model.TaskPending).Exec(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if n, err := l.DropUnclaimed(ctx); err != nil || n != 1 || len(given) != 1 {
+			t.Fatalf("the download waited for a worker that never asks for one: %v %d %d", err, n, len(given))
+		}
+
+		// one that offers it keeps it
+		info[model.InfoRoles] = []string{model.RoleDownload}
+		if _, err := d.NewUpdate().Model((*model.Worker)(nil)).Set("info = ?", info).Where("id = ?", worker).Exec(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if ok, err := l.CanDo(ctx, model.TaskDownload); err != nil || !ok {
+			t.Fatalf("a worker offering downloads doesn't count: %v %v", ok, err)
+		}
+	})
+}
+
 // A worker from before processing moved to workers still holds the encode
 // role, but only one that says it can process pages gets that work.
 func TestEncodeNeedsAWorkerThatProcesses(t *testing.T) {

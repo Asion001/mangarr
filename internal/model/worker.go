@@ -1,6 +1,7 @@
 package model
 
 import (
+	"slices"
 	"time"
 
 	"github.com/uptrace/bun"
@@ -71,6 +72,27 @@ func (w *Worker) HasRole(role string) bool {
 		}
 	}
 	return false
+}
+
+// InfoRoles is where a worker's hello records the roles it offered: what
+// its own configuration (MANGARR_WORKER_ROLES) lets it do.
+const InfoRoles = "roles"
+
+// Offers reports whether the worker may do this kind of work and said it
+// would. A role given here that the worker itself was not set up for is
+// never asked for, so work handed to it on that role would wait forever. A
+// worker whose hello did not say keeps every role it was given.
+func (w *Worker) Offers(role string) bool {
+	if !w.HasRole(role) {
+		return false
+	}
+	switch offered := w.Info[InfoRoles].(type) {
+	case []string:
+		return slices.Contains(offered, role)
+	case []any:
+		return slices.Contains(offered, any(role))
+	}
+	return true
 }
 
 // Worker task kinds and states.

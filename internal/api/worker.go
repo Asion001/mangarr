@@ -97,6 +97,11 @@ func (s *Server) registerWorkerProtocol() {
 			if info == nil {
 				info = map[string]any{}
 			}
+			if len(in.Body.Roles) > 0 {
+				// what it was set up to do, so work it never asks for is
+				// not written for it
+				info[model.InfoRoles] = in.Body.Roles
+			}
 			now := time.Now().UTC()
 			w.Version, w.Platform, w.Info, w.LastSeenAt = in.Body.Version, in.Body.Platform, info, &now
 			if _, err := s.app.DB.NewUpdate().Model(w).Column("version", "platform", "info", "last_seen_at").WherePK().Exec(ctx); err != nil {
