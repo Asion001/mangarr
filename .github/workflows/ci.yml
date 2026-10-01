@@ -9,9 +9,12 @@ on:
 permissions:
   contents: read
 
+# A push to main never cancels the run in progress: with pushes landing
+# faster than a run takes, every run was cancelled and no image got
+# published. The newest push waits instead (older waiting ones drop out).
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   test:
