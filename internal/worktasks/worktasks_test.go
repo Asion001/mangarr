@@ -195,6 +195,59 @@ func TestPriorityOnlyHoldsBackWorkItCanTake(t *testing.T) {
 	})
 }
 
+// TestEqualPriorityTakeTurns: a worker allowed many tasks at once doesn't
+// take every chapter while another of the same priority sits idle, and a
+// peer that can't upscale doesn't hold back work only an upscaler can do.
+func TestEqualPriorityTakeTurns(t *testing.T) {
+	each(t, func(t *testing.T, d *db.DB) {
+		ctx := context.Background()
+		l := ledger(d)
+		job := seedJob(t, d)
+		roles := []string{model.RoleUpscale, model.RoleEncode}
+		now := time.Now().UTC()
+		gpu := map[string]any{worktasks.InfoProcess: true, "models": []any{map[string]any{"name": "m"}}}
+		seed := func(name string) int64 {
+			w := &model.Worker{Name: name, KeyHash: "hash-" + name, Prefix: "mgw_" + name, Roles: roles, Enabled: true,
+				Priority: 50, Concurrent: 10, Info: gpu, CreatedAt: now, LastSeenAt: &now}
+			if _, err := d.NewInsert().Model(w).Exec(ctx); err != nil {
+				t.Fatal(err)
+			}
+			return w.ID
+		}
+		pc, mac := seed("pc"), seed("mac")
+		for i := range 4 {
+			if err := l.Add(ctx, &model.WorkerTask{JobID: job, Kind: model.TaskEncode, Seq: i}); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if task, err := l.Claim(ctx, pc, roles, 0, 1); err != nil || task == nil {
+			t.Fatalf("the first worker got nothing: %v %+v", err, task)
+		}
+		if task, err := l.Claim(ctx, pc, roles, 0, 1); err != nil || task != nil {
+			t.Fatalf("one worker took a second chapter while its peer was idle: %v %+v", err, task)
+		}
+		if task, err := l.Claim(ctx, mac, roles, 0, 1); err != nil || task == nil {
+			t.Fatalf("the idle peer got nothing: %v %+v", err, task)
+		}
+		if task, err := l.Claim(ctx, pc, roles, 0, 1); err != nil || task == nil {
+			t.Fatalf("even workers didn't take the next turn: %v %+v", err, task)
+		}
+
+		// a peer without an upscaler is no reason to wait
+		if _, err := d.NewUpdate().Model((*model.Worker)(nil)).Set("info = ?", map[string]any{worktasks.InfoProcess: true}).
+			Where("id = ?", mac).Exec(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := d.NewUpdate().Model((*model.WorkerTask)(nil)).Set("state = ?", model.TaskDone).
+			Where("worker_id = ?", mac).Exec(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if task, err := l.Claim(ctx, pc, roles, 0, 1); err != nil || task == nil {
+			t.Fatalf("the upscaler waited on a peer that can't upscale: %v %+v", err, task)
+		}
+	})
+}
+
 // TestLeaseComesBack: a worker that goes quiet loses its task, and a task
 // nobody finishes is given up on rather than handed out forever.
 func TestLeaseComesBack(t *testing.T) {

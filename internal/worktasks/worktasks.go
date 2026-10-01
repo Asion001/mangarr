@@ -161,7 +161,10 @@ func (l *Ledger) Claim(ctx context.Context, workerID int64, kinds []string, limi
 // narrows kinds to those no compatible worker above this one could take right
 // now: a lower-priority worker gets a kind only when every online worker with
 // a better priority that does that kind is full. Priority is ascending, like
-// module priority.
+// module priority. Workers of one priority take turns: one already holding
+// more tasks than an online peer that could take the kind leaves it to that
+// peer, so a worker allowed many tasks at once doesn't take every chapter
+// while the others sit idle.
 func (l *Ledger) claimableKinds(ctx context.Context, workerID int64, kinds []string, global, defaultPerWorker int) ([]string, error) {
 	var workers []model.Worker
 	if err := l.db.NewSelect().Model(&workers).Where("enabled = ?", true).Scan(ctx); err != nil {
@@ -222,6 +225,16 @@ func (l *Ledger) claimableKinds(ctx context.Context, workerID int64, kinds []str
 				break
 			}
 		}
+		for i := 0; i < len(workers) && !yield; i++ {
+			w := &workers[i]
+			if w.ID == current.ID || w.Priority != current.Priority || w.LastSeenAt == nil || now.Sub(*w.LastSeenAt) >= OnlineWithin {
+				continue
+			}
+			// a peer that can't upscale can't take what this one can
+			if held[w.ID] < held[current.ID] && takes(w, kind) && spare(w) && (kind != model.TaskEncode || upscales(w) || !upscales(current)) {
+				yield = true
+			}
+		}
 		if !yield {
 			out = append(out, kind)
 		}
@@ -269,6 +282,11 @@ func upscalesIfNeeded(w *model.Worker, t *model.WorkerTask) bool {
 	if !need {
 		return true
 	}
+	return upscales(w)
+}
+
+// upscales reports whether a worker has an upscaling engine.
+func upscales(w *model.Worker) bool {
 	models, _ := w.Info["models"].([]any)
 	return len(models) > 0
 }
