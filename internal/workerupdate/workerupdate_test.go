@@ -71,6 +71,8 @@ func publish(t *testing.T, program []byte, sum string) *httptest.Server {
 		"mangarr-worker-test/mangarr-worker":                        program,
 		"mangarr-worker-test/README.txt":                            []byte("hi"),
 		"mangarr-worker-test/upscalers/waifu2x/waifu2x-ncnn-vulkan": []byte("x"),
+		"mangarr-worker-test/encoders/avifenc":                      []byte("new avifenc"),
+		"mangarr-worker-test/encoders/cwebp":                        []byte("new cwebp"),
 	} {
 		f, err := zw.Create(name)
 		if err != nil {
@@ -104,11 +106,31 @@ func installed(t *testing.T) string {
 	if runtime.GOOS == "windows" {
 		t.Skip("the stand-in program is a shell script")
 	}
-	exe := filepath.Join(t.TempDir(), "mangarr-worker")
+	dir := t.TempDir()
+	exe := filepath.Join(dir, "mangarr-worker")
 	if err := os.WriteFile(exe, script("v1.2.0"), 0o755); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.Mkdir(filepath.Join(dir, "encoders"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "encoders", "avifenc"), []byte("old avifenc"), 0o755); err != nil {
+		t.Fatal(err)
+	}
 	return exe
+}
+
+// encoderFiles lists the encoders folder next to exe as name=content.
+func encoderFiles(t *testing.T, exe string, folder string) []string {
+	t.Helper()
+	dir := filepath.Join(filepath.Dir(exe), folder)
+	entries, _ := os.ReadDir(dir)
+	var out []string
+	for _, e := range entries {
+		data, _ := os.ReadFile(filepath.Join(dir, e.Name()))
+		out = append(out, e.Name()+"="+string(data))
+	}
+	return out
 }
 
 func offerFrom(srv *httptest.Server) Offer {
@@ -127,11 +149,17 @@ func TestApplyThenConfirm(t *testing.T) {
 	if got, _ := os.ReadFile(exe + ".old"); !bytes.Equal(got, script("v1.2.0")) {
 		t.Errorf("the backup is %q", got)
 	}
+	if got := strings.Join(encoderFiles(t, exe, "encoders"), ","); got != "avifenc=new avifenc,cwebp=new cwebp" {
+		t.Errorf("encoders: %s", got)
+	}
+	if got := strings.Join(encoderFiles(t, exe, "encoders.old"), ","); got != "avifenc=old avifenc" {
+		t.Errorf("encoders kept: %s", got)
+	}
 	if back, m, err := Settle(exe); err != nil || back || m.Starts != 1 || m.To != "v1.3.0" || m.From != "v1.2.0" {
 		t.Errorf("Settle = %v %+v %v", back, m, err)
 	}
 	Confirm(exe)
-	for _, f := range []string{exe + ".old", exe + ".update"} {
+	for _, f := range []string{exe + ".old", exe + ".update", filepath.Join(filepath.Dir(exe), "encoders.old")} {
 		if _, err := os.Stat(f); err == nil {
 			t.Errorf("%s is still there", filepath.Base(f))
 		}
@@ -157,8 +185,11 @@ func TestApplyRefuses(t *testing.T) {
 			if got, _ := os.ReadFile(exe); !bytes.Equal(got, script("v1.2.0")) {
 				t.Errorf("the program changed to %q", got)
 			}
+			if got := strings.Join(encoderFiles(t, exe, "encoders"), ","); got != "avifenc=old avifenc" {
+				t.Errorf("encoders changed: %s", got)
+			}
 			entries, _ := os.ReadDir(filepath.Dir(exe))
-			if len(entries) != 1 {
+			if len(entries) != 2 {
 				var names []string
 				for _, e := range entries {
 					names = append(names, e.Name())
@@ -188,6 +219,9 @@ func TestSettleRollsBack(t *testing.T) {
 	}
 	if got, _ := os.ReadFile(exe); !bytes.Equal(got, script("v1.2.0")) {
 		t.Errorf("the program is %q after the rollback", got)
+	}
+	if got := strings.Join(encoderFiles(t, exe, "encoders"), ","); got != "avifenc=old avifenc" {
+		t.Errorf("encoders after the rollback: %s", got)
 	}
 	if Skipped(exe) != "v1.3.0" {
 		t.Errorf("skipped %q", Skipped(exe))

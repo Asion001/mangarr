@@ -623,10 +623,11 @@ version keeps getting work until it updates.
 finishes the ones it holds, downloads the release's zip for its platform,
 checks it against the `.sha256` published next to it, runs the new program
 once to check it starts and reports the expected version, and only then puts
-it in place of the old one (kept next to it as `mangarr-worker.old`) and
-restarts. The status page shows *Updating* meanwhile and reconnects on its
+it and the zip's `encoders` folder in place of the old ones (kept next to
+them as `mangarr-worker.old` and `encoders.old`) and restarts. The
+`upscalers` folder is left as it is. The status page shows *Updating* meanwhile and reconnects on its
 own. If the new version starts three times without reaching the server, the
-old program is put back and that version is not tried again on that machine
+old program and encoders are put back and that version is not tried again on that machine
 (`mangarr-worker.skip` next to the program; delete it to try again). A failed
 download or check leaves everything as it was, and the worker carries on.
 The program's folder has to be writable by the user running it. Untick

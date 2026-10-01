@@ -24,12 +24,18 @@ import (
 //	mangarr-worker.old     the program it replaced, until the new one connects
 //	mangarr-worker.update  which update that was, and how often it started
 //	mangarr-worker.skip    a version that was rolled back, not tried again
+//	encoders.old           the encoders folder it replaced, likewise
 const (
 	oldSuffix    = ".old"
 	newSuffix    = ".new"
 	markerSuffix = ".update"
 	skipSuffix   = ".skip"
 )
+
+// encoders is the folder of native encoders the zip carries next to the
+// program (scripts/worker-zip.sh), replaced along with it. The upscalers
+// are left as they are: they change rarely and are far larger.
+const encoders = "encoders"
 
 // maxStarts is how often an updated program may start without connecting
 // before the one it replaced is put back.
@@ -39,8 +45,9 @@ const maxStarts = 3
 const maxZip = 1 << 30
 
 // Apply downloads the offered zip, checks it against its published
-// checksum, takes the program out of it and puts it in place of exe, which
-// runs version current. exe itself is kept as exe.old until Confirm.
+// checksum, takes the program and its encoders folder out of it and puts
+// them in place of exe, which runs version current, and the encoders next
+// to it. What they replace is kept (exe.old, encoders.old) until Confirm.
 // Nothing is changed when any step fails.
 func Apply(ctx context.Context, client *http.Client, o Offer, exe, current string) error {
 	if o.URL == "" || o.Checksum == "" {
@@ -67,16 +74,37 @@ func Apply(ctx context.Context, client *http.Client, o Offer, exe, current strin
 	if got != want {
 		return fmt.Errorf("the download doesn't match its checksum (%s, expected %s)", got, want)
 	}
-	next := exe + newSuffix
-	if err := extract(tmp, filepath.Base(exe), next); err != nil {
-		os.Remove(next)
+	st, err := tmp.Stat()
+	if err != nil {
 		return err
+	}
+	zr, err := zip.NewReader(tmp, st.Size())
+	if err != nil {
+		return fmt.Errorf("the download isn't a zip: %w", err)
+	}
+	next := exe + newSuffix
+	staged := filepath.Join(dir, encoders+newSuffix)
+	cleanup := func() {
+		os.Remove(next)
+		os.RemoveAll(staged)
+	}
+	if err := extract(zr, filepath.Base(exe), next); err != nil {
+		cleanup()
+		return err
+	}
+	found, err := extractFolder(zr, encoders, staged)
+	if err != nil {
+		cleanup()
+		return fmt.Errorf("the encoders: %w", err)
+	}
+	if !found {
+		staged = "" // a zip without them leaves the folder as it is
 	}
 	if err := smokeTest(ctx, next, o.Version); err != nil {
-		os.Remove(next)
+		cleanup()
 		return err
 	}
-	return swap(exe, next, Marker{From: current, To: o.Version})
+	return swap(exe, next, staged, Marker{From: current, To: o.Version})
 }
 
 func fetchChecksum(ctx context.Context, client *http.Client, url string) (string, error) {
@@ -134,37 +162,61 @@ func download(ctx context.Context, client *http.Client, url string, to *os.File)
 
 // extract writes the zip's program (the file named like the running one)
 // to dst.
-func extract(f *os.File, name, dst string) error {
-	st, err := f.Stat()
-	if err != nil {
-		return err
-	}
-	zr, err := zip.NewReader(f, st.Size())
-	if err != nil {
-		return fmt.Errorf("the download isn't a zip: %w", err)
-	}
+func extract(zr *zip.Reader, name, dst string) error {
 	want := strings.TrimSuffix(name, ".exe")
 	for _, zf := range zr.File {
 		base := strings.TrimSuffix(filepath.Base(filepath.FromSlash(zf.Name)), ".exe")
 		if zf.FileInfo().IsDir() || base != want || strings.Count(zf.Name, "/") > 1 {
 			continue
 		}
-		in, err := zf.Open()
-		if err != nil {
-			return err
-		}
-		defer in.Close()
-		out, err := os.OpenFile(dst, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o755)
-		if err != nil {
-			return err
-		}
-		if _, err := io.Copy(out, io.LimitReader(in, maxZip)); err != nil {
-			out.Close()
-			return err
-		}
-		return out.Close()
+		return writeFile(zf, dst)
 	}
 	return fmt.Errorf("the zip has no %s in it", name)
+}
+
+// extractFolder writes the files of the zip's top-level folder (inside its
+// one top folder, as the release lays it out) into dst, and reports whether
+// it had any.
+func extractFolder(zr *zip.Reader, folder, dst string) (bool, error) {
+	if err := os.RemoveAll(dst); err != nil {
+		return false, err
+	}
+	found := false
+	for _, zf := range zr.File {
+		parts := strings.Split(zf.Name, "/")
+		if zf.FileInfo().IsDir() || len(parts) != 3 || parts[1] != folder || parts[2] == "" ||
+			parts[2] == "." || parts[2] == ".." || strings.ContainsAny(parts[2], `\:`) {
+			continue
+		}
+		if !found {
+			if err := os.MkdirAll(dst, 0o755); err != nil {
+				return false, err
+			}
+			found = true
+		}
+		if err := writeFile(zf, filepath.Join(dst, parts[2])); err != nil {
+			return false, err
+		}
+	}
+	return found, nil
+}
+
+// writeFile writes one zip entry to dst as a program anyone may run.
+func writeFile(zf *zip.File, dst string) error {
+	in, err := zf.Open()
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	out, err := os.OpenFile(dst, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o755)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(out, io.LimitReader(in, maxZip)); err != nil {
+		out.Close()
+		return err
+	}
+	return out.Close()
 }
 
 // smokeTest runs the new program's `version` and checks it says what it
@@ -183,21 +235,36 @@ func smokeTest(ctx context.Context, path, version string) error {
 	return nil
 }
 
-// swap puts next in place of exe, keeping exe as exe.old. A running
-// program can be renamed on every platform (Windows too), just not
-// overwritten.
-func swap(exe, next string, m Marker) error {
+// swap puts next in place of exe, keeping exe as exe.old, and the staged
+// encoders folder (when there is one) in place of the one next to it. A
+// running program can be renamed on every platform (Windows too), just not
+// overwritten; no encoder runs now, as the worker has finished its tasks.
+func swap(exe, next, staged string, m Marker) error {
+	if staged != "" {
+		defer os.RemoveAll(staged) // left only when something failed
+		if err := swapFolder(staged, filepath.Join(filepath.Dir(exe), encoders)); err != nil {
+			os.Remove(next)
+			return fmt.Errorf("the encoders: %w", err)
+		}
+	}
+	undoFolder := func() {
+		if staged != "" {
+			restoreFolder(filepath.Join(filepath.Dir(exe), encoders))
+		}
+	}
 	old := exe + oldSuffix
 	if err := os.Remove(old); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return fmt.Errorf("the previous backup: %w", err)
 	}
 	if err := os.Rename(exe, old); err != nil {
 		os.Remove(next)
+		undoFolder()
 		return err
 	}
 	if err := os.Rename(next, exe); err != nil {
 		_ = os.Rename(old, exe)
 		os.Remove(next)
+		undoFolder()
 		return err
 	}
 	if err := writeMarker(exe, m); err != nil {
@@ -205,9 +272,45 @@ func swap(exe, next string, m Marker) error {
 		_ = os.Rename(exe, next)
 		_ = os.Rename(old, exe)
 		os.Remove(next)
+		undoFolder()
 		return err
 	}
 	return nil
+}
+
+// swapFolder puts staged in place of dir, keeping dir as dir.old.
+func swapFolder(staged, dir string) error {
+	old := dir + oldSuffix
+	if err := os.RemoveAll(old); err != nil {
+		return err
+	}
+	if err := os.Rename(dir, old); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return err
+	}
+	if err := os.Rename(staged, dir); err != nil {
+		_ = os.Rename(old, dir)
+		return err
+	}
+	return nil
+}
+
+// restoreFolder puts dir.old back in place of dir; without a dir.old (the
+// program before had none) the folder stays, which that program ignores.
+func restoreFolder(dir string) {
+	old := dir + oldSuffix
+	if _, err := os.Stat(old); err != nil {
+		return
+	}
+	failed := dir + ".failed"
+	_ = os.RemoveAll(failed)
+	if err := os.Rename(dir, failed); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return
+	}
+	if err := os.Rename(old, dir); err != nil {
+		_ = os.Rename(failed, dir)
+		return
+	}
+	_ = os.RemoveAll(failed)
 }
 
 // Marker records an update that hasn't connected yet.
@@ -258,6 +361,7 @@ func Settle(exe string) (rolledBack bool, m Marker, err error) {
 		return false, m, err
 	}
 	os.Remove(bad) // may fail on Windows while it runs; harmless
+	restoreFolder(filepath.Join(filepath.Dir(exe), encoders))
 	os.Remove(exe + markerSuffix)
 	_ = os.WriteFile(exe+skipSuffix, []byte(m.To+"\n"), 0o644)
 	return true, m, nil
@@ -272,6 +376,7 @@ func Confirm(exe string) {
 	os.Remove(exe + markerSuffix)
 	os.Remove(exe + oldSuffix)
 	os.Remove(exe + ".failed")
+	os.RemoveAll(filepath.Join(filepath.Dir(exe), encoders+oldSuffix))
 }
 
 // Skipped is the version that was rolled back on this machine, which is not
