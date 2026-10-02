@@ -53,6 +53,7 @@ type Processor interface {
 func (m *Manager) finish(ctx context.Context, job model.DownloadJob, jc *jobCtx, pages []PageFile, workDir string) {
 	log := m.log.With("job", job.ID, "chapterId", job.ChapterID)
 	ctx = worktasks.WithJob(ctx, job.ID)
+	m.pagesIn(ctx, job.ID)
 	if job.Kind == model.JobKindDownload {
 		kept, err := m.screenPages(ctx, jc, pages)
 		if err != nil {

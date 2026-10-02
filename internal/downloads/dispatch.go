@@ -3,6 +3,7 @@ package downloads
 import (
 	"context"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/Asion001/mangarr/internal/model"
@@ -97,6 +98,9 @@ func (m *Manager) dispatch(ctx context.Context) {
 		if j.Kind == model.JobKindDownload && m.runningOfKind(model.JobKindDownload) >= dl.MaxConcurrent {
 			continue
 		}
+		if j.Kind == model.JobKindDownload && m.runningOfKind(stageProcessing) >= dl.MaxConcurrentProcessing {
+			continue // enough downloaded chapters wait for processing already
+		}
 		if j.Kind == model.JobKindReprocess && m.runningOfKind(model.JobKindReprocess) >= dl.MaxConcurrentProcessing {
 			continue
 		}
@@ -113,18 +117,12 @@ func (m *Manager) dispatch(ctx context.Context) {
 			}
 		}
 		jctx, cancel := context.WithCancel(ctx)
-		m.running[j.ID] = cancel
-		m.runningKind[j.ID] = j.Kind
-		m.runningSrc[src]++
+		slots := m.hold(j.ID, j.Kind, src, cancel)
 		busy = true
-		go func(job model.DownloadJob, src string) {
+		go func(job model.DownloadJob) {
 			defer func() {
 				cancel()
-				m.mu.Lock()
-				delete(m.running, job.ID)
-				delete(m.runningKind, job.ID)
-				m.runningSrc[src]--
-				m.mu.Unlock()
+				m.drop(job.ID, slots)
 				m.progressMu.Lock()
 				delete(m.lastPersist, job.ID)
 				m.progressMu.Unlock()
@@ -147,10 +145,10 @@ func (m *Manager) dispatch(ctx context.Context) {
 				m.log.Warn("could not hand a chapter to the workers", "job", job.ID, "err", err)
 			}
 			if !handed {
-				defer m.releaseLocal()
+				slots.local = m.releaseLocal // freed when the job ends, or by pagesIn
 				m.run(jctx, job)
 			}
-		}(j.DownloadJob, src)
+		}(j.DownloadJob)
 	}
 	// Queue drained: run module housekeeping (e.g. clear engine page caches).
 	if !busy && m.wasBusy && time.Since(m.lastMaint) > 10*time.Minute {
@@ -176,6 +174,84 @@ func (m *Manager) runningOfKind(kind string) int {
 		}
 	}
 	return n
+}
+
+// stageProcessing is the kind a running download counts as once its pages
+// are in: it no longer holds a download slot, but counts against
+// Downloads.MaxConcurrentProcessing.
+const stageProcessing = "processing"
+
+// jobSlots frees, once each, the download slots (global and per source) and
+// this server's own task slot that a running job took.
+type jobSlots struct {
+	srcOnce, localOnce sync.Once
+	src, local         func()
+}
+
+func (s *jobSlots) freeSource() { s.srcOnce.Do(func() { s.src() }) }
+
+func (s *jobSlots) freeLocal() {
+	s.localOnce.Do(func() {
+		if s.local != nil {
+			s.local()
+		}
+	})
+}
+
+// hold registers a job as running with the slots it takes (m.mu held).
+func (m *Manager) hold(id int64, kind, src string, cancel context.CancelFunc) *jobSlots {
+	m.running[id] = cancel
+	m.runningKind[id] = kind
+	m.runningSrc[src]++
+	slots := &jobSlots{src: func() {
+		m.mu.Lock()
+		m.runningSrc[src]--
+		if m.runningKind[id] == model.JobKindDownload {
+			m.runningKind[id] = stageProcessing
+		}
+		m.mu.Unlock()
+		m.queue.signal()
+	}}
+	m.slots[id] = slots
+	return slots
+}
+
+// drop forgets a job that stopped running, freeing what it still holds.
+func (m *Manager) drop(id int64, slots *jobSlots) {
+	slots.freeSource()
+	slots.freeLocal()
+	m.mu.Lock()
+	delete(m.running, id)
+	delete(m.runningKind, id)
+	delete(m.slots, id)
+	m.mu.Unlock()
+}
+
+// OnWorkers is a Processor that can say whether a chapter's processing
+// runs on the workers right now.
+type OnWorkers interface {
+	OnWorkers(ctx context.Context) bool
+}
+
+// pagesIn is called once a job's pages are here (or with a worker that
+// downloaded them). When the workers process them, nothing heavy is left
+// for this server and talking to the source is over: the chapter gives its
+// download slots and this server's own task slot to the next one instead of
+// holding them for the hours a worker may take. Processed here, it keeps
+// them, so the limits still bound this server's own load.
+func (m *Manager) pagesIn(ctx context.Context, jobID int64) {
+	ow, ok := m.Processor.(OnWorkers)
+	if !ok || !ow.OnWorkers(ctx) {
+		return
+	}
+	m.mu.Lock()
+	slots := m.slots[jobID]
+	m.mu.Unlock()
+	if slots == nil {
+		return
+	}
+	slots.freeSource()
+	slots.freeLocal()
 }
 
 // localWait is how often a chapter waiting for one of this server's own

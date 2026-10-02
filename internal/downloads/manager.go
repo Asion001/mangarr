@@ -50,6 +50,9 @@ type Manager struct {
 	running     map[int64]context.CancelFunc
 	runningKind map[int64]string
 	runningSrc  map[string]int
+	// slots frees what a running job holds only while it downloads (see
+	// pagesIn).
+	slots map[int64]*jobSlots
 	// local counts the jobs this server is working on itself (not handed
 	// to a worker), for Downloads.MaxLocalTasks.
 	local       int
@@ -62,7 +65,7 @@ type Manager struct {
 
 func NewManager(d *db.DB, bus *events.Bus, mods *modules.Manager, st *settings.Store, lib *library.Library, q *Queue, s *Searcher, log *slog.Logger, dataDir string) *Manager {
 	return &Manager{db: d, bus: bus, mods: mods, settings: st, lib: lib, queue: q, searcher: s, log: log, dataDir: dataDir,
-		running: map[int64]context.CancelFunc{}, runningKind: map[int64]string{}, runningSrc: map[string]int{}, lastPersist: map[int64]time.Time{},
+		running: map[int64]context.CancelFunc{}, runningKind: map[int64]string{}, runningSrc: map[string]int{}, slots: map[int64]*jobSlots{}, lastPersist: map[int64]time.Time{},
 		Live: NewLive(bus)}
 }
 

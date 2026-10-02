@@ -106,6 +106,8 @@ type Downloads struct {
 	MaxWorkerTasks int `json:"maxWorkerTasks" desc:"Tasks all remote workers run at once."`
 	// MaxConcurrentProcessing is how many existing chapter files may be
 	// prepared and handed to local or remote processing engines at once.
+	// It also caps the downloaded chapters waiting for a worker to process
+	// them, which no longer hold a download slot.
 	MaxConcurrentProcessing int `json:"maxConcurrentProcessing" desc:"Chapter files processed at once."`
 	// WorkerPrefetch is how many pages a worker fetches ahead of what it has
 	// uploaded.

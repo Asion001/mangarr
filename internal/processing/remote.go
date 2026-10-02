@@ -355,4 +355,10 @@ func (s *Switch) Process(ctx context.Context, cfg model.ProfileConfig, pages []d
 	return s.Local.Process(ctx, cfg, pages, workDir)
 }
 
-var _ downloads.Processor = (*Switch)(nil)
+// OnWorkers says whether the workers process chapters now.
+func (s *Switch) OnWorkers(ctx context.Context) bool { return s.UseRemote != nil && s.UseRemote(ctx) }
+
+var (
+	_ downloads.Processor = (*Switch)(nil)
+	_ downloads.OnWorkers = (*Switch)(nil)
+)
