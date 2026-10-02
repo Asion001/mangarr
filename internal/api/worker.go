@@ -31,7 +31,11 @@ func init() { register((*Server).registerWorkerProtocol) }
 
 // WorkerHello is what a worker says about itself when it starts.
 type WorkerHello struct {
-	Version  string `json:"version,omitempty"`
+	Version string `json:"version,omitempty"`
+	// Build and Commit are the CI run and commit it was built from, which
+	// the server compares with its own to offer it an update.
+	Build    string `json:"build,omitempty"`
+	Commit   string `json:"commit,omitempty"`
 	Platform string `json:"platform,omitempty"`
 	// Roles it is able to do (the server answers with the ones it may).
 	Roles []string `json:"roles,omitempty"`
@@ -102,15 +106,24 @@ func workerConcurrent(w *model.Worker, dl settings.Downloads) int {
 	return max(dl.MaxConcurrentPerWorker, 1)
 }
 
-// workerUpdate is the update a worker is offered: this server's version,
-// when updates are on and the worker runs an older release. A worker that
+// workerUpdate is the update a worker is offered: this server's build,
+// when updates are on and the worker runs an earlier one. A worker that
 // differs keeps getting work meanwhile; a desktop one stops taking it to
 // update, one in a container only says it should be updated.
 func workerUpdate(w *model.Worker, dl settings.Downloads) *workerupdate.Offer {
 	if !dl.WorkerUpdates {
 		return nil
 	}
-	return workerupdate.For(version.Version, w.Version, w.Platform)
+	return offerFor(w)
+}
+
+// offerFor is this server's build for w when w runs an earlier one.
+func offerFor(w *model.Worker) *workerupdate.Offer {
+	server := workerupdate.Build{Version: version.Version, Build: version.Build, Commit: version.Commit}
+	running := workerupdate.Build{Version: w.Version}
+	running.Build, _ = w.Info[model.InfoBuild].(string)
+	running.Commit, _ = w.Info[model.InfoCommit].(string)
+	return workerupdate.For(server, running, w.Platform, version.UpdateURL, version.Image)
 }
 
 // workerPoll is how long a lease request waits for work before answering
@@ -133,6 +146,13 @@ func (s *Server) registerWorkerProtocol() {
 			info := in.Body.Info
 			if info == nil {
 				info = map[string]any{}
+			}
+			for k, v := range map[string]string{model.InfoBuild: in.Body.Build, model.InfoCommit: in.Body.Commit} {
+				if v != "" {
+					info[k] = v
+				} else {
+					delete(info, k)
+				}
 			}
 			if len(in.Body.Roles) > 0 {
 				// what it was set up to do, so work it never asks for is

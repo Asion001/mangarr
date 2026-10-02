@@ -13,8 +13,6 @@ import (
 	"github.com/Asion001/mangarr/internal/access"
 	"github.com/Asion001/mangarr/internal/auth"
 	"github.com/Asion001/mangarr/internal/model"
-	"github.com/Asion001/mangarr/internal/version"
-	"github.com/Asion001/mangarr/internal/workerupdate"
 )
 
 func init() { register((*Server).registerWorkers) }
@@ -29,8 +27,7 @@ type WorkerResource struct {
 	Busy []WorkerBusy `json:"busy,omitempty"`
 	// Recent is what it did in the last day.
 	Recent WorkerRecent `json:"recent"`
-	// UpdateTo is this server's version when the worker runs an older
-	// release.
+	// UpdateTo is this server's build when the worker runs an earlier one.
 	UpdateTo string `json:"updateTo,omitempty"`
 }
 
@@ -84,8 +81,8 @@ func (s *Server) registerWorkers() {
 			out := make([]WorkerResource, 0, len(list))
 			for _, w := range list {
 				r := WorkerResource{Worker: w, Online: online(w), Busy: busy[w.ID], Recent: recent[w.ID]}
-				if workerupdate.Newer(version.Version, w.Version) {
-					r.UpdateTo = version.Version
+				if o := offerFor(&w); o != nil {
+					r.UpdateTo = o.ID()
 				}
 				out = append(out, r)
 			}

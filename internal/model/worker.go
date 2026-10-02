@@ -74,6 +74,13 @@ func (w *Worker) HasRole(role string) bool {
 	return false
 }
 
+// InfoBuild and InfoCommit are where a worker's hello records the CI run
+// and commit it was built from.
+const (
+	InfoBuild  = "build"
+	InfoCommit = "commit"
+)
+
 // InfoRoles is where a worker's hello records the roles it offered: what
 // its own configuration (MANGARR_WORKER_ROLES) lets it do.
 const InfoRoles = "roles"

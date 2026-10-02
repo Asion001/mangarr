@@ -97,7 +97,7 @@ Read wherever the engine runs: in the server, or on a worker with the upscale ro
 | `MANGARR_DOWNLOADS_MAX_CONCURRENT_PROCESSING` | int | `4` | Chapter files processed at once. |
 | `MANGARR_DOWNLOADS_WORKER_PREFETCH` | int | `50` | Pages a worker fetches ahead of what it has uploaded. |
 | `MANGARR_DOWNLOADS_MAX_LOCAL_TASKS` | int | `0` | Tasks this server runs itself at once (0 = only the other limits, -1 = none: downloads and processing wait for the workers). |
-| `MANGARR_DOWNLOADS_WORKER_UPDATES` | bool | `true` | Offer this server's version to workers on an older release; desktop workers update themselves. |
+| `MANGARR_DOWNLOADS_WORKER_UPDATES` | bool | `true` | Offer this server's build to workers on an earlier one; desktop workers update themselves. |
 
 ### cleanup
 

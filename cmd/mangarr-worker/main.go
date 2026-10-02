@@ -65,7 +65,7 @@ func runHeadless(ctx context.Context) int {
 		return 1
 	}
 	log := slog.New(slog.NewTextHandler(os.Stdout, nil))
-	cfg.Log, cfg.Version = log, version.Version
+	cfg.Log, cfg.Version, cfg.Build, cfg.Commit = log, version.Version, version.Build, version.Commit
 	if engine, err := upscaler.LoadEngineConfig(getenv); err == nil {
 		cfg.Upscaler = upscaler.NewEngine(engine, log)
 	}
@@ -87,13 +87,13 @@ func runHeadless(ctx context.Context) int {
 			}
 			return 0
 		}
-		log.Info("updating", "from", version.Version, "to", update.Offer.Version, "zip", update.Offer.URL)
-		if err := workerupdate.Apply(ctx, nil, update.Offer, exe, version.Version); err != nil {
-			log.Error("the update failed; carrying on with this version", "version", update.Offer.Version, "err", err)
-			cfg.Skip = update.Offer.Version
+		log.Info("updating", "from", current(), "to", update.Offer.ID(), "zip", update.Offer.URL)
+		if err := workerupdate.Apply(ctx, nil, update.Offer, exe, current()); err != nil {
+			log.Error("the update failed; carrying on with this build", "build", update.Offer.ID(), "err", err)
+			cfg.Retry, cfg.RetryAt = update.Offer.ID(), time.Now().Add(workerui.RetryUpdate)
 			continue
 		}
-		log.Info("updated; restarting", "version", update.Offer.Version)
+		log.Info("updated; restarting", "build", update.Offer.ID())
 		restart(exe, log)
 		return 1
 	}
@@ -112,7 +112,7 @@ func runWithUI(ctx context.Context, listen string, browser bool) int {
 	exe, canUpdate := updatable()
 	if canUpdate {
 		ui.Update = func(ctx context.Context, o workerupdate.Offer) error {
-			return workerupdate.Apply(ctx, nil, o, exe, version.Version)
+			return workerupdate.Apply(ctx, nil, o, exe, current())
 		}
 		ui.Skip = workerupdate.Skipped(exe)
 	}
@@ -151,6 +151,11 @@ func runWithUI(ctx context.Context, listen string, browser bool) int {
 		restart(exe, log, "-no-browser")
 		return 1
 	}
+}
+
+// current is this program's build.
+func current() workerupdate.Build {
+	return workerupdate.Build{Version: version.Version, Build: version.Build, Commit: version.Commit}
 }
 
 // updatable is this program's path and whether it may replace itself: not

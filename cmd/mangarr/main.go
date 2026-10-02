@@ -287,7 +287,7 @@ func runWorker() int {
 		}
 	}
 	log, _ := logging.Setup(os.Getenv("MANGARR_LOG_LEVEL"), os.Stdout)
-	cfg.Log, cfg.Version = log, version.Version
+	cfg.Log, cfg.Version, cfg.Build, cfg.Commit = log, version.Version, version.Build, version.Commit
 	if limit := worker.SetMemoryLimit(os.Getenv); limit > 0 {
 		log.Info("go heap limited to half the container's memory", "mb", limit>>20)
 	}

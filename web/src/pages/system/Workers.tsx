@@ -258,7 +258,7 @@ export function WorkersPage() {
                 onChange={(v) => limits.patch({ workerUpdates: v })}
                 label={t("Update workers with this server")}
               />
-              <p className="mt-1 text-xs text-muted">{t("Workers on an older release are told about this version. Desktop workers finish what they hold, update themselves and restart; containers only report it.")}</p>
+              <p className="mt-1 text-xs text-muted">{t("Workers on an earlier build are told about this one. Desktop workers finish what they hold, update themselves and restart; containers only report it.")}</p>
             </div>
           </div>
         )}

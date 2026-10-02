@@ -5060,7 +5060,13 @@
       "Offer": {
         "additionalProperties": false,
         "properties": {
+          "build": {
+            "type": "string"
+          },
           "checksumUrl": {
+            "type": "string"
+          },
+          "commit": {
             "type": "string"
           },
           "image": {
@@ -5074,8 +5080,7 @@
           }
         },
         "required": [
-          "version",
-          "image"
+          "version"
         ],
         "type": "object"
       },
@@ -10990,6 +10995,12 @@
       "WorkerHello": {
         "additionalProperties": false,
         "properties": {
+          "build": {
+            "type": "string"
+          },
+          "commit": {
+            "type": "string"
+          },
           "info": {
             "additionalProperties": {},
             "type": "object"

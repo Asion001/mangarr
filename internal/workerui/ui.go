@@ -17,6 +17,7 @@ import (
 
 	"github.com/Asion001/mangarr/internal/awake"
 	"github.com/Asion001/mangarr/internal/upscaler"
+	"github.com/Asion001/mangarr/internal/version"
 	"github.com/Asion001/mangarr/internal/worker"
 	"github.com/Asion001/mangarr/internal/workerupdate"
 )
@@ -48,6 +49,9 @@ type UI struct {
 	// this worker doesn't update itself). Skip is a version not to take.
 	Update func(context.Context, workerupdate.Offer) error
 	Skip   string
+	// retry and retryAt hold off a build whose update just failed.
+	retry   string
+	retryAt time.Time
 	// Connected is called whenever the worker has said hello.
 	Connected func()
 	updated   chan struct{}
@@ -78,7 +82,9 @@ func (u *UI) Start() error {
 		return err
 	}
 	cfg.Log, cfg.Version, cfg.Status = u.log, u.version, u.status
+	cfg.Build, cfg.Commit = version.Build, version.Commit
 	cfg.SelfUpdate, cfg.Skip, cfg.Connected = u.Update != nil, u.Skip, u.Connected
+	cfg.Retry, cfg.RetryAt = u.retry, u.retryAt
 	if engine, err := upscaler.LoadEngineConfig(u.store.Getenv); err == nil {
 		cfg.Upscaler = upscaler.NewEngine(engine, u.log)
 	} else {
@@ -102,7 +108,7 @@ func (u *UI) Start() error {
 			if err == nil {
 				return // restarting: the worker stays "updating" until then
 			}
-			u.log.Error("the update failed; carrying on with this version", "version", update.Offer.Version, "err", err)
+			u.log.Error("the update failed; carrying on with this build", "build", update.Offer.ID(), "err", err)
 		case err != nil:
 			u.log.Error("the worker stopped", "err", err)
 		}
@@ -119,17 +125,21 @@ func (u *UI) Start() error {
 	return nil
 }
 
-// update applies an update; a failed one is not tried again while this
-// program runs.
+// RetryUpdate is how long a failed update waits before it is tried again:
+// the build's zip may not have been published yet.
+const RetryUpdate = 15 * time.Minute
+
+// update applies an update; a failed one waits RetryUpdate before the
+// next try.
 func (u *UI) update(ctx context.Context, o workerupdate.Offer) error {
-	u.log.Info("updating", "from", u.version, "to", o.Version, "zip", o.URL)
+	u.log.Info("updating", "to", o.ID(), "zip", o.URL)
 	if err := u.Update(ctx, o); err != nil {
 		u.mu.Lock()
-		u.Skip = o.Version
+		u.retry, u.retryAt = o.ID(), time.Now().Add(RetryUpdate)
 		u.mu.Unlock()
 		return err
 	}
-	u.log.Info("updated; restarting", "version", o.Version)
+	u.log.Info("updated; restarting", "build", o.ID())
 	u.once.Do(func() { close(u.updated) })
 	return nil
 }

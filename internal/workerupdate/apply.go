@@ -49,7 +49,7 @@ const maxZip = 1 << 30
 // them in place of exe, which runs version current, and the encoders next
 // to it. What they replace is kept (exe.old, encoders.old) until Confirm.
 // Nothing is changed when any step fails.
-func Apply(ctx context.Context, client *http.Client, o Offer, exe, current string) error {
+func Apply(ctx context.Context, client *http.Client, o Offer, exe string, current Build) error {
 	if o.URL == "" || o.Checksum == "" {
 		return errors.New("no worker zip is published for this platform")
 	}
@@ -100,11 +100,11 @@ func Apply(ctx context.Context, client *http.Client, o Offer, exe, current strin
 	if !found {
 		staged = "" // a zip without them leaves the folder as it is
 	}
-	if err := smokeTest(ctx, next, o.Version); err != nil {
+	if err := smokeTest(ctx, next, o.Build); err != nil {
 		cleanup()
 		return err
 	}
-	return swap(exe, next, staged, Marker{From: current, To: o.Version})
+	return swap(exe, next, staged, Marker{From: current.String(), To: o.ID()})
 }
 
 func fetchChecksum(ctx context.Context, client *http.Client, url string) (string, error) {
@@ -219,18 +219,23 @@ func writeFile(zf *zip.File, dst string) error {
 	return out.Close()
 }
 
-// smokeTest runs the new program's `version` and checks it says what it
-// was offered as: a program for another platform, or a broken one, never
-// replaces the one that works.
-func smokeTest(ctx context.Context, path, version string) error {
+// smokeTest runs the new program's `version` ("<version> build <build>
+// <commit>") and checks it is the build offered: a program for another
+// platform, or a broken one, never replaces the one that works.
+func smokeTest(ctx context.Context, path string, want Build) error {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	out, err := exec.CommandContext(ctx, path, "version").Output()
 	if err != nil {
 		return fmt.Errorf("the new program doesn't run here: %w", err)
 	}
-	if got := strings.Fields(string(out)); len(got) == 0 || got[0] != version {
-		return fmt.Errorf("the new program says it is %q, not %s", strings.TrimSpace(string(out)), version)
+	got := strings.Fields(string(out))
+	ok := len(got) > 0 && got[0] == want.Version
+	if want.Build != "" {
+		ok = ok && len(got) > 2 && got[2] == want.Build
+	}
+	if !ok {
+		return fmt.Errorf("the new program says it is %q, not %s", strings.TrimSpace(string(out)), want)
 	}
 	return nil
 }
@@ -379,7 +384,7 @@ func Confirm(exe string) {
 	os.RemoveAll(filepath.Join(filepath.Dir(exe), encoders+oldSuffix))
 }
 
-// Skipped is the version that was rolled back on this machine, which is not
+// Skipped is the build (Offer.ID) that was rolled back on this machine, which is not
 // taken again ("" when there is none).
 func Skipped(exe string) string {
 	data, err := os.ReadFile(exe + skipSuffix)

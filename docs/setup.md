@@ -611,30 +611,39 @@ upscalers won't start.
 
 ### Keeping workers up to date
 
-A worker says which version it runs when it connects, and System → Workers
-marks one on an older release with *Update to …*. While System → Workers →
-*Update workers with this server* is on (the default), the server also tells
-the worker on every request for work. Only tagged releases (`v1.2.3`) take
-part: a server or worker built from a branch or a local checkout is left
-alone, and nothing ever moves to an older version. A worker on another
-version keeps getting work until it updates.
+A worker says which build it runs when it connects (its version, CI run
+number and commit), and System → Workers marks one on an earlier build with
+*Update to …*. While System → Workers → *Update workers with this server* is
+on (the default), the server also tells the worker on every request for
+work. Builds compare by CI run number, so a worker follows the server to
+whatever it runs, a release or a build of `main`, but never to an earlier
+build; a server or worker built locally (no run number) is left alone. A
+worker on another build keeps getting work until it updates.
 
 **Desktop workers** update themselves. The worker stops taking new tasks,
-finishes the ones it holds, downloads the release's zip for its platform,
-checks it against the `.sha256` published next to it, runs the new program
-once to check it starts and reports the expected version, and only then puts
-it and the zip's `encoders` folder in place of the old ones (kept next to
-them as `mangarr-worker.old` and `encoders.old`) and restarts. The
-`upscalers` folder is left as it is. The status page shows *Updating* meanwhile and reconnects on its
-own. If the new version starts three times without reaching the server, the
-old program and encoders are put back and that version is not tried again on that machine
-(`mangarr-worker.skip` next to the program; delete it to try again). A failed
-download or check leaves everything as it was, and the worker carries on.
-The program's folder has to be writable by the user running it. Untick
-*Update automatically when the server is updated* in its settings (or set
-`MANGARR_WORKER_AUTO_UPDATE=false`) to update it by hand instead. The
-update downloads straight from the project's GitHub releases, so the machine
-needs to reach github.com.
+finishes the ones it holds, downloads the zip of the server's build for its
+platform, checks it against the `.sha256` published next to it, runs the new
+program once to check it starts and reports the expected build, and only
+then puts it and the zip's `encoders` folder in place of the old ones (kept
+next to them as `mangarr-worker.old` and `encoders.old`) and restarts. The
+`upscalers` folder is left as it is. The status page shows *Updating*
+meanwhile and reconnects on its own. If the new build starts three times
+without reaching the server, the old program and encoders are put back and
+that build is not tried again on that machine (`mangarr-worker.skip` next to
+the program; delete it to try again). A failed download or check leaves
+everything as it was; the worker carries on and tries again a quarter of an
+hour later. The program's folder has to be writable by the user running it.
+Untick *Update automatically when the server is updated* in its settings (or
+set `MANGARR_WORKER_AUTO_UPDATE=false`) to update it by hand instead.
+
+Where the zips come from is stamped into the server when it is built:
+`UPDATE_URL`, a template with `{version}`, `{build}`, `{commit}` and `{zip}`
+(the zip's file name), and `IMAGE`, the image name without a tag (`make`,
+`docker build --build-arg`, `scripts/worker-zip.sh`). This repository's CI
+publishes every push's zips and checksums on a prerelease of its own,
+`build-<run number>`, keeps the newest 30, and stamps the matching URL in,
+so the machine needs to reach github.com. A fork's CI stamps its own; a build
+without `UPDATE_URL` still marks outdated workers but can't update them.
 
 **Workers in a container** never replace themselves (they have no access
 to Docker, and shouldn't): the worker only logs that the server is newer,

@@ -9,6 +9,12 @@ on:
 permissions:
   contents: read
 
+# Stamped into every build (internal/version): where its worker zips are
+# published, so the server can point workers at its own build. Each push
+# publishes them on a prerelease of its own (worker-zips below).
+env:
+  UPDATE_URL: ${{ github.server_url }}/${{ github.repository }}/releases/download/build-{build}/{zip}
+
 # A push to main never cancels the run in progress: with pushes landing
 # faster than a run takes, every run was cancelled and no image got
 # published. The newest push waits instead (older waiting ones drop out).
@@ -136,7 +142,9 @@ jobs:
           VERSION: ${{ github.ref_name }}
           BUILD: ${{ github.run_number }}
           COMMIT: ${{ github.sha }}
-        run: ./scripts/worker-zip.sh "${TARGET%-*}" "${TARGET#*-}" dist
+        run: |
+          export IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}"
+          ./scripts/worker-zip.sh "${TARGET%-*}" "${TARGET#*-}" dist
       - uses: actions/upload-artifact@v7
         with:
           name: mangarr-worker-${{ matrix.target }}
@@ -151,6 +159,34 @@ jobs:
         run: |
           gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --verify-tag --generate-notes || true
           gh release upload "$TAG" dist/*.zip dist/*.zip.sha256 --clobber
+      # every push's zips, public and checksummed, for workers updating to
+      # the server's build (internal/workerupdate); old ones are pruned
+      - name: publish for worker updates
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: build-${{ github.run_number }}
+          REF: ${{ github.ref_name }}
+        run: |
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --prerelease --latest=false --target "$GITHUB_SHA" \
+            --title "Build ${{ github.run_number }} ($REF)" \
+            --notes "Worker zips of CI run ${{ github.run_number }} ($REF, $GITHUB_SHA), fetched by workers that update themselves to this build. Removed once 30 newer builds exist." || true
+          gh release upload "$TAG" dist/*.zip dist/*.zip.sha256 --clobber
+
+  # keep the newest 30 per-build prereleases
+  prune-builds:
+    needs: [worker-zips]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release list --limit 1000 --json tagName,createdAt \
+            --jq '[.[] | select(.tagName | startswith("build-"))] | sort_by(.createdAt) | reverse | .[30:] | .[].tagName' |
+          while read -r tag; do gh release delete "$tag" --yes --cleanup-tag; done
 
   images:
     needs: [test, web, generated]
@@ -163,6 +199,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: docker/setup-qemu-action@v4
       - uses: docker/setup-buildx-action@v4
+      - run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
       - uses: docker/login-action@v4
         with:
           registry: ghcr.io
@@ -189,6 +226,8 @@ jobs:
             VERSION=${{ github.ref_name }}
             BUILD=${{ github.run_number }}
             COMMIT=${{ github.sha }}
+            UPDATE_URL=${{ env.UPDATE_URL }}
+            IMAGE=${{ env.IMAGE }}
       - id: meta-slim
         uses: docker/metadata-action@v6
         with:
@@ -211,3 +250,5 @@ jobs:
             VERSION=${{ github.ref_name }}
             BUILD=${{ github.run_number }}
             COMMIT=${{ github.sha }}
+            UPDATE_URL=${{ env.UPDATE_URL }}
+            IMAGE=${{ env.IMAGE }}

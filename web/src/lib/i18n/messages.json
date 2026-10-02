@@ -8167,9 +8167,9 @@
     "ru": "Обновлять воркеры вместе с сервером",
     "uk": "Оновлювати воркери разом із сервером"
   },
-  "Workers on an older release are told about this version. Desktop workers finish what they hold, update themselves and restart; containers only report it.": {
-    "ru": "Воркерам на старой версии сообщается об этой версии. Десктопные воркеры доделывают взятые задачи, обновляются и перезапускаются; контейнеры только сообщают об этом.",
-    "uk": "Воркерам на старій версії повідомляється про цю версію. Десктопні воркери доробляють узяті завдання, оновлюються й перезапускаються; контейнери лише повідомляють про це."
+  "Workers on an earlier build are told about this one. Desktop workers finish what they hold, update themselves and restart; containers only report it.": {
+    "ru": "Воркерам на более ранней сборке сообщается об этой. Десктопные воркеры доделывают взятые задачи, обновляются и перезапускаются; контейнеры только сообщают об этом.",
+    "uk": "Воркерам на ранішій збірці повідомляється про цю. Десктопні воркери доробляють узяті завдання, оновлюються й перезапускаються; контейнери лише повідомляють про це."
   },
   "Work goes to the lowest priority number that is online and has room. The first row is this server and says what it does itself.": {
     "ru": "Работа уходит к наименьшему номеру приоритета, который в сети и свободен. Первая строка — этот сервер и то, что он делает сам.",

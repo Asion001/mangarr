@@ -74,13 +74,15 @@ func TestWorkerStopsToUpdate(t *testing.T) {
 	}
 }
 
-// A worker that can't replace itself (a container), has updates off, or
-// was rolled back from that version keeps working and only says so.
+// A worker that can't replace itself (a container), has updates off, was
+// rolled back from that build, or failed to fetch it a moment ago keeps
+// working and only says so.
 func TestWorkerKeepsWorkingWithoutUpdate(t *testing.T) {
 	for name, cfg := range map[string]Config{
 		"container": {AutoUpdate: true},
 		"off":       {SelfUpdate: true},
 		"skipped":   {AutoUpdate: true, SelfUpdate: true, Skip: "v1.3.0"},
+		"held":      {AutoUpdate: true, SelfUpdate: true, Retry: "v1.3.0", RetryAt: time.Now().Add(time.Hour)},
 	} {
 		t.Run(name, func(t *testing.T) {
 			var byes, completed atomic.Int32

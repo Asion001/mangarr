@@ -26,13 +26,17 @@ ARG TARGETARCH
 ARG VERSION=dev
 ARG BUILD=local
 ARG COMMIT=unknown
+# where this build's worker zips and image are published, for the updates
+# offered to workers (internal/version)
+ARG UPDATE_URL=
+ARG IMAGE=
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 COPY --from=web /web/dist ./web/dist
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -tags nodynamic \
-    -ldflags "-s -w -X github.com/Asion001/mangarr/internal/version.Version=${VERSION} -X github.com/Asion001/mangarr/internal/version.Build=${BUILD} -X github.com/Asion001/mangarr/internal/version.Commit=${COMMIT}" \
+    -ldflags "-s -w -X github.com/Asion001/mangarr/internal/version.Version=${VERSION} -X github.com/Asion001/mangarr/internal/version.Build=${BUILD} -X github.com/Asion001/mangarr/internal/version.Commit=${COMMIT} -X github.com/Asion001/mangarr/internal/version.UpdateURL=${UPDATE_URL} -X github.com/Asion001/mangarr/internal/version.Image=${IMAGE}" \
     -o /out/mangarr ./cmd/mangarr && mkdir -p /out/config
 # nodynamic keeps the built-in AVIF encoder from loading a system libavif
 # (which would make the binary dynamically linked and break distroless)

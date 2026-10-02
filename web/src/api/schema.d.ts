@@ -5018,8 +5018,10 @@ export interface components {
             title?: string;
         };
         Offer: {
+            build?: string;
             checksumUrl?: string;
-            image: string;
+            commit?: string;
+            image?: string;
             url?: string;
             version: string;
         };
@@ -6778,6 +6780,8 @@ export interface components {
             taskId: number;
         };
         WorkerHello: {
+            build?: string;
+            commit?: string;
             info?: {
                 [key: string]: unknown;
             };

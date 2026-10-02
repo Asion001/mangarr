@@ -116,9 +116,9 @@ type Downloads struct {
 	// itself, not counting what it hands to workers; 0 sets no cap of its own
 	// and a negative value (LocalOff) switches this server's own work off.
 	MaxLocalTasks int `json:"maxLocalTasks" desc:"Tasks this server runs itself at once (0 = only the other limits, -1 = none: downloads and processing wait for the workers)."`
-	// WorkerUpdates offers this server's version to workers running an
-	// older release, which desktop workers then move to on their own.
-	WorkerUpdates bool `json:"workerUpdates" desc:"Offer this server's version to workers on an older release; desktop workers update themselves."`
+	// WorkerUpdates offers this server's build to workers running an
+	// earlier one, which desktop workers then move to on their own.
+	WorkerUpdates bool `json:"workerUpdates" desc:"Offer this server's build to workers on an earlier one; desktop workers update themselves."`
 	// UpscaleRoutes send pages of a given scale or width to a chosen
 	// upscaler and model, ahead of the priority order (System → Workers).
 	UpscaleRoutes []model.UpscaleRoute `json:"upscaleRoutes" env:"-"`

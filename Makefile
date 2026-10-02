@@ -1,7 +1,11 @@
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 BUILD   ?= local
 COMMIT  ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
-LDFLAGS := -s -w -X github.com/Asion001/mangarr/internal/version.Version=$(VERSION) -X github.com/Asion001/mangarr/internal/version.Build=$(BUILD) -X github.com/Asion001/mangarr/internal/version.Commit=$(COMMIT)
+# Where this build's worker zips ({version} {build} {commit} {zip}) and
+# image are published; workers are offered updates from there. Unset here.
+UPDATE_URL ?=
+IMAGE      ?=
+LDFLAGS := -s -w -X github.com/Asion001/mangarr/internal/version.Version=$(VERSION) -X github.com/Asion001/mangarr/internal/version.Build=$(BUILD) -X github.com/Asion001/mangarr/internal/version.Commit=$(COMMIT) -X 'github.com/Asion001/mangarr/internal/version.UpdateURL=$(UPDATE_URL)' -X github.com/Asion001/mangarr/internal/version.Image=$(IMAGE)
 NODE_IMAGE ?= node:24-alpine
 
 .PHONY: build build-worker run test test-pg test-integration vet web web-types lint docker docker-slim clean
@@ -40,10 +44,10 @@ web-types: build
 	else docker run --rm -v "$(CURDIR)/web:/app" -w /app $(NODE_IMAGE) npx openapi-typescript openapi.json -o src/api/schema.d.ts; fi
 
 docker:
-	docker build -f docker/Dockerfile --target full -t ghcr.io/asion001/mangarr:dev --build-arg VERSION=$(VERSION) --build-arg BUILD=$(BUILD) --build-arg COMMIT=$(COMMIT) .
+	docker build -f docker/Dockerfile --target full -t ghcr.io/asion001/mangarr:dev --build-arg VERSION=$(VERSION) --build-arg BUILD=$(BUILD) --build-arg COMMIT=$(COMMIT) --build-arg UPDATE_URL='$(UPDATE_URL)' --build-arg IMAGE=$(IMAGE) .
 
 docker-slim:
-	docker build -f docker/Dockerfile --target slim -t ghcr.io/asion001/mangarr:dev-slim --build-arg VERSION=$(VERSION) --build-arg BUILD=$(BUILD) --build-arg COMMIT=$(COMMIT) .
+	docker build -f docker/Dockerfile --target slim -t ghcr.io/asion001/mangarr:dev-slim --build-arg VERSION=$(VERSION) --build-arg BUILD=$(BUILD) --build-arg COMMIT=$(COMMIT) --build-arg UPDATE_URL='$(UPDATE_URL)' --build-arg IMAGE=$(IMAGE) .
 
 
 clean:

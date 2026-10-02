@@ -9,7 +9,7 @@
 # The checksum is what a worker checks the zip against before it updates
 # itself (internal/workerupdate).
 #
-# VERSION, BUILD and COMMIT are stamped in when set. The upscaler versions
+# VERSION, BUILD, COMMIT, UPDATE_URL and IMAGE are stamped in when set. The upscaler versions
 # match docker/Dockerfile; the encoders are the projects' own release builds.
 set -eu
 goos=$1 goarch=$2 out=${3:-dist}
@@ -38,7 +38,7 @@ out=$(cd "$out" && pwd)
 
 pkg=github.com/Asion001/mangarr/internal/version
 CGO_ENABLED=0 GOOS=$goos GOARCH=$goarch go build -trimpath -tags nodynamic \
-  -ldflags "-s -w -X $pkg.Version=${VERSION:-dev} -X $pkg.Build=${BUILD:-local} -X $pkg.Commit=${COMMIT:-unknown}" \
+  -ldflags "-s -w -X $pkg.Version=${VERSION:-dev} -X $pkg.Build=${BUILD:-local} -X $pkg.Commit=${COMMIT:-unknown} -X $pkg.UpdateURL=${UPDATE_URL:-} -X $pkg.Image=${IMAGE:-}" \
   -o "$dir/mangarr-worker$exe" ./cmd/mangarr-worker
 
 fetch() { # url, folder: unzip a release into upscalers/<folder>, without its top folder

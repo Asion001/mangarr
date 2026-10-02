@@ -172,7 +172,7 @@ function render(s) {
   if (s.awakeError) problems.push("Can't keep this computer awake: " + s.awakeError);
   if (w.error && (st === "waiting" || st === "failed")) problems.push(w.error);
   if (w.update && st === "updating") problems.push(`Updating to ${w.update} once the chapters in hand are done.`);
-  else if (w.update) problems.push(`The server runs ${w.update}; this worker is ${s.version} and doesn't update itself (the log says why).`);
+  else if (w.update) problems.push(`The server runs ${w.update}; this worker runs an earlier build and doesn't update itself (the log says why).`);
   const roles = (s.settings.find((f) => f.name === "MANGARR_WORKER_ROLES") || {}).value || "";
   if (st === "ready" && roles.includes("upscale") && !(w.models || []).length)
     problems.push("No upscalers were found in the upscalers folder, so this computer doesn't upscale. Check Settings.");

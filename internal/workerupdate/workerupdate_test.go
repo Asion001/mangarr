@@ -43,22 +43,52 @@ func TestNewer(t *testing.T) {
 	}
 }
 
+func TestLater(t *testing.T) {
+	b := func(v, build, commit string) Build { return Build{Version: v, Build: build, Commit: commit} }
+	for _, c := range []struct {
+		name           string
+		server, worker Build
+		want           bool
+	}{
+		{"later run on main", b("main", "120", "bbb"), b("main", "118", "aaa"), true},
+		{"a release after a main build", b("v1.3.0", "121", "ccc"), b("main", "118", "aaa"), true},
+		{"a main build after a release", b("main", "125", "ddd"), b("v1.3.0", "121", "ccc"), true},
+		{"same run", b("main", "120", "bbb"), b("main", "120", "bbb"), false},
+		{"never backwards", b("main", "118", "aaa"), b("main", "120", "bbb"), false},
+		{"same commit, re-run", b("main", "121", "bbb"), b("main", "120", "bbb"), false},
+		{"a local server", b("dev", "local", "x"), b("main", "120", "bbb"), false},
+		{"a local worker", b("main", "120", "bbb"), b("dev", "local", "x"), false},
+		{"an older worker, by release", b("v1.3.0", "121", "ccc"), b("v1.2.0", "", ""), true},
+		{"an older worker on main", b("main", "121", "ccc"), b("main", "", ""), false},
+	} {
+		if got := Later(c.server, c.worker); got != c.want {
+			t.Errorf("%s: Later = %v, want %v", c.name, got, c.want)
+		}
+	}
+}
+
 func TestFor(t *testing.T) {
-	o := For("v1.3.0", "v1.2.0", "windows/amd64")
+	server := Build{Version: "main", Build: "120", Commit: "bbb"}
+	worker := Build{Version: "main", Build: "118", Commit: "aaa"}
+	const tmpl = "https://example.test/releases/download/build-{build}/{zip}"
+	o := For(server, worker, "windows/amd64", tmpl, "ghcr.io/someone/mangarr")
 	if o == nil {
 		t.Fatal("no offer")
 	}
-	if o.URL != Releases+"/v1.3.0/mangarr-worker-windows-amd64.zip" || o.Checksum != o.URL+".sha256" {
+	if o.URL != "https://example.test/releases/download/build-120/mangarr-worker-windows-amd64.zip" || o.Checksum != o.URL+".sha256" {
 		t.Errorf("zip %q, checksum %q", o.URL, o.Checksum)
 	}
-	if o.Image != "ghcr.io/asion001/mangarr:1.3.0" {
-		t.Errorf("image %q", o.Image)
+	if o.Image != "ghcr.io/someone/mangarr:main" || o.ID() != "main build 120" {
+		t.Errorf("image %q, id %q", o.Image, o.ID())
 	}
-	if o := For("v1.3.0", "v1.2.0", "linux/arm64"); o == nil || o.URL != "" {
+	if o := For(Build{Version: "v1.3.0", Build: "121"}, worker, "linux/amd64", "", ""); o == nil || o.URL != "" || o.Image != "" {
+		t.Errorf("a build that says nothing of where it is published: %+v", o)
+	}
+	if o := For(server, worker, "linux/arm64", tmpl, ""); o == nil || o.URL != "" {
 		t.Errorf("a platform without a zip: %+v", o)
 	}
-	if o := For("v1.3.0", "v1.3.0", "linux/amd64"); o != nil {
-		t.Errorf("same version: %+v", o)
+	if o := For(server, server, "linux/amd64", tmpl, ""); o != nil {
+		t.Errorf("same build: %+v", o)
 	}
 }
 
@@ -99,7 +129,12 @@ func publish(t *testing.T, program []byte, sum string) *httptest.Server {
 	return srv
 }
 
-func script(version string) []byte { return []byte("#!/bin/sh\necho " + version + " build 1 abc\n") }
+func script(version string) []byte { return []byte("#!/bin/sh\necho " + version + " build 7 abc\n") }
+
+var (
+	running = Build{Version: "v1.2.0", Build: "7", Commit: "abc"}
+	offered = Build{Version: "v1.3.0", Build: "7", Commit: "abc"}
+)
 
 func installed(t *testing.T) string {
 	t.Helper()
@@ -134,13 +169,13 @@ func encoderFiles(t *testing.T, exe string, folder string) []string {
 }
 
 func offerFrom(srv *httptest.Server) Offer {
-	return Offer{Version: "v1.3.0", URL: srv.URL + "/w.zip", Checksum: srv.URL + "/w.zip.sha256"}
+	return Offer{Build: offered, URL: srv.URL + "/w.zip", Checksum: srv.URL + "/w.zip.sha256"}
 }
 
 func TestApplyThenConfirm(t *testing.T) {
 	exe := installed(t)
 	srv := publish(t, script("v1.3.0"), "")
-	if err := Apply(context.Background(), srv.Client(), offerFrom(srv), exe, "v1.2.0"); err != nil {
+	if err := Apply(context.Background(), srv.Client(), offerFrom(srv), exe, running); err != nil {
 		t.Fatal(err)
 	}
 	if got, _ := os.ReadFile(exe); !bytes.Equal(got, script("v1.3.0")) {
@@ -155,7 +190,7 @@ func TestApplyThenConfirm(t *testing.T) {
 	if got := strings.Join(encoderFiles(t, exe, "encoders.old"), ","); got != "avifenc=old avifenc" {
 		t.Errorf("encoders kept: %s", got)
 	}
-	if back, m, err := Settle(exe); err != nil || back || m.Starts != 1 || m.To != "v1.3.0" || m.From != "v1.2.0" {
+	if back, m, err := Settle(exe); err != nil || back || m.Starts != 1 || m.To != "v1.3.0 build 7" || m.From != "v1.2.0 build 7" {
 		t.Errorf("Settle = %v %+v %v", back, m, err)
 	}
 	Confirm(exe)
@@ -174,12 +209,15 @@ func TestApplyRefuses(t *testing.T) {
 	for name, srv := range map[string]func(*testing.T) *httptest.Server{
 		"bad checksum":  func(t *testing.T) *httptest.Server { return publish(t, script("v1.3.0"), strings.Repeat("ab", 32)) },
 		"wrong version": func(t *testing.T) *httptest.Server { return publish(t, script("v1.2.9"), "") },
-		"not runnable":  func(t *testing.T) *httptest.Server { return publish(t, []byte("\x7fELFgarbage"), "") },
+		"wrong build": func(t *testing.T) *httptest.Server {
+			return publish(t, []byte("#!/bin/sh\necho v1.3.0 build 6 abc\n"), "")
+		},
+		"not runnable": func(t *testing.T) *httptest.Server { return publish(t, []byte("\x7fELFgarbage"), "") },
 	} {
 		t.Run(name, func(t *testing.T) {
 			exe := installed(t)
 			s := srv(t)
-			if err := Apply(context.Background(), s.Client(), offerFrom(s), exe, "v1.2.0"); err == nil {
+			if err := Apply(context.Background(), s.Client(), offerFrom(s), exe, running); err == nil {
 				t.Fatal("applied")
 			}
 			if got, _ := os.ReadFile(exe); !bytes.Equal(got, script("v1.2.0")) {
@@ -205,7 +243,7 @@ func TestApplyRefuses(t *testing.T) {
 func TestSettleRollsBack(t *testing.T) {
 	exe := installed(t)
 	srv := publish(t, script("v1.3.0"), "")
-	if err := Apply(context.Background(), srv.Client(), offerFrom(srv), exe, "v1.2.0"); err != nil {
+	if err := Apply(context.Background(), srv.Client(), offerFrom(srv), exe, running); err != nil {
 		t.Fatal(err)
 	}
 	for i := 1; i <= maxStarts; i++ {
@@ -223,7 +261,7 @@ func TestSettleRollsBack(t *testing.T) {
 	if got := strings.Join(encoderFiles(t, exe, "encoders"), ","); got != "avifenc=old avifenc" {
 		t.Errorf("encoders after the rollback: %s", got)
 	}
-	if Skipped(exe) != "v1.3.0" {
+	if Skipped(exe) != "v1.3.0 build 7" {
 		t.Errorf("skipped %q", Skipped(exe))
 	}
 }

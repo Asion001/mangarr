@@ -11,13 +11,14 @@ import (
 	"github.com/Asion001/mangarr/internal/version"
 )
 
-// A worker on an older release is offered the server's version on hello
+// A worker on an earlier CI build is offered the server's build on hello
 // and lease, and marked in the list; one on the same version, or a server
 // with updates switched off, offers nothing.
 func TestWorkerUpdateOffer(t *testing.T) {
-	old := version.Version
-	version.Version = "v1.3.0"
-	t.Cleanup(func() { version.Version = old })
+	oldV, oldB, oldC, oldU := version.Version, version.Build, version.Commit, version.UpdateURL
+	version.Version, version.Build, version.Commit = "main", "120", "bbb"
+	version.UpdateURL = "https://example.test/build-{build}/{zip}"
+	t.Cleanup(func() { version.Version, version.Build, version.Commit, version.UpdateURL = oldV, oldB, oldC, oldU })
 
 	srv, a := newServer(t, false)
 	ctx := context.Background()
@@ -53,19 +54,19 @@ func TestWorkerUpdateOffer(t *testing.T) {
 		} `json:"update"`
 	}
 	var hello, lease offered
-	do(http.MethodPost, "/api/v1/worker/hello", `{"version":"v1.2.0","platform":"windows/amd64","roles":["download"]}`, made.Key, &hello)
-	if hello.Update == nil || hello.Update.Version != "v1.3.0" || !strings.HasSuffix(hello.Update.URL, "/v1.3.0/mangarr-worker-windows-amd64.zip") {
+	do(http.MethodPost, "/api/v1/worker/hello", `{"version":"main","build":"118","commit":"aaa","platform":"windows/amd64","roles":["download"]}`, made.Key, &hello)
+	if hello.Update == nil || hello.Update.Version != "main" || hello.Update.URL != "https://example.test/build-120/mangarr-worker-windows-amd64.zip" {
 		t.Fatalf("hello offered %+v", hello.Update)
 	}
 	do(http.MethodPost, "/api/v1/worker/lease", `{"kinds":["download"]}`, made.Key, &lease)
-	if lease.Update == nil || lease.Update.Version != "v1.3.0" {
+	if lease.Update == nil || lease.Update.Version != "main" {
 		t.Fatalf("lease offered %+v", lease.Update)
 	}
 	var list []struct {
 		UpdateTo string `json:"updateTo"`
 	}
 	do(http.MethodGet, "/api/v1/workers", "", g.APIKey, &list)
-	if len(list) != 1 || list[0].UpdateTo != "v1.3.0" {
+	if len(list) != 1 || list[0].UpdateTo != "main build 120" {
 		t.Fatalf("list %+v", list)
 	}
 
@@ -81,7 +82,7 @@ func TestWorkerUpdateOffer(t *testing.T) {
 	}
 
 	hello.Update = nil
-	do(http.MethodPost, "/api/v1/worker/hello", `{"version":"v1.3.0","platform":"windows/amd64","roles":["download"]}`, made.Key, &hello)
+	do(http.MethodPost, "/api/v1/worker/hello", `{"version":"main","build":"120","commit":"bbb","platform":"windows/amd64","roles":["download"]}`, made.Key, &hello)
 	if hello.Update != nil {
 		t.Fatalf("offered the same version: %+v", hello.Update)
 	}

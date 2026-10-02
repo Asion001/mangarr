@@ -34,8 +34,11 @@ type Config struct {
 	Key string
 	// Roles it is willing to do; the server narrows this to what it may.
 	Roles []string
-	// Version is this build, shown in System → Workers.
+	// Version, Build and Commit name this build: they are shown in System →
+	// Workers, and the server compares them with its own to offer updates.
 	Version string
+	Build   string
+	Commit  string
 	// Concurrent is how many tasks it takes at once (0: what the server says).
 	Concurrent int
 	// Prefetch is how many pages it fetches ahead of its uploads (0: what
@@ -64,8 +67,13 @@ type Config struct {
 	// then stops for an update with an *UpdateError. Without it (a
 	// container) the worker only says an update is waiting.
 	SelfUpdate bool
-	// Skip is a version not to move to: one that was rolled back here.
+	// Skip is a build (Offer.ID) not to move to: one that was rolled back
+	// here.
 	Skip string
+	// Retry holds off a build whose update just failed (its zip may not be
+	// published yet) until RetryAt.
+	Retry   string
+	RetryAt time.Time
 	// Connected is called after every successful hello.
 	Connected func()
 }
@@ -74,7 +82,7 @@ type Config struct {
 // version: it took no new work, finished what it held and said goodbye.
 type UpdateError struct{ Offer workerupdate.Offer }
 
-func (e *UpdateError) Error() string { return "stopped to update to " + e.Offer.Version }
+func (e *UpdateError) Error() string { return "stopped to update to " + e.Offer.ID() }
 
 // Worker is the running worker.
 type Worker struct {
@@ -192,8 +200,8 @@ func (w *Worker) Run(ctx context.Context) error {
 			// take nothing new; what it holds is finished first, so an
 			// update never costs a chapter
 			if w.status.State() != StateUpdating {
-				w.log.Info("the server runs a newer version: finishing the tasks in hand, then updating",
-					"version", o.Version, "tasks", active.Load())
+				w.log.Info("the server runs a later build: finishing the tasks in hand, then updating",
+					"build", o.ID(), "tasks", active.Load())
 				w.status.Set(StateUpdating, nil)
 			}
 			wg.Wait()
@@ -305,7 +313,7 @@ func (w *Worker) hello(ctx context.Context) error {
 		roles = without(roles, "upscale")
 	}
 	body := map[string]any{
-		"version": w.cfg.Version, "platform": runtime.GOOS + "/" + runtime.GOARCH,
+		"version": w.cfg.Version, "build": w.cfg.Build, "commit": w.cfg.Commit, "platform": runtime.GOOS + "/" + runtime.GOARCH,
 		"roles": roles,
 		"info":  info,
 	}
@@ -394,30 +402,34 @@ func (w *Worker) offered(o *workerupdate.Offer) {
 		w.status.SetUpdate("")
 		return
 	}
-	w.status.SetUpdate(o.Version)
+	id := o.ID()
+	w.status.SetUpdate(id)
 	if w.update.Load() != nil {
 		return
 	}
-	if w.cfg.SelfUpdate && w.cfg.AutoUpdate && o.URL != "" && o.Version != w.cfg.Skip {
+	held := id == w.cfg.Retry && time.Now().Before(w.cfg.RetryAt)
+	if w.cfg.SelfUpdate && w.cfg.AutoUpdate && o.URL != "" && id != w.cfg.Skip && !held {
 		w.update.Store(o)
 		return
 	}
 	w.mu.Lock()
-	first := w.told != o.Version
-	w.told = o.Version
+	first := w.told != id
+	w.told = id
 	w.mu.Unlock()
 	if !first {
 		return
 	}
 	switch {
 	case !w.cfg.SelfUpdate:
-		w.log.Warn("the server runs a newer version; update this worker's image", "version", o.Version, "image", o.Image)
-	case o.Version == w.cfg.Skip:
-		w.log.Warn("the server runs a newer version, which didn't start here before; update this worker by hand", "version", o.Version)
+		w.log.Warn("the server runs a later build; update this worker's image", "build", id, "image", o.Image)
+	case id == w.cfg.Skip:
+		w.log.Warn("the server runs a later build, which didn't start here before; update this worker by hand", "build", id)
+	case held:
+		w.log.Info("the update to the server's build failed; trying again later", "build", id, "at", w.cfg.RetryAt.Format(time.Kitchen))
 	case o.URL == "":
-		w.log.Warn("the server runs a newer version, with no worker zip for this platform; update this worker by hand", "version", o.Version)
+		w.log.Warn("the server runs a later build, with no worker zip for this platform; update this worker by hand", "build", id)
 	default:
-		w.log.Info("the server runs a newer version; automatic updates are off (MANGARR_WORKER_AUTO_UPDATE)", "version", o.Version)
+		w.log.Info("the server runs a later build; automatic updates are off (MANGARR_WORKER_AUTO_UPDATE)", "build", id)
 	}
 }
 
