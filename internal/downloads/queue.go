@@ -356,15 +356,78 @@ func (q *Queue) Remove(ctx context.Context, id int64, blocklist bool) error {
 	})
 }
 
+// ErrChapterActive is returned when a failed job can't be retried because
+// its chapter already has a job queued or running.
+var ErrChapterActive = errors.New("this chapter already has a download in the queue")
+
 // Retry requeues a failed job.
 func (q *Queue) Retry(ctx context.Context, id int64) error {
-	now := time.Now().UTC()
-	_, err := q.db.NewUpdate().Model((*model.DownloadJob)(nil)).
-		Set("status = ?", model.JobQueued).Set("error = ''").Set("attempt = 0").Set("not_before = ?", now).Set("updated_at = ?", now).
-		Where("id = ? AND status = ?", id, model.JobFailed).Exec(ctx)
-	q.signal()
-	q.bus.Changed("queue", "updated", id)
+	_, skipped, err := q.RetryFailed(ctx, []int64{id})
+	if err == nil && skipped > 0 {
+		err = ErrChapterActive
+	}
 	return err
+}
+
+// RetryFailed requeues the failed jobs among ids. A chapter holds one active
+// job at a time, so a failed job whose chapter is already queued or running,
+// or a second failed job for a chapter retried in the same call, stays failed
+// and is counted as skipped. When several share a chapter the newest wins.
+func (q *Queue) RetryFailed(ctx context.Context, ids []int64) (retried, skipped int, err error) {
+	if len(ids) == 0 {
+		return 0, 0, nil
+	}
+	var failed []model.DownloadJob
+	if err := q.db.NewSelect().Model(&failed).Column("id", "chapter_id").
+		Where("id IN (?) AND status = ?", bun.In(ids), model.JobFailed).OrderExpr("id DESC").Scan(ctx); err != nil {
+		return 0, 0, err
+	}
+	if len(failed) == 0 {
+		return 0, 0, nil
+	}
+	chapters := make([]int64, 0, len(failed))
+	for _, j := range failed {
+		chapters = append(chapters, j.ChapterID)
+	}
+	var activeChapters []int64
+	if err := q.db.NewSelect().Model((*model.DownloadJob)(nil)).Column("chapter_id").
+		Where("chapter_id IN (?) AND status IN (?)", bun.In(chapters), bun.In(activeStatuses)).Scan(ctx, &activeChapters); err != nil {
+		return 0, 0, err
+	}
+	active := map[int64]bool{}
+	for _, c := range activeChapters {
+		active[c] = true
+	}
+	defer func() {
+		if retried > 0 {
+			q.signal()
+			q.bus.Changed("queue", "sync", 0)
+		}
+	}()
+	now := time.Now().UTC()
+	for _, j := range failed {
+		if active[j.ChapterID] {
+			skipped++
+			continue
+		}
+		res, err := q.db.NewUpdate().Model((*model.DownloadJob)(nil)).
+			Set("status = ?", model.JobQueued).Set("error = ''").Set("attempt = 0").Set("not_before = ?", now).Set("updated_at = ?", now).
+			Where("id = ? AND status = ?", j.ID, model.JobFailed).Exec(ctx)
+		if err != nil {
+			if isUniqueViolation(err) {
+				// a job for this chapter was queued since the check above
+				active[j.ChapterID] = true
+				skipped++
+				continue
+			}
+			return retried, skipped, err
+		}
+		if n, _ := res.RowsAffected(); n == 1 {
+			active[j.ChapterID] = true
+			retried++
+		}
+	}
+	return retried, skipped, nil
 }
 
 // ClearFinished removes completed/failed jobs older than d.

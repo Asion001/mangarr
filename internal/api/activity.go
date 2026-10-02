@@ -55,6 +55,13 @@ type QueueBulkInput struct {
 	AnchorID int64                 `json:"anchorId,omitempty" doc:"Pending job to move before/after; must not be selected"`
 }
 
+// QueueBulkOutput says how many entries changed and, for retry, how many
+// failed entries stayed failed because their chapter is already in the queue.
+type QueueBulkOutput struct {
+	Affected int `json:"affected"`
+	Skipped  int `json:"skipped,omitempty" doc:"Failed entries not retried because their chapter already has a download in the queue"`
+}
+
 func (s *Server) queueState(ctx context.Context) QueueState {
 	qs, _ := s.app.Settings.QueueState(ctx)
 	sched, _ := s.app.Settings.Schedule(ctx)
@@ -100,11 +107,7 @@ func (s *Server) registerActivity() {
 		})
 	huma.Register(s.api, huma.Operation{OperationID: "queue-bulk", Method: http.MethodPost, Path: "/api/v1/queue/bulk", Tags: tags,
 		Summary: "Apply an action to selected entries (ids) or to every entry matching a filter"},
-		func(ctx context.Context, in *struct{ Body QueueBulkInput }) (*struct {
-			Body struct {
-				Affected int `json:"affected"`
-			}
-		}, error) {
+		func(ctx context.Context, in *struct{ Body QueueBulkInput }) (*struct{ Body QueueBulkOutput }, error) {
 			ids := in.Body.IDs
 			if in.Body.Filter != nil {
 				var err error
@@ -112,9 +115,11 @@ func (s *Server) registerActivity() {
 					return nil, toHTTPError(err)
 				}
 			}
-			var n int
+			var n, skipped int
 			var err error
 			switch in.Body.Action {
+			case "retry":
+				n, skipped, err = s.app.DLQueue.RetryFailed(ctx, ids)
 			case "top", "bottom", "before", "after":
 				n, err = s.app.DLQueue.Move(ctx, ids, in.Body.Action, in.Body.AnchorID)
 			case "sort":
@@ -125,13 +130,7 @@ func (s *Server) registerActivity() {
 			if err != nil {
 				return nil, huma.Error400BadRequest(err.Error())
 			}
-			out := &struct {
-				Body struct {
-					Affected int `json:"affected"`
-				}
-			}{}
-			out.Body.Affected = n
-			return out, nil
+			return &struct{ Body QueueBulkOutput }{QueueBulkOutput{Affected: n, Skipped: skipped}}, nil
 		})
 	huma.Register(s.api, huma.Operation{OperationID: "queue-pause", Method: http.MethodPost, Path: "/api/v1/queue/pause", Tags: tags,
 		Summary: "Pause the whole queue (optionally for some minutes)"},
@@ -174,7 +173,11 @@ func (s *Server) registerActivity() {
 		})
 	huma.Register(s.api, huma.Operation{OperationID: "queue-retry", Method: http.MethodPost, Path: "/api/v1/queue/{id}/retry", Tags: tags},
 		func(ctx context.Context, in *IDPath) (*struct{}, error) {
-			return nil, toHTTPError(s.app.DLQueue.Retry(ctx, in.ID))
+			err := s.app.DLQueue.Retry(ctx, in.ID)
+			if errors.Is(err, downloads.ErrChapterActive) {
+				return nil, huma.Error409Conflict(err.Error())
+			}
+			return nil, toHTTPError(err)
 		})
 	huma.Register(s.api, huma.Operation{OperationID: "queue-clear", Method: http.MethodPost, Path: "/api/v1/queue/clear-finished", Tags: tags},
 		func(ctx context.Context, _ *struct{}) (*struct{}, error) {

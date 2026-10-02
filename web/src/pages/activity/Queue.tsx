@@ -80,7 +80,10 @@ export function QueuePage({ mode }: { mode: "downloads" | "processing" }) {
     try {
       const body = allMatching && !ids ? { action, filter: { statuses: filter.status, kind: filter.kind, q: filter.q, includeDone: true } } : { action, ids: ids ?? [...selected], anchorId };
       const r = await unwrap(api.POST("/api/v1/queue/bulk", { body }));
-      const message = r.affected ? t("{count} queue entries updated", { count: r.affected }) : t("Queue changed. Refresh and try again.");
+      // failed entries whose chapter is already queued stay failed
+      const skipped = r.skipped ? t("Skipped, chapter already in the queue: {count}", { count: r.skipped }) : "";
+      const message = r.affected ? [t("{count} queue entries updated", { count: r.affected }), skipped].filter(Boolean).join(". ")
+        : skipped || t("Queue changed. Refresh and try again.");
       toast.success(message);
       setAnnouncement(message);
       if (!ids) resetSelection();

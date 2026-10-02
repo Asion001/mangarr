@@ -5755,19 +5755,6 @@
         ],
         "type": "object"
       },
-      "Queue-bulkResponse": {
-        "additionalProperties": false,
-        "properties": {
-          "affected": {
-            "format": "int64",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "affected"
-        ],
-        "type": "object"
-      },
       "Queue-pauseRequest": {
         "additionalProperties": false,
         "properties": {
@@ -5816,6 +5803,24 @@
         },
         "required": [
           "action"
+        ],
+        "type": "object"
+      },
+      "QueueBulkOutput": {
+        "additionalProperties": false,
+        "properties": {
+          "affected": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "skipped": {
+            "description": "Failed entries not retried because their chapter already has a download in the queue",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "affected"
         ],
         "type": "object"
       },
@@ -15517,7 +15522,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Queue-bulkResponse"
+                  "$ref": "#/components/schemas/QueueBulkOutput"
                 }
               }
             },

@@ -5239,10 +5239,6 @@ export interface components {
             /** @enum {string} */
             theme: "dark" | "light" | "system";
         };
-        "Queue-bulkResponse": {
-            /** Format: int64 */
-            affected: number;
-        };
         "Queue-pauseRequest": {
             /**
              * Format: int64
@@ -5261,6 +5257,15 @@ export interface components {
             /** @description Select every entry matching this filter instead of ids */
             filter?: components["schemas"]["ListFilter"];
             ids?: number[];
+        };
+        QueueBulkOutput: {
+            /** Format: int64 */
+            affected: number;
+            /**
+             * Format: int64
+             * @description Failed entries not retried because their chapter already has a download in the queue
+             */
+            skipped?: number;
         };
         QueueResponse: {
             counts: {
@@ -9831,7 +9836,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Queue-bulkResponse"];
+                    "application/json": components["schemas"]["QueueBulkOutput"];
                 };
             };
             /** @description Error */

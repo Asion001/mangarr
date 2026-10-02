@@ -145,8 +145,7 @@ func (m *Manager) Bulk(ctx context.Context, ids []int64, action string) (int, er
 		err = exec(m.db.NewUpdate().Model((*model.DownloadJob)(nil)).Set("status = ?", model.JobQueued).Set("not_before = ?", now).Set("updated_at = ?", now).
 			Where("status = ?", model.JobPaused))
 	case "retry":
-		err = exec(m.db.NewUpdate().Model((*model.DownloadJob)(nil)).Set("status = ?", model.JobQueued).Set("error = ''").Set("attempt = 0").
-			Set("not_before = ?", now).Set("updated_at = ?", now).Where("status = ?", model.JobFailed))
+		affected, _, err = m.queue.RetryFailed(ctx, ids)
 	case "remove", "blocklist":
 		for _, id := range ids {
 			m.Cancel(id)
