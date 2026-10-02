@@ -43,6 +43,10 @@ type Server struct {
 	slots     chan string
 	configErr error
 	queued    atomic.Int32
+	// active are the work folders of running batches; lastSweep is when
+	// left-behind ones were last cleaned up (unix nanoseconds).
+	active    sync.Map
+	lastSweep atomic.Int64
 
 	devOnce sync.Once
 	devs    []string
@@ -71,6 +75,7 @@ func NewServer(cfg Config, runner Runner, log *slog.Logger) *Server {
 	for _, device := range devices {
 		s.slots <- device
 	}
+	s.maybeSweep()
 	return s
 }
 
@@ -293,11 +298,16 @@ func zipImages(images []Image) ([]byte, error) {
 // and finishing them after is CPU work, and another batch can use the GPU
 // meanwhile instead of it sitting idle.
 func (s *Server) process(ctx context.Context, eng Engine, p Params, images []Image) ([]Image, string, error) {
-	work, err := os.MkdirTemp(s.cfg.TmpDir, "upscale-*")
+	work, err := os.MkdirTemp(s.cfg.TmpDir, tmpPrefix+"*")
 	if err != nil {
 		return nil, "", err
 	}
-	defer os.RemoveAll(work)
+	s.active.Store(work, struct{}{})
+	defer func() {
+		os.RemoveAll(work)
+		s.active.Delete(work)
+	}()
+	s.maybeSweep()
 	in, outDir := filepath.Join(work, "in"), filepath.Join(work, "out")
 	names, err := writeInput(images, in, outDir)
 	if err != nil {
