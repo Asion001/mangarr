@@ -136,7 +136,7 @@ func (s *Server) processingActivity(ctx context.Context, st *ProcessingStatus) {
 	var ids []int64
 	live := map[int64]downloads.LiveProgress{}
 	for _, lp := range s.app.Downloads.Live.All() {
-		if lp.Kind == model.JobKindReprocess || lp.Stage == progress.StageUpscale || lp.Stage == progress.StageSplit || lp.Stage == progress.StageEncode {
+		if lp.Kind == model.JobKindReprocess || lp.Stage == progress.StageWait || lp.Stage == progress.StageUpscale || lp.Stage == progress.StageSplit || lp.Stage == progress.StageEncode {
 			ids = append(ids, lp.JobID)
 			live[lp.JobID] = lp
 		}

@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	"github.com/Asion001/mangarr/internal/downloads"
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/processing"
+	"github.com/Asion001/mangarr/internal/progress"
 	"github.com/Asion001/mangarr/internal/worker"
 	"github.com/Asion001/mangarr/internal/worktasks"
 )
@@ -79,9 +81,20 @@ func TestProcessingOnAWorker(t *testing.T) {
 			pages := []downloads.PageFile{pagePNG(t, workDir, "0001.png", 1000, 1500), pagePNG(t, workDir, "0002.png", 400, 600)}
 			cfg := model.ProfileConfig{Pages: model.PageRules{MaxWidth: 500}}
 			remote := &processing.Remote{Tasks: a.Tasks}
-			res, err := remote.Process(worktasks.WithJob(ctx, jobID), cfg, pages, workDir)
+			var mu sync.Mutex
+			var stages []string
+			pctx := progress.With(worktasks.WithJob(ctx, jobID), func(ev progress.Event) {
+				mu.Lock()
+				stages = append(stages, ev.Stage)
+				mu.Unlock()
+			})
+			res, err := remote.Process(pctx, cfg, pages, workDir)
 			if err != nil {
 				t.Fatal(err)
+			}
+			// queued pages wait for a worker; they aren't being encoded yet
+			if len(stages) == 0 || stages[0] != progress.StageWait {
+				t.Fatalf("stages: %v", stages)
 			}
 			if len(res.Pages) != 2 || res.Shrunk != 1 || res.Pages[0].Width != 500 || res.Pages[1] != pages[1] {
 				t.Fatalf("result: %+v", res)

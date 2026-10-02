@@ -41,6 +41,7 @@ const stageLabel: Record<string, string> = { download: "downloading", upscale: "
 
 /** describe summarizes live progress: "encoding 34/60 · 3.1 p/s · −42% · 12s left". */
 export function describe(p: LiveProgress): string {
+  if (p.stage === "wait") return `waiting for a worker · ${p.total} pages`;
   const parts = [`${stageLabel[p.stage] ?? p.stage} ${p.done}/${p.total}`];
   if (p.rate > 0) parts.push(throughput(p.rate,1));
   if (p.bytesIn > 0 && p.bytesOut > 0 && p.stage === "encode") parts.push(`${Math.round((p.bytesOut / p.bytesIn - 1) * 100)}%`);

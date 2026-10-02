@@ -12,6 +12,9 @@ const (
 	StageSplit    = "split"
 	StageEncode   = "encode"
 	StageWrite    = "write"
+	// StageWait: the pages are handed to the workers and none has started on
+	// them yet.
+	StageWait = "wait"
 )
 
 // Event reports how far a stage is. Done and the byte counts are totals so

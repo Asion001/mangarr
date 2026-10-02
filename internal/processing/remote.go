@@ -168,7 +168,8 @@ func (r *Remote) await(ctx context.Context, taskID int64, spec TaskSpec, pages [
 	res := downloads.ProcessResult{Pages: pages}
 	done := r.Tasks.Await(taskID)
 	defer r.Tasks.Forget(taskID)
-	progress.Report(ctx, progress.Event{Stage: progress.StageEncode, Total: len(pages)})
+	// until a worker reports its own stages, the pages are only queued
+	progress.Report(ctx, progress.Event{Stage: progress.StageWait, Total: len(pages)})
 
 	// a fast worker on shared storage may be done before Await was called
 	var t model.WorkerTask
