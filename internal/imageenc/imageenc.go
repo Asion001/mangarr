@@ -177,40 +177,24 @@ func skip(format, target string) bool {
 // EncodePages re-encodes pages into workDir and returns the pages to keep:
 // the new file when it's at least minSavingsPct smaller, else the original.
 func (e *Encoder) EncodePages(ctx context.Context, pages []Page, cfg model.EncodeConfig, workDir string) ([]Page, Stats, error) {
-	var st Stats
 	if cfg.Format == "" || cfg.Format == "keep" {
-		return pages, st, nil
+		return pages, Stats{}, nil
 	}
-	eng, ok := e.Engine(cfg.Format)
-	if !ok {
-		return nil, st, fmt.Errorf("%w (%s)", ErrNoEngine, cfg.Format)
-	}
-	st.Engine = eng.Name()
-	o := Resolve(cfg)
-	if o.Progressive {
-		// the slim image's built-in encoder can't write layers: plain AVIF
-		capable, ok := eng.(interface{ SupportsProgressive() bool })
-		o.Progressive = ok && capable.SupportsProgressive()
-	}
-	outDir := filepath.Join(workDir, "encoded")
-	if err := os.MkdirAll(outDir, 0o775); err != nil {
-		return nil, st, err
+	s, err := e.Stream(cfg, workDir)
+	if err != nil {
+		return nil, Stats{}, err
 	}
 	out := append([]Page(nil), pages...)
 	var mu sync.Mutex
 	var firstErr error
-	sem := make(chan struct{}, max(e.Threads, 1))
-	var budget *semaphore.Weighted
-	if e.MaxPixels > 0 {
-		budget = semaphore.NewWeighted(e.MaxPixels)
-	}
 	var wg sync.WaitGroup
+	skipped := 0
 	for _, p := range pages {
 		if skip(p.Format, cfg.Format) {
-			st.Skipped++
+			skipped++
 		}
 	}
-	done := st.Skipped
+	done := skipped
 	progress.Report(ctx, progress.Event{Stage: progress.StageEncode, Done: done, Total: len(pages)})
 	for i, p := range pages {
 		if skip(p.Format, cfg.Format) {
@@ -219,9 +203,7 @@ func (e *Encoder) EncodePages(ctx context.Context, pages []Page, cfg model.Encod
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			sem <- struct{}{}
-			defer func() { <-sem }()
-			np, before, after, err := e.encodeWithin(ctx, budget, eng, p, cfg, o, outDir)
+			np, err := s.Encode(ctx, p)
 			mu.Lock()
 			if err != nil {
 				if firstErr == nil {
@@ -230,26 +212,102 @@ func (e *Encoder) EncodePages(ctx context.Context, pages []Page, cfg model.Encod
 				mu.Unlock()
 				return
 			}
-			st.Before += before
-			if np != nil {
-				out[i] = *np
-				st.Encoded++
-				st.After += after
-			} else {
-				st.Kept++
-				st.After += before
-			}
+			out[i] = np
 			done++
+			st := s.Stats()
 			ev := progress.Event{Stage: progress.StageEncode, Done: done, Total: len(pages), BytesIn: st.Before, BytesOut: st.After}
 			mu.Unlock()
 			progress.Report(ctx, ev)
 		}()
 	}
 	wg.Wait()
+	st := s.Stats()
+	st.Skipped = skipped
 	if firstErr != nil {
 		return nil, st, firstErr
 	}
 	return out, st, ctx.Err()
+}
+
+// Stream encodes pages one at a time as they become ready, all of them
+// sharing the encoder's threads and memory budget: the processing stage
+// hands it each page the moment the upscaler is done with it, so encoding
+// runs while the GPU works on the next pages instead of after all of them.
+type Stream struct {
+	e      *Encoder
+	eng    Engine
+	cfg    model.EncodeConfig
+	o      Options
+	outDir string
+	sem    chan struct{}
+	budget *semaphore.Weighted
+
+	mu sync.Mutex
+	st Stats
+}
+
+// Stream starts encoding into workDir with cfg (which must name a format).
+func (e *Encoder) Stream(cfg model.EncodeConfig, workDir string) (*Stream, error) {
+	eng, ok := e.Engine(cfg.Format)
+	if !ok {
+		return nil, fmt.Errorf("%w (%s)", ErrNoEngine, cfg.Format)
+	}
+	o := Resolve(cfg)
+	if o.Progressive {
+		// the slim image's built-in encoder can't write layers: plain AVIF
+		capable, ok := eng.(interface{ SupportsProgressive() bool })
+		o.Progressive = ok && capable.SupportsProgressive()
+	}
+	outDir := filepath.Join(workDir, "encoded")
+	if err := os.MkdirAll(outDir, 0o775); err != nil {
+		return nil, err
+	}
+	s := &Stream{e: e, eng: eng, cfg: cfg, o: o, outDir: outDir, sem: make(chan struct{}, max(e.Threads, 1))}
+	s.st.Engine = eng.Name()
+	if e.MaxPixels > 0 {
+		s.budget = semaphore.NewWeighted(e.MaxPixels)
+	}
+	return s, nil
+}
+
+// Encode re-encodes p and returns the page to keep: the new file, or p when
+// it isn't worth it or p is never re-encoded (AVIF, JXL, animations).
+// It is safe to call from many goroutines at once.
+func (s *Stream) Encode(ctx context.Context, p Page) (Page, error) {
+	if skip(p.Format, s.cfg.Format) {
+		s.mu.Lock()
+		s.st.Skipped++
+		s.mu.Unlock()
+		return p, nil
+	}
+	select {
+	case s.sem <- struct{}{}:
+	case <-ctx.Done():
+		return p, ctx.Err()
+	}
+	defer func() { <-s.sem }()
+	np, before, after, err := s.e.encodeWithin(ctx, s.budget, s.eng, p, s.cfg, s.o, s.outDir)
+	if err != nil {
+		return p, err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.st.Before += before
+	if np == nil {
+		s.st.Kept++
+		s.st.After += before
+		return p, nil
+	}
+	s.st.Encoded++
+	s.st.After += after
+	return *np, nil
+}
+
+// Stats is what the stream has done so far.
+func (s *Stream) Stats() Stats {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.st
 }
 
 // encodeWithin encodes p once its pixels fit in budget (nil = no bound).

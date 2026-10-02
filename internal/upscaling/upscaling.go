@@ -153,6 +153,22 @@ func NeedsUpscale(pg downloads.PageFile, minWidth int) bool {
 }
 
 func (p *Processor) Process(ctx context.Context, cfg model.UpscaleConfig, pages []downloads.PageFile, workDir string) ([]downloads.PageFile, bool, string, error) {
+	return p.ProcessEach(ctx, cfg, pages, workDir, nil)
+}
+
+// Ready receives a page as soon as it is final: page i of the input, as
+// upscaled or as it was. It is called once per page, from several
+// goroutines at once, and must not block for long — the upscaler waits.
+type Ready func(i int, pg downloads.PageFile)
+
+// ProcessEach is Process that hands each page to ready the moment it is
+// done (the pages it leaves alone right away), so the next stage can work
+// on a chapter's first pages while the GPU is on the rest. A run that fails
+// may have handed some pages over already.
+func (p *Processor) ProcessEach(ctx context.Context, cfg model.UpscaleConfig, pages []downloads.PageFile, workDir string, ready Ready) ([]downloads.PageFile, bool, string, error) {
+	if ready == nil {
+		ready = func(int, downloads.PageFile) {}
+	}
 	var todo []int
 	for i, pg := range pages {
 		if NeedsUpscale(pg, cfg.MinWidth) {
@@ -160,6 +176,9 @@ func (p *Processor) Process(ctx context.Context, cfg model.UpscaleConfig, pages 
 		}
 	}
 	if len(todo) == 0 {
+		for i, pg := range pages {
+			ready(i, pg)
+		}
 		return pages, false, "", nil
 	}
 	up, info, err := p.upscaler(ctx, cfg)
@@ -197,6 +216,17 @@ func (p *Processor) Process(ctx context.Context, cfg model.UpscaleConfig, pages 
 		}
 		groups[b] = append(groups[b], i)
 	}
+	grouped := make([]bool, len(pages))
+	for _, idxs := range groups {
+		for _, i := range idxs {
+			grouped[i] = true
+		}
+	}
+	for i, pg := range pages {
+		if !grouped[i] {
+			ready(i, pg)
+		}
+	}
 	out := append([]downloads.PageFile(nil), pages...)
 	outDir := filepath.Join(workDir, "upscaled")
 	if err := os.MkdirAll(outDir, 0o775); err != nil {
@@ -233,6 +263,9 @@ run:
 				if err := p.upscaleChunk(ctx, up, mdl, cfg, b.format, b.scale, b.maxWidth, pages, idxs, out, outDir); err != nil {
 					cancel(err)
 					return
+				}
+				for _, i := range idxs {
+					ready(i, out[i])
 				}
 				mu.Lock()
 				done += len(idxs)

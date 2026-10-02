@@ -17,57 +17,16 @@ import (
 	"github.com/gen2brain/webp"
 	"golang.org/x/image/bmp"
 
-	"github.com/Asion001/mangarr/internal/cbz"
 	"github.com/Asion001/mangarr/internal/downloads"
 	"github.com/Asion001/mangarr/internal/imagecheck"
 	"github.com/Asion001/mangarr/internal/imageenc"
-	"github.com/Asion001/mangarr/internal/model"
-	"github.com/Asion001/mangarr/internal/progress"
 )
 
-// splitTallPages cuts webtoon strips (pages taller than the profile's split
-// ratio times their width) into balanced segments no taller than the segment
-// ratio times their width. Ratios, not pixels, decide, so an upscaled manga
-// page is never mistaken for a strip. A full-width light/dark quiet band near
-// the balanced cut is preferred; when none exists the balanced cut is used.
-func splitTallPages(ctx context.Context, pages []downloads.PageFile, sources []int, processable []bool, rules model.PageRules, toPNG bool, workDir string) ([]downloads.PageFile, []int, []bool, int, error) {
-	threshold, segment := rules.SplitRatios()
-	if threshold <= 0 {
-		return pages, sources, processable, 0, nil
-	}
-	out, mapped, mask := make([]downloads.PageFile, 0, len(pages)), make([]int, 0, len(pages)), make([]bool, 0, len(pages))
-	split := 0
-	progress.Report(ctx, progress.Event{Stage: progress.StageSplit, Total: len(pages)})
-	for i, pg := range pages {
-		if err := ctx.Err(); err != nil {
-			return nil, nil, nil, split, err
-		}
-		parts := []downloads.PageFile{pg}
-		if processable[i] && isStrip(pg, threshold) && splitSupported(pg.Format) {
-			var err error
-			parts, err = splitTallPage(ctx, pg, max(1, int(float64(pg.Width)*segment)), toPNG, workDir)
-			if err != nil {
-				return nil, nil, nil, split, err
-			}
-			if len(parts) > 1 {
-				split++
-			}
-		}
-		for _, part := range parts {
-			out = append(out, part)
-			mapped = append(mapped, sources[i])
-			mask = append(mask, processable[i])
-		}
-		progress.Report(ctx, progress.Event{Stage: progress.StageSplit, Done: i + 1, Total: len(pages)})
-	}
-	if split == 0 {
-		return pages, sources, processable, 0, nil
-	}
-	for i := range out {
-		out[i].Name = cbz.PageName(i, imagecheck.Ext(out[i].Format))
-	}
-	return out, mapped, mask, split, nil
-}
+// Webtoon strips (pages taller than the profile's split ratio times their
+// width) are cut into balanced segments no taller than the segment ratio
+// times their width. Ratios, not pixels, decide, so an upscaled manga page is
+// never mistaken for a strip. A full-width light/dark quiet band near the
+// balanced cut is preferred; when none exists the balanced cut is used.
 
 // isStrip reports whether a page is taller than threshold times its width.
 func isStrip(pg downloads.PageFile, threshold float64) bool {
