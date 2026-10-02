@@ -30,13 +30,25 @@ type Processor struct {
 	// Fixed (optional) is the only upscaler to use, in place of the
 	// modules: a worker processing pages upscales with its own engine.
 	Fixed upscale.Module
-	// Routes (optional) are the upscale routes in force: pages they match
-	// go to the route's upscaler and model.
+	// Routes (optional) are the upscale routes in force: the routes a page
+	// matches list the upscalers and models it goes to, in order.
 	Routes func(ctx context.Context) []model.UpscaleRoute
-	// Pick (optional) is the upscaler a route's pages go to, given the one
-	// the priority order chose, and what to add to the context its batches
-	// run in (nil for nothing). Without it every route keeps chosen.
-	Pick func(ctx context.Context, r model.UpscaleRoute, chosen upscale.Module) (upscale.Module, func(context.Context) context.Context, error)
+	// Pick (optional) is where pages matching these routes go, given the
+	// upscaler the priority order chose. Without it they stay with chosen
+	// and run the model of the first route meant for Self or for any
+	// upscaler.
+	Pick func(ctx context.Context, routes []model.UpscaleRoute, chosen upscale.Module) (Lane, error)
+	// Self is the worker this processor runs on (0 on the server).
+	Self int64
+}
+
+// Lane is where a set of routes sends its pages: the upscaler, the model
+// (empty for the usual one) and what the context its batches run in
+// carries (nil for nothing).
+type Lane struct {
+	Up    upscale.Module
+	Model string
+	Pin   func(context.Context) context.Context
 }
 
 func New(m *modules.Manager) *Processor { return &Processor{mods: m} }
@@ -214,7 +226,7 @@ func (p *Processor) ProcessEach(ctx context.Context, cfg model.UpscaleConfig, pa
 		scale    int
 		format   string
 		maxWidth int
-		route    int
+		routes   string // the routes the pages match, as a key
 	}
 	groups := map[batch][]int{}
 	for _, i := range todo {
@@ -223,23 +235,30 @@ func (p *Processor) ProcessEach(ctx context.Context, cfg model.UpscaleConfig, pa
 		if s == 0 {
 			continue
 		}
-		b := batch{s, OutputFormat(cfg.Format, pages[i].Format), cfg.MaxWidth, model.RouteFor(routes, s, width)}
+		b := batch{s, OutputFormat(cfg.Format, pages[i].Format), cfg.MaxWidth, fmt.Sprint(model.RoutesFor(routes, s, width))}
 		if b.maxWidth > 0 && pages[i].Width > pages[i].Height {
 			b.maxWidth *= 2 // a spread holds two pages
 		}
 		groups[b] = append(groups[b], i)
 	}
-	// each route's pages go to its upscaler with its model
-	lanes := map[int]*lane{-1: {up: up, model: mdl.Name}}
-	for b := range groups {
-		if _, ok := lanes[b.route]; ok {
+	// the pages of some routes go to their upscalers with their models
+	lanes := map[string]*lane{"[]": {up: up, model: mdl.Name}}
+	for _, i := range todo {
+		width := model.PageWidth(pages[i].Width, pages[i].Height)
+		matched := model.RoutesFor(routes, ChooseScale(width, cfg.MinWidth, mdl.Scales), width)
+		key := fmt.Sprint(matched)
+		if _, ok := lanes[key]; ok {
 			continue
 		}
-		l, err := p.lane(ctx, routes[b.route], up, mdl.Name)
+		chain := make([]model.UpscaleRoute, len(matched))
+		for k, r := range matched {
+			chain[k] = routes[r]
+		}
+		l, err := p.lane(ctx, chain, up, mdl.Name)
 		if err != nil {
 			return nil, false, "", err
 		}
-		lanes[b.route] = l
+		lanes[key] = l
 	}
 	grouped := make([]bool, len(pages))
 	for _, idxs := range groups {
@@ -283,7 +302,7 @@ run:
 				break run
 			}
 			wg.Add(1)
-			l := lanes[b.route]
+			l := lanes[b.routes]
 			go func() {
 				defer func() { <-sem; wg.Done() }()
 				cctx := ctx
@@ -372,26 +391,28 @@ func (l *lane) scale(want int) int {
 	return upscale.FitScale(want, l.scales)
 }
 
-// lane resolves a route: its upscaler (the chosen one unless Pick moves
-// it) and its model (the profile's unless the route names one).
-func (p *Processor) lane(ctx context.Context, r model.UpscaleRoute, chosen upscale.Module, profileModel string) (*lane, error) {
+// lane resolves the routes a page matches: its upscaler (the chosen one
+// unless Pick moves it) and its model (the profile's unless a route names
+// one).
+func (p *Processor) lane(ctx context.Context, routes []model.UpscaleRoute, chosen upscale.Module, profileModel string) (*lane, error) {
 	l := &lane{up: chosen, model: profileModel}
+	pick := Lane{Up: chosen, Model: p.ownModel(routes)}
 	if p.Pick != nil {
-		up, pin, err := p.Pick(ctx, r, chosen)
-		if err != nil {
+		var err error
+		if pick, err = p.Pick(ctx, routes, chosen); err != nil {
 			return nil, err
 		}
-		l.up, l.pin = up, pin
 	}
-	if r.Model != "" && r.Model != profileModel {
-		l.model, l.pinned = r.Model, true
+	l.up, l.pin = pick.Up, pick.Pin
+	if name := pick.Model; name != "" && name != profileModel {
+		l.model, l.pinned = name, true
 		ictx, cancel := context.WithTimeout(ctx, 20*time.Second)
 		info, err := l.up.Info(ictx)
 		cancel()
 		if err == nil {
 			found := false
 			for _, m := range info.Models {
-				if m.Name == r.Model {
+				if m.Name == name {
 					l.scales, found = m.Scales, true
 				}
 			}
@@ -400,10 +421,22 @@ func (p *Processor) lane(ctx context.Context, r model.UpscaleRoute, chosen upsca
 				l.model, l.pinned = profileModel, false
 			}
 		}
-	} else if r.Model != "" {
+	} else if pick.Model != "" {
 		l.pinned = true
 	}
 	return l, nil
+}
+
+// ownModel is the model of the first route meant for this machine or for
+// any upscaler: the pages are here, so a route for another machine didn't
+// get them.
+func (p *Processor) ownModel(routes []model.UpscaleRoute) string {
+	for _, r := range routes {
+		if r.Target == model.RouteAnyUpscaler || (p.Self > 0 && r.Target == p.Self) {
+			return r.Model
+		}
+	}
+	return ""
 }
 
 func (p *Processor) upscaleChunk(ctx context.Context, l *lane, cfg model.UpscaleConfig, format string, scale, maxWidth int,

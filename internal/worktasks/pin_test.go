@@ -10,10 +10,12 @@ import (
 	"github.com/Asion001/mangarr/internal/worktasks"
 )
 
-// TestPinnedTasksWaitForTheirWorker: an upscale route keeps its batches for
-// one worker, which takes them even with a better-placed worker idle; the
-// others take them only while it is away, and never when the route waits.
-func TestPinnedTasksWaitForTheirWorker(t *testing.T) {
+// TestPinnedTasksFollowTheList: upscale routes keep their batches for the
+// workers they list, in order. The first of them with room takes a batch
+// even with a better-placed worker idle, the next one takes the overflow,
+// and the others get it only once none of the listed workers is online —
+// and never when a route waits.
+func TestPinnedTasksFollowTheList(t *testing.T) {
 	each(t, func(t *testing.T, d *db.DB) {
 		ctx := context.Background()
 		l := ledger(d)
@@ -28,7 +30,7 @@ func TestPinnedTasksWaitForTheirWorker(t *testing.T) {
 			}
 			return w.ID
 		}
-		fast, good := seed("fast", 10), seed("good", 20)
+		other, first, second := seed("other", 10), seed("first", 20), seed("second", 30)
 		add := func(pin worktasks.Pin) *model.WorkerTask {
 			task := &model.WorkerTask{JobID: job, Kind: model.TaskUpscale, Spec: map[string]any{}}
 			pin.Apply(task.Spec)
@@ -38,36 +40,52 @@ func TestPinnedTasksWaitForTheirWorker(t *testing.T) {
 			return task
 		}
 		claim := func(worker int64) *model.WorkerTask {
-			task, err := l.Claim(ctx, worker, roles, 8, 2)
+			task, err := l.Claim(ctx, worker, roles, 8, 1)
 			if err != nil {
 				t.Fatal(err)
 			}
 			return task
 		}
-
-		kept := add(worktasks.Pin{Worker: good})
-		if task := claim(fast); task != nil {
-			t.Fatalf("the fast worker took a batch kept for another: %+v", task)
+		away := func(ids ...int64) {
+			for _, id := range ids {
+				if _, err := d.NewUpdate().Model((*model.Worker)(nil)).Set("last_seen_at = ?", now.Add(-time.Hour)).Where("id = ?", id).Exec(ctx); err != nil {
+					t.Fatal(err)
+				}
+			}
 		}
-		if task := claim(good); task == nil || task.ID != kept.ID {
-			t.Fatalf("the route's worker did not get its batch: %+v", task)
+		list := worktasks.Pin{Workers: []int64{first, second}}
+
+		a, b := add(list), add(list)
+		if task := claim(other); task != nil {
+			t.Fatalf("an unlisted worker took a kept batch: %+v", task)
+		}
+		if task := claim(second); task != nil {
+			t.Fatalf("the second listed worker went ahead of the first, which has room: %+v", task)
+		}
+		if task := claim(first); task == nil || task.ID != a.ID {
+			t.Fatalf("the first listed worker did not get the batch: %+v", task)
+		}
+		if task := claim(second); task == nil || task.ID != b.ID {
+			t.Fatalf("the second listed worker did not take the overflow: %+v", task)
 		}
 
-		// the route's worker goes away
-		gone := now.Add(-time.Hour)
-		if _, err := d.NewUpdate().Model((*model.Worker)(nil)).Set("last_seen_at = ?", gone).Where("id = ?", good).Exec(ctx); err != nil {
+		away(first, second)
+		strict := add(worktasks.Pin{Workers: []int64{first, second}, Strict: true})
+		if ok, err := l.CanTake(ctx, strict); err != nil || ok {
+			t.Fatalf("a batch waiting for offline workers counted as takeable: %v %v", ok, err)
+		}
+		loose := add(list)
+		if task := claim(other); task == nil || task.ID != loose.ID {
+			t.Fatalf("a batch whose workers are all away did not fall back: %+v", task)
+		}
+		if _, err := l.HandBack(ctx, other, nil); err != nil {
 			t.Fatal(err)
 		}
-		strict := add(worktasks.Pin{Worker: good, Strict: true})
-		if ok, err := l.CanTake(ctx, strict); err != nil || ok {
-			t.Fatalf("a batch waiting for an offline worker counted as takeable: %v %v", ok, err)
+		if _, err := d.NewUpdate().Model((*model.WorkerTask)(nil)).Set("state = ?", model.TaskDone).Where("id <> ?", strict.ID).Exec(ctx); err != nil {
+			t.Fatal(err)
 		}
-		loose := add(worktasks.Pin{Worker: good})
-		if task := claim(fast); task == nil || task.ID != loose.ID {
-			t.Fatalf("a batch whose worker is away did not fall back: %+v", task)
-		}
-		if task := claim(fast); task != nil {
-			t.Fatalf("a batch that waits for its worker went elsewhere: %+v", task)
+		if task := claim(other); task != nil {
+			t.Fatalf("a batch that waits for its workers went elsewhere: %+v", task)
 		}
 	})
 }

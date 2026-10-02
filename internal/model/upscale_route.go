@@ -18,8 +18,10 @@ const (
 )
 
 // UpscaleRoute sends the pages it matches to a chosen upscaler and model,
-// ahead of the priority order in System → Workers. The first route that
-// matches a page wins; a page no route matches goes by priority as before.
+// ahead of the priority order in System → Workers. The routes a page
+// matches list its upscalers in order: it goes to the first of them that
+// is online and has room, and to the others only when none of them is
+// online. A page no route matches goes by priority as before.
 type UpscaleRoute struct {
 	// Match is RouteScale or RouteWidth.
 	Match string `json:"match" enum:"scale,width"`
@@ -53,12 +55,13 @@ func (r UpscaleRoute) Matches(scale, width int) bool {
 	return false
 }
 
-// RouteFor is the index of the first route a page falls under, or -1.
-func RouteFor(routes []UpscaleRoute, scale, width int) int {
+// RoutesFor is the indexes of every route a page falls under, in order.
+func RoutesFor(routes []UpscaleRoute, scale, width int) []int {
+	var out []int
 	for i, r := range routes {
 		if r.Matches(scale, width) {
-			return i
+			out = append(out, i)
 		}
 	}
-	return -1
+	return out
 }

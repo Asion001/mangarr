@@ -73,11 +73,11 @@ func TestRoutesSendPagesElsewhere(t *testing.T) {
 	slow := &recordingEngine{models: []upscale.Model{{Name: "good", Scales: []int{4}}}, out: png}
 	routes := []model.UpscaleRoute{{Match: model.RouteScale, Scales: []int{4}, Target: 7, Model: "good"}}
 	p := &Processor{Fixed: fast, Routes: func(context.Context) []model.UpscaleRoute { return routes },
-		Pick: func(ctx context.Context, r model.UpscaleRoute, chosen upscale.Module) (upscale.Module, func(context.Context) context.Context, error) {
-			if r.Target != 7 {
-				t.Fatalf("picked for %+v", r)
+		Pick: func(ctx context.Context, rs []model.UpscaleRoute, chosen upscale.Module) (Lane, error) {
+			if len(rs) != 1 || rs[0].Target != 7 {
+				t.Fatalf("picked for %+v", rs)
 			}
-			return slow, func(ctx context.Context) context.Context { return context.WithValue(ctx, markKey{}, true) }, nil
+			return Lane{Up: slow, Model: rs[0].Model, Pin: func(ctx context.Context) context.Context { return context.WithValue(ctx, markKey{}, true) }}, nil
 		}}
 	out, changed, _, err := p.Process(context.Background(), model.UpscaleConfig{Enabled: true, MinWidth: 8, Model: "fast", Format: "png"}, pages, dir)
 	if err != nil || !changed || len(out) != len(pages) {
@@ -123,6 +123,29 @@ func TestRouteByWidthKeepsTheMachine(t *testing.T) {
 	for _, r := range eng.runs {
 		if r.Model != "m" || r.Pinned {
 			t.Fatalf("a model the upscaler lacks was used: %+v", eng.runs)
+		}
+	}
+}
+
+// TestWorkerRunsTheModelOfItsRoute: a worker processing a chapter runs the
+// model of the route that lists it, or of a route for any upscaler; a
+// route for another machine changes nothing here.
+func TestWorkerRunsTheModelOfItsRoute(t *testing.T) {
+	pages, png, dir := routePages(t, 2)
+	eng := &recordingEngine{models: []upscale.Model{{Name: "m", Scales: []int{2, 4}}, {Name: "a", Scales: []int{4}}, {Name: "b", Scales: []int{4}}}, out: png}
+	cfg := model.UpscaleConfig{Enabled: true, MinWidth: 8, Model: "m", Format: "png"}
+	routes := []model.UpscaleRoute{
+		{Match: model.RouteScale, Scales: []int{4}, Target: 1, Model: "a"},
+		{Match: model.RouteScale, Scales: []int{4}, Target: 2, Model: "b"},
+	}
+	for self, want := range map[int64]string{1: "a", 2: "b", 3: "m"} {
+		eng.runs = nil
+		p := &Processor{Fixed: eng, Self: self, Routes: func(context.Context) []model.UpscaleRoute { return routes }}
+		if _, _, _, err := p.Process(context.Background(), cfg, pages, dir); err != nil {
+			t.Fatal(err)
+		}
+		if len(eng.runs) != 1 || eng.runs[0].Model != want {
+			t.Fatalf("worker %d ran %+v, want %s", self, eng.runs, want)
 		}
 	}
 }

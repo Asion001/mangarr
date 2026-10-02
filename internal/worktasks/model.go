@@ -27,6 +27,15 @@ func (l *Ledger) UseWorkerModel(ctx context.Context, t *model.WorkerTask, w *mod
 	if requested.Pinned && !hasModel(w, requested.Model) {
 		params.Pinned = false // a route's model this worker lacks: as if there were no route
 	}
+	if name := PinOf(t).Models[w.ID]; name != "" && name != params.Model {
+		// the model the route that sent it here chose for this worker
+		for _, m := range WorkerModels(w) {
+			if m.Name == name {
+				params.Model, params.Scale, params.Pinned = m.Name, upscale.FitScale(requested.Scale, m.Scales), true
+				break
+			}
+		}
+	}
 	if w.UpscaleModel != "" && w.UpscaleModel != requested.Model && !params.Pinned {
 		for _, m := range WorkerModels(w) {
 			if m.Name == w.UpscaleModel {

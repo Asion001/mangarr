@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/Asion001/mangarr/internal/downloads"
@@ -22,82 +23,154 @@ func (a *App) upscaleRoutes(ctx context.Context) []model.UpscaleRoute {
 	return dl.UpscaleRoutes
 }
 
-// pickUpscaler is where a route's pages are upscaled here: this server's
-// built-in upscaler, or the workers with the batches kept for one of them.
-// A target that is away holds the pages back when the route waits for it
-// (the chapter is tried again later), and leaves them to the priority order
-// when it doesn't.
-func (a *App) pickUpscaler(ctx context.Context, r model.UpscaleRoute, chosen upscale.Module) (upscale.Module, func(context.Context) context.Context, error) {
-	if r.Target == model.RouteAnyUpscaler {
-		return chosen, nil, nil
-	}
-	impl := "workers"
-	if r.Target == model.RouteThisServer {
-		impl = "local"
-	}
-	var target upscale.Module
+// routeStop is one upscaler in the list the routes a page matches make.
+type routeStop struct {
+	route model.UpscaleRoute
+	up    upscale.Module // this server's, or the workers'
+	ready bool
+}
+
+// routeStops lists the upscalers of some routes in order, each with
+// whether it could take pages now.
+func (a *App) routeStops(ctx context.Context, routes []model.UpscaleRoute, chosen upscale.Module) []routeStop {
+	var local, pool upscale.Module
 	for _, t := range modules.ActiveAs[upscale.Module](a.Modules, modules.KindUpscale) {
-		if t.Def.Implementation == impl && (a.Processing.Up.Online == nil || a.Processing.Up.Online(t.Def)) {
-			target = t.Instance
+		if a.Processing.Up.Online != nil && !a.Processing.Up.Online(t.Def) {
+			continue
+		}
+		switch t.Def.Implementation {
+		case "local":
+			local = t.Instance
+		case "workers":
+			pool = t.Instance
 		}
 	}
-	if r.Target == model.RouteThisServer {
+	out := make([]routeStop, 0, len(routes))
+	for _, r := range routes {
+		st := routeStop{route: r}
 		switch {
-		case target != nil:
-			return target, nil, nil
-		case r.Wait:
-			return nil, nil, upscaling.ErrNoUpscaler{Reason: "an upscale rule waits for this server's upscaler, which is off"}
+		case r.Target == model.RouteAnyUpscaler:
+			st.up, st.ready = chosen, true
+		case r.Target == model.RouteThisServer:
+			st.up, st.ready = local, local != nil
+		default:
+			st.up = pool
+			st.ready = pool != nil && a.Tasks != nil && a.Tasks.Ready(ctx, r.Target, model.TaskUpscale)
 		}
-		return chosen, nil, nil
+		out = append(out, st)
 	}
-	if target != nil && a.Tasks != nil && a.Tasks.Ready(ctx, r.Target, model.TaskUpscale) {
-		pin := worktasks.Pin{Worker: r.Target, Strict: r.Wait}
-		return target, func(ctx context.Context) context.Context { return worktasks.WithPin(ctx, pin) }, nil
+	return out
+}
+
+// pickUpscaler is where pages matching some routes are upscaled here. The
+// routes list upscalers in order and the pages go to the first that is
+// around: this server's built-in upscaler, any upscaler, or the workers,
+// with the batches kept for the workers listed from there on (the first
+// with room takes them). With none around the pages wait when a route
+// waits (the chapter is tried again later) and go by priority otherwise.
+func (a *App) pickUpscaler(ctx context.Context, routes []model.UpscaleRoute, chosen upscale.Module) (upscaling.Lane, error) {
+	stops := a.routeStops(ctx, routes, chosen)
+	wait := false
+	for _, st := range stops {
+		wait = wait || st.route.Wait
+		if !st.ready {
+			continue
+		}
+		if st.route.Target <= 0 {
+			return upscaling.Lane{Up: st.up, Model: st.route.Model}, nil
+		}
+		// every listed worker up to the first other upscaler that is around,
+		// so one that comes back still gets its pages first
+		var listed []model.UpscaleRoute
+		open := false
+		for _, s := range stops {
+			if s.route.Target > 0 {
+				listed = append(listed, s.route)
+			} else if s.ready {
+				open = true
+				break
+			}
+		}
+		pin := workerPin(listed, open)
+		return upscaling.Lane{Up: st.up, Pin: func(ctx context.Context) context.Context { return worktasks.WithPin(ctx, pin) }}, nil
 	}
-	if r.Wait {
-		return nil, nil, upscaling.ErrNoUpscaler{Reason: fmt.Sprintf("an upscale rule waits for %s, which is offline or can't upscale", a.workerName(ctx, r.Target))}
+	if wait {
+		names := make([]string, 0, len(routes))
+		for _, r := range routes {
+			names = append(names, a.targetName(ctx, r.Target))
+		}
+		return upscaling.Lane{}, upscaling.ErrNoUpscaler{Reason: "an upscale rule waits for " + strings.Join(names, " or ") + ", and none is available"}
 	}
-	return chosen, nil, nil
+	return upscaling.Lane{Up: chosen}, nil
+}
+
+// workerPin keeps batches for the workers of some routes, in order, with
+// each worker's model. It is strict when a route waits and no other
+// upscaler is open to the pages after them.
+func workerPin(routes []model.UpscaleRoute, open bool) worktasks.Pin {
+	pin := worktasks.Pin{Models: map[int64]string{}}
+	wait := false
+	for _, r := range routes {
+		wait = wait || r.Wait
+		if !pin.Has(r.Target) {
+			pin.Workers = append(pin.Workers, r.Target)
+			if r.Model != "" {
+				pin.Models[r.Target] = r.Model
+			}
+		}
+	}
+	pin.Strict = wait && !open
+	return pin
 }
 
 // routeChapter applies the upscale routes to a chapter processed on a
 // worker (MANGARR_PROCESSING=workers). One worker processes the whole
-// chapter, so it goes to the target of the route most of its pages fall
-// under, when that worker can process it; the worker then upscales each
-// page with its route's model.
+// chapter, so it is kept for the workers of the routes most of its pages
+// match, the first of them with room taking it; that worker then upscales
+// each page with its route's model.
 func (a *App) routeChapter(ctx context.Context, cfg model.ProfileConfig, pages []downloads.PageFile) (worktasks.Pin, []model.UpscaleRoute) {
 	routes := a.upscaleRoutes(ctx)
 	if len(routes) == 0 || a.Tasks == nil {
 		return worktasks.Pin{}, routes
 	}
 	scales := a.workerScales(ctx, cfg.Upscale.Model)
-	count := map[int]int{}
+	count := map[string]int{}
+	chains := map[string][]int{}
 	for _, p := range pages {
 		if !upscaling.NeedsUpscale(p, cfg.Upscale.MinWidth) {
 			continue
 		}
 		width := model.PageWidth(p.Width, p.Height)
-		if i := model.RouteFor(routes, upscaling.ChooseScale(width, cfg.Upscale.MinWidth, scales), width); i >= 0 && routes[i].Target > 0 {
-			count[i]++
+		matched := model.RoutesFor(routes, upscaling.ChooseScale(width, cfg.Upscale.MinWidth, scales), width)
+		if len(matched) == 0 {
+			continue
+		}
+		key := fmt.Sprint(matched)
+		count[key]++
+		chains[key] = matched
+	}
+	best := ""
+	for key, n := range count {
+		if best == "" || n > count[best] || (n == count[best] && key < best) {
+			best = key
 		}
 	}
-	best := -1
-	for i := range routes {
-		if count[i] > 0 && (best < 0 || count[i] > count[best]) {
-			best = i
-		}
-	}
-	if best < 0 {
+	if best == "" {
 		return worktasks.Pin{}, routes
 	}
-	r := routes[best]
-	if a.Tasks.Ready(ctx, r.Target, model.TaskEncode) && a.Tasks.Ready(ctx, r.Target, model.TaskUpscale) {
-		return worktasks.Pin{Worker: r.Target, Strict: r.Wait}, routes
+	// this server doesn't process pages here, so only its workers and a
+	// route for any upscaler count
+	var listed []model.UpscaleRoute
+	open := false
+	for _, i := range chains[best] {
+		if r := routes[i]; r.Target > 0 {
+			listed = append(listed, r)
+		} else if r.Target == model.RouteAnyUpscaler {
+			open = true
+			break
+		}
 	}
-	if r.Wait {
-		return worktasks.Pin{Worker: r.Target, Strict: true}, routes // waits for it
-	}
-	return worktasks.Pin{}, routes
+	return workerPin(listed, open), routes
 }
 
 // workerScales are the scales of a model as the online workers have it
@@ -125,8 +198,14 @@ func (a *App) workerScales(ctx context.Context, name string) []int {
 	return first
 }
 
-// workerName names a worker for a message.
-func (a *App) workerName(ctx context.Context, id int64) string {
+// targetName names a route's upscaler for a message.
+func (a *App) targetName(ctx context.Context, id int64) string {
+	switch id {
+	case model.RouteAnyUpscaler:
+		return "any upscaler"
+	case model.RouteThisServer:
+		return "this server"
+	}
 	var w model.Worker
 	if err := a.DB.NewSelect().Model(&w).Column("name").Where("id = ?", id).Scan(ctx); err != nil || w.Name == "" {
 		return fmt.Sprintf("worker %d", id)

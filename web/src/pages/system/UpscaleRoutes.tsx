@@ -40,7 +40,7 @@ export function UpscaleRoutes({ routes, targets, onChange, onSave, saving, disab
         title={t("Upscale routing")}
         actions={<Button size="sm" loading={saving} disabled={disabled} onClick={onSave}>{t("Save")}</Button>}
       >
-        <p className="mb-3 text-sm text-muted">{t("Send pages of a given scale or size to a chosen upscaler and model, ahead of the priority order. The first rule that matches a page wins; pages no rule matches go by priority as before.")}</p>
+        <p className="mb-3 text-sm text-muted">{t("Send pages of a given scale or size to chosen upscalers and models, ahead of the priority order. A page that matches several rules goes to the first of their upscalers that is online and has room; other upscalers get it only when none of them is online. Pages no rule matches go by priority as before.")}</p>
         {routes.length > 0 && (
           <div className="flex flex-col gap-2">
             {routes.map((r, i) => {
@@ -107,9 +107,9 @@ export function UpscaleRoutes({ routes, targets, onChange, onSave, saving, disab
         <div className="mt-4 grid gap-3 border-t border-border pt-3 text-xs text-muted md:grid-cols-3">
           <p><span className="block font-medium text-fg">{t("Scale")}</span>{t("The scale a page needs to reach the profile's minimum width.")}</p>
           <p><span className="block font-medium text-fg">{t("Page width and model")}</span>{t("Width is the page before upscaling. A rule's model replaces the profile's and the upscaler's own; an upscaler without it uses its usual one.")}</p>
-          <p><span className="block font-medium text-fg">{t("If it is offline")}</span>{t("Wait for it: the chapter waits for that upscaler. Use the priority order: any upscaler may take the pages meanwhile.")}</p>
+          <p><span className="block font-medium text-fg">{t("If it is offline")}</span>{t("Wait for it: the pages wait until one of their rules' upscalers is back. Use the priority order: while all of them are offline, any upscaler may take the pages.")}</p>
         </div>
-        <p className="mt-3 text-xs text-muted">{t("When the workers process pages (MANGARR_PROCESSING=workers), one worker processes a whole chapter: it goes to the worker of the rule most of its pages match, when that worker also has the encode role.")}</p>
+        <p className="mt-3 text-xs text-muted">{t("When the workers process pages (MANGARR_PROCESSING=workers), one worker processes a whole chapter: it goes to the workers of the rules most of its pages match, in the same order, when they also have the encode role.")}</p>
       </Card>
     </div>
   );

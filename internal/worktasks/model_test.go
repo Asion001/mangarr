@@ -7,6 +7,7 @@ import (
 	"github.com/Asion001/mangarr/internal/db"
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/modules/upscale"
+	"github.com/Asion001/mangarr/internal/worktasks"
 )
 
 // TestWorkerRunsItsOwnModel: a worker set to its own upscaling model gets
@@ -117,6 +118,46 @@ func TestRouteModelBeatsTheWorkers(t *testing.T) {
 		}
 		if m := l.UsedModel(ctx, task.ID); m != "realcugan" {
 			t.Fatalf("a worker without the route's model ran %q, want its own", m)
+		}
+	})
+}
+
+// TestPinnedModelForEachWorker: routes that list several workers each
+// choose a model for theirs; the worker that takes a batch runs its own.
+func TestPinnedModelForEachWorker(t *testing.T) {
+	each(t, func(t *testing.T, d *db.DB) {
+		ctx := context.Background()
+		l := ledger(d)
+		job := seedJob(t, d)
+		models := []any{
+			map[string]any{"name": "waifu2x-cunet", "scales": []any{2, 4}},
+			map[string]any{"name": "realesrgan-x4plus-anime", "scales": []any{4}},
+		}
+		a := &model.Worker{ID: seedWorker(t, d, "a"), Info: map[string]any{"models": models}}
+		b := &model.Worker{ID: seedWorker(t, d, "b"), Info: map[string]any{"models": models}}
+		spec := map[string]any{"params": upscale.Params{Model: "waifu2x-cunet", Scale: 2, Format: "png"}}
+		worktasks.Pin{Workers: []int64{a.ID, b.ID}, Models: map[int64]string{b.ID: "realesrgan-x4plus-anime"}}.Apply(spec)
+		task := &model.WorkerTask{JobID: job, Kind: model.TaskUpscale, Spec: spec}
+		if err := l.Add(ctx, task); err != nil {
+			t.Fatal(err)
+		}
+		for _, c := range []struct {
+			w    *model.Worker
+			want string
+		}{{a, "waifu2x-cunet"}, {b, "realesrgan-x4plus-anime"}} {
+			got, err := l.Claim(ctx, c.w.ID, []string{model.TaskUpscale})
+			if err != nil || got == nil {
+				t.Fatalf("claim: %v %+v", err, got)
+			}
+			if err := l.UseWorkerModel(ctx, got, c.w); err != nil {
+				t.Fatal(err)
+			}
+			if m := l.UsedModel(ctx, task.ID); m != c.want {
+				t.Fatalf("worker %d ran %q, want %q", c.w.ID, m, c.want)
+			}
+			if _, err := l.HandBack(ctx, c.w.ID, nil); err != nil {
+				t.Fatal(err)
+			}
 		}
 	})
 }

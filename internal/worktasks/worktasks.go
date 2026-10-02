@@ -110,9 +110,9 @@ func (l *Ledger) Claim(ctx context.Context, workerID int64, kinds []string, limi
 	// a task kept for this worker (an upscale route's) is its own even when
 	// a worker with a better priority would take that kind of work
 	mine := kinds
+	perWorker := 1
 	if len(limits) > 0 {
 		global := limits[0]
-		perWorker := 1
 		if len(limits) > 1 {
 			perWorker = max(limits[1], 1)
 		}
@@ -144,24 +144,13 @@ func (l *Ledger) Claim(ctx context.Context, workerID int64, kinds []string, limi
 	if err != nil {
 		return nil, err
 	}
-	away := map[string]bool{} // workers tasks are kept for, by whether they are away
+	seen := map[string]pinState{} // the workers tasks are kept for
 	for _, t := range waiting {
 		pin := PinOf(&t)
 		switch {
-		case pin.Worker == workerID:
-		case pin.Worker > 0 && pin.Strict:
-			continue // kept for another worker
-		case pin.Worker > 0:
-			key := fmt.Sprintf("%d/%s", pin.Worker, t.Kind)
-			off, seen := away[key]
-			if !seen {
-				off = !l.Ready(ctx, pin.Worker, t.Kind)
-				away[key] = off
-			}
-			if !off || !free[t.Kind] {
-				continue // kept for another worker while it is around
-			}
-		case !free[t.Kind]:
+		case len(pin.Workers) > 0 && !l.pinAllows(ctx, pin, workerID, t.Kind, perWorker, seen):
+			continue // kept for other workers while they are around
+		case !pin.Has(workerID) && !free[t.Kind]:
 			continue
 		}
 		if !upscalesIfNeeded(&worker, &t) {
@@ -564,8 +553,8 @@ func (l *Ledger) someoneCanDo(ctx context.Context, t *model.WorkerTask) (bool, e
 	}
 	pin := PinOf(t)
 	for _, w := range list {
-		if pin.Strict && w.ID != pin.Worker {
-			continue // kept for one worker, which has to be the one
+		if pin.Strict && !pin.Has(w.ID) {
+			continue // kept for some workers, which have to be the ones
 		}
 		if takes(&w, t.Kind) && upscalesIfNeeded(&w, t) && w.LastSeenAt != nil && time.Since(*w.LastSeenAt) < OnlineWithin {
 			return true, nil

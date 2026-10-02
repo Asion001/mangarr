@@ -81,6 +81,7 @@ func (w *Worker) process(ctx context.Context, t Task) (result, error) {
 	if w.up != nil {
 		proc.Up = upscaling.NewFixed(&engine{srv: w.up, model: spec.UpscaleModel})
 		proc.Up.Routes = func(context.Context) []model.UpscaleRoute { return spec.Routes }
+		proc.Up.Self = w.welcome.WorkerID
 	}
 	w.status.stage(t.ID, "processing", 0, len(in))
 	res, err := proc.Process(ctx, cfg, in, workDir)
