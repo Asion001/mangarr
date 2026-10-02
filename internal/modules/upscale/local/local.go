@@ -19,7 +19,7 @@ type Settings struct {
 	ToolsDir string `json:"toolsDir" label:"Tools folder" order:"1" help:"Where the waifu2x/Real-CUGAN/Real-ESRGAN ncnn binaries are (included in the full image)."`
 	GPU      string `json:"gpu" label:"GPU" order:"2" placeholder:"auto" help:"auto, or comma-separated Vulkan device indices such as 0,1 (pass /dev/dri to the container for Intel/AMD)."`
 	Threads  string `json:"threads" label:"Threads" advanced:"true" order:"3" placeholder:"1:2:2" help:"load:proc:save threads (ncnn -j)."`
-	Tile     int    `json:"tile" label:"Tile size" advanced:"true" order:"4" help:"0 = automatic; lower it when the GPU runs out of memory."`
+	Tile     int    `json:"tile" label:"Tile size" advanced:"true" order:"4" help:"0 = automatic, from the GPU's memory; lower it when the GPU runs out of memory."`
 	// Model is what this server upscales with; empty uses the profile's.
 	Model string `json:"model" label:"Upscale model" order:"5" help:"Empty uses the profile's model."`
 }

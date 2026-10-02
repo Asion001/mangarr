@@ -61,7 +61,7 @@ func WriteMarkdown(w io.Writer) {
 	engineDesc := map[string]string{
 		"MANGARR_UPSCALER_TOOLS_DIR": "Folder with the ncnn upscalers.",
 		"MANGARR_UPSCALER_GPU":       "Vulkan device indices: auto selects one default device, or use a comma-separated list such as 0,1 to run batches in parallel across those devices.", "MANGARR_UPSCALER_THREADS": "ncnn load:proc:save threads.",
-		"MANGARR_UPSCALER_TILE":    "Tile size (0 = auto; lower on small GPUs).",
+		"MANGARR_UPSCALER_TILE":    "Tile size (0 = auto, from the GPU's memory; lower on small GPUs).",
 		"MANGARR_UPSCALER_TIMEOUT": "Maximum time per batch.", "MANGARR_UPSCALER_TMP_DIR": "Scratch folder.", "MANGARR_UPSCALER_CWEBP": "Path to cwebp.",
 	}
 	for _, v := range upscaler.EngineVars {

@@ -115,9 +115,18 @@ func (r CLIRunner) Run(ctx context.Context, e Engine, inDir, outDir string, scal
 }
 
 func (r CLIRunner) RunDevice(ctx context.Context, e Engine, inDir, outDir string, scale, noise int, device string) error {
-	tiles := []int{r.Tile}
+	first, auto := r.Tile, false
+	if first <= 0 {
+		if t, mib := r.autoTile(ctx, e, scale, device); t > 0 {
+			first, auto = t, true
+			if _, seen := autoLogged.LoadOrStore(capKey(e, scale, device)+"|"+strconv.Itoa(t), true); !seen && r.Log != nil {
+				r.Log.Info("upscaler picked its tile size from the GPU's memory", "tile", t, "gpu_mib", mib, "model", e.Name, "scale", scale, "device", device)
+			}
+		}
+	}
+	tiles := []int{first}
 	for _, t := range RetryTiles {
-		if r.Tile <= 0 || t < r.Tile {
+		if first <= 0 || t < first {
 			tiles = append(tiles, t)
 		}
 	}
@@ -125,7 +134,13 @@ func (r CLIRunner) RunDevice(ctx context.Context, e Engine, inDir, outDir string
 	for i, tile := range tiles {
 		err = r.run(ctx, e, inDir, outDir, scale, noise, tile, device)
 		if err == nil || !errors.Is(err, ErrOutOfMemory) || i == len(tiles)-1 {
-			if err == nil && i > 0 && r.Log != nil {
+			switch {
+			case err == nil && i > 0 && auto:
+				tileCaps.Store(capKey(e, scale, device), tile)
+				if r.Log != nil {
+					r.Log.Warn("upscaler ran out of memory with the tile size picked from the GPU's memory; using the smaller one from now on", "tile", tile, "tool", e.Binary)
+				}
+			case err == nil && i > 0 && r.Log != nil:
 				r.Log.Warn("upscaler ran out of memory with larger tiles; set this tile size to avoid retries", "tile", tile, "tool", e.Binary)
 			}
 			return err
