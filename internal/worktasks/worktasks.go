@@ -107,17 +107,29 @@ func (l *Ledger) Claim(ctx context.Context, workerID int64, kinds []string, limi
 	}
 	l.claimMu.Lock()
 	defer l.claimMu.Unlock()
+	// a task kept for this worker (an upscale route's) is its own even when
+	// a worker with a better priority would take that kind of work
+	mine := kinds
 	if len(limits) > 0 {
 		global := limits[0]
 		perWorker := 1
 		if len(limits) > 1 {
 			perWorker = max(limits[1], 1)
 		}
+		var yielded []string
 		var err error
-		kinds, err = l.claimableKinds(ctx, workerID, kinds, global, perWorker)
-		if err != nil || len(kinds) == 0 {
+		kinds, yielded, err = l.claimableKinds(ctx, workerID, kinds, global, perWorker)
+		if err != nil {
 			return nil, err
 		}
+		mine = append(append([]string(nil), kinds...), yielded...)
+		if len(mine) == 0 {
+			return nil, nil
+		}
+	}
+	free := map[string]bool{}
+	for _, k := range kinds {
+		free[k] = true
 	}
 	var worker model.Worker
 	if err := l.db.NewSelect().Model(&worker).Where("id = ?", workerID).Scan(ctx); err != nil {
@@ -127,12 +139,31 @@ func (l *Ledger) Claim(ctx context.Context, workerID int64, kinds []string, limi
 	var waiting []model.WorkerTask
 	err := l.db.NewSelect().Model(&waiting).
 		Where("state = ? AND not_before <= ?", model.TaskPending, now).
-		Where("kind IN (?)", bun.In(kinds)).
-		Order("id").Limit(20).Scan(ctx)
+		Where("kind IN (?)", bun.In(mine)).
+		Order("id").Limit(100).Scan(ctx)
 	if err != nil {
 		return nil, err
 	}
+	away := map[string]bool{} // workers tasks are kept for, by whether they are away
 	for _, t := range waiting {
+		pin := PinOf(&t)
+		switch {
+		case pin.Worker == workerID:
+		case pin.Worker > 0 && pin.Strict:
+			continue // kept for another worker
+		case pin.Worker > 0:
+			key := fmt.Sprintf("%d/%s", pin.Worker, t.Kind)
+			off, seen := away[key]
+			if !seen {
+				off = !l.Ready(ctx, pin.Worker, t.Kind)
+				away[key] = off
+			}
+			if !off || !free[t.Kind] {
+				continue // kept for another worker while it is around
+			}
+		case !free[t.Kind]:
+			continue
+		}
 		if !upscalesIfNeeded(&worker, &t) {
 			continue // pages that need upscaling, and it can't
 		}
@@ -163,10 +194,10 @@ func (l *Ledger) Claim(ctx context.Context, workerID int64, kinds []string, limi
 // now: a lower-priority worker gets a kind only when every online worker with
 // a better priority that does that kind is full. Priority is ascending, like
 // module priority.
-func (l *Ledger) claimableKinds(ctx context.Context, workerID int64, kinds []string, global, defaultPerWorker int) ([]string, error) {
+func (l *Ledger) claimableKinds(ctx context.Context, workerID int64, kinds []string, global, defaultPerWorker int) (free, yielded []string, err error) {
 	var workers []model.Worker
 	if err := l.db.NewSelect().Model(&workers).Where("enabled = ?", true).Scan(ctx); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	var current *model.Worker
 	for i := range workers {
@@ -176,7 +207,7 @@ func (l *Ledger) claimableKinds(ctx context.Context, workerID int64, kinds []str
 		}
 	}
 	if current == nil {
-		return nil, nil
+		return nil, nil, nil
 	}
 	var counts []struct {
 		WorkerID int64 `bun:"worker_id"`
@@ -185,7 +216,7 @@ func (l *Ledger) claimableKinds(ctx context.Context, workerID int64, kinds []str
 	if err := l.db.NewSelect().Model((*model.WorkerTask)(nil)).
 		ColumnExpr("worker_id, COUNT(*) AS count").Where("state = ?", model.TaskLeased).
 		GroupExpr("worker_id").Scan(ctx, &counts); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	held := map[int64]int{}
 	total := 0
@@ -194,7 +225,7 @@ func (l *Ledger) claimableKinds(ctx context.Context, workerID int64, kinds []str
 		total += row.Count
 	}
 	if global > 0 && total >= global {
-		return nil, nil
+		return nil, nil, nil
 	}
 	spare := func(w *model.Worker) bool {
 		limit := w.Concurrent
@@ -204,7 +235,7 @@ func (l *Ledger) claimableKinds(ctx context.Context, workerID int64, kinds []str
 		return held[w.ID] < max(limit, 1)
 	}
 	if !spare(current) {
-		return nil, nil
+		return nil, nil, nil
 	}
 	now := time.Now()
 	out := make([]string, 0, len(kinds))
@@ -223,11 +254,13 @@ func (l *Ledger) claimableKinds(ctx context.Context, workerID int64, kinds []str
 				break
 			}
 		}
-		if !yield {
+		if yield {
+			yielded = append(yielded, kind)
+		} else {
 			out = append(out, kind)
 		}
 	}
-	return out, nil
+	return out, yielded, nil
 }
 
 // takes reports whether a worker can actually do a kind of task. A worker
@@ -529,7 +562,11 @@ func (l *Ledger) someoneCanDo(ctx context.Context, t *model.WorkerTask) (bool, e
 	if err := l.db.NewSelect().Model(&list).Where("enabled = ?", true).Scan(ctx); err != nil {
 		return false, err
 	}
+	pin := PinOf(t)
 	for _, w := range list {
+		if pin.Strict && w.ID != pin.Worker {
+			continue // kept for one worker, which has to be the one
+		}
 		if takes(&w, t.Kind) && upscalesIfNeeded(&w, t) && w.LastSeenAt != nil && time.Since(*w.LastSeenAt) < OnlineWithin {
 			return true, nil
 		}

@@ -4212,6 +4212,7 @@ export interface components {
             pageConcurrency: number;
             /** Format: int64 */
             pageRetries: number;
+            upscaleRoutes: components["schemas"]["UpscaleRoute"][];
             workerPlacement: string;
             /** Format: int64 */
             workerPrefetch: number;
@@ -6327,7 +6328,9 @@ export interface components {
             dataDir: string;
             database: string;
             goVersion: string;
+            mode: string;
             os: string;
+            processing: string;
             /** Format: date-time */
             startedAt: string;
             urlBase: string;
@@ -6526,6 +6529,17 @@ export interface components {
             name: string;
             noiseLevels?: number[];
             scales: number[];
+        };
+        UpscaleRoute: {
+            /** Format: int64 */
+            belowWidth?: number;
+            /** @enum {string} */
+            match: "scale" | "width";
+            model?: string;
+            scales?: number[];
+            /** Format: int64 */
+            target: number;
+            wait: boolean;
         };
         UpscalerModel: {
             description: string;

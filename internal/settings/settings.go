@@ -119,12 +119,42 @@ type Downloads struct {
 	// WorkerUpdates offers this server's version to workers running an
 	// older release, which desktop workers then move to on their own.
 	WorkerUpdates bool `json:"workerUpdates" desc:"Offer this server's version to workers on an older release; desktop workers update themselves."`
+	// UpscaleRoutes send pages of a given scale or width to a chosen
+	// upscaler and model, ahead of the priority order (System → Workers).
+	UpscaleRoutes []model.UpscaleRoute `json:"upscaleRoutes" env:"-"`
 }
 
 // LocalOff reports whether this server does no downloading or processing
 // of its own: chapters wait for a worker with the download role, and pages
 // are processed by one with the encode role.
 func (d Downloads) LocalOff() bool { return d.MaxLocalTasks < 0 }
+
+// Validate rejects upscale routes that could never match or point nowhere.
+func (d Downloads) Validate() error {
+	for i, r := range d.UpscaleRoutes {
+		switch r.Match {
+		case model.RouteScale:
+			if len(r.Scales) == 0 {
+				return fmt.Errorf("upscale rule %d: pick at least one scale", i+1)
+			}
+			for _, s := range r.Scales {
+				if s < 2 || s > 16 {
+					return fmt.Errorf("upscale rule %d: %d is not a scale", i+1, s)
+				}
+			}
+		case model.RouteWidth:
+			if r.BelowWidth <= 0 {
+				return fmt.Errorf("upscale rule %d: the width must be above 0", i+1)
+			}
+		default:
+			return fmt.Errorf("upscale rule %d: match by scale or width", i+1)
+		}
+		if r.Target < model.RouteThisServer {
+			return fmt.Errorf("upscale rule %d: no such upscaler", i+1)
+		}
+	}
+	return nil
+}
 
 // Placements a chapter's download can be given.
 const (
@@ -340,7 +370,7 @@ func DefaultMediaManagement() MediaManagement {
 func DefaultDownloads() Downloads {
 	return Downloads{MaxConcurrent: 3, MaxPerSource: 1, PageConcurrency: 3, PageRetries: 3, MaxAttempts: 3, DefaultCheckIntervalMinutes: 360,
 		WorkerPlacement: PlaceAuto, MaxConcurrentPerWorker: 2, MaxWorkerTasks: 8, MaxConcurrentProcessing: 4, WorkerPrefetch: 50,
-		WorkerUpdates: true}
+		WorkerUpdates: true, UpscaleRoutes: []model.UpscaleRoute{}}
 }
 
 func DefaultCleanup() Cleanup {

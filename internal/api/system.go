@@ -31,6 +31,10 @@ type SystemStatus struct {
 	DataDir   string    `json:"dataDir"`
 	StartedAt time.Time `json:"startedAt"`
 	URLBase   string    `json:"urlBase"`
+	// Mode is MANGARR_MODE (integrated, server) and Processing is
+	// MANGARR_PROCESSING (local, workers): what this server does itself.
+	Mode       string `json:"mode"`
+	Processing string `json:"processing"`
 }
 
 type CacheStatus struct {
@@ -88,6 +92,7 @@ func (s *Server) registerSystem() {
 			return &struct{ Body SystemStatus }{SystemStatus{
 				Version: version.Version, Build: version.Build, Commit: version.Commit, GoVersion: runtime.Version(), OS: runtime.GOOS, Arch: runtime.GOARCH,
 				Database: string(s.app.DB.Kind), DataDir: s.app.Cfg.DataDir, StartedAt: s.app.StartedAt, URLBase: s.app.Cfg.URLBase,
+				Mode: s.app.Cfg.Mode, Processing: s.app.Cfg.Processing,
 			}}, nil
 		})
 

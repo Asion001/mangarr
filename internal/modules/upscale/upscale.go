@@ -31,6 +31,9 @@ type Params struct {
 	Format   string `json:"format"` // webp, jpeg, png
 	Quality  int    `json:"quality"`
 	MaxWidth int    `json:"maxWidth"` // 0 = no cap
+	// Pinned keeps Model as it is: an upscale route chose it, so a machine
+	// with a model of its own doesn't swap it in.
+	Pinned bool `json:"pinned,omitempty"`
 }
 
 // Image is an in-memory page.

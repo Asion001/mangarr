@@ -74,3 +74,49 @@ func TestWorkerRunsItsOwnModel(t *testing.T) {
 		}
 	})
 }
+
+// TestRouteModelBeatsTheWorkers: a model an upscale route chose stays, even
+// on a worker set to a model of its own; a worker without it runs as if
+// there were no route.
+func TestRouteModelBeatsTheWorkers(t *testing.T) {
+	each(t, func(t *testing.T, d *db.DB) {
+		ctx := context.Background()
+		l := ledger(d)
+		job := seedJob(t, d)
+		models := []any{
+			map[string]any{"name": "waifu2x-cunet", "scales": []any{2, 4}},
+			map[string]any{"name": "realcugan", "scales": []any{2, 3, 4}},
+		}
+		own := &model.Worker{ID: seedWorker(t, d, "own"), UpscaleModel: "realcugan", Info: map[string]any{"models": models}}
+		asked := upscale.Params{Model: "waifu2x-cunet", Scale: 4, Format: "png", Pinned: true}
+		task := &model.WorkerTask{JobID: job, Kind: model.TaskUpscale, Spec: map[string]any{"params": asked}}
+		if err := l.Add(ctx, task); err != nil {
+			t.Fatal(err)
+		}
+		got, err := l.Claim(ctx, own.ID, []string{model.TaskUpscale})
+		if err != nil || got == nil {
+			t.Fatalf("claim: %v %+v", err, got)
+		}
+		if err := l.UseWorkerModel(ctx, got, own); err != nil {
+			t.Fatal(err)
+		}
+		if m := l.UsedModel(ctx, task.ID); m != "waifu2x-cunet" {
+			t.Fatalf("the route's model was swapped for %q", m)
+		}
+		if _, err := l.HandBack(ctx, own.ID, nil); err != nil {
+			t.Fatal(err)
+		}
+
+		lacks := &model.Worker{ID: seedWorker(t, d, "lacks"), UpscaleModel: "realcugan",
+			Info: map[string]any{"models": []any{map[string]any{"name": "realcugan", "scales": []any{2, 3, 4}}}}}
+		if got, err = l.Claim(ctx, lacks.ID, []string{model.TaskUpscale}); err != nil || got == nil {
+			t.Fatalf("claim: %v %+v", err, got)
+		}
+		if err := l.UseWorkerModel(ctx, got, lacks); err != nil {
+			t.Fatal(err)
+		}
+		if m := l.UsedModel(ctx, task.ID); m != "realcugan" {
+			t.Fatalf("a worker without the route's model ran %q, want its own", m)
+		}
+	})
+}

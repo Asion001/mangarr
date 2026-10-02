@@ -29,13 +29,14 @@ func (a *App) wireProcess(ctx context.Context) error {
 	}
 	a.Processing = processing.New(upscaling.New(a.Modules), a.Encoder)
 	a.Processing.Guard = processing.NewGuard(a.Settings, a.Modules, a.Bus, a.Log.With("component", "processing"))
+	a.Processing.Up.Routes, a.Processing.Up.Pick = a.upscaleRoutes, a.pickUpscaler
 	a.Downloads.Processor = a.Processing
 	// with MANGARR_PROCESSING=workers, or this server's own work switched
 	// off in System → Workers, the image work runs on a worker with the
 	// encode role; this process only hands the pages over and imports what
 	// comes back
 	a.Downloads.Processor = &processing.Switch{Local: a.Processing, UseRemote: a.processesOnWorkers,
-		Remote: &processing.Remote{Tasks: a.Tasks, Guard: a.Processing.Guard}}
+		Remote: &processing.Remote{Tasks: a.Tasks, Guard: a.Processing.Guard, Route: a.routeChapter}}
 	if a.Cfg.Processing == config.ProcessingWorkers {
 		a.Log.Info("processing runs on workers (MANGARR_PROCESSING=workers)")
 	}

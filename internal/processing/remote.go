@@ -28,6 +28,10 @@ type Remote struct {
 	Tasks *worktasks.Ledger
 	// Guard (optional) pauses encoding when a library server can't read it.
 	Guard *Guard
+	// Route (optional) applies the upscale routes to a chapter: the worker
+	// to keep it for, when its pages go to one, and the routes the worker
+	// upscales them by.
+	Route func(ctx context.Context, cfg model.ProfileConfig, pages []downloads.PageFile) (worktasks.Pin, []model.UpscaleRoute)
 }
 
 // TaskPage is one page of a processing task, as the task's spec lists it.
@@ -51,6 +55,9 @@ type TaskSpec struct {
 	// UpscaleModel is the model the worker is set to use (System →
 	// Workers), filled in when the task is handed out.
 	UpscaleModel string `json:"upscaleModel,omitempty"`
+	// Routes are the upscale routes: pages they match are upscaled with
+	// the route's model.
+	Routes []model.UpscaleRoute `json:"routes,omitempty"`
 }
 
 // ResultFile is the name of the result in OutDir (or in the output zip).
@@ -111,9 +118,17 @@ func (r *Remote) Process(ctx context.Context, cfg model.ProfileConfig, pages []d
 			}
 		}
 	}
+	var pin worktasks.Pin
+	var routes []model.UpscaleRoute
+	if needsUpscale && r.Route != nil {
+		pin, routes = r.Route(ctx, cfg, pages)
+	}
 	probe := &model.WorkerTask{Kind: model.TaskEncode, Spec: map[string]any{worktasks.SpecNeedsUpscale: needsUpscale}}
+	pin.Apply(probe.Spec)
 	if ok, err := r.Tasks.CanTake(ctx, probe); err != nil {
 		return res, err
+	} else if !ok && pin.Strict {
+		return res, Unavailable{errors.New("an upscale rule keeps these pages for a worker that is offline or can't process them")}
 	} else if !ok && needsUpscale {
 		return res, Unavailable{errors.New("processing runs on workers (MANGARR_PROCESSING=workers), these pages need upscaling, and no worker with the encode role and an upscaler is online")}
 	} else if !ok {
@@ -127,7 +142,7 @@ func (r *Remote) Process(ctx context.Context, cfg model.ProfileConfig, pages []d
 	if err := os.MkdirAll(outDir, 0o775); err != nil {
 		return res, err
 	}
-	spec := TaskSpec{Profile: cfg, OutDir: outDir, Output: outDir + ".zip"}
+	spec := TaskSpec{Profile: cfg, OutDir: outDir, Output: outDir + ".zip", Routes: routes}
 	for _, p := range pages {
 		spec.Pages = append(spec.Pages, TaskPage{Name: p.Name, Path: p.Path, Format: p.Format, Width: p.Width, Height: p.Height})
 	}
@@ -136,6 +151,7 @@ func (r *Remote) Process(ctx context.Context, cfg model.ProfileConfig, pages []d
 		return res, err
 	}
 	raw[worktasks.SpecNeedsUpscale] = needsUpscale
+	pin.Apply(raw)
 	task := &model.WorkerTask{JobID: jobID, Kind: model.TaskEncode, Spec: raw, PagesTotal: len(pages)}
 	if err := r.Tasks.Add(ctx, task); err != nil {
 		os.Remove(spec.Output)

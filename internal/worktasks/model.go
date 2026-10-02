@@ -24,8 +24,11 @@ func (l *Ledger) UseWorkerModel(ctx context.Context, t *model.WorkerTask, w *mod
 		}
 	}
 	params := requested
-	if w.UpscaleModel != "" && w.UpscaleModel != requested.Model {
-		for _, m := range workerModels(w) {
+	if requested.Pinned && !hasModel(w, requested.Model) {
+		params.Pinned = false // a route's model this worker lacks: as if there were no route
+	}
+	if w.UpscaleModel != "" && w.UpscaleModel != requested.Model && !params.Pinned {
+		for _, m := range WorkerModels(w) {
 			if m.Name == w.UpscaleModel {
 				params.Model, params.Scale = m.Name, upscale.FitScale(requested.Scale, m.Scales)
 				break
@@ -72,8 +75,8 @@ func specParams(v any) (upscale.Params, bool) {
 	return p, true
 }
 
-// workerModels is the upscaling models a worker said it has.
-func workerModels(w *model.Worker) []upscale.Model {
+// WorkerModels is the upscaling models a worker said it has.
+func WorkerModels(w *model.Worker) []upscale.Model {
 	data, err := json.Marshal(w.Info["models"])
 	if err != nil {
 		return nil
@@ -83,4 +86,14 @@ func workerModels(w *model.Worker) []upscale.Model {
 		return nil
 	}
 	return out
+}
+
+// hasModel reports whether a worker said it has a model.
+func hasModel(w *model.Worker, name string) bool {
+	for _, m := range WorkerModels(w) {
+		if m.Name == name {
+			return true
+		}
+	}
+	return false
 }

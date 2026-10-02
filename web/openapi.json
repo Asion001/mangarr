@@ -2379,6 +2379,12 @@
             "format": "int64",
             "type": "integer"
           },
+          "upscaleRoutes": {
+            "items": {
+              "$ref": "#/components/schemas/UpscaleRoute"
+            },
+            "type": "array"
+          },
           "workerPlacement": {
             "type": "string"
           },
@@ -2403,7 +2409,8 @@
           "maxConcurrentProcessing",
           "workerPrefetch",
           "maxLocalTasks",
-          "workerUpdates"
+          "workerUpdates",
+          "upscaleRoutes"
         ],
         "type": "object"
       },
@@ -9471,7 +9478,13 @@
           "goVersion": {
             "type": "string"
           },
+          "mode": {
+            "type": "string"
+          },
           "os": {
+            "type": "string"
+          },
+          "processing": {
             "type": "string"
           },
           "startedAt": {
@@ -9495,7 +9508,9 @@
           "database",
           "dataDir",
           "startedAt",
-          "urlBase"
+          "urlBase",
+          "mode",
+          "processing"
         ],
         "type": "object"
       },
@@ -10185,6 +10200,45 @@
           "name",
           "description",
           "scales"
+        ],
+        "type": "object"
+      },
+      "UpscaleRoute": {
+        "additionalProperties": false,
+        "properties": {
+          "belowWidth": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "match": {
+            "enum": [
+              "scale",
+              "width"
+            ],
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "scales": {
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "target": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "wait": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "match",
+          "target",
+          "wait"
         ],
         "type": "object"
       },

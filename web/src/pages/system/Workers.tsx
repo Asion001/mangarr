@@ -8,9 +8,11 @@ import { Badge, Button, Card, ErrorBox, Field, IconButton, Input, Loading, Modal
 import { bytes, relative } from "../../lib/format";
 import { useToast } from "../../lib/toast";
 import { useSettingsDoc } from "../settings/useSettingsDoc";
+import { describeRoute, routeAnchor, UpscaleRoutes, type RouteTarget } from "./UpscaleRoutes";
 
 type Worker = S["WorkerResource"];
 type Downloads = S["Downloads"];
+type SystemStatus = S["SystemStatus"];
 type UpscaleModel = { name: string; description?: string };
 
 const roles = [
@@ -42,11 +44,27 @@ export function WorkersPage() {
   const [adding, setAdding] = useState(false);
   const [issued, setIssued] = useState<{ name: string; key: string } | null>(null);
   const [removing, setRemoving] = useState<Worker | null>(null);
+  const { data: status } = useQuery({ queryKey: ["system-status"], queryFn: () => unwrap(api.GET("/api/v1/system/status")) });
 
   // the built-in upscaler is this server's upscale role; the "workers"
   // module only hands batches to the machines listed here
   const local = engines?.find((e) => e.implementation === "local");
   const pool = engines?.find((e) => e.implementation === "workers");
+  // a server started with MANGARR_MODE=server never upscales itself, even
+  // with a built-in upscaler left over from an integrated run
+  const localUsable = !!local && status?.mode !== "server";
+  const { data: localInfo } = useQuery({
+    queryKey: ["upscaler-info", local?.id],
+    queryFn: () => unwrap(api.GET("/api/v1/modules/{id}/upscaler-info", { params: { path: { id: local!.id } } })),
+    enabled: !!local?.enabled,
+    retry: false,
+  });
+  const routes = limits.value?.upscaleRoutes ?? [];
+  const targets: RouteTarget[] = [
+    ...(localUsable ? [{ id: -1, name: t("This server"), models: localInfo?.models ?? [] }] : []),
+    ...(data ?? []).filter((w) => w.roles.includes("upscale")).map((w) => ({ id: w.id, name: w.name, models: modelsOf(w) })),
+  ];
+  const routedTo = (id: number) => routes.map((r, i) => ({ r, i })).filter(({ r }) => r.target === id);
 
   const reload = () => qc.invalidateQueries({ queryKey: ["workers"] });
   const updateEngine = async (engine: ModuleResource, patch: { enabled?: boolean; priority?: number; model?: string }) => {
@@ -88,7 +106,7 @@ export function WorkersPage() {
           <Button variant="primary" icon={<Plus className="size-4" />} onClick={() => setAdding(true)}>{t("Add worker")}</Button>
         }
       />
-      <p className="mb-3 text-sm text-muted">{t("Work goes to the lowest priority number that is online and has room. This server does whatever no worker takes.")}</p>
+      <p className="mb-3 text-sm text-muted">{t("Work goes to the lowest priority number that is online and has room. The first row is this server and says what it does itself.")}</p>
       {pool && !pool.enabled && (
         <div className="mb-3 flex flex-wrap items-center gap-3 rounded-lg border border-warn/40 bg-warn/10 px-3 py-2 text-sm">
           <span className="flex-1">{t("Upscaling on remote workers is switched off, so only this server upscales.")}</span>
@@ -115,7 +133,7 @@ export function WorkersPage() {
             </tr>
           </thead>
           <tbody>
-            <ServerRow engine={local} onUpdate={updateEngine} limits={limits.value} onLimits={(patch) => limits.value && limits.save({ ...limits.value, ...patch })} />
+            <ServerRow engine={localUsable ? local : undefined} info={localInfo} status={status} routed={routedTo(-1)} onUpdate={updateEngine} limits={limits.value} onLimits={(patch) => limits.value && limits.save({ ...limits.value, ...patch })} />
             {data.map((w) => (
               <tr key={w.id} className={w.enabled ? undefined : "opacity-60"}>
                 <Td>
@@ -150,7 +168,10 @@ export function WorkersPage() {
                 </Td>
                 <Td>
                   {w.roles.includes("upscale") ? (
-                    <ModelSelect value={w.upscaleModel} models={modelsOf(w)} onChange={(upscaleModel) => update(w, { upscaleModel })} />
+                    <>
+                      <ModelSelect value={w.upscaleModel} models={modelsOf(w)} onChange={(upscaleModel) => update(w, { upscaleModel })} />
+                      <RoutedLink routed={routedTo(w.id)} />
+                    </>
                   ) : (
                     <span className="text-xs text-muted">—</span>
                   )}
@@ -205,6 +226,14 @@ export function WorkersPage() {
       {data && data.length === 0 && (
         <p className="mt-3 text-sm text-muted">{t("A worker is the same mangarr image started with") + " "}<code>MANGARR_MODE=worker</code>{t(", a server address and a key from here. It dials in and asks for work, so it needs no port of its own.")}</p>
       )}
+      <UpscaleRoutes
+        routes={routes}
+        targets={targets}
+        onChange={(upscaleRoutes) => limits.patch({ upscaleRoutes })}
+        onSave={() => limits.save()}
+        saving={limits.saving}
+        disabled={!limits.value}
+      />
       <Card
         title={t("Worker concurrency")}
         className="mt-6"
@@ -276,27 +305,43 @@ export function WorkersPage() {
 }
 
 /**
- * ServerRow is this server in the list of workers. It downloads and encodes
- * what no worker takes unless its own work is switched off (maxLocalTasks
- * -1), when everything waits for the workers; it upscales when the image has
- * the built-in upscaler, and that is what its priority and model apply to.
+ * ServerRow is this server in the list of workers. It downloads what no
+ * download worker takes and, unless MANGARR_PROCESSING=workers sends all
+ * processing to the workers, processes what no encode worker takes; both
+ * stop when its own work is switched off (maxLocalTasks -1), and then
+ * everything waits for the workers. It upscales only with the built-in
+ * upscaler, which the full image has, and that is what its priority and
+ * model apply to.
  */
-function ServerRow({ engine, onUpdate, limits, onLimits }: {
+function ServerRow({ engine, info, status, routed, onUpdate, limits, onLimits }: {
   engine?: ModuleResource;
+  info?: { devices?: string[] | null; models?: UpscaleModel[] | null };
+  status?: SystemStatus;
+  routed: Routed[];
   onUpdate: (engine: ModuleResource, patch: { enabled?: boolean; priority?: number; model?: string }) => Promise<void>;
   limits: Downloads | null;
   onLimits: (patch: Partial<Downloads>) => void;
 }) {
-  const { data: info } = useQuery({
-    queryKey: ["upscaler-info", engine?.id],
-    queryFn: () => unwrap(api.GET("/api/v1/modules/{id}/upscaler-info", { params: { path: { id: engine!.id } } })),
-    enabled: !!engine?.enabled,
-    retry: false,
-  });
-  const upscales = !!engine?.enabled;
-  const model = typeof engine?.settings?.model === "string" ? engine.settings.model : "";
   const off = (limits?.maxLocalTasks ?? 0) < 0;
-  const fallback = off ? t("Switched off: downloads and processing wait for the workers") : t("Always does the work no worker takes");
+  // with MANGARR_PROCESSING=workers the workers process pages, upscaling
+  // included, so this server neither encodes nor upscales
+  const remote = status?.processing === "workers";
+  const serverOnly = status?.mode === "server";
+  const upscaler = remote ? undefined : engine;
+  const upscales = !!upscaler?.enabled && !off;
+  const model = typeof upscaler?.settings?.model === "string" ? upscaler.settings.model : "";
+  const doing = off
+    ? [t("Switched off: downloads and processing wait for the workers")]
+    : [
+        t("Downloads the chapters no download worker takes"),
+        remote ? t("Pages are processed and upscaled on the workers (MANGARR_PROCESSING=workers)") : t("Processes the pages no encode worker takes"),
+        ...(remote ? [] : [upscales ? t("Upscales at its priority, like a worker") : t("Does not upscale: the workers do")]),
+      ];
+  const upscaleHelp = remote
+    ? t("The worker that processes a chapter upscales it")
+    : serverOnly
+      ? t("Started with MANGARR_MODE=server, so it never upscales itself")
+      : t("Needs the full image, which has the upscaling tools");
   return (
     <tr className={off ? "bg-panel-2/40 opacity-60" : "bg-panel-2/40"}>
       <Td>
@@ -305,36 +350,47 @@ function ServerRow({ engine, onUpdate, limits, onLimits }: {
           <span className="whitespace-nowrap font-medium">{t("This server")}</span>
         </div>
         <div className="mt-0.5 flex flex-wrap items-center gap-1 text-xs text-muted">
-          <Badge tone="accent">{t("Integrated")}</Badge>
-          {info?.devices?.join(", ")}
+          {serverOnly ? (
+            <Badge tone="info" title={t("Started with MANGARR_MODE=server: the library, the queue and downloads, without the upscaling tools.")}>{t("Server")}</Badge>
+          ) : (
+            <Badge tone="accent" title={t("Started with MANGARR_MODE=integrated: the server and a worker in one, with the upscaling tools when the image has them.")}>{t("Integrated")}</Badge>
+          )}
+          {remote && <Badge>{t("Processing on workers")}</Badge>}
+          {upscaler && info?.devices?.join(", ")}
         </div>
-        {engine?.error && <div className="mt-1 text-xs text-err">{engine.error}</div>}
+        {upscaler?.error && <div className="mt-1 text-xs text-err">{upscaler.error}</div>}
       </Td>
       <Td>
         <div className="flex flex-wrap gap-1">
-          {roles.map((r) =>
-            r.key === "upscale" ? (
-              engine ? (
-                <RoleChip key={r.key} label={r.label} help={r.help} on={upscales} onClick={() => onUpdate(engine, { enabled: !upscales })} />
-              ) : (
-                <RoleChip key={r.key} label={r.label} help={t("Needs the full image, which has the upscaling tools")} on={false} />
-              )
-            ) : (
-              <RoleChip key={r.key} label={r.label} help={fallback} on={!off} />
-            ),
-          )}
+          {roles.map((r) => {
+            switch (r.key) {
+              case "upscale":
+                return upscaler ? (
+                  <RoleChip key={r.key} label={r.label} help={r.help} on={upscales} onClick={off ? undefined : () => onUpdate(upscaler, { enabled: !upscaler.enabled })} />
+                ) : (
+                  <RoleChip key={r.key} label={r.label} help={upscaleHelp} on={false} />
+                );
+              case "encode":
+                return <RoleChip key={r.key} label={r.label} help={remote ? t("Pages are processed on the workers (MANGARR_PROCESSING=workers)") : t("Processes the pages no encode worker takes")} on={!off && !remote} />;
+              default:
+                return <RoleChip key={r.key} label={r.label} help={t("Downloads the chapters no download worker takes")} on={!off} />;
+            }
+          })}
         </div>
       </Td>
       <Td>
-        {engine ? (
-          <ModelSelect value={model} models={info?.models ?? []} disabled={!upscales} onChange={(m) => onUpdate(engine, { model: m })} />
+        {upscaler ? (
+          <>
+            <ModelSelect value={model} models={info?.models ?? []} disabled={!upscales} onChange={(m) => onUpdate(upscaler, { model: m })} />
+            <RoutedLink routed={routed} />
+          </>
         ) : (
           <span className="text-xs text-muted">—</span>
         )}
       </Td>
       <Td>
-        {engine ? (
-          <DeferredNumber value={engine.priority} onSave={(priority) => onUpdate(engine, { priority })} title={t("Lower first")} />
+        {upscaler ? (
+          <DeferredNumber value={upscaler.priority} onSave={(priority) => onUpdate(upscaler, { priority })} title={t("Lower first")} />
         ) : (
           <span className="text-xs text-muted">—</span>
         )}
@@ -353,7 +409,11 @@ function ServerRow({ engine, onUpdate, limits, onLimits }: {
           <span className="text-xs text-muted">—</span>
         )}
       </Td>
-      <Td className="text-xs text-muted">{fallback}</Td>
+      <Td className="text-xs text-muted">
+        <ul className="flex w-56 flex-col gap-0.5">
+          {doing.map((line) => <li key={line}>{line}</li>)}
+        </ul>
+      </Td>
       <Td className="text-xs text-muted">—</Td>
       <Td className="text-xs text-muted">—</Td>
       <Td>
@@ -365,6 +425,18 @@ function ServerRow({ engine, onUpdate, limits, onLimits }: {
       </Td>
       <Td />
     </tr>
+  );
+}
+
+type Routed = { r: S["UpscaleRoute"]; i: number };
+
+/** RoutedLink says which upscale rules send pages to a row. */
+function RoutedLink({ routed }: { routed: Routed[] }) {
+  if (!routed.length) return null;
+  return (
+    <a href={`#${routeAnchor}`} className="mt-1 block text-xs text-accent-2 hover:underline">
+      {t("Gets {what}", { what: routed.map(({ r, i }) => `${describeRoute(r)} (${t("rule {n}", { n: i + 1 })})`).join(", ") })}
+    </a>
   );
 }
 

@@ -30,6 +30,13 @@ type Processor struct {
 	// Fixed (optional) is the only upscaler to use, in place of the
 	// modules: a worker processing pages upscales with its own engine.
 	Fixed upscale.Module
+	// Routes (optional) are the upscale routes in force: pages they match
+	// go to the route's upscaler and model.
+	Routes func(ctx context.Context) []model.UpscaleRoute
+	// Pick (optional) is the upscaler a route's pages go to, given the one
+	// the priority order chose, and what to add to the context its batches
+	// run in (nil for nothing). Without it every route keeps chosen.
+	Pick func(ctx context.Context, r model.UpscaleRoute, chosen upscale.Module) (upscale.Module, func(context.Context) context.Context, error)
 }
 
 func New(m *modules.Manager) *Processor { return &Processor{mods: m} }
@@ -197,24 +204,42 @@ func (p *Processor) ProcessEach(ctx context.Context, cfg model.UpscaleConfig, pa
 		}
 		mdl = &info.Models[0]
 	}
-	// group pages by the scale and output format they need so each batch is
-	// one engine run
+	var routes []model.UpscaleRoute
+	if p.Routes != nil {
+		routes = p.Routes(ctx)
+	}
+	// group pages by the scale, output format and route they need so each
+	// batch is one engine run
 	type batch struct {
 		scale    int
 		format   string
 		maxWidth int
+		route    int
 	}
 	groups := map[batch][]int{}
 	for _, i := range todo {
-		s := ChooseScale(model.PageWidth(pages[i].Width, pages[i].Height), cfg.MinWidth, mdl.Scales)
+		width := model.PageWidth(pages[i].Width, pages[i].Height)
+		s := ChooseScale(width, cfg.MinWidth, mdl.Scales)
 		if s == 0 {
 			continue
 		}
-		b := batch{s, OutputFormat(cfg.Format, pages[i].Format), cfg.MaxWidth}
+		b := batch{s, OutputFormat(cfg.Format, pages[i].Format), cfg.MaxWidth, model.RouteFor(routes, s, width)}
 		if b.maxWidth > 0 && pages[i].Width > pages[i].Height {
 			b.maxWidth *= 2 // a spread holds two pages
 		}
 		groups[b] = append(groups[b], i)
+	}
+	// each route's pages go to its upscaler with its model
+	lanes := map[int]*lane{-1: {up: up, model: mdl.Name}}
+	for b := range groups {
+		if _, ok := lanes[b.route]; ok {
+			continue
+		}
+		l, err := p.lane(ctx, routes[b.route], up, mdl.Name)
+		if err != nil {
+			return nil, false, "", err
+		}
+		lanes[b.route] = l
 	}
 	grouped := make([]bool, len(pages))
 	for _, idxs := range groups {
@@ -258,9 +283,14 @@ run:
 				break run
 			}
 			wg.Add(1)
+			l := lanes[b.route]
 			go func() {
 				defer func() { <-sem; wg.Done() }()
-				if err := p.upscaleChunk(ctx, up, mdl, cfg, b.format, b.scale, b.maxWidth, pages, idxs, out, outDir); err != nil {
+				cctx := ctx
+				if l.pin != nil {
+					cctx = l.pin(ctx)
+				}
+				if err := p.upscaleChunk(cctx, l, cfg, b.format, l.scale(b.scale), b.maxWidth, pages, idxs, out, outDir); err != nil {
 					cancel(err)
 					return
 				}
@@ -323,7 +353,60 @@ func chunks(pages []downloads.PageFile, group []int, scale int) [][]int {
 	return out
 }
 
-func (p *Processor) upscaleChunk(ctx context.Context, up upscale.Module, mdl *upscale.Model, cfg model.UpscaleConfig, format string, scale, maxWidth int,
+// lane is where a route's batches run: the upscaler, the model and what the
+// context carries for it.
+type lane struct {
+	up     upscale.Module
+	pin    func(context.Context) context.Context
+	model  string
+	pinned bool
+	// scales are the route model's, when the upscaler has it: a batch
+	// runs at the nearest one it has
+	scales []int
+}
+
+func (l *lane) scale(want int) int {
+	if len(l.scales) == 0 {
+		return want
+	}
+	return upscale.FitScale(want, l.scales)
+}
+
+// lane resolves a route: its upscaler (the chosen one unless Pick moves
+// it) and its model (the profile's unless the route names one).
+func (p *Processor) lane(ctx context.Context, r model.UpscaleRoute, chosen upscale.Module, profileModel string) (*lane, error) {
+	l := &lane{up: chosen, model: profileModel}
+	if p.Pick != nil {
+		up, pin, err := p.Pick(ctx, r, chosen)
+		if err != nil {
+			return nil, err
+		}
+		l.up, l.pin = up, pin
+	}
+	if r.Model != "" && r.Model != profileModel {
+		l.model, l.pinned = r.Model, true
+		ictx, cancel := context.WithTimeout(ctx, 20*time.Second)
+		info, err := l.up.Info(ictx)
+		cancel()
+		if err == nil {
+			found := false
+			for _, m := range info.Models {
+				if m.Name == r.Model {
+					l.scales, found = m.Scales, true
+				}
+			}
+			if !found {
+				// the upscaler doesn't have it: as if the route named none
+				l.model, l.pinned = profileModel, false
+			}
+		}
+	} else if r.Model != "" {
+		l.pinned = true
+	}
+	return l, nil
+}
+
+func (p *Processor) upscaleChunk(ctx context.Context, l *lane, cfg model.UpscaleConfig, format string, scale, maxWidth int,
 	pages []downloads.PageFile, idxs []int, out []downloads.PageFile, outDir string) error {
 	imgs := make([]upscale.Image, 0, len(idxs))
 	for _, i := range idxs {
@@ -333,8 +416,8 @@ func (p *Processor) upscaleChunk(ctx context.Context, up upscale.Module, mdl *up
 		}
 		imgs = append(imgs, upscale.Image{Name: pages[i].Name, Data: data})
 	}
-	res, err := up.Upscale(ctx, imgs, upscale.Params{Model: mdl.Name, Scale: scale, Noise: cfg.Noise, Format: format,
-		Quality: cfg.Quality, MaxWidth: maxWidth})
+	res, err := l.up.Upscale(ctx, imgs, upscale.Params{Model: l.model, Scale: scale, Noise: cfg.Noise, Format: format,
+		Quality: cfg.Quality, MaxWidth: maxWidth, Pinned: l.pinned})
 	if err != nil {
 		return err
 	}

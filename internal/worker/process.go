@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/Asion001/mangarr/internal/downloads"
+	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/modules/upscale"
 	"github.com/Asion001/mangarr/internal/processing"
 	"github.com/Asion001/mangarr/internal/progress"
@@ -79,6 +80,7 @@ func (w *Worker) process(ctx context.Context, t Task) (result, error) {
 	proc := processing.New(nil, w.enc)
 	if w.up != nil {
 		proc.Up = upscaling.NewFixed(&engine{srv: w.up, model: spec.UpscaleModel})
+		proc.Up.Routes = func(context.Context) []model.UpscaleRoute { return spec.Routes }
 	}
 	w.status.stage(t.ID, "processing", 0, len(in))
 	res, err := proc.Process(ctx, cfg, in, workDir)
@@ -296,8 +298,21 @@ func (e *engine) Info(ctx context.Context) (*upscale.Info, error) {
 	return out, nil
 }
 
+// has reports whether this machine has a model.
+func (e *engine) has(name string) bool {
+	for _, m := range e.srv.Info().Models {
+		if m.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
 func (e *engine) Upscale(ctx context.Context, images []upscale.Image, p upscale.Params) ([]upscale.Image, error) {
-	if e.model != "" && e.model != p.Model {
+	if p.Pinned && !e.has(p.Model) {
+		p.Pinned = false // a route's model this machine lacks: as if there were no route
+	}
+	if e.model != "" && e.model != p.Model && !p.Pinned {
 		for _, m := range e.srv.Info().Models {
 			if m.Name == e.model {
 				p.Model, p.Scale = m.Name, upscale.FitScale(p.Scale, m.Scales)

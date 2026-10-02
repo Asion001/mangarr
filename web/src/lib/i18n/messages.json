@@ -5751,10 +5751,6 @@
     "ru": "Не удалось обновить этот сервер",
     "uk": "Не вдалося оновити цей сервер"
   },
-  "Work goes to the lowest priority number that is online and has room. This server does whatever no worker takes.": {
-    "ru": "Работа достаётся машине с наименьшим номером приоритета, которая в сети и свободна. Всё, что не взял ни один воркер, делает этот сервер.",
-    "uk": "Роботу отримує машина з найменшим номером пріоритету, яка в мережі й вільна. Усе, чого не взяв жоден воркер, робить цей сервер."
-  },
   "Upscaling on remote workers is switched off, so only this server upscales.": {
     "ru": "Увеличение на удалённых воркерах выключено, поэтому увеличивает только этот сервер.",
     "uk": "Збільшення на віддалених воркерах вимкнено, тому збільшує лише цей сервер."
@@ -5774,10 +5770,6 @@
   "Per-worker overrides can be set above. 0 uses the default.": {
     "ru": "Выше можно задать отдельный лимит. 0 использует значение по умолчанию.",
     "uk": "Вище можна задати окремий ліміт. 0 використовує значення за замовчуванням."
-  },
-  "Always does the work no worker takes": {
-    "ru": "Всегда делает работу, которую не взял ни один воркер",
-    "uk": "Завжди виконує роботу, яку не взяв жоден воркер"
   },
   "This server": {
     "ru": "Этот сервер",
@@ -8178,5 +8170,141 @@
   "Workers on an older release are told about this version. Desktop workers finish what they hold, update themselves and restart; containers only report it.": {
     "ru": "Воркерам на старой версии сообщается об этой версии. Десктопные воркеры доделывают взятые задачи, обновляются и перезапускаются; контейнеры только сообщают об этом.",
     "uk": "Воркерам на старій версії повідомляється про цю версію. Десктопні воркери доробляють узяті завдання, оновлюються й перезапускаються; контейнери лише повідомляють про це."
+  },
+  "Work goes to the lowest priority number that is online and has room. The first row is this server and says what it does itself.": {
+    "ru": "Работа уходит к наименьшему номеру приоритета, который в сети и свободен. Первая строка — этот сервер и то, что он делает сам.",
+    "uk": "Робота йде до найменшого номера пріоритету, який у мережі й вільний. Перший рядок — цей сервер і те, що він робить сам."
+  },
+  "Downloads the chapters no download worker takes": {
+    "ru": "Скачивает главы, которые не взял ни один воркер загрузки",
+    "uk": "Завантажує розділи, які не взяв жоден воркер завантаження"
+  },
+  "Pages are processed and upscaled on the workers (MANGARR_PROCESSING=workers)": {
+    "ru": "Страницы обрабатываются и апскейлятся на воркерах (MANGARR_PROCESSING=workers)",
+    "uk": "Сторінки обробляються та апскейляться на воркерах (MANGARR_PROCESSING=workers)"
+  },
+  "Processes the pages no encode worker takes": {
+    "ru": "Обрабатывает страницы, которые не взял ни один воркер кодирования",
+    "uk": "Обробляє сторінки, які не взяв жоден воркер кодування"
+  },
+  "Upscales at its priority, like a worker": {
+    "ru": "Апскейлит со своим приоритетом, как воркер",
+    "uk": "Апскейлить зі своїм пріоритетом, як воркер"
+  },
+  "Does not upscale: the workers do": {
+    "ru": "Не апскейлит: это делают воркеры",
+    "uk": "Не апскейлить: це роблять воркери"
+  },
+  "The worker that processes a chapter upscales it": {
+    "ru": "Главу апскейлит воркер, который её обрабатывает",
+    "uk": "Розділ апскейлить воркер, який його обробляє"
+  },
+  "Started with MANGARR_MODE=server, so it never upscales itself": {
+    "ru": "Запущен с MANGARR_MODE=server, поэтому сам никогда не апскейлит",
+    "uk": "Запущено з MANGARR_MODE=server, тому сам ніколи не апскейлить"
+  },
+  "Started with MANGARR_MODE=server: the library, the queue and downloads, without the upscaling tools.": {
+    "ru": "Запущен с MANGARR_MODE=server: библиотека, очередь и загрузки, без инструментов апскейла.",
+    "uk": "Запущено з MANGARR_MODE=server: бібліотека, черга й завантаження, без інструментів апскейлу."
+  },
+  "Started with MANGARR_MODE=integrated: the server and a worker in one, with the upscaling tools when the image has them.": {
+    "ru": "Запущен с MANGARR_MODE=integrated: сервер и воркер в одном, с инструментами апскейла, если они есть в образе.",
+    "uk": "Запущено з MANGARR_MODE=integrated: сервер і воркер в одному, з інструментами апскейлу, якщо вони є в образі."
+  },
+  "Processing on workers": {
+    "ru": "Обработка на воркерах",
+    "uk": "Обробка на воркерах"
+  },
+  "Pages are processed on the workers (MANGARR_PROCESSING=workers)": {
+    "ru": "Страницы обрабатываются на воркерах (MANGARR_PROCESSING=workers)",
+    "uk": "Сторінки обробляються на воркерах (MANGARR_PROCESSING=workers)"
+  },
+  "Gets {what}": {
+    "ru": "Получает {what}",
+    "uk": "Отримує {what}"
+  },
+  "rule {n}": {
+    "ru": "правило {n}",
+    "uk": "правило {n}"
+  },
+  "pages under {width}px": {
+    "ru": "страницы уже {width}px",
+    "uk": "сторінки вужчі за {width}px"
+  },
+  "Upscale routing": {
+    "ru": "Маршрутизация апскейла",
+    "uk": "Маршрутизація апскейлу"
+  },
+  "Send pages of a given scale or size to a chosen upscaler and model, ahead of the priority order. The first rule that matches a page wins; pages no rule matches go by priority as before.": {
+    "ru": "Отправляйте страницы нужного масштаба или размера на выбранный апскейлер и модель в обход порядка приоритетов. Срабатывает первое подходящее правило; страницы без правила идут по приоритету, как раньше.",
+    "uk": "Надсилайте сторінки потрібного масштабу чи розміру на обраний апскейлер і модель в обхід порядку пріоритетів. Спрацьовує перше відповідне правило; сторінки без правила йдуть за пріоритетом, як раніше."
+  },
+  "Page width": {
+    "ru": "Ширина страницы",
+    "uk": "Ширина сторінки"
+  },
+  "under": {
+    "ru": "меньше",
+    "uk": "менше"
+  },
+  "Send to": {
+    "ru": "Отправить на",
+    "uk": "Надіслати на"
+  },
+  "Any upscaler": {
+    "ru": "Любой апскейлер",
+    "uk": "Будь-який апскейлер"
+  },
+  "Removed upscaler": {
+    "ru": "Удалённый апскейлер",
+    "uk": "Видалений апскейлер"
+  },
+  "With model": {
+    "ru": "С моделью",
+    "uk": "З моделлю"
+  },
+  "Its usual model": {
+    "ru": "Его обычная модель",
+    "uk": "Його звичайна модель"
+  },
+  "If it is offline": {
+    "ru": "Если он не в сети",
+    "uk": "Якщо він не в мережі"
+  },
+  "Wait for it": {
+    "ru": "Ждать его",
+    "uk": "Чекати на нього"
+  },
+  "Use the priority order": {
+    "ru": "Использовать порядок приоритетов",
+    "uk": "Використати порядок пріоритетів"
+  },
+  "Remove rule": {
+    "ru": "Удалить правило",
+    "uk": "Видалити правило"
+  },
+  "Add rule": {
+    "ru": "Добавить правило",
+    "uk": "Додати правило"
+  },
+  "The scale a page needs to reach the profile's minimum width.": {
+    "ru": "Масштаб, нужный странице, чтобы достичь минимальной ширины профиля.",
+    "uk": "Масштаб, потрібний сторінці, щоб досягти мінімальної ширини профілю."
+  },
+  "Page width and model": {
+    "ru": "Ширина страницы и модель",
+    "uk": "Ширина сторінки й модель"
+  },
+  "Width is the page before upscaling. A rule's model replaces the profile's and the upscaler's own; an upscaler without it uses its usual one.": {
+    "ru": "Ширина — страницы до апскейла. Модель правила заменяет модель профиля и апскейлера; апскейлер без неё использует свою обычную.",
+    "uk": "Ширина — сторінки до апскейлу. Модель правила замінює модель профілю й апскейлера; апскейлер без неї використовує свою звичайну."
+  },
+  "Wait for it: the chapter waits for that upscaler. Use the priority order: any upscaler may take the pages meanwhile.": {
+    "ru": "Ждать его: глава ждёт этот апскейлер. Порядок приоритетов: пока его нет, страницы может взять любой апскейлер.",
+    "uk": "Чекати на нього: розділ чекає на цей апскейлер. Порядок пріоритетів: поки його немає, сторінки може взяти будь-який апскейлер."
+  },
+  "When the workers process pages (MANGARR_PROCESSING=workers), one worker processes a whole chapter: it goes to the worker of the rule most of its pages match, when that worker also has the encode role.": {
+    "ru": "Когда страницы обрабатывают воркеры (MANGARR_PROCESSING=workers), всю главу обрабатывает один воркер: она уходит воркеру правила, под которое подходит большинство её страниц, если у него есть и роль кодирования.",
+    "uk": "Коли сторінки обробляють воркери (MANGARR_PROCESSING=workers), увесь розділ обробляє один воркер: він іде до воркера правила, якому відповідає більшість його сторінок, якщо той має й роль кодування."
   }
 }

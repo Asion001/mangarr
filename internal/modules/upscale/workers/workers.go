@@ -151,6 +151,9 @@ func (m *Module) Upscale(ctx context.Context, images []upscale.Image, p upscale.
 
 	params, _ := json.Marshal(p)
 	spec := map[string]any{"params": json.RawMessage(params), "input": inPath, "output": outPath, "pages": len(images)}
+	if pin, ok := worktasks.PinFrom(ctx); ok {
+		pin.Apply(spec) // an upscale route's worker
+	}
 	task := &model.WorkerTask{JobID: jobID, Kind: model.TaskUpscale, Spec: spec, PagesTotal: len(images)}
 	if err := tasks.Add(ctx, task); err != nil {
 		return nil, err

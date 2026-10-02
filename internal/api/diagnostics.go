@@ -24,7 +24,6 @@ func init() { register((*Server).registerDiagnostics) }
 // diagnosticsSystem is system.json in the bundle.
 type diagnosticsSystem struct {
 	SystemStatus
-	Mode       string         `json:"mode"`
 	Uptime     string         `json:"uptime"`
 	Goroutines int            `json:"goroutines"`
 	Counts     map[string]int `json:"counts"`
@@ -58,8 +57,9 @@ func (s *Server) diagnostics(ctx context.Context) ([]byte, error) {
 	}
 	sys := diagnosticsSystem{
 		SystemStatus: SystemStatus{Version: version.Version, Build: version.Build, Commit: version.Commit, GoVersion: runtime.Version(), OS: runtime.GOOS, Arch: runtime.GOARCH,
-			Database: string(s.app.DB.Kind), DataDir: s.app.Cfg.DataDir, StartedAt: s.app.StartedAt, URLBase: s.app.Cfg.URLBase},
-		Mode: s.app.Cfg.Mode, Uptime: time.Since(s.app.StartedAt).Round(time.Second).String(), Goroutines: runtime.NumGoroutine(),
+			Database: string(s.app.DB.Kind), DataDir: s.app.Cfg.DataDir, StartedAt: s.app.StartedAt, URLBase: s.app.Cfg.URLBase,
+			Mode: s.app.Cfg.Mode, Processing: s.app.Cfg.Processing},
+		Uptime: time.Since(s.app.StartedAt).Round(time.Second).String(), Goroutines: runtime.NumGoroutine(),
 		Counts: counts, ImageCache: s.app.ImageCache.Size(), LogDir: s.app.Cfg.LogDir,
 	}
 	checks, at := s.app.Health.Results()

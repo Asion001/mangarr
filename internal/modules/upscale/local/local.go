@@ -75,7 +75,7 @@ func (m *Module) Upscale(ctx context.Context, images []upscale.Image, p upscale.
 	for i, img := range images {
 		in[i] = upscaler.Image{Name: img.Name, Data: img.Data}
 	}
-	if m.model != "" && m.model != p.Model {
+	if m.model != "" && m.model != p.Model && !p.Pinned {
 		for _, e := range m.srv.Info().Models {
 			if e.Name == m.model {
 				p.Model, p.Scale = e.Name, upscale.FitScale(p.Scale, e.Scales)
