@@ -68,10 +68,32 @@ func NewServer(cfg Config, runner Runner, log *slog.Logger) *Server {
 		devices = []string{""}
 	}
 	s := &Server{cfg: cfg, runner: runner, log: log, slots: make(chan string, len(devices)), configErr: err}
+	s.sweepStale(time.Now().Add(-staleWorkAge))
 	for _, device := range devices {
 		s.slots <- device
 	}
 	return s
+}
+
+// staleWorkAge is how old a batch's work dir has to be before a new server
+// treats it as left behind. No batch takes this long, so a live one, even
+// from another server sharing the dir, is never removed.
+const staleWorkAge = 24 * time.Hour
+
+// sweepStale removes work dirs older than before. A batch removes its own when
+// it ends, but one cut off by a crash or a container restart stays behind,
+// and with full-size pages in it they add up quickly.
+func (s *Server) sweepStale(before time.Time) {
+	dirs, _ := filepath.Glob(filepath.Join(s.cfg.TmpDir, "upscale-*"))
+	for _, dir := range dirs {
+		fi, err := os.Stat(dir)
+		if err != nil || !fi.IsDir() || fi.ModTime().After(before) {
+			continue
+		}
+		if err := os.RemoveAll(dir); err != nil && s.log != nil {
+			s.log.Warn("upscaler: remove stale work dir", "dir", dir, "err", err)
+		}
+	}
 }
 
 type Info struct {

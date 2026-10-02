@@ -221,3 +221,30 @@ func TestParseGPUs(t *testing.T) {
 		}
 	}
 }
+
+func TestNewServerSweepsStaleWorkDirs(t *testing.T) {
+	tmp := t.TempDir()
+	stale := filepath.Join(tmp, "upscale-stale")
+	live := filepath.Join(tmp, "upscale-live")
+	other := filepath.Join(tmp, "keep-me")
+	for _, dir := range []string{stale, live, other} {
+		if err := os.MkdirAll(filepath.Join(dir, "in"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	old := time.Now().Add(-2 * staleWorkAge)
+	for _, dir := range []string{stale, other} {
+		if err := os.Chtimes(dir, old, old); err != nil {
+			t.Fatal(err)
+		}
+	}
+	NewServer(Config{TmpDir: tmp}, fakeRunner{}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if _, err := os.Stat(stale); !os.IsNotExist(err) {
+		t.Fatalf("stale work dir kept: %v", err)
+	}
+	for _, dir := range []string{live, other} {
+		if _, err := os.Stat(dir); err != nil {
+			t.Fatalf("%s removed: %v", dir, err)
+		}
+	}
+}
