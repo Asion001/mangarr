@@ -221,3 +221,45 @@ func TestParseGPUs(t *testing.T) {
 		}
 	}
 }
+
+// emptyRunner upscales like fakeRunner but leaves an empty file for the
+// pages in empty, the way the engine does when it can't write a result.
+type emptyRunner struct {
+	fakeRunner
+	empty map[string]bool
+}
+
+func (r emptyRunner) Run(ctx context.Context, e Engine, in, out string, scale, noise int) error {
+	if err := r.fakeRunner.Run(ctx, e, in, out, scale, noise); err != nil {
+		return err
+	}
+	for base := range r.empty {
+		if err := os.WriteFile(filepath.Join(out, base+".png"), nil, 0o644); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// TestProcessKeepsPagesTheEngineCouldNotWrite: a page the engine left an
+// empty file for comes back as it was instead of failing the batch, unless
+// every page of the batch came back empty.
+func TestProcessKeepsPagesTheEngineCouldNotWrite(t *testing.T) {
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	in := []Image{{Name: "0001.jpg", Data: jpegPage(30, 40)}, {Name: "0002.jpg", Data: jpegPage(30, 40)}, {Name: "0003.jpg", Data: jpegPage(30, 40)}}
+	p := Params{Model: "waifu2x-cunet", Scale: 2, Format: "png"}
+
+	s := NewServer(Config{TmpDir: t.TempDir(), Version: "test"}, emptyRunner{empty: map[string]bool{"0002": true, "0003": true}}, log)
+	out, err := s.Process(context.Background(), p, in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out) != 3 || out[0].Name != "0001.png" || out[1].Name != "0002.jpg" || !bytes.Equal(out[1].Data, in[1].Data) || out[2].Name != "0003.jpg" {
+		t.Fatalf("the unwritten pages should come back as they were: %+v", out)
+	}
+
+	s = NewServer(Config{TmpDir: t.TempDir(), Version: "test"}, emptyRunner{empty: map[string]bool{"0001": true, "0002": true, "0003": true}}, log)
+	if _, err := s.Process(context.Background(), p, in); err == nil || !strings.Contains(err.Error(), "empty") {
+		t.Fatalf("a batch the engine wrote nothing for should fail: %v", err)
+	}
+}

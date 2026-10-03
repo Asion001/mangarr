@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/Asion001/mangarr/internal/imagescale"
+	_ "golang.org/x/image/bmp"
 	_ "golang.org/x/image/webp"
 )
 
@@ -331,7 +332,7 @@ func (s *Server) process(ctx context.Context, eng Engine, p Params, images []Ima
 	if runErr != nil {
 		return nil, device, runErr
 	}
-	out, err := s.finishAll(ctx, outDir, names, p)
+	out, err := s.finishAll(ctx, outDir, names, images, p)
 	return out, device, err
 }
 
@@ -378,9 +379,17 @@ func writeInput(images []Image, in, outDir string) ([]string, error) {
 	return names, nil
 }
 
+// errUnreadable marks a page the engine wrote nothing readable for: it
+// skips a page it can't decode, and leaves an empty file when it can't
+// encode or write the result (a full temp folder, a page too big for the
+// encoder).
+var errUnreadable = errors.New("the engine wrote no readable image")
+
 // finishAll finishes a batch's pages a few at a time: one after another,
-// resizing and encoding them took longer than the engine run itself.
-func (s *Server) finishAll(ctx context.Context, outDir string, names []string, p Params) ([]Image, error) {
+// resizing and encoding them took longer than the engine run itself. A page
+// the engine wrote nothing readable for is handed back as it came in,
+// unless that happened to every page of a batch of several.
+func (s *Server) finishAll(ctx context.Context, outDir string, names []string, images []Image, p Params) ([]Image, error) {
 	out := make([]Image, len(names))
 	errs := make([]error, len(names))
 	sem := make(chan struct{}, max(min(runtime.NumCPU()/2, 4), 1))
@@ -399,6 +408,22 @@ func (s *Server) finishAll(ctx context.Context, outDir string, names []string, p
 		}()
 	}
 	wg.Wait()
+	unreadable := 0
+	for _, err := range errs {
+		if errors.Is(err, errUnreadable) {
+			unreadable++
+		}
+	}
+	// every page of a batch failing is the engine or the machine, not the
+	// pages; a page that goes alone (a tall strip) is kept
+	if unreadable < len(names) || len(names) == 1 {
+		for i, err := range errs {
+			if errors.Is(err, errUnreadable) {
+				s.log.Warn("upscaler: keeping a page as it was", "page", images[i].Name, "error", err)
+				out[i], errs[i] = images[i], nil
+			}
+		}
+	}
 	if err := errors.Join(errs...); err != nil {
 		return nil, err
 	}
@@ -409,12 +434,15 @@ func (s *Server) finishAll(ctx context.Context, outDir string, names []string, p
 func (s *Server) finish(ctx context.Context, src string, p Params) ([]byte, string, error) {
 	f, err := os.Open(src)
 	if err != nil {
-		return nil, "", fmt.Errorf("engine produced no output: %w", err)
+		return nil, "", fmt.Errorf("%w: %w", errUnreadable, err)
 	}
 	defer f.Close()
 	cfg, _, err := image.DecodeConfig(f)
 	if err != nil {
-		return nil, "", err
+		if fi, serr := f.Stat(); serr == nil && fi.Size() == 0 {
+			return nil, "", fmt.Errorf("%w: the file is empty", errUnreadable)
+		}
+		return nil, "", fmt.Errorf("%w: %w", errUnreadable, err)
 	}
 	if p.MaxWidth <= 0 || cfg.Width <= p.MaxWidth {
 		// the engine already wrote this PNG: decoding an upscaled webtoon
