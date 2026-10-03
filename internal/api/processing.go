@@ -136,7 +136,10 @@ func (s *Server) processingActivity(ctx context.Context, st *ProcessingStatus) {
 	var ids []int64
 	live := map[int64]downloads.LiveProgress{}
 	for _, lp := range s.app.Downloads.Live.All() {
-		if lp.Kind == model.JobKindReprocess || lp.Stage == progress.StageWait || lp.Stage == progress.StageUpscale || lp.Stage == progress.StageSplit || lp.Stage == progress.StageEncode {
+		// only chapters something is working on: ones still waiting for a
+		// worker are counted under Waiting
+		working := lp.Stage == progress.StageUpscale || lp.Stage == progress.StageSplit || lp.Stage == progress.StageEncode
+		if working || (lp.Kind == model.JobKindReprocess && lp.Stage != "" && lp.Stage != progress.StageWait) {
 			ids = append(ids, lp.JobID)
 			live[lp.JobID] = lp
 		}
