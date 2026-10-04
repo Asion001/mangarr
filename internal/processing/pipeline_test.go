@@ -113,3 +113,69 @@ func TestEncodesWhileUpscaling(t *testing.T) {
 		}
 	}
 }
+
+// sizedUpscaler doubles every page and fails on any it is sent taller than
+// maxHeight, as the engines do when the upscaled strip is too tall to write.
+type sizedUpscaler struct {
+	maxHeight int
+	seen      atomic.Int32
+}
+
+func (s *sizedUpscaler) Test(context.Context) error { return nil }
+
+func (s *sizedUpscaler) Info(context.Context) (*upscale.Info, error) {
+	return &upscale.Info{Models: []upscale.Model{{Name: "m", Scales: []int{2}}}}, nil
+}
+
+func (s *sizedUpscaler) Upscale(_ context.Context, images []upscale.Image, _ upscale.Params) ([]upscale.Image, error) {
+	out := make([]upscale.Image, len(images))
+	for i, img := range images {
+		cfg, _, err := image.DecodeConfig(bytes.NewReader(img.Data))
+		if err != nil {
+			return nil, err
+		}
+		if cfg.Height > s.maxHeight {
+			return nil, fmt.Errorf("%s is %d tall", img.Name, cfg.Height)
+		}
+		s.seen.Add(1)
+		var buf bytes.Buffer
+		if err := png.Encode(&buf, image.NewGray(image.Rect(0, 0, cfg.Width*2, cfg.Height*2))); err != nil {
+			return nil, err
+		}
+		out[i] = upscale.Image{Name: strings.TrimSuffix(img.Name, filepath.Ext(img.Name)) + ".png", Data: buf.Bytes()}
+	}
+	return out, nil
+}
+
+// TestSplitsStripsBeforeUpscaling: a narrow webtoon strip is cut before it
+// goes to the upscaler, which would otherwise have to write a strip too
+// tall for it.
+func TestSplitsStripsBeforeUpscaling(t *testing.T) {
+	dir := t.TempDir()
+	strip := writeTestImage(t, dir, "0001.png", "png", patternedStrip(80, 620, 202, 411))
+	page := writeTestImage(t, dir, "0002.png", "png", patternedStrip(80, 220))
+	up := &sizedUpscaler{maxHeight: 240}
+	proc := New(upscaling.NewFixed(up), nil)
+	cfg := model.ProfileConfig{
+		Upscale: model.UpscaleConfig{Enabled: true, MinWidth: 160, Model: "m"},
+		Pages:   model.PageRules{JunkUnder: -1, SplitTall: true, SplitRatio: 3, SegmentRatio: 3},
+	}
+	res, err := proc.Process(context.Background(), cfg, []downloads.PageFile{strip, page}, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Split != 1 || !res.Upscaled || len(res.Pages) != 4 {
+		t.Fatalf("split %d, upscaled %v, %d pages", res.Split, res.Upscaled, len(res.Pages))
+	}
+	if want := []int{0, 0, 0, 1}; fmt.Sprint(res.SourcePages) != fmt.Sprint(want) {
+		t.Fatalf("source pages %v, want %v", res.SourcePages, want)
+	}
+	for i, pg := range res.Pages {
+		if want := fmt.Sprintf("%04d.png", i+1); pg.Name != want || pg.Width != 160 {
+			t.Fatalf("page %d: %s %dx%d, want %s 160 wide", i, pg.Name, pg.Width, pg.Height, want)
+		}
+	}
+	if up.seen.Load() != 4 {
+		t.Fatalf("upscaled %d pages, want 4", up.seen.Load())
+	}
+}

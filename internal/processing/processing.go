@@ -77,6 +77,38 @@ func (p *Processor) Process(ctx context.Context, cfg model.ProfileConfig, pages 
 			res.Changed = true
 		}
 	}
+	upscaling := cfg.Upscale.Enabled && p.Up != nil
+	// src is the input page each entry of cur came from
+	src := make([]int, len(cur))
+	for i := range src {
+		src[i] = i
+	}
+	if upscaling {
+		// strips are cut before they are upscaled: an upscaled webtoon strip
+		// can be taller than the engine can write (it leaves an empty file)
+		parts, n, err := preSplit(ctx, cfg, cur, processable, encoding, workDir)
+		if err != nil {
+			return res, err
+		}
+		if n > 0 {
+			var ncur []downloads.PageFile
+			var nproc []bool
+			var nsrc []int
+			for i, pp := range parts {
+				for _, pg := range pp {
+					ncur, nproc, nsrc = append(ncur, pg), append(nproc, processable[i]), append(nsrc, i)
+				}
+			}
+			cur, processable, src = ncur, nproc, nsrc
+			real = real[:0]
+			for i, ok := range processable {
+				if ok {
+					real = append(real, i)
+				}
+			}
+		}
+		res.Split = n
+	}
 	var enc *imageenc.Stream
 	if encoding {
 		if p.Enc == nil {
@@ -99,8 +131,8 @@ func (p *Processor) Process(ctx context.Context, cfg model.ProfileConfig, pages 
 	defer cancel(nil)
 	t := &tails{cfg: cfg, toPNG: encoding, workDir: workDir, enc: enc, cancel: cancel,
 		parts: make([][]downloads.PageFile, len(cur)), splits: make(chan struct{}, splitsAtOnce())}
+	t.split = res.Split
 	tctx := progress.With(ctx, nil) // the stages overlap: progress is reported here
-	upscaling := cfg.Upscale.Enabled && p.Up != nil
 	for i := range cur {
 		if !processable[i] {
 			t.parts[i] = []downloads.PageFile{cur[i]}
@@ -141,10 +173,10 @@ func (p *Processor) Process(ctx context.Context, cfg model.ProfileConfig, pages 
 	}
 	cur = make([]downloads.PageFile, 0, len(pages))
 	sources := make([]int, 0, len(pages))
-	for i, parts := range t.parts {
+	for u, parts := range t.parts {
 		for _, pg := range parts {
 			cur = append(cur, pg)
-			sources = append(sources, i)
+			sources = append(sources, src[u])
 		}
 	}
 	if t.split > 0 {

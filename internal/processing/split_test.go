@@ -150,3 +150,21 @@ func TestSplitKeepsUpscaledMangaPagesWhole(t *testing.T) {
 		}
 	}
 }
+
+// TestSplitKeepsUndecodableAVIFWhole: an AVIF strip the built-in decoder
+// refuses (it stops at 32768 pixels tall) stays one page instead of failing
+// the chapter.
+func TestSplitKeepsUndecodableAVIFWhole(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "0001.avif")
+	if err := os.WriteFile(path, []byte("\x00\x00\x00\x20ftypavif not really an image"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	pg := downloads.PageFile{Name: "0001.avif", Path: path, Format: "avif", Width: 1752, Height: 33840}
+	parts, err := splitTallPage(context.Background(), pg, 3000, false, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(parts) != 1 || parts[0] != pg {
+		t.Fatalf("parts %v, want the page as it was", parts)
+	}
+}

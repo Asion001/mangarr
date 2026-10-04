@@ -59,11 +59,13 @@ func (a *Avifenc) Slow() bool                 { return false }
 func (a *Avifenc) Accepts(format string) bool { return format == "jpeg" || format == "png" }
 func (a *Avifenc) SupportsProgressive() bool  { return a.Progressive }
 func (a *Avifenc) args(src, dst string, o Options, gray, tune bool) []string {
-	yuv := "420"
+	args := []string{"-j", strconv.Itoa(max(o.Jobs, 1)), "-s", strconv.Itoa(o.Speed), "-q", strconv.Itoa(o.Quality), "-d", "8"}
 	if gray {
-		yuv = "400"
+		// avifenc won't write grayscale from a page with a color ICC profile
+		args = append(args, "-y", "400", "--ignore-icc")
+	} else {
+		args = append(args, "-y", "420")
 	}
-	args := []string{"-j", strconv.Itoa(max(o.Jobs, 1)), "-s", strconv.Itoa(o.Speed), "-q", strconv.Itoa(o.Quality), "-d", "8", "-y", yuv}
 	if tune {
 		args = append(args, "-c", "aom", "-a", "tune=iq")
 	}

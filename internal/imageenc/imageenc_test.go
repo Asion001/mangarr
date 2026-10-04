@@ -191,14 +191,14 @@ func TestAvifencArgsAndTuneFallback(t *testing.T) {
 		t.Fatalf("want a retry without tune, got %v", calls)
 	}
 	got := strings.Join(calls[1], " ")
-	for _, want := range []string{"-j 1", "-s 6", "-q 55", "-d 8", "-y 400", "--progressive", "in.png out.avif"} {
+	for _, want := range []string{"-j 1", "-s 6", "-q 55", "-d 8", "-y 400 --ignore-icc", "--progressive", "in.png out.avif"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("args %q missing %q", got, want)
 		}
 	}
 	calls = nil
 	_ = a.Encode(context.Background(), "in.png", "png", "out.avif", Options{Quality: 55, Speed: 6}, false)
-	if len(calls) != 1 || !strings.Contains(strings.Join(calls[0], " "), "-y 420") {
+	if len(calls) != 1 || !strings.Contains(strings.Join(calls[0], " "), "-y 420") || slices.Contains(calls[0], "--ignore-icc") {
 		t.Fatalf("tune=iq should not be retried once unsupported: %v", calls)
 	}
 }

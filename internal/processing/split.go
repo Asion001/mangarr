@@ -2,6 +2,7 @@ package processing
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"image"
 	"image/draw"
@@ -20,6 +21,8 @@ import (
 	"github.com/Asion001/mangarr/internal/downloads"
 	"github.com/Asion001/mangarr/internal/imagecheck"
 	"github.com/Asion001/mangarr/internal/imageenc"
+	"github.com/Asion001/mangarr/internal/model"
+	"github.com/Asion001/mangarr/internal/upscaling"
 )
 
 // Webtoon strips (pages taller than the profile's split ratio times their
@@ -54,6 +57,11 @@ func splitTallPage(ctx context.Context, pg downloads.PageFile, limit int, toPNG 
 	}
 	_ = f.Close()
 	if err != nil {
+		if errors.Is(err, avif.ErrDecode) {
+			// the built-in decoder refuses AVIF taller than 32768 pixels: such
+			// a page stays whole rather than failing the chapter
+			return []downloads.PageFile{pg}, nil
+		}
 		return nil, fmt.Errorf("split %s: %w", pg.Name, err)
 	}
 	b := src.Bounds()
@@ -84,6 +92,52 @@ func splitTallPage(ctx context.Context, pg downloads.PageFile, limit int, toPNG 
 		out = append(out, downloads.PageFile{Name: name, Path: path, Format: format, Width: b.Dx(), Height: h})
 	}
 	return out, nil
+}
+
+// preSplit cuts the strips the upscaler will get, a few at a time, and
+// returns what each page became and how many were cut.
+func preSplit(ctx context.Context, cfg model.ProfileConfig, pages []downloads.PageFile, processable []bool, toPNG bool, workDir string) ([][]downloads.PageFile, int, error) {
+	parts := make([][]downloads.PageFile, len(pages))
+	for i, pg := range pages {
+		parts[i] = []downloads.PageFile{pg}
+	}
+	threshold, segment := cfg.Pages.SplitRatios()
+	if threshold <= 0 {
+		return parts, 0, nil
+	}
+	var (
+		wg   sync.WaitGroup
+		sem  = make(chan struct{}, splitsAtOnce())
+		errs = make([]error, len(pages))
+	)
+	for i, pg := range pages {
+		if !processable[i] || !isStrip(pg, threshold) || !splitSupported(pg.Format) || !upscaling.NeedsUpscale(pg, cfg.Upscale.MinWidth) {
+			continue
+		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			select {
+			case sem <- struct{}{}:
+			case <-ctx.Done():
+				errs[i] = ctx.Err()
+				return
+			}
+			defer func() { <-sem }()
+			parts[i], errs[i] = splitTallPage(ctx, pg, max(1, int(float64(pg.Width)*segment)), toPNG, workDir)
+		}()
+	}
+	wg.Wait()
+	if err := errors.Join(errs...); err != nil {
+		return nil, 0, err
+	}
+	n := 0
+	for _, pp := range parts {
+		if len(pp) > 1 {
+			n++
+		}
+	}
+	return parts, n, nil
 }
 
 // encodeNative hands img to an external encoder through a temporary PNG.
