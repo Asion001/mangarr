@@ -8,7 +8,14 @@ import (
 
 	"github.com/Asion001/mangarr/internal/access"
 	"github.com/Asion001/mangarr/internal/events"
+	"github.com/Asion001/mangarr/internal/version"
 )
+
+// buildID names the running build. The web app compares it across
+// reconnects and offers a reload when the server comes back as a new build.
+func buildID() string {
+	return version.Version + "+" + version.Build + "+" + version.Commit
+}
 
 // handleEvents streams bus events to the UI as Server-Sent Events.
 func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
@@ -38,6 +45,10 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 	defer unsub()
 
 	fmt.Fprint(w, "retry: 3000\n\n")
+	// hello carries the build, for every user, on every (re)connect
+	if b, err := json.Marshal(events.Event{Type: "hello", Time: time.Now(), Payload: map[string]string{"build": buildID()}}); err == nil {
+		fmt.Fprintf(w, "event: hello\ndata: %s\n\n", b)
+	}
 	flusher.Flush()
 	ping := time.NewTicker(25 * time.Second)
 	defer ping.Stop()

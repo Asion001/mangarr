@@ -8,6 +8,9 @@ import { useAuthStatus } from "./api/queries";
 import { onServerEvent, useLiveUpdates } from "./lib/events";
 import { useToast } from "./lib/toast";
 import { createEventToastController } from "./lib/eventToasts";
+import { createUpdateNotice } from "./lib/updateNotice";
+import { t } from "./lib/i18n/core";
+import { RefreshCw } from "lucide-react";
 import { LoginPage } from "./pages/auth/Login";
 import { InvitePage } from "./pages/auth/Invite";
 import { Need } from "./components/Need";
@@ -75,6 +78,22 @@ export function App() {
       info: (title, message) => toastRef.current.info(title, message),
     }, { suppressed: () => readerOpenRef.current });
   }
+  const updateNotice = useRef<ReturnType<typeof createUpdateNotice> | null>(null);
+  if (!updateNotice.current) {
+    updateNotice.current = createUpdateNotice({
+      show: () =>
+        toastRef.current.action("info", t("mangarr was updated"), t("Reload to get the new version."), {
+          label: t("Update"),
+          icon: <RefreshCw className="size-4" />,
+          onClick: () => window.location.reload(),
+        }),
+      suppressed: () => readerOpenRef.current,
+    });
+  }
+  // a notice held back while reading shows once the reader closes
+  useEffect(() => {
+    if (!readerOpen) updateNotice.current!.flush();
+  }, [readerOpen]);
   useLiveUpdates(authed);
 
   useEffect(() => {
@@ -85,7 +104,10 @@ export function App() {
 
   useEffect(() => {
     const controller = eventToasts.current!;
-    const off = onServerEvent(controller.handle);
+    const off = onServerEvent((type, payload) => {
+      if (type === "hello") updateNotice.current!.seen((payload as { build?: string } | undefined)?.build);
+      else controller.handle(type, payload);
+    });
     return () => {
       off();
       controller.discard();

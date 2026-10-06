@@ -8306,5 +8306,13 @@
   "When the workers process pages (MANGARR_PROCESSING=workers), one worker processes a whole chapter: it goes to the workers of the rules most of its pages match, in the same order, when they also have the encode role.": {
     "ru": "Когда страницы обрабатывают воркеры (MANGARR_PROCESSING=workers), всю главу обрабатывает один воркер: она уходит воркерам правил, под которые подходит большинство её страниц, в том же порядке, если у них есть и роль кодирования.",
     "uk": "Коли сторінки обробляють воркери (MANGARR_PROCESSING=workers), увесь розділ обробляє один воркер: він іде до воркерів правил, яким відповідає більшість його сторінок, у тому ж порядку, якщо вони мають і роль кодування."
+  },
+  "Dismiss": {
+    "ru": "Закрыть",
+    "uk": "Закрити"
+  },
+  "Reload to get the new version.": {
+    "ru": "Перезагрузите, чтобы получить новую версию.",
+    "uk": "Перезавантажте, щоб отримати нову версію."
   }
 }

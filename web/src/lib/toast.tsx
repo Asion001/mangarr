@@ -1,18 +1,22 @@
 import { createContext, useCallback, useContext, useState, type ReactNode } from "react";
 import clsx from "clsx";
 import { CheckCircle2, AlertTriangle, XCircle, Info, X } from "lucide-react";
+import { Button } from "../components/ui";
+import { t as tr } from "./i18n/core";
 
 type Kind = "success" | "error" | "warning" | "info";
-type Toast = { id: number; kind: Kind; title: string; message?: string };
+type Action = { label: string; icon?: ReactNode; onClick: () => void };
+// a toast with an action stays until it's used or dismissed
+type Toast = { id: number; kind: Kind; title: string; message?: string; action?: Action };
 
-const Ctx = createContext<(kind: Kind, title: string, message?: string) => void>(() => {});
+const Ctx = createContext<(kind: Kind, title: string, message?: string, action?: Action) => void>(() => {});
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const push = useCallback((kind: Kind, title: string, message?: string) => {
+  const push = useCallback((kind: Kind, title: string, message?: string, action?: Action) => {
     const id = Date.now() + Math.random();
-    setToasts((t) => [...t.slice(-4), { id, kind, title, message }]);
-    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), kind === "error" ? 8000 : 4000);
+    setToasts((t) => [...t.slice(-4), { id, kind, title, message, action }]);
+    if (!action) setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), kind === "error" ? 8000 : 4000);
   }, []);
   const icons = { success: CheckCircle2, error: XCircle, warning: AlertTriangle, info: Info };
   return (
@@ -44,8 +48,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-medium">{t.title}</div>
                 {t.message && <div className="mt-0.5 break-words text-sm text-muted">{t.message}</div>}
+                {t.action && (
+                  <Button size="sm" variant="primary" className="mt-2" icon={t.action.icon} onClick={t.action.onClick}>
+                    {t.action.label}
+                  </Button>
+                )}
               </div>
-              <button className="text-muted hover:text-fg" onClick={() => setToasts((x) => x.filter((y) => y.id !== t.id))}>
+              <button className="text-muted hover:text-fg" aria-label={tr("Dismiss")} onClick={() => setToasts((x) => x.filter((y) => y.id !== t.id))}>
                 <X className="size-4" />
               </button>
             </div>
@@ -63,6 +72,8 @@ export function useToast() {
     error: (title: string, message?: string) => push("error", title, message),
     warning: (title: string, message?: string) => push("warning", title, message),
     info: (title: string, message?: string) => push("info", title, message),
+    /** a toast that stays, with one action button */
+    action: (kind: Kind, title: string, message: string | undefined, action: Action) => push(kind, title, message, action),
     fromError: (e: unknown, title = "Something went wrong") => push("error", title, e instanceof Error ? e.message : String(e)),
   };
 }
