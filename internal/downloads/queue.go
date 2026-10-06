@@ -179,8 +179,8 @@ type JobView struct {
 
 // ListFilter selects queue entries.
 type ListFilter struct {
-	// Statuses limits to these statuses (empty = active ones, plus recently
-	// finished ones when IncludeDone).
+	// Statuses limits to these statuses (empty = active ones, plus failed
+	// ones and recently completed ones when IncludeDone).
 	Statuses []string `json:"statuses,omitempty"`
 	Kind     string   `json:"kind,omitempty" enum:",download,reprocess"`
 	SeriesID int64    `json:"seriesId,omitempty"`
@@ -213,7 +213,9 @@ func (q *Queue) base(d bun.IDB, f ListFilter, withStatus bool) *bun.SelectQuery 
 	case withStatus && len(f.Statuses) > 0:
 		sel = sel.Where("j.status IN (?)", bun.In(f.Statuses))
 	case f.IncludeDone:
-		sel = sel.Where("(j.status IN (?) OR j.updated_at > ?)", bun.In(activeStatuses), time.Now().UTC().Add(-24*time.Hour))
+		// a failed job stays until it is retried or removed, however old: the
+		// status counts come from here and must match the failed rows listed
+		sel = sel.Where("(j.status IN (?) OR j.updated_at > ?)", bun.In(append(ActiveStatuses(), model.JobFailed)), time.Now().UTC().Add(-24*time.Hour))
 	default:
 		sel = sel.Where("j.status IN (?)", bun.In(activeStatuses))
 	}
@@ -309,7 +311,7 @@ func (q *Queue) ListPageAt(ctx context.Context, f ListFilter, page, pageSize int
 	return out, err
 }
 
-// List returns active jobs (plus recently failed/completed when includeDone).
+// List returns active jobs (plus failed and recently completed ones when includeDone).
 func (q *Queue) List(ctx context.Context, includeDone bool) ([]JobView, error) {
 	p, err := q.ListPage(ctx, ListFilter{IncludeDone: includeDone}, 1, 500)
 	if err != nil {

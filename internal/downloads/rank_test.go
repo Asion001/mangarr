@@ -435,3 +435,27 @@ func TestQueuePageSeriesTotals(t *testing.T) {
 		}
 	})
 }
+
+// TestQueuePageCountsOldFailures: the processing page lists failed jobs of
+// any age, so its status counts must include them too, not only the last day's.
+func TestQueuePageCountsOldFailures(t *testing.T) {
+	dbtest.ForEachDialect(t, func(t *testing.T, d *db.DB) {
+		q, chapters := rankFixture(t, d, 3)
+		jobs := enqueueRankJobs(t, q, chapters)
+		old := time.Now().UTC().Add(-96 * time.Hour)
+		for _, j := range jobs[:2] {
+			if _, err := d.NewUpdate().Model((*model.DownloadJob)(nil)).Set("status = ?", model.JobFailed).Set("updated_at = ?", old).
+				Where("id = ?", j.ID).Exec(t.Context()); err != nil {
+				t.Fatal(err)
+			}
+		}
+		statuses := append(ActiveStatuses(), model.JobFailed)
+		page, err := q.ListPage(t.Context(), ListFilter{Statuses: statuses, IncludeDone: true}, 1, 10)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if page.Total != 3 || page.Counts[model.JobFailed] != 2 || page.Counts[model.JobQueued] != 1 {
+			t.Fatalf("total=%d counts=%v", page.Total, page.Counts)
+		}
+	})
+}
