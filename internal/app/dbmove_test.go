@@ -140,3 +140,40 @@ func TestPostgresBackupRestore(t *testing.T) {
 		t.Fatal("no restart after restoring")
 	}
 }
+
+// TestSQLiteBackupRestoreIntoPostgres: the other direction, a SQLite
+// install's backup restores into a Postgres install.
+func TestSQLiteBackupRestoreIntoPostgres(t *testing.T) {
+	dsns := dbtest.DSNs(t)
+	if _, ok := dsns["postgres"]; !ok {
+		t.Skip("MANGARR_TEST_POSTGRES not set")
+	}
+	ctx := context.Background()
+	f := newKomgaFixture(t, dsns["sqlite"])
+	b, err := f.e.App.Backups.Create(ctx, "manual")
+	if err != nil {
+		t.Fatal(err)
+	}
+	path, _ := f.e.App.Backups.Path(b.Name)
+
+	e := newTestApp(t, dsns["postgres"])
+	if err := e.App.RestoreBackup(path, b.Name); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, 30*time.Second, "restore done", func() bool { st := e.App.MoveState(); return st.Stage == "done" || st.Stage == "failed" })
+	if st := e.App.MoveState(); st.Stage != "done" || st.Result.Rows["chapters"] != 5 {
+		t.Fatalf("restore %+v", st)
+	}
+	var ser model.Series
+	if err := e.App.DB.NewSelect().Model(&ser).Where("id = ?", f.ser.ID).Scan(ctx); err != nil || ser.Title != f.ser.Title {
+		t.Fatalf("restored series %+v %v", ser, err)
+	}
+	if n, _ := e.App.DB.NewSelect().Model((*model.ReadingKey)(nil)).Count(ctx); n != 1 {
+		t.Fatalf("reading keys %d", n)
+	}
+	select {
+	case <-e.App.RestartRequested():
+	case <-time.After(5 * time.Second):
+		t.Fatal("no restart after restoring")
+	}
+}
