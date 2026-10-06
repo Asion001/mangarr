@@ -799,3 +799,27 @@ aren't touched). Suwayomi's own data is disposable: mangarr keeps the
 real identity of every series (`sourceId` + URL) and re-links if Suwayomi's
 database is lost. When upgrading Suwayomi, mangarr shows a health warning if
 the version differs from the tested one.
+
+### Upgrading mangarr
+
+1. **Take a backup** (System → Backups → **Back up now**) and keep a copy of
+   it outside `/config`.
+2. **Pull the new image.** Pin a version tag (`ghcr.io/asion001/mangarr:1.2.0`)
+   to choose when you upgrade; `latest` follows every release and `main`
+   every commit (see the image tags in the README). Then
+   `docker compose pull mangarr && docker compose up -d mangarr`.
+3. **Migrations run on start.** The new version upgrades the database by
+   itself, on SQLite and PostgreSQL alike, before it serves anything. Open
+   tabs show *mangarr was updated*; press **Update** to load the new web app.
+   Workers follow the server's version on their own (§12, "Keeping workers
+   up to date").
+
+**Rolling back.** A database that a newer version has migrated isn't meant
+for an older one. Go back by starting the old image and restoring the backup
+from step 1 (System → Backups → **Add a backup file**, then **Restore**).
+Library files are never part of an upgrade or a restore.
+
+**Suwayomi** is pinned to the version mangarr is tested with (see
+`docker/compose.example.yml`). Upgrade it together with mangarr when the
+compose example changes; mangarr shows a health warning when the running
+version differs.
