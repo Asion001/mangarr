@@ -172,6 +172,61 @@ jobs:
             --notes "Worker zips of CI run ${{ github.run_number }} ($REF, $GITHUB_SHA), fetched by workers that update themselves to this build. Removed once 30 newer builds exist." || true
           gh release upload "$TAG" dist/*.zip dist/*.zip.sha256 --clobber
 
+  # a v* tag: the GitHub release, with notes from the conventional commits
+  # since the previous tag, and the server and worker binaries with
+  # checksums (the worker zips with upscalers are attached by worker-zips)
+  release:
+    needs: [test, web, generated]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: web
+        run: npm ci && npm run build
+        working-directory: web
+      - name: binaries
+        env:
+          VERSION: ${{ github.ref_name }}
+          BUILD: ${{ github.run_number }}
+          COMMIT: ${{ github.sha }}
+        run: |
+          export IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}"
+          mkdir -p dist
+          for target in linux/amd64 linux/arm64; do
+            GOOS=${target%/*} GOARCH=${target#*/} make build build-worker
+            for bin in mangarr mangarr-worker; do
+              mv "bin/$bin" "dist/$bin-${target%/*}-${target#*/}"
+            done
+          done
+          for target in darwin/arm64 darwin/amd64 windows/amd64; do
+            ext=; [ "${target%/*}" = windows ] && ext=.exe
+            GOOS=${target%/*} GOARCH=${target#*/} make build-worker
+            mv bin/mangarr-worker "dist/mangarr-worker-${target%/*}-${target#*/}$ext"
+          done
+          cd dist && sha256sum -- * > SHA256SUMS
+      - name: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          ./scripts/release-notes.sh "$TAG" > notes.md
+          prerelease=; case "$TAG" in *-*) prerelease=--prerelease ;; esac
+          gh release create "$TAG" --verify-tag --title "$TAG" --notes-file notes.md $prerelease ||
+            gh release edit "$TAG" --title "$TAG" --notes-file notes.md
+          gh release upload "$TAG" dist/* --clobber
+
   # keep the newest 30 per-build prereleases
   prune-builds:
     needs: [worker-zips]
