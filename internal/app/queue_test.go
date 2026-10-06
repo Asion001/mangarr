@@ -105,10 +105,14 @@ func TestQueuePauseAndBulk(t *testing.T) {
 		t.Fatalf("chapter of a paused job: %s", ch.State)
 	}
 
-	// select-all-matching: pause every queued job, then resume all paused ones by filter
-	pending, _ := e.App.DLQueue.IDs(e.Ctx, downloads.ListFilter{Statuses: []string{model.JobQueued, model.JobDownloading}})
+	// select-all-matching: pause every pending job, then resume all paused ones by filter.
+	// The job that started after the first pause may be processing or importing by now;
+	// processing is pausable, an import finishes, so wait for every job to land on one side.
+	pending, _ := e.App.DLQueue.IDs(e.Ctx, downloads.ListFilter{Statuses: []string{model.JobQueued, model.JobDownloading, model.JobProcessing}})
 	_, _ = e.App.Downloads.Bulk(e.Ctx, pending, "pause")
-	time.Sleep(300 * time.Millisecond)
+	waitFor(t, 10*time.Second, "every job paused or completed", func() bool {
+		return e.countStatus(t, model.JobPaused)+e.countStatus(t, model.JobCompleted) == 4
+	})
 	all, _ := e.App.DLQueue.IDs(e.Ctx, downloads.ListFilter{Statuses: []string{model.JobPaused}})
 	if want := 4 - e.countStatus(t, model.JobCompleted); len(all) != want || want < 2 {
 		t.Fatalf("expected %d paused, got %d", want, len(all))
