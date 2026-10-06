@@ -1,6 +1,7 @@
 import { useUIMode, useUIPreferences } from "../../lib/uiPreferences";
 import { t } from "../../lib/i18n/core";
 import { useEffect, useState } from "react";
+import clsx from "clsx";
 import { Link } from "react-router";
 import { Check, CheckSquare, LayoutGrid, List, PlusCircle, RefreshCw, Search } from "lucide-react";
 import { api, apiUrl, unwrap, type Series } from "../../api/client";
@@ -77,7 +78,7 @@ export function SeriesIndex() {
     }, 250);
     return () => window.clearTimeout(timeout);
   }, [searchDraft, q]);
-  const { data, isLoading, isFetching, error } = useSeriesSearch({ q: q || undefined, filter, sort, rootFolderId, language: language || undefined, page, pageSize });
+  const { data, isLoading, isPlaceholderData, error } = useSeriesSearch({ q: q || undefined, filter, sort, rootFolderId, language: language || undefined, page, pageSize });
   useEffect(() => {
     if (!data?.total) return;
     const last = Math.max(1, Math.ceil(data.total / pageSize));
@@ -203,7 +204,8 @@ export function SeriesIndex() {
           <Button variant={view === "table" ? "primary" : "secondary"} size="sm" onClick={() => setViewPersist("table")} icon={<List className="size-3.5" />} />
         </div>
       </div>
-      {isFetching && data && <div className="mb-2 h-0.5 overflow-hidden rounded bg-panel-2"><div className="h-full w-1/3 animate-pulse rounded bg-accent" /></div>}
+      {/* the bar's row is always there so showing it never moves the list; it only shows while a new filter or page loads, not on live refreshes */}
+      <div className={clsx("mb-2 h-0.5 overflow-hidden rounded", isPlaceholderData ? "bg-panel-2" : "invisible")} aria-hidden={!isPlaceholderData}><div className="h-full w-1/3 animate-pulse rounded bg-accent" /></div>
       {isLoading && <Loading />}
       {error && <ErrorBox error={error} />}
       {selecting && data && list.length > 0 && list.every((s) => selected.has(s.id)) && data.total > selected.size && (

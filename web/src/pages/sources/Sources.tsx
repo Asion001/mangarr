@@ -128,7 +128,7 @@ function Browse({ module }: { module: ModuleResource }) {
   const [filter, setFilter] = useState("");
   const [prefs, setPrefs] = useState<Catalog | null>(null);
   const src = mine.find((s) => s.id === sourceId) ?? mine[0];
-  const { data, isFetching, error } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ["browse", module.id, src?.id, type, q, page],
     queryFn: () => unwrap(api.GET("/api/v1/sources/{moduleId}/{sourceId}/browse", { params: { path: { moduleId: module.id, sourceId: src!.id }, query: { type, q, page } } })),
     enabled: !!src && (type !== "search" || q.length > 0),
@@ -196,7 +196,7 @@ function Browse({ module }: { module: ModuleResource }) {
             <Button icon={<Settings2 className="size-4" />} onClick={() => setPrefs(src)}>{t("Catalog settings…")}</Button>
           )}
         </div>
-        {isFetching && <Loading />}
+        {isLoading && <Loading />}
         {error && <ErrorBox error={error} />}
         {data && (
           <>

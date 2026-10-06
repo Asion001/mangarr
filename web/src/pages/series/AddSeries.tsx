@@ -43,7 +43,7 @@ export function MetadataSearch({
   const setQuery = setControlled ?? setLocal;
   const [draft, setDraft] = useState(query);
   useEffect(() => setDraft(query), [query]);
-  const { data, isFetching, error } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ["lookup", query, language],
     queryFn: () => unwrap(api.GET("/api/v1/series/lookup", { params: { query: { q: query, lang: language || undefined } } })),
     enabled: query.length > 0,
@@ -61,7 +61,7 @@ export function MetadataSearch({
         <Input autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={placeholder} />
         <Button type="submit" variant="primary" icon={<Search className="size-4" />}>{t("Search")}</Button>
       </form>
-      {isFetching && <Loading />}
+      {isLoading && <Loading />}
       {error && <ErrorBox error={error} />}
       {data?.errors?.map((e) => (
         <p key={e} className="mb-2 text-xs text-warn">
