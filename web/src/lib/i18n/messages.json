@@ -8314,5 +8314,53 @@
   "Reload to get the new version.": {
     "ru": "Перезагрузите, чтобы получить новую версию.",
     "uk": "Перезавантажте, щоб отримати нову версію."
+  },
+  "TV": {
+    "ru": "ТВ",
+    "uk": "ТБ"
+  },
+  "TV short": {
+    "ru": "Короткий ТВ",
+    "uk": "Короткий ТБ"
+  },
+  "Movie": {
+    "ru": "Фильм",
+    "uk": "Фільм"
+  },
+  "OVA": {
+    "ru": "OVA",
+    "uk": "OVA"
+  },
+  "ONA": {
+    "ru": "ONA",
+    "uk": "ONA"
+  },
+  "Special": {
+    "ru": "Спешл",
+    "uk": "Спешл"
+  },
+  "Anime · {count}": {
+    "ru": "Аниме · {count}",
+    "uk": "Аніме · {count}"
+  },
+  "{count} on {server}": {
+    "ru": "{count} в {server}",
+    "uk": "{count} у {server}"
+  },
+  "{count} to watch": {
+    "ru": "{count} можно смотреть",
+    "uk": "{count} можна дивитися"
+  },
+  "Adaptations · from AniList": {
+    "ru": "Экранизации · из AniList",
+    "uk": "Екранізації · з AniList"
+  },
+  "Watch on {server}": {
+    "ru": "Смотреть в {server}",
+    "uk": "Дивитися в {server}"
+  },
+  "Watch": {
+    "ru": "Смотреть",
+    "uk": "Дивитися"
   }
 }

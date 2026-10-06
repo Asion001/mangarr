@@ -19,6 +19,7 @@ import { RenameModal } from "./Organize";
 import { useAccount } from "../../lib/account";
 import { AddLanguageModal } from "./AddLanguage";
 import { PreviewBanner } from "./Preview";
+import { AdaptationsChip } from "./Adaptations";
 
 export function SeriesDetail() {
   const id = Number(useParams().id);
@@ -215,13 +216,14 @@ export function SeriesDetail() {
               {md.description}
             </p>
           )}
-          {links.length > 0 && (
+          {(links.length > 0 || (s.adaptations?.length ?? 0) > 0) && (
           <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted">
             {links.map(([k, v]) => (
               <a key={k} href={v} target="_blank" rel="noreferrer" className="flex items-center gap-1 hover:text-accent-2">
                 <ExternalLink className="size-3.5" /> {k}
               </a>
             ))}
+            <AdaptationsChip adaptations={s.adaptations ?? []} />
           </div>
           )}
         </div>
