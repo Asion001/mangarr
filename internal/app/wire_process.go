@@ -10,6 +10,7 @@ import (
 
 	"github.com/Asion001/mangarr/internal/config"
 	"github.com/Asion001/mangarr/internal/downloads"
+	"github.com/Asion001/mangarr/internal/events"
 	"github.com/Asion001/mangarr/internal/health"
 	"github.com/Asion001/mangarr/internal/imageenc"
 	"github.com/Asion001/mangarr/internal/jobs"
@@ -139,8 +140,39 @@ func (a *App) wireProcess(ctx context.Context) error {
 		}
 		pending = time.AfterFunc(5*time.Second, func() { a.PushProcessBacklog("modules-changed") })
 	})
+
+	// a chapter imported unprocessed (background timing) is queued for
+	// processing right away instead of waiting for the next sweep
+	var importedMu sync.Mutex
+	imported := map[int64]bool{}
+	a.Bus.Subscribe(func(e events.Event) {
+		if e.SeriesID == 0 {
+			return
+		}
+		importedMu.Lock()
+		defer importedMu.Unlock()
+		if imported[e.SeriesID] {
+			return
+		}
+		imported[e.SeriesID] = true
+		id := e.SeriesID
+		time.AfterFunc(ImportedProcessDelay, func() {
+			importedMu.Lock()
+			delete(imported, id)
+			importedMu.Unlock()
+			if n, err := a.processBacklogSeries(ctx, id); err != nil && ctx.Err() == nil {
+				a.Log.Warn("could not queue processing of imported chapters", "seriesId", id, "err", err)
+			} else if n > 0 {
+				a.Log.Debug("queued processing of imported chapters", "seriesId", id, "chapters", n)
+			}
+		})
+	}, events.ChapterImported, events.ChapterUpgraded)
 	return nil
 }
+
+// ImportedProcessDelay gathers chapters of a series imported close together
+// into one look for processing work.
+var ImportedProcessDelay = 2 * time.Second
 
 // processesOnWorkers reports whether pages are processed by the workers
 // rather than in this process: MANGARR_PROCESSING=workers, or this
@@ -161,8 +193,17 @@ func (a *App) PushProcessBacklog(trigger string) {
 // processBacklog queues processing jobs for files whose profile settings
 // changed since they were processed (or that were never processed).
 func (a *App) processBacklog(ctx context.Context) (int, error) {
+	return a.processBacklogSeries(ctx, 0)
+}
+
+// processBacklogSeries is processBacklog for one series (0: all of them).
+func (a *App) processBacklogSeries(ctx context.Context, seriesID int64) (int, error) {
 	var profiles []model.Profile
-	if err := a.DB.NewSelect().Model(&profiles).Scan(ctx); err != nil {
+	pq := a.DB.NewSelect().Model(&profiles)
+	if seriesID > 0 {
+		pq = pq.Where("id IN (SELECT profile_id FROM series WHERE id = ?)", seriesID)
+	}
+	if err := pq.Scan(ctx); err != nil {
 		return 0, err
 	}
 	queued := 0
@@ -179,6 +220,9 @@ func (a *App) processBacklog(ctx context.Context) (int, error) {
 			Where("(process_retry_at IS NULL OR process_retry_at <= ?)", now).
 			Where("process_attempts < ?", downloads.MaxProcessAttempts).
 			Where("NOT EXISTS (SELECT 1 FROM download_jobs j WHERE j.chapter_id = chapter_file.chapter_id AND j.status IN (?))", bun.In(downloads.ActiveStatuses()))
+		if seriesID > 0 {
+			q = q.Where("series_id = ?", seriesID)
+		}
 		if !p.Config.ProcessExisting && p.Config.ProcessChangedAt != nil {
 			// only chapters imported since processing was set up, unless asked
 			q = q.Where("(imported_at >= ? OR process_params = ?)", p.Config.ProcessChangedAt.UTC(), model.ProcessForce)

@@ -108,7 +108,7 @@ func TestReprocessWithNothingToDo(t *testing.T) {
 }
 
 // TestBackgroundAVIF imports originals first, then re-encodes them to AVIF
-// in the background at the same path.
+// in the background at the same path, queued as soon as the import is done.
 func TestBackgroundAVIF(t *testing.T) {
 	dsn := dbtest.DSNs(t)["sqlite"]
 	sc := fakesource.NewScenario("avif")
@@ -118,6 +118,11 @@ func TestBackgroundAVIF(t *testing.T) {
 		Chapters: []fakesource.Chapter{{URL: "/c1", Name: "Chapter 1", Number: 1, Uploaded: time.Now(), Pages: 3}}})
 	e := newTestApp(t, dsn)
 	mod := e.addFakeModule(t, "avif")
+	// the sweep a module change triggers must not be what processes the chapter
+	waitFor(t, 20*time.Second, "module-change sweep", func() bool {
+		n, _ := e.App.DB.NewSelect().Model((*model.Command)(nil)).Where("name = ? AND trigger = ? AND status = ?", "ProcessBacklog", "modules-changed", model.CommandCompleted).Count(e.Ctx)
+		return n > 0
+	})
 	var prof model.Profile
 	_ = e.App.DB.NewSelect().Model(&prof).Where("is_default = ?", true).Scan(e.Ctx)
 	prof.Config.Encode = model.EncodeConfig{Format: "avif", Preset: "fast", Grayscale: true, MinSavingsPct: 5, RecycleOriginals: false}
@@ -136,8 +141,8 @@ func TestBackgroundAVIF(t *testing.T) {
 	if orig.Format != "png" || orig.ProcessState != "" {
 		t.Fatalf("background timing must import the original first: %+v", orig)
 	}
-	e.runCommand(t, "ProcessBacklog", nil)
-	waitFor(t, 60*time.Second, "encoded file", func() bool { return e.chapterFiles(t, ser.ID)["1"].Format == "avif" })
+	// the import queues its processing itself, without waiting for a sweep
+	waitFor(t, 30*time.Second, "encoded file", func() bool { return e.chapterFiles(t, ser.ID)["1"].Format == "avif" })
 	f := e.chapterFiles(t, ser.ID)["1"]
 	if f.RelativePath != orig.RelativePath || f.ProcessState != model.ProcessDone || f.SizeOriginal != orig.Size || f.Size >= orig.Size {
 		t.Fatalf("encoded file: %+v (original %+v)", f, orig)
