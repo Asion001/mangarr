@@ -398,27 +398,37 @@ func writePNG(path string, img image.Image) error {
 	return f.Close()
 }
 
-// IsGrayscale reports whether (nearly) every sampled pixel is gray. Scans
-// with slightly tinted paper still count; color panels don't.
+// IsGrayscale reports whether (nearly) every part of the page is gray. Scans
+// with slightly tinted paper still count; color panels don't. The page is
+// judged in small blocks by their average color, not pixel by pixel: JPEG
+// chroma noise and upscaler fringes put colored pixels along every line of
+// a black-and-white page, but they average out, while a color panel doesn't.
 func IsGrayscale(img image.Image) bool {
 	switch img.(type) {
 	case *image.Gray, *image.Gray16:
 		return true
 	}
 	b := img.Bounds()
-	step := max(1, min(b.Dx(), b.Dy())/200)
+	block := max(4, min(b.Dx(), b.Dy())/200)
+	sub := max(1, block/4) // up to 4x4 samples per block
 	total, colored := 0, 0
-	for y := b.Min.Y; y < b.Max.Y; y += step {
-		for x := b.Min.X; x < b.Max.X; x += step {
-			r, g, bl, _ := img.At(x, y).RGBA()
-			r8, g8, b8 := int(r>>8), int(g>>8), int(bl>>8)
-			if max(abs(r8-g8), abs(g8-b8), abs(r8-b8)) > 24 {
+	for by := b.Min.Y; by+block <= b.Max.Y; by += block {
+		for bx := b.Min.X; bx+block <= b.Max.X; bx += block {
+			var r, g, bl, n int
+			for y := by; y < by+block; y += sub {
+				for x := bx; x < bx+block; x += sub {
+					cr, cg, cb, _ := img.At(x, y).RGBA()
+					r, g, bl, n = r+int(cr>>8), g+int(cg>>8), bl+int(cb>>8), n+1
+				}
+			}
+			r, g, bl = r/n, g/n, bl/n
+			if max(abs(r-g), abs(g-bl), abs(r-bl)) > 24 {
 				colored++
 			}
 			total++
 		}
 	}
-	return total > 0 && colored*1000 <= total*3 // at most 0.3% colored samples
+	return total > 0 && colored*1000 <= total*3 // at most 0.3% colored blocks
 }
 
 func abs(x int) int {

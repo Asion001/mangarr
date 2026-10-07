@@ -9,6 +9,7 @@ import (
 	"image/color"
 	"image/jpeg"
 	"image/png"
+	"math/rand/v2"
 	"os"
 	"path/filepath"
 	"slices"
@@ -73,6 +74,42 @@ func TestIsGrayscale(t *testing.T) {
 	}
 	if IsGrayscale(g) {
 		t.Fatal("a red panel is color")
+	}
+}
+
+func TestIsGrayscaleIgnoresChromaNoise(t *testing.T) {
+	// a black-and-white page whose lines carry colored JPEG/upscaler
+	// fringes: about 3% of its pixels are strongly colored
+	img := image.NewRGBA(image.Rect(0, 0, 1000, 1500))
+	rng := rand.New(rand.NewPCG(1, 2))
+	for y := 0; y < 1500; y++ {
+		for x := 0; x < 1000; x++ {
+			v := uint8(255)
+			if x%40 < 3 || y%60 < 2 {
+				v = 20 // line art
+			}
+			c := color.RGBA{v, v, v, 255}
+			if rng.IntN(100) < 3 {
+				d := uint8(60)
+				if v > 128 {
+					c.R, c.B = v-d, v
+				} else {
+					c.R, c.B = v+d, v
+				}
+			}
+			img.Set(x, y, c)
+		}
+	}
+	if !IsGrayscale(img) {
+		t.Fatal("chroma noise on a black-and-white page should still be grayscale")
+	}
+	for y := 600; y < 700; y++ { // a small color panel, about 0.7% of the page
+		for x := 400; x < 500; x++ {
+			img.Set(x, y, color.RGBA{240, 200, 120, 255})
+		}
+	}
+	if IsGrayscale(img) {
+		t.Fatal("a color panel is color")
 	}
 }
 
