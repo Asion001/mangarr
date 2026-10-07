@@ -698,6 +698,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/messenger": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Your linked Telegram and Discord accounts */
+        get: operations["me-messenger"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/messenger/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set what you hear about and how often */
+        put: operations["me-messenger-preferences"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/messenger/telegram/link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start linking Telegram: open the returned link and press Start */
+        post: operations["me-messenger-telegram-link"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/messenger/{kind}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Unlink an account */
+        delete: operations["me-messenger-unlink"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/messenger/{kind}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send yourself a test message */
+        post: operations["me-messenger-test"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/notifications": {
         parameters: {
             query?: never;
@@ -4869,6 +4954,11 @@ export interface components {
             chapters: components["schemas"]["SourceChapter"][];
             details: components["schemas"]["SourceMangaDetails"];
         };
+        "Me-messenger-preferencesRequest": {
+            events: string[];
+            /** @enum {string} */
+            mode: "off" | "instant" | "daily_digest" | "instant_and_digest";
+        };
         "Me-notifications-testRequest": {
             enabled: boolean;
             events?: string[];
@@ -4901,6 +4991,33 @@ export interface components {
             writeCover: boolean;
             writeSeriesJson: boolean;
             writeVolume: boolean;
+        };
+        MessengerBot: {
+            available: boolean;
+            bot?: string;
+        };
+        MessengerLink: {
+            /** Format: date-time */
+            createdAt: string;
+            displayName: string;
+            events: string[];
+            /** Format: int64 */
+            id: number;
+            kind: string;
+            /** Format: date-time */
+            lastAttemptAt?: string;
+            lastError?: string;
+            mode: string;
+            status: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** Format: int64 */
+            userId: number;
+        };
+        MessengerLinkStart: {
+            /** Format: date-time */
+            expiresAt: string;
+            url: string;
         };
         MessengerSettings: {
             allowInstant: boolean;
@@ -5024,6 +5141,17 @@ export interface components {
             /** Format: int64 */
             moduleId: number;
             name: string;
+        };
+        MyMessenger: {
+            allowInstant: boolean;
+            /** Format: int64 */
+            digestHour: number;
+            discord: components["schemas"]["MessengerBot"];
+            events: string[];
+            links: components["schemas"]["MessengerLink"][];
+            /** @enum {string} */
+            mode: "off" | "instant" | "daily_digest" | "instant_and_digest";
+            telegram: components["schemas"]["MessengerBot"];
         };
         NamingPreview: {
             chapter: string;
@@ -8627,6 +8755,155 @@ export interface operations {
             header?: never;
             path: {
                 moduleId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "me-messenger": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyMessenger"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "me-messenger-preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Me-messenger-preferencesRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyMessenger"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "me-messenger-telegram-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessengerLinkStart"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "me-messenger-unlink": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: "telegram" | "discord";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "me-messenger-test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: "telegram" | "discord";
             };
             cookie?: never;
         };

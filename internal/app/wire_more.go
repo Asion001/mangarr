@@ -1,6 +1,7 @@
 package app
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	"github.com/Asion001/mangarr/internal/health"
 	"github.com/Asion001/mangarr/internal/jobs"
 	"github.com/Asion001/mangarr/internal/libsync"
+	"github.com/Asion001/mangarr/internal/messenger"
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/modules"
 	"github.com/Asion001/mangarr/internal/modules/source"
@@ -23,11 +25,13 @@ import (
 // MoreServices are created by wireMore.
 type MoreServices struct {
 	Notifications *notifications.Dispatcher
-	Requests      *requests.Service
-	SSO           *sso.Service
-	Rescanner     *libsync.Rescanner
-	Health        *health.Checker
-	Backups       *backup.Service
+	// Messenger links people's Telegram and Discord accounts to the bots.
+	Messenger *messenger.Service
+	Requests  *requests.Service
+	SSO       *sso.Service
+	Rescanner *libsync.Rescanner
+	Health    *health.Checker
+	Backups   *backup.Service
 }
 
 // wireMore registers library sync, notifications, health, backups and
@@ -36,6 +40,15 @@ func (a *App) wireMore(ctx context.Context) error {
 	log := a.Log
 	a.Notifications = notifications.New(a.DB, a.Bus, a.Modules, a.Settings, log.With("component", "notifications"))
 	a.AddService(a.Notifications)
+	a.Messenger = &messenger.Service{DB: a.DB, Settings: a.Settings, Bus: a.Bus, Log: log.With("component", "messenger"),
+		Username: func(ctx context.Context, userID int64) string {
+			var u model.User
+			if err := a.DB.NewSelect().Model(&u).Where("id = ?", userID).Scan(ctx); err != nil {
+				return ""
+			}
+			return cmp.Or(u.DisplayName, u.Username)
+		}}
+	a.AddService(a.Messenger)
 	a.wireRequests()
 	a.SSO = &sso.Service{Settings: a.Settings, Auth: a.Auth, DB: a.DB, HTTP: a.HTTP, Log: log.With("component", "sso")}
 	a.Rescanner = libsync.New(a.Modules, a.Bus, log.With("component", "libsync"))
@@ -50,6 +63,13 @@ func (a *App) wireMore(ctx context.Context) error {
 		return out
 	})
 	a.Health.AddStatus("Library servers", a.Rescanner.Status)
+	a.Health.AddCheck(func(ctx context.Context) []health.Check {
+		if msg := a.Messenger.Status(model.MessengerTelegram); msg != "" {
+			return []health.Check{{Source: "Notifications", Type: health.Warning, Link: "/settings/notifications", Key: "telegram-bot",
+				Message: "The Telegram bot can't get messages, so nobody can link Telegram: " + msg}}
+		}
+		return nil
+	})
 	a.Health.AddCheck(a.crashHealth)
 	a.Health.AddCheck(func(ctx context.Context) []health.Check {
 		var out []health.Check

@@ -29,6 +29,7 @@ const map: Record<string, string[][]> = {
   tag: [["tags"]],
   blocklist: [["blocklist"]],
   import: [["imports"], ["import"], ["import-entries"]],
+  messenger: [["me-messenger"]],
 };
 
 type Listener = (type: string, payload: unknown) => void;

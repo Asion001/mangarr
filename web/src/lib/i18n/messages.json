@@ -8442,5 +8442,113 @@
   "Set Settings › General › Public URL first: Discord sends people back to that address after they link.": {
     "ru": "Сначала задайте «Настройки › Общие › Публичный URL»: Discord возвращает людей на этот адрес после привязки.",
     "uk": "Спершу задайте «Налаштування › Загальні › Публічний URL»: Discord повертає людей на цю адресу після прив’язки."
+  },
+  "Approved, declined, added to the library.": {
+    "ru": "Одобрен, отклонён, добавлен в библиотеку.",
+    "uk": "Схвалено, відхилено, додано до бібліотеки."
+  },
+  "Both": {
+    "ru": "Оба",
+    "uk": "Обидва"
+  },
+  "Daily digest": {
+    "ru": "Ежедневная сводка",
+    "uk": "Щоденне зведення"
+  },
+  "Discord won't let the bot message you yet. Join a server the bot is in and allow direct messages from its members.": {
+    "ru": "Discord пока не даёт боту писать вам. Вступите на сервер, где есть бот, и разрешите личные сообщения от его участников.",
+    "uk": "Discord поки не дозволяє боту писати вам. Приєднайтеся до сервера, де є бот, і дозвольте особисті повідомлення від його учасників."
+  },
+  "How often": {
+    "ru": "Как часто",
+    "uk": "Як часто"
+  },
+  "Instant sends new chapters as they arrive; the digest collects the day at {time}. Request updates always go out right away.": {
+    "ru": "«Сразу» присылает новые главы по мере появления; сводка собирает день в {time}. Новости о запросах приходят сразу.",
+    "uk": "«Одразу» надсилає нові розділи щойно вони з’являються; зведення збирає день о {time}. Новини про запити надходять одразу."
+  },
+  "Instant": {
+    "ru": "Сразу",
+    "uk": "Одразу"
+  },
+  "Link Discord": {
+    "ru": "Привязать Discord",
+    "uk": "Прив’язати Discord"
+  },
+  "Link Telegram": {
+    "ru": "Привязать Telegram",
+    "uk": "Прив’язати Telegram"
+  },
+  "Linked as {name}": {
+    "ru": "Привязан как {name}",
+    "uk": "Прив’язано як {name}"
+  },
+  "My requests": {
+    "ru": "Мои запросы",
+    "uk": "Мої запити"
+  },
+  "New chapters come in one digest a day at {time}. Request updates always go out right away.": {
+    "ru": "Новые главы приходят одной сводкой в день в {time}. Новости о запросах приходят сразу.",
+    "uk": "Нові розділи надходять одним зведенням на день о {time}. Новини про запити надходять одразу."
+  },
+  "New chapters of series I follow": {
+    "ru": "Новые главы серий, на которые я подписан",
+    "uk": "Нові розділи серій, на які я підписаний"
+  },
+  "Only series you can see. One message per series, not per chapter.": {
+    "ru": "Только доступные вам серии. Одно сообщение на серию, а не на главу.",
+    "uk": "Лише доступні вам серії. Одне повідомлення на серію, а не на розділ."
+  },
+  "Open Telegram again": {
+    "ru": "Открыть Telegram снова",
+    "uk": "Відкрити Telegram знову"
+  },
+  "Opens a chat with the bot. Press Start there and this page links itself.": {
+    "ru": "Откроет чат с ботом. Нажмите там «Start», и эта страница привяжется сама.",
+    "uk": "Відкриє чат із ботом. Натисніть там «Start», і ця сторінка прив’яжеться сама."
+  },
+  "Press Start in the chat with the bot; this page links itself as soon as the bot hears from you. The link works once and for 10 minutes.": {
+    "ru": "Нажмите «Start» в чате с ботом; страница привяжется, как только бот получит сообщение. Ссылка работает один раз и 10 минут.",
+    "uk": "Натисніть «Start» у чаті з ботом; сторінка прив’яжеться, щойно бот отримає повідомлення. Посилання працює один раз і 10 хвилин."
+  },
+  "Private messages from this server's bot about the series you follow and your requests. Link an account once; there's nothing else to set up. Follow a series with the bell on its page.": {
+    "ru": "Личные сообщения от бота этого сервера о сериях, на которые вы подписаны, и о ваших запросах. Привяжите аккаунт один раз, больше ничего настраивать не нужно. Подписаться на серию можно колокольчиком на её странице.",
+    "uk": "Особисті повідомлення від бота цього сервера про серії, на які ви підписані, і про ваші запити. Прив’яжіть акаунт один раз, більше нічого налаштовувати не треба. Підписатися на серію можна дзвіночком на її сторінці."
+  },
+  "Send a test": {
+    "ru": "Отправить тест",
+    "uk": "Надіслати тест"
+  },
+  "Sign in with Discord. Only your Discord user id is kept.": {
+    "ru": "Войдите через Discord. Сохраняется только ваш ID пользователя Discord.",
+    "uk": "Увійдіть через Discord. Зберігається лише ваш ID користувача Discord."
+  },
+  "Telegram is linked": {
+    "ru": "Telegram привязан",
+    "uk": "Telegram прив’язано"
+  },
+  "Tell me about": {
+    "ru": "Сообщать о",
+    "uk": "Повідомляти про"
+  },
+  "Test message sent": {
+    "ru": "Тестовое сообщение отправлено",
+    "uk": "Тестове повідомлення надіслано"
+  },
+  "The admin hasn't set up a Telegram or Discord bot on this server yet.": {
+    "ru": "Администратор ещё не настроил бота Telegram или Discord на этом сервере.",
+    "uk": "Адміністратор ще не налаштував бота Telegram чи Discord на цьому сервері."
+  },
+  "The bot can't message you: you may have blocked it or deleted the chat. Open the chat with the bot, press Start, then try again.": {
+    "ru": "Бот не может вам написать: возможно, вы его заблокировали или удалили чат. Откройте чат с ботом, нажмите «Start» и попробуйте снова.",
+    "uk": "Бот не може вам написати: можливо, ви його заблокували або видалили чат. Відкрийте чат із ботом, натисніть «Start» і спробуйте знову."
+  },
+  "The message didn't go through": {
+    "ru": "Сообщение не дошло",
+    "uk": "Повідомлення не дійшло"
+  },
+  "Waiting for you in Telegram…": {
+    "ru": "Ждём вас в Telegram…",
+    "uk": "Чекаємо на вас у Telegram…"
   }
 }

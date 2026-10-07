@@ -14,6 +14,7 @@ import { AccentPicker, StartPageOptions } from "../../components/AccentPicker";
 import { relative } from "../../lib/format";
 import { useToast } from "../../lib/toast";
 import { ReadingStatsCard } from "./ReadingStats";
+import { MessengerCard } from "./MessengerCard";
 
 const permLabel: Record<string, string> = {
   admin: "Administrator",
@@ -52,6 +53,7 @@ export function AccountPage() {
           </div>
         </Card>
         <ReadingStatsCard />
+        {account?.kind === "user" && <MessengerCard />}
         {account?.kind === "user" && <NotificationsCard />}
         {account?.kind === "user" && <LibraryAccountsCard />}
         {can("apps") && <ReadingAppsCard />}

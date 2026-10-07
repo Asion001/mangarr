@@ -4431,6 +4431,31 @@
         ],
         "type": "object"
       },
+      "Me-messenger-preferencesRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "events": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "mode": {
+            "enum": [
+              "off",
+              "instant",
+              "daily_digest",
+              "instant_and_digest"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "mode",
+          "events"
+        ],
+        "type": "object"
+      },
       "Me-notifications-testRequest": {
         "additionalProperties": false,
         "properties": {
@@ -4547,6 +4572,96 @@
           "renameFolderOnTitleChange",
           "fileMode",
           "dirMode"
+        ],
+        "type": "object"
+      },
+      "MessengerBot": {
+        "additionalProperties": false,
+        "properties": {
+          "available": {
+            "type": "boolean"
+          },
+          "bot": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "available"
+        ],
+        "type": "object"
+      },
+      "MessengerLink": {
+        "additionalProperties": false,
+        "properties": {
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "events": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "lastAttemptAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "lastError": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "userId": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "userId",
+          "kind",
+          "displayName",
+          "mode",
+          "events",
+          "status",
+          "createdAt",
+          "updatedAt"
+        ],
+        "type": "object"
+      },
+      "MessengerLinkStart": {
+        "additionalProperties": false,
+        "properties": {
+          "expiresAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "expiresAt"
         ],
         "type": "object"
       },
@@ -4985,6 +5100,55 @@
           "name",
           "implementation",
           "fields"
+        ],
+        "type": "object"
+      },
+      "MyMessenger": {
+        "additionalProperties": false,
+        "properties": {
+          "allowInstant": {
+            "type": "boolean"
+          },
+          "digestHour": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "discord": {
+            "$ref": "#/components/schemas/MessengerBot"
+          },
+          "events": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "links": {
+            "items": {
+              "$ref": "#/components/schemas/MessengerLink"
+            },
+            "type": "array"
+          },
+          "mode": {
+            "enum": [
+              "off",
+              "instant",
+              "daily_digest",
+              "instant_and_digest"
+            ],
+            "type": "string"
+          },
+          "telegram": {
+            "$ref": "#/components/schemas/MessengerBot"
+          }
+        },
+        "required": [
+          "telegram",
+          "discord",
+          "links",
+          "mode",
+          "events",
+          "allowInstant",
+          "digestHour"
         ],
         "type": "object"
       },
@@ -14009,6 +14173,185 @@
             "description": "Error"
           }
         },
+        "tags": [
+          "Account"
+        ]
+      }
+    },
+    "/api/v1/me/messenger": {
+      "get": {
+        "operationId": "me-messenger",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyMessenger"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Your linked Telegram and Discord accounts",
+        "tags": [
+          "Account"
+        ]
+      }
+    },
+    "/api/v1/me/messenger/preferences": {
+      "put": {
+        "operationId": "me-messenger-preferences",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Me-messenger-preferencesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyMessenger"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Set what you hear about and how often",
+        "tags": [
+          "Account"
+        ]
+      }
+    },
+    "/api/v1/me/messenger/telegram/link": {
+      "post": {
+        "operationId": "me-messenger-telegram-link",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessengerLinkStart"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Start linking Telegram: open the returned link and press Start",
+        "tags": [
+          "Account"
+        ]
+      }
+    },
+    "/api/v1/me/messenger/{kind}": {
+      "delete": {
+        "operationId": "me-messenger-unlink",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "enum": [
+                "telegram",
+                "discord"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Unlink an account",
+        "tags": [
+          "Account"
+        ]
+      }
+    },
+    "/api/v1/me/messenger/{kind}/test": {
+      "post": {
+        "operationId": "me-messenger-test",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "enum": [
+                "telegram",
+                "discord"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Send yourself a test message",
         "tags": [
           "Account"
         ]

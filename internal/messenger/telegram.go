@@ -112,3 +112,75 @@ func (t *Telegram) Me(ctx context.Context) (Identity, error) {
 	}
 	return u.identity(), nil
 }
+
+// Update is one incoming message for the bot.
+type Update struct {
+	ID     int64
+	ChatID string
+	// Private is a one-to-one chat with the bot.
+	Private bool
+	From    Identity
+	Text    string
+}
+
+// Updates long-polls for messages after offset (the last update id + 1).
+func (t *Telegram) Updates(ctx context.Context, offset int64, wait time.Duration) ([]Update, error) {
+	var raw []struct {
+		UpdateID int64 `json:"update_id"`
+		Message  *struct {
+			Text string `json:"text"`
+			From tgUser `json:"from"`
+			Chat struct {
+				ID   int64  `json:"id"`
+				Type string `json:"type"`
+			} `json:"chat"`
+		} `json:"message"`
+	}
+	params := url.Values{
+		"offset":          {strconv.FormatInt(offset, 10)},
+		"timeout":         {strconv.Itoa(int(wait.Seconds()))},
+		"allowed_updates": {`["message"]`},
+	}
+	if err := t.call(ctx, "getUpdates", params, &raw); err != nil {
+		return nil, err
+	}
+	out := make([]Update, 0, len(raw))
+	for _, r := range raw {
+		u := Update{ID: r.UpdateID}
+		if m := r.Message; m != nil {
+			u.ChatID = strconv.FormatInt(m.Chat.ID, 10)
+			u.Private = m.Chat.Type == "private"
+			u.From = m.From.identity()
+			u.Text = m.Text
+		}
+		out = append(out, u)
+	}
+	return out, nil
+}
+
+// Send posts an HTML message to a chat.
+func (t *Telegram) Send(ctx context.Context, chatID, html string) error {
+	return t.call(ctx, "sendMessage", url.Values{
+		"chat_id":                  {chatID},
+		"text":                     {html},
+		"parse_mode":               {"HTML"},
+		"disable_web_page_preview": {"true"},
+	}, nil)
+}
+
+// Gone reports an error after which the chat will never take messages
+// again: the person blocked the bot, or the chat no longer exists.
+func Gone(err error) bool {
+	var e *APIError
+	if !errors.As(err, &e) {
+		return false
+	}
+	if e.Status == http.StatusForbidden && strings.Contains(e.Msg, "Telegram") {
+		return true // bot was blocked by the user / kicked
+	}
+	if e.Status == http.StatusBadRequest && strings.Contains(strings.ToLower(e.Msg), "chat not found") {
+		return true
+	}
+	// Discord: 50007 cannot send messages to this user, 10013 unknown user
+	return e.Code == 50007 || e.Code == 10013
+}

@@ -63,6 +63,11 @@ invites-list GET /api/v1/invites -> admin
 me-library-account-delete DELETE /api/v1/me/library-accounts/{moduleId} -> signedin
 me-library-account-save POST /api/v1/me/library-accounts -> signedin
 me-library-accounts GET /api/v1/me/library-accounts -> signedin
+me-messenger GET /api/v1/me/messenger -> signedin
+me-messenger-preferences PUT /api/v1/me/messenger/preferences -> signedin
+me-messenger-telegram-link POST /api/v1/me/messenger/telegram/link -> signedin
+me-messenger-test POST /api/v1/me/messenger/{kind}/test -> signedin
+me-messenger-unlink DELETE /api/v1/me/messenger/{kind} -> signedin
 me-notifications GET /api/v1/me/notifications -> signedin
 me-notifications-create POST /api/v1/me/notifications -> signedin
 me-notifications-delete DELETE /api/v1/me/notifications/{id} -> signedin

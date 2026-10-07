@@ -12,7 +12,7 @@ type Identity = S["Identity"];
 
 const telegramAPI = "https://api.telegram.org";
 
-function TelegramIcon() {
+export function TelegramIcon() {
   return (
     <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-info text-white" aria-hidden>
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 4 3 11l6 2 2 6 3-4 5 4z" /></svg>
@@ -20,7 +20,7 @@ function TelegramIcon() {
   );
 }
 
-function DiscordIcon() {
+export function DiscordIcon() {
   return (
     <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-accent text-white" aria-hidden>
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 7c3-1.5 7-1.5 10 0l2 9c-2 1.5-4 2-4 2l-1-2m-4 0-1 2s-2-.5-4-2z" /></svg>
