@@ -64,6 +64,8 @@ me-library-account-delete DELETE /api/v1/me/library-accounts/{moduleId} -> signe
 me-library-account-save POST /api/v1/me/library-accounts -> signedin
 me-library-accounts GET /api/v1/me/library-accounts -> signedin
 me-messenger GET /api/v1/me/messenger -> signedin
+me-messenger-discord-callback GET /api/v1/me/messenger/discord/callback -> public
+me-messenger-discord-link GET /api/v1/me/messenger/discord/link -> signedin
 me-messenger-preferences PUT /api/v1/me/messenger/preferences -> signedin
 me-messenger-telegram-link POST /api/v1/me/messenger/telegram/link -> signedin
 me-messenger-test POST /api/v1/me/messenger/{kind}/test -> signedin

@@ -406,7 +406,41 @@ func (s *Service) Deliver(ctx context.Context, link model.MessengerLink, htmlTex
 	return err
 }
 
-// deliverDiscord is filled in with Discord linking.
+// Discord returns a client for the configured bot, or nil while it is off.
+func (s *Service) Discord(ctx context.Context) *Discord {
+	m, err := s.Settings.Messenger(ctx)
+	if err != nil || !m.Discord.Enabled || m.Discord.BotToken == "" {
+		return nil
+	}
+	return &Discord{Token: m.Discord.BotToken}
+}
+
+// deliverDiscord sends a direct message; the DM channel is looked up
+// each time (Discord returns the existing one).
 func (s *Service) deliverDiscord(ctx context.Context, link model.MessengerLink, htmlText string) error {
-	return errors.New("Discord messages aren't supported yet")
+	dc := s.Discord(ctx)
+	if dc == nil {
+		return errors.New("the Discord bot is switched off")
+	}
+	ch, err := dc.DM(ctx, link.ExternalID)
+	if err != nil {
+		return err
+	}
+	return dc.Send(ctx, ch, Markdown(htmlText))
+}
+
+// LinkDiscord finishes the Discord sign-in: state is the link token.
+func (s *Service) LinkDiscord(ctx context.Context, state, code, redirectURI string) (int64, error) {
+	m, err := s.Settings.Messenger(ctx)
+	if err != nil {
+		return 0, err
+	}
+	if !m.Discord.Enabled {
+		return 0, errors.New("the Discord bot is switched off")
+	}
+	who, err := DiscordUser(ctx, nil, m.Discord.ClientID, m.Discord.ClientSecret, redirectURI, code)
+	if err != nil {
+		return 0, err
+	}
+	return s.Redeem(ctx, model.MessengerDiscord, state, who)
 }

@@ -8550,5 +8550,13 @@
   "Waiting for you in Telegram…": {
     "ru": "Ждём вас в Telegram…",
     "uk": "Чекаємо на вас у Telegram…"
+  },
+  "Discord is linked": {
+    "ru": "Discord привязан",
+    "uk": "Discord прив’язано"
+  },
+  "Couldn't link the account": {
+    "ru": "Не удалось привязать аккаунт",
+    "uk": "Не вдалося прив’язати акаунт"
   }
 }

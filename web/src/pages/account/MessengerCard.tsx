@@ -1,6 +1,7 @@
 import { t } from "../../lib/i18n/core";
 import { useEffect, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "react-router";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { api, basePath, unwrap, type S } from "../../api/client";
 import { Badge, Button, Card, ErrorBox, Segmented } from "../../components/ui";
@@ -57,6 +58,20 @@ export function MessengerCard() {
     const timer = window.setTimeout(() => setPending(null), Math.max(left, 0));
     return () => clearTimeout(timer);
   }, [m, pending, toast]);
+
+  // back from Discord: say how it went, once
+  const [params, setParams] = useSearchParams();
+  useEffect(() => {
+    const linked = params.get("linked");
+    const failed = params.get("messenger_error");
+    if (!linked && !failed) return;
+    if (linked === "discord") toast.success(t("Discord is linked"));
+    if (failed) toast.error(t("Couldn't link the account"), failed);
+    const next = new URLSearchParams(params);
+    next.delete("linked");
+    next.delete("messenger_error");
+    setParams(next, { replace: true });
+  }, [params, setParams, toast]);
 
   const startTelegram = async () => {
     try {

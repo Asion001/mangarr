@@ -14209,6 +14209,95 @@
         ]
       }
     },
+    "/api/v1/me/messenger/discord/callback": {
+      "get": {
+        "operationId": "me-messenger-discord-callback",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "code",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "state",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "error",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content",
+            "headers": {
+              "Location": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [],
+        "summary": "Where Discord sends people back after they sign in",
+        "tags": [
+          "Account"
+        ]
+      }
+    },
+    "/api/v1/me/messenger/discord/link": {
+      "get": {
+        "operationId": "me-messenger-discord-link",
+        "responses": {
+          "204": {
+            "description": "No Content",
+            "headers": {
+              "Location": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Start linking Discord (redirects to Discord)",
+        "tags": [
+          "Account"
+        ]
+      }
+    },
     "/api/v1/me/messenger/preferences": {
       "put": {
         "operationId": "me-messenger-preferences",
