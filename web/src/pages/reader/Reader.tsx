@@ -15,6 +15,7 @@ import { SettingsPanel } from "./SettingsPanel";
 import { ChapterPicker } from "./ChapterPicker";
 import { ImagePreloader, useImagePreload } from "./preload";
 import { useReadingTime } from "./time";
+import { canFullscreen, toggleFullscreen as toggleFull, useFullscreen } from "./fullscreen";
 
 const chapterQuery = (id: number) => ({
   queryKey: ["read-chapter", id],
@@ -46,7 +47,7 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
   const [bars, setBars] = useState(true);
   const [panel, setPanel] = useState(false);
   const [pickingChapter, setPickingChapter] = useState(false);
-  const [full, setFull] = useState(!!document.fullscreenElement);
+  const full = useFullscreen();
 
   // where to start: ?page=, else where you left off
   useEffect(() => {
@@ -187,21 +188,6 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
 
   useDocumentTitle(ch ? `${ch.seriesTitle} ch. ${ch.number}` : undefined);
 
-  const toggleFull = () => {
-    if (document.fullscreenElement) void document.exitFullscreen();
-    else {
-      const el = document.documentElement as HTMLElement & { webkitRequestFullscreen?: () => void };
-      // older iPad Safari only has the prefixed call
-      if (el.requestFullscreen) void el.requestFullscreen();
-      else el.webkitRequestFullscreen?.();
-    }
-  };
-  useEffect(() => {
-    const on = () => setFull(!!document.fullscreenElement);
-    document.addEventListener("fullscreenchange", on);
-    return () => document.removeEventListener("fullscreenchange", on);
-  }, []);
-
   const goChapter = useCallback(
     (dir: "prev" | "next") => {
       const target = dir === "next" ? ch?.next : ch?.prev;
@@ -291,15 +277,21 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
         )}
         style={{ paddingTop: "max(0.5rem, env(safe-area-inset-top))", paddingLeft: "max(0.5rem, env(safe-area-inset-left))", paddingRight: "max(0.5rem, env(safe-area-inset-right))" }}
       >
-        <Link to={`/series/${ch.seriesId}`} className="rounded p-2 hover:bg-panel-2" aria-label={t("Back to the series")}>
-          <ArrowLeft className="size-5" />
-        </Link>
+        {s.showTitle && (
+          <Link to={`/series/${ch.seriesId}`} className="rounded p-2 hover:bg-panel-2" aria-label={t("Back to the series")}>
+            <ArrowLeft className="size-5" />
+          </Link>
+        )}
         <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-medium">{ch.seriesTitle}</div>
-          <div className="truncate text-xs text-muted">{t("Ch.") + " "}{ch.number}
-            {ch.title && ch.title !== ch.number && !ch.title.endsWith(ch.number) ? ` · ${ch.title}` : ""}
-            {!ch.downloaded && tr(" · streamed")}
-          </div>
+          {s.showTitle && (
+            <>
+              <div className="truncate text-sm font-medium">{ch.seriesTitle}</div>
+              <div className="truncate text-xs text-muted">{t("Ch.") + " "}{ch.number}
+                {ch.title && ch.title !== ch.number && !ch.title.endsWith(ch.number) ? ` · ${ch.title}` : ""}
+                {!ch.downloaded && tr(" · streamed")}
+              </div>
+            </>
+          )}
         </div>
         {ch.canDownload && (
           <a href={apiUrl(`api/v1/read/chapters/${ch.id}/file`)} download className="rounded p-2 hover:bg-panel-2" aria-label={t("Download the chapter")}>
@@ -309,9 +301,11 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
         <button type="button" className="rounded p-2 hover:bg-panel-2" onClick={() => setPickingChapter(true)} aria-label={t("Choose chapter")}>
           <List className="size-5" />
         </button>
-        <button type="button" className="rounded p-2 hover:bg-panel-2" onClick={toggleFull} aria-label={t("Full screen")}>
-          {full ? <Minimize className="size-5" /> : <Maximize className="size-5" />}
-        </button>
+        {canFullscreen() && (
+          <button type="button" className="rounded p-2 hover:bg-panel-2" onClick={toggleFull} aria-label={t("Full screen")}>
+            {full ? <Minimize className="size-5" /> : <Maximize className="size-5" />}
+          </button>
+        )}
         <button type="button" className="rounded p-2 hover:bg-panel-2" onClick={() => setPanel((p) => !p)} aria-label={t("Reader settings")}>
           <Settings2 className="size-5" />
         </button>
@@ -366,6 +360,22 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
         <div className="pointer-events-none absolute bottom-2 left-1/2 z-10 -translate-x-1/2 rounded-full bg-black/60 px-2.5 py-0.5 text-xs tabular-nums text-fg" style={{ marginBottom: "env(safe-area-inset-bottom)" }}>
           {page} / {count}
         </div>
+      )}
+
+      {!bars && !full && s.quickFullscreen && canFullscreen() && (
+        <button
+          type="button"
+          className="absolute bottom-2 right-2 z-10 rounded-full bg-black/50 p-2 text-fg/80 hover:bg-black/70 hover:text-fg"
+          style={{ marginBottom: "env(safe-area-inset-bottom)", marginRight: "env(safe-area-inset-right)" }}
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleFull();
+          }}
+          onPointerUp={(e) => e.stopPropagation()}
+          aria-label={t("Full screen")}
+        >
+          <Maximize className="size-4" />
+        </button>
       )}
 
       {panel && <SettingsPanel s={s} set={set} onClose={() => setPanel(false)} hasOwn={hasOwn} saveAsDefault={saveAsDefault} reset={reset} />}

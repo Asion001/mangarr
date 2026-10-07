@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { X } from "lucide-react";
 import clsx from "clsx";
 import type { ReaderSettings } from "./settings";
+import { canFullscreen } from "./fullscreen";
 
 function Choice<T extends string>({ value, options, onChange }: { value: T; options: { value: T; label: string }[]; onChange: (v: T) => void }) {
   return (
@@ -155,6 +156,8 @@ export function SettingsPanel({
           <Toggle checked={s.autoNext} onChange={(autoNext) => set({ autoNext })} label={t("Go on to the next chapter")} />
           <Toggle checked={s.keepAwake} onChange={(keepAwake) => set({ keepAwake })} label={t("Keep the screen on")} />
           <Toggle checked={s.showPageNumber} onChange={(showPageNumber) => set({ showPageNumber })} label={t("Show the page number")} />
+          <Toggle checked={s.showTitle} onChange={(showTitle) => set({ showTitle })} label={t("Show the back button and chapter title")} />
+          {canFullscreen() && <Toggle checked={s.quickFullscreen} onChange={(quickFullscreen) => set({ quickFullscreen })} label={t("Quick full screen button")} />}
         </div>
         <p className="text-xs text-muted">{t("Changes are kept for this series.")}</p>
         <div className="flex flex-wrap gap-2">
