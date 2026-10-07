@@ -97,6 +97,9 @@ type MessengerLink struct {
 	Status        string     `bun:"status,notnull" json:"status"`
 	LastError     string     `bun:"last_error,notnull" json:"lastError,omitempty"`
 	LastAttemptAt *time.Time `bun:"last_attempt_at" json:"lastAttemptAt,omitempty"`
+	// DigestThrough is how far the daily digest has covered (nil: since
+	// the link was made).
+	DigestThrough *time.Time `bun:"digest_through" json:"-"`
 	CreatedAt     time.Time  `bun:"created_at,notnull" json:"createdAt"`
 	UpdatedAt     time.Time  `bun:"updated_at,notnull" json:"updatedAt"`
 }

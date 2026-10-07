@@ -39,6 +39,9 @@ type Dispatcher struct {
 	// Followers lists the users to tell about a series' new chapters (those
 	// following it who can see it).
 	Followers func(ctx context.Context, seriesID int64) []int64
+	// Personal hands those users' messages to their linked messenger
+	// accounts (internal/messenger).
+	Personal func(ctx context.Context, users []int64, event string, seriesID int64, msg notify.Message)
 
 	mu      sync.Mutex
 	digests map[int64]*digest
@@ -248,7 +251,8 @@ func (d *Dispatcher) dispatch(event string, seriesID int64, msg notify.Message) 
 	}
 }
 
-// SendToUsers sends an event to those users' own notification targets.
+// SendToUsers sends an event to those users' linked messenger accounts
+// and their own notification targets.
 func (d *Dispatcher) SendToUsers(users []int64, event string, seriesID int64, msg notify.Message) {
 	ctx := d.context()
 	to := map[int64]bool{}
@@ -256,6 +260,9 @@ func (d *Dispatcher) SendToUsers(users []int64, event string, seriesID int64, ms
 		to[u] = true
 	}
 	d.fill(ctx, event, seriesID, &msg)
+	if d.Personal != nil {
+		d.Personal(ctx, users, event, seriesID, msg)
+	}
 	for _, inst := range modules.ActiveAs[notify.Module](d.mods, modules.KindNotify) {
 		if inst.Def.UserID == nil || !to[*inst.Def.UserID] || !wantsPersonal(inst.Def, event) {
 			continue

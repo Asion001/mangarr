@@ -15,6 +15,7 @@ import (
 	"github.com/Asion001/mangarr/internal/messenger"
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/modules"
+	"github.com/Asion001/mangarr/internal/modules/notify"
 	"github.com/Asion001/mangarr/internal/modules/source"
 	"github.com/Asion001/mangarr/internal/notifications"
 	"github.com/Asion001/mangarr/internal/requests"
@@ -49,6 +50,12 @@ func (a *App) wireMore(ctx context.Context) error {
 			return cmp.Or(u.DisplayName, u.Username)
 		}}
 	a.AddService(a.Messenger)
+	a.Notifications.Personal = func(ctx context.Context, users []int64, event string, seriesID int64, msg notify.Message) {
+		err := a.Messenger.Enqueue(ctx, users, event, seriesID, messenger.Message{Title: msg.Title, Body: msg.Body, Items: msg.Items, URL: msg.URL, Series: msg.Series})
+		if err != nil {
+			log.Warn("messenger: can't queue a message", "event", event, "err", err)
+		}
+	}
 	a.wireRequests()
 	a.SSO = &sso.Service{Settings: a.Settings, Auth: a.Auth, DB: a.DB, HTTP: a.HTTP, Log: log.With("component", "sso")}
 	a.Rescanner = libsync.New(a.Modules, a.Bus, log.With("component", "libsync"))

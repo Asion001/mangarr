@@ -37,14 +37,18 @@ type Service struct {
 	// Username returns a user's name, for the bot's replies.
 	Username func(ctx context.Context, userID int64) string
 
-	mu      sync.Mutex
-	botName map[string]Identity // per token
-	status  map[string]string   // per bot: the last listening error
+	mu          sync.Mutex
+	botName     map[string]Identity // per token
+	status      map[string]string   // per bot: the last listening error
+	wake        chan struct{}
+	digestRetry map[int64]time.Time // per link, after a failed digest
+	pruned      time.Time
 }
 
 // Start listens to the Telegram bot while it is switched on.
 func (s *Service) Start(ctx context.Context) error {
 	go s.telegramLoop(ctx)
+	go s.sendLoop(ctx)
 	return nil
 }
 
@@ -232,8 +236,14 @@ func (s *Service) SetPreferences(ctx context.Context, userID int64, mode string,
 			clean = append(clean, e)
 		}
 	}
-	_, err := s.DB.NewUpdate().Model((*model.MessengerLink)(nil)).Set("mode = ?", mode).Set("events = ?", clean).
-		Set("updated_at = ?", time.Now().UTC()).Where("user_id = ?", userID).Exec(ctx)
+	now := time.Now().UTC()
+	digestModes := bun.In([]string{model.DeliveryDigest, model.DeliveryBoth})
+	// a digest starting now covers what comes from now on, not what was
+	// already sent as it arrived
+	_, err := s.DB.NewUpdate().Model((*model.MessengerLink)(nil)).
+		Set("digest_through = CASE WHEN mode IN (?) THEN digest_through ELSE ? END", digestModes, now).
+		Set("mode = ?", mode).Set("events = ?", clean).
+		Set("updated_at = ?", now).Where("user_id = ?", userID).Exec(ctx)
 	if err == nil {
 		s.Bus.Changed("messenger", "updated", userID)
 	}
@@ -402,6 +412,12 @@ func (s *Service) Deliver(ctx context.Context, link model.MessengerLink, htmlTex
 	}
 	if _, uerr := q.Exec(ctx); uerr == nil && (err != nil || link.Status != model.LinkActive) {
 		s.Bus.Changed("messenger", "updated", link.UserID)
+	}
+	if err == nil && link.Status == model.LinkBroken {
+		// fixed: what waited for it goes out now
+		_, _ = s.DB.NewUpdate().Model((*model.NotificationDispatch)(nil)).Set("available_at = ?", now).
+			Where("link_id = ? AND sent_at IS NULL", link.ID).Exec(ctx)
+		s.Wake()
 	}
 	return err
 }
