@@ -2515,9 +2515,13 @@
     "ru": "Обработать имеющиеся главы?",
     "uk": "Обробити наявні розділи?"
   },
-  "Process them": {
-    "ru": "Обработать",
-    "uk": "Обробити"
+  "Queue {n} chapters": {
+    "ru": "В очередь: {n} глав",
+    "uk": "У чергу: {n} розділів"
+  },
+  "Not now": {
+    "ru": "Не сейчас",
+    "uk": "Не зараз"
   },
   "Processed": {
     "ru": "Обработано",
@@ -6059,9 +6063,9 @@
     "ru": "Серии с этим профилем хранят все скачанные главы.",
     "uk": "Серії з цим профілем зберігають усі завантажені розділи."
   },
-  "{files} chapters ({size}) already downloaded with this profile weren't processed with these settings. Process them in the background too? New chapters are processed automatically either way.": {
-    "ru": "{files} глав ({size}), уже скачанных с этим профилем, не обработаны с этими настройками. Обработать их тоже в фоне? Новые главы обрабатываются автоматически в любом случае.",
-    "uk": "{files} розділів ({size}), уже завантажених із цим профілем, не оброблено з цими налаштуваннями. Обробити їх теж у фоні? Нові розділи обробляються автоматично в будь-якому разі."
+  "{files} chapters ({size}) already downloaded with this profile weren't processed with these settings. Queue them for processing in the background? New chapters are processed automatically either way.": {
+    "ru": "{files} глав ({size}), уже скачанных с этим профилем, не обработаны с этими настройками. Поставить их в очередь на обработку в фоне? Новые главы обрабатываются автоматически в любом случае.",
+    "uk": "{files} розділів ({size}), уже завантажених із цим профілем, не оброблено з цими налаштуваннями. Поставити їх у чергу на обробку у фоні? Нові розділи обробляються автоматично в будь-якому разі."
   },
   "Reading statistics": {
     "ru": "Статистика чтения",

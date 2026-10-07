@@ -231,7 +231,9 @@ function ProfileEditor({ profile, onClose }: { profile: Profile; onClose: () => 
         : await unwrap(api.POST("/api/v1/profiles", { body }));
       qc.invalidateQueries({ queryKey: ["profiles"] });
       toast.success(tr("Profile saved"));
-      if (processing && changedProcessing && !cfg.processExisting && p.id) {
+      // chapters already downloaded wait until asked; the server clears an
+      // earlier opt-in when the processing settings change
+      if (processing && changedProcessing && !saved.config.processExisting && p.id) {
         const est = await unwrap(api.GET("/api/v1/profiles/{id}/process-estimate", { params: { path: { id: saved.id } } }));
         if (est.files > 0) {
           setApplyTo({ id: saved.id, files: est.files, bytes: est.bytes });
@@ -598,10 +600,11 @@ function ProfileEditor({ profile, onClose }: { profile: Profile; onClose: () => 
       <Confirm
         open={!!applyTo}
         title={t("Process existing chapters?")}
-        confirmLabel={t("Process them")}
+        confirmLabel={applyTo ? t("Queue {n} chapters", { n: applyTo.files }) : ""}
+        cancelLabel={t("Not now")}
         message={
           applyTo
-            ? t("{files} chapters ({size}) already downloaded with this profile weren't processed with these settings. Process them in the background too? New chapters are processed automatically either way.", {
+            ? t("{files} chapters ({size}) already downloaded with this profile weren't processed with these settings. Queue them for processing in the background? New chapters are processed automatically either way.", {
                 files: applyTo.files,
                 size: bytes(applyTo.bytes),
               })

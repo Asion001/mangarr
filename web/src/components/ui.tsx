@@ -476,6 +476,7 @@ export function Confirm({
   title,
   message,
   confirmLabel = "Confirm",
+  cancelLabel = "Cancel",
   danger,
   onConfirm,
   onClose,
@@ -486,6 +487,7 @@ export function Confirm({
   title: string;
   message: ReactNode;
   confirmLabel?: string;
+  cancelLabel?: string;
   danger?: boolean;
   onConfirm: () => void;
   onClose: () => void;
@@ -500,7 +502,7 @@ export function Confirm({
       size="sm"
       footer={
         <>
-          <Button onClick={onClose}>{t("Cancel")}</Button>
+          <Button onClick={onClose}>{translateLabel(cancelLabel)}</Button>
           <Button variant={danger ? "danger" : "primary"} loading={loading} onClick={onConfirm}>
             {translateLabel(confirmLabel)}
           </Button>

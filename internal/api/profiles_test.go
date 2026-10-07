@@ -1,11 +1,15 @@
 package api_test
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/Asion001/mangarr/internal/api"
 	"github.com/Asion001/mangarr/internal/model"
 )
 
@@ -62,3 +66,67 @@ func TestSingleDefaultProfile(t *testing.T) {
 }
 
 func itoa(n int64) string { b, _ := json.Marshal(n); return string(b) }
+
+// TestProfileProcessingChangeAsksFirst keeps a profile change from
+// re-processing chapters already downloaded: the estimate counts them, the
+// person opts in once, and the next change waits for them to ask again.
+func TestProfileProcessingChangeAsksFirst(t *testing.T) {
+	srv, a := newServer(t, true)
+	ctx := context.Background()
+	past := time.Now().UTC().Add(-time.Hour)
+	root := &model.RootFolder{Path: t.TempDir(), CreatedAt: past}
+	if _, err := a.DB.NewInsert().Model(root).Exec(ctx); err != nil {
+		t.Fatal(err)
+	}
+	var p model.Profile
+	if err := a.DB.NewSelect().Model(&p).Where("is_default = ?", true).Scan(ctx); err != nil {
+		t.Fatal(err)
+	}
+	ser := &model.Series{Title: "Reprocess", SortTitle: "reprocess", RootFolderID: root.ID, ProfileID: p.ID, Path: "Reprocess", Tags: []int64{}, AddedAt: past, UpdatedAt: past}
+	if _, err := a.DB.NewInsert().Model(ser).Exec(ctx); err != nil {
+		t.Fatal(err)
+	}
+	for i := range 3 {
+		ch := &model.Chapter{SeriesID: ser.ID, NumberKey: fmt.Sprint(i), NumberSort: float64(i), FirstSeenAt: past, UpdatedAt: past}
+		if _, err := a.DB.NewInsert().Model(ch).Exec(ctx); err != nil {
+			t.Fatal(err)
+		}
+		f := &model.ChapterFile{ChapterID: ch.ID, SeriesID: ser.ID, RelativePath: fmt.Sprintf("%d.cbz", i), Size: 100, ImportedAt: past}
+		if _, err := a.DB.NewInsert().Model(f).Exec(ctx); err != nil {
+			t.Fatal(err)
+		}
+	}
+	put := func(cfg func(*model.ProfileConfig)) model.Profile {
+		t.Helper()
+		cfg(&p.Config)
+		body, _ := json.Marshal(p)
+		var saved model.Profile
+		if code := doJSON(t, http.MethodPut, srv.URL+"/api/v1/profiles/"+itoa(p.ID), string(body), &saved); code != 200 {
+			t.Fatalf("update: %d", code)
+		}
+		p = saved
+		return saved
+	}
+	estimate := func() int {
+		t.Helper()
+		var est api.ProcessEstimate
+		if code := doJSON(t, http.MethodGet, srv.URL+"/api/v1/profiles/"+itoa(p.ID)+"/process-estimate", "", &est); code != 200 {
+			t.Fatalf("estimate: %d", code)
+		}
+		return est.Files
+	}
+
+	put(func(c *model.ProfileConfig) { c.Encode = model.EncodeConfig{Format: "avif", Preset: "fast"} })
+	if n := estimate(); n != 3 {
+		t.Fatalf("estimate after change = %d, want 3", n)
+	}
+	if saved := put(func(c *model.ProfileConfig) { c.ProcessExisting = true }); !saved.Config.ProcessExisting {
+		t.Fatal("opting in to existing chapters did not stick")
+	}
+	if saved := put(func(c *model.ProfileConfig) { c.Encode.Preset = "max" }); saved.Config.ProcessExisting {
+		t.Fatal("a later processing change kept processing existing chapters without asking")
+	}
+	if saved := put(func(c *model.ProfileConfig) { c.ProcessExisting = true; c.MinPages = 2 }); !saved.Config.ProcessExisting {
+		t.Fatal("a change outside processing cleared the opt-in")
+	}
+}

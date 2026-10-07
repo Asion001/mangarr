@@ -337,10 +337,13 @@ func (s *Server) registerSettings() {
 			p := in.Body
 			p.ID, p.CreatedAt, p.UpdatedAt = in.ID, stored.CreatedAt, time.Now().UTC()
 			// remember when processing settings changed: by default only chapters
-			// imported afterwards are processed (unless processExisting)
+			// imported afterwards are processed. processExisting is a one-off
+			// answer for the settings it was given with, so a later change
+			// waits for the person to ask again instead of re-queuing everything.
 			p.Config.ProcessChangedAt = stored.Config.ProcessChangedAt
 			if p.Config.ProcessParams() != stored.Config.ProcessParams() {
 				p.Config.ProcessChangedAt = &p.UpdatedAt
+				p.Config.ProcessExisting = false
 			}
 			if err := validateProfile(&p); err != nil {
 				return nil, huma.Error400BadRequest(err.Error())
@@ -373,10 +376,16 @@ func (s *Server) registerSettings() {
 			if params == "" {
 				return &struct{ Body ProcessEstimate }{est}, nil
 			}
-			err := s.app.DB.NewSelect().Model((*model.ChapterFile)(nil)).
+			q := s.app.DB.NewSelect().Model((*model.ChapterFile)(nil)).
 				ColumnExpr("COUNT(*) AS files, COALESCE(SUM(size), 0) AS bytes").
 				Where("process_params <> ?", params).
-				Where("series_id IN (SELECT id FROM series WHERE profile_id = ?)", p.ID).Scan(ctx, &est)
+				Where("series_id IN (SELECT id FROM series WHERE profile_id = ?)", p.ID)
+			if !p.Config.ProcessExisting && p.Config.ProcessChangedAt != nil {
+				// what the backlog leaves alone until asked; newer imports and
+				// forced files are queued anyway
+				q = q.Where("imported_at < ? AND process_params <> ?", p.Config.ProcessChangedAt.UTC(), model.ProcessForce)
+			}
+			err := q.Scan(ctx, &est)
 			return &struct{ Body ProcessEstimate }{est}, toHTTPError(err)
 		})
 

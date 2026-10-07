@@ -210,6 +210,7 @@ type ProfileConfig struct {
 	ProcessTiming string `json:"processTiming,omitempty" enum:",background,inline"`
 	// ProcessExisting also processes chapters imported before the processing
 	// settings last changed (otherwise only newer chapters are processed).
+	// The server clears it whenever those settings change again.
 	ProcessExisting bool `json:"processExisting"`
 	// ProcessChangedAt is set by the server when processing settings change.
 	ProcessChangedAt *time.Time `json:"processChangedAt,omitempty"`
