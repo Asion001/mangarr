@@ -350,3 +350,34 @@ func (s *Service) prune(ctx context.Context) {
 	_, _ = s.DB.NewDelete().Model((*model.NotificationDelivery)(nil)).Where("created_at < ?", time.Now().UTC().Add(-keepInbox)).Exec(ctx)
 	_, _ = s.DB.NewDelete().Model((*model.MessengerLinkToken)(nil)).Where("expires_at < ?", time.Now().UTC()).Exec(ctx)
 }
+
+// Announce posts an install-wide event to the bots' announcement chat
+// and channel, where the admin picked that event.
+func (s *Service) Announce(ctx context.Context, event string, msg Message) {
+	m, err := s.Settings.Messenger(ctx)
+	if err != nil {
+		return
+	}
+	text := Render(msg)
+	if tg := s.Telegram(ctx); tg != nil && m.Telegram.AnnounceChat != "" && slices.Contains(m.Telegram.AnnounceEvents, event) {
+		err := tg.Send(ctx, m.Telegram.AnnounceChat, text)
+		s.setStatus("telegram-announce", errText(err))
+		if err != nil {
+			s.Log.Warn("telegram bot: can't announce", "event", event, "err", err)
+		}
+	}
+	if dc := s.Discord(ctx); dc != nil && m.Discord.AnnounceChannel != "" && slices.Contains(m.Discord.AnnounceEvents, event) {
+		err := dc.Send(ctx, m.Discord.AnnounceChannel, Markdown(text))
+		s.setStatus("discord-announce", errText(err))
+		if err != nil {
+			s.Log.Warn("discord bot: can't announce", "event", event, "err", err)
+		}
+	}
+}
+
+func errText(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
+}

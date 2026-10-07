@@ -50,6 +50,11 @@ func (a *App) wireMore(ctx context.Context) error {
 			return cmp.Or(u.DisplayName, u.Username)
 		}}
 	a.AddService(a.Messenger)
+	a.Notifications.Announce = func(ctx context.Context, event string, msg notify.Message) {
+		ctx, cancel := context.WithTimeout(ctx, time.Minute)
+		defer cancel()
+		a.Messenger.Announce(ctx, event, messenger.Message{Title: msg.Title, Body: msg.Body, Items: msg.Items, URL: msg.URL, Series: msg.Series})
+	}
 	a.Notifications.Personal = func(ctx context.Context, users []int64, event string, seriesID int64, msg notify.Message) {
 		err := a.Messenger.Enqueue(ctx, users, event, seriesID, messenger.Message{Title: msg.Title, Body: msg.Body, Items: msg.Items, URL: msg.URL, Series: msg.Series})
 		if err != nil {
@@ -71,11 +76,18 @@ func (a *App) wireMore(ctx context.Context) error {
 	})
 	a.Health.AddStatus("Library servers", a.Rescanner.Status)
 	a.Health.AddCheck(func(ctx context.Context) []health.Check {
+		var out []health.Check
 		if msg := a.Messenger.Status(model.MessengerTelegram); msg != "" {
-			return []health.Check{{Source: "Notifications", Type: health.Warning, Link: "/settings/notifications", Key: "telegram-bot",
-				Message: "The Telegram bot can't get messages, so nobody can link Telegram: " + msg}}
+			out = append(out, health.Check{Source: "Notifications", Type: health.Warning, Link: "/settings/notifications", Key: "telegram-bot",
+				Message: "The Telegram bot can't get messages, so nobody can link Telegram: " + msg})
 		}
-		return nil
+		for _, bot := range []string{"telegram", "discord"} {
+			if msg := a.Messenger.Status(bot + "-announce"); msg != "" {
+				out = append(out, health.Check{Source: "Notifications", Type: health.Warning, Link: "/settings/notifications", Key: bot + "-announce",
+					Message: "Announcements through the " + strings.ToUpper(bot[:1]) + bot[1:] + " bot fail: " + msg})
+			}
+		}
+		return out
 	})
 	a.Health.AddCheck(a.crashHealth)
 	a.Health.AddCheck(func(ctx context.Context) []health.Check {

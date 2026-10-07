@@ -42,6 +42,8 @@ type Dispatcher struct {
 	// Personal hands those users' messages to their linked messenger
 	// accounts (internal/messenger).
 	Personal func(ctx context.Context, users []int64, event string, seriesID int64, msg notify.Message)
+	// Announce posts install-wide events through the messenger bots.
+	Announce func(ctx context.Context, event string, msg notify.Message)
 
 	mu      sync.Mutex
 	digests map[int64]*digest
@@ -243,6 +245,9 @@ func (d *Dispatcher) fill(ctx context.Context, event string, seriesID int64, msg
 func (d *Dispatcher) dispatch(event string, seriesID int64, msg notify.Message) {
 	ctx := d.context()
 	seriesTags := d.fill(ctx, event, seriesID, &msg)
+	if d.Announce != nil {
+		go d.Announce(ctx, event, msg)
+	}
 	for _, inst := range modules.ActiveAs[notify.Module](d.mods, modules.KindNotify) {
 		if inst.Def.UserID != nil || !wants(inst.Def, event) || !tagsMatch(inst.Def.Tags, seriesTags) {
 			continue

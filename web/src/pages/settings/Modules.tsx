@@ -1,4 +1,4 @@
-import { t as tr, t as translateUI } from "../../lib/i18n/core";
+import { label as translateLabel, t as tr, t as translateUI } from "../../lib/i18n/core";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Plus, Trash2, Pencil, PlugZap } from "lucide-react";
@@ -18,7 +18,7 @@ const titles: Record<string, { title: string; subtitle: string }> = {
   upscale: { title: "Upscalers", subtitle: "mangarr-upscaler workers used by profiles with upscaling enabled." },
 };
 
-const eventLabels: Record<string, string> = {
+export const eventLabels: Record<string, string> = {
   "chapter.imported": "Chapters downloaded (digest)",
   "chapter.upgraded": "Chapters upgraded",
   "series.added": "Series added",
@@ -264,7 +264,7 @@ export function ModuleEditor({
               {impl.events.map((ev) => (
                 <label key={ev} className="flex items-center gap-2 text-sm">
                   <input type="checkbox" checked={d.events.includes(ev)} onChange={(e) => setD({ ...d, events: e.target.checked ? [...d.events, ev] : d.events.filter((x) => x !== ev) })} />
-                  {(personal ? personalEventLabels[ev] : eventLabels[ev]) ?? ev}
+                  {translateLabel((personal ? personalEventLabels[ev] : eventLabels[ev]) ?? ev)}
                 </label>
               ))}
             </div>

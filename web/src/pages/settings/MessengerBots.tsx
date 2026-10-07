@@ -1,16 +1,19 @@
-import { t } from "../../lib/i18n/core";
+import { label, t } from "../../lib/i18n/core";
 import { useState, type ReactNode } from "react";
 import { CheckCircle2 } from "lucide-react";
 import { basePath, type S } from "../../api/client";
 import { Badge, Button, ErrorBox, Field, Input, Loading, SaveBar, SecretInput, Select, Switch } from "../../components/ui";
 import { useToast } from "../../lib/toast";
 import { useSettingsDoc } from "./useSettingsDoc";
+import { eventLabels } from "./Modules";
 
 type Messenger = S["MessengerSettings"];
 type Bot = "telegram" | "discord";
 type Identity = S["Identity"];
 
 const telegramAPI = "https://api.telegram.org";
+const channelExample = "@channel";
+const channelIDExample = "123456789012345678";
 
 export function TelegramIcon() {
   return (
@@ -25,6 +28,32 @@ export function DiscordIcon() {
     <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-accent text-white" aria-hidden>
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 7c3-1.5 7-1.5 10 0l2 9c-2 1.5-4 2-4 2l-1-2m-4 0-1 2s-2-.5-4-2z" /></svg>
     </span>
+  );
+}
+
+/** Announce picks where a bot posts install-wide events, and which. */
+function Announce({ title, help, target, placeholder, onTarget, events, onEvents, env }: { title: string; help: string; target: string; placeholder: string; onTarget: (v: string) => void; events: string[]; onEvents: (v: string[]) => void; env?: string }) {
+  return (
+    <div className="flex flex-col gap-3 border-t border-border pt-4">
+      <Field label={title} help={help} env={env}>
+        <Input value={target} onChange={(e) => onTarget(e.target.value)} placeholder={placeholder} autoComplete="off" />
+      </Field>
+      {target.trim() !== "" && (
+        <div className="flex flex-wrap gap-x-4 gap-y-2">
+          {Object.entries(eventLabels).map(([key, text]) => (
+            <label key={key} className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="size-4 accent-accent"
+                checked={events.includes(key)}
+                onChange={(e) => onEvents(e.target.checked ? [...events, key] : events.filter((x) => x !== key))}
+              />
+              {label(text)}
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -106,6 +135,16 @@ export function MessengerBots() {
           <Field label={t("Bot API server")} env={lock("telegram.apiUrl")} help={t("Leave as it is unless you run your own Bot API server.")}>
             <Input value={tg.apiUrl} onChange={(e) => setTg({ apiUrl: e.target.value })} placeholder={telegramAPI} />
           </Field>
+          <Announce
+            title={t("Announcements chat (optional)")}
+            help={t("A group or channel (@name or id) where the bot posts install-wide events. Add the bot to it first, as an admin for a channel.")}
+            target={tg.announceChat}
+            placeholder={channelExample}
+            onTarget={(announceChat) => setTg({ announceChat })}
+            events={tg.announceEvents ?? []}
+            onEvents={(announceEvents) => setTg({ announceEvents })}
+            env={lock("telegram.announceChat")}
+          />
         </BotCard>
 
         <BotCard icon={<DiscordIcon />} name="Discord" subtitle={botLine("discord", dc.enabled)} enabled={dc.enabled} onEnabled={(enabled) => setDc({ enabled })} env={lock("discord.enabled")}>
@@ -130,6 +169,16 @@ export function MessengerBots() {
               <p className="text-sm text-warn">{t("Set Settings › General › Public URL first: Discord sends people back to that address after they link.")}</p>
             )}
           </Field>
+          <Announce
+            title={t("Announcements channel (optional)")}
+            help={t("The id of a server channel the bot can post in (Discord: right-click the channel › Copy Channel ID).")}
+            target={dc.announceChannel}
+            placeholder={channelIDExample}
+            onTarget={(announceChannel) => setDc({ announceChannel })}
+            events={dc.announceEvents ?? []}
+            onEvents={(announceEvents) => setDc({ announceEvents })}
+            env={lock("discord.announceChannel")}
+          />
         </BotCard>
       </div>
       <div className="flex flex-wrap items-center gap-x-8 gap-y-3 rounded-lg border border-border bg-panel p-4">

@@ -131,5 +131,14 @@ func TestDelivery(t *testing.T) {
 		if got := fake.sentTo("chat-instant"); len(got) != 4 || !strings.Contains(got[3], "Late Bloom") {
 			t.Fatalf("after unblocking %q", got)
 		}
+
+		// announcements go to the chat for the events picked there
+		m.Telegram.AnnounceChat, m.Telegram.AnnounceEvents = "@shelf_news", []string{events.HealthIssue}
+		_ = st.Set(ctx, settings.KeyMessenger, m)
+		svc.Announce(ctx, events.DownloadFailed, messenger.Message{Title: "Download failed"})
+		svc.Announce(ctx, events.HealthIssue, messenger.Message{Title: "Health issue", Body: "A root folder is full"})
+		if got := fake.sentTo("@shelf_news"); len(got) != 1 || !strings.Contains(got[0], "A root folder is full") {
+			t.Fatalf("announced %q", got)
+		}
 	})
 }
