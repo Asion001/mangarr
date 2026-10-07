@@ -1,7 +1,8 @@
-import { label, t } from "../../lib/i18n/core";
+import { label, plural, t } from "../../lib/i18n/core";
 import { useState, type ReactNode } from "react";
-import { CheckCircle2 } from "lucide-react";
-import { basePath, type S } from "../../api/client";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { AlertTriangle, CheckCircle2 } from "lucide-react";
+import { api, basePath, unwrap, type S } from "../../api/client";
 import { Badge, Button, ErrorBox, Field, Input, Loading, SaveBar, SecretInput, Select, Switch } from "../../components/ui";
 import { useToast } from "../../lib/toast";
 import { useSettingsDoc } from "./useSettingsDoc";
@@ -70,6 +71,55 @@ function BotCard({ icon, name, subtitle, enabled, onEnabled, env, children }: { 
       </header>
       {children}
     </section>
+  );
+}
+
+/** PersonalTargets lists what people set up for themselves before the bots, turned off now. */
+function PersonalTargets() {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [open, setOpen] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const { data } = useQuery({ queryKey: ["personal-targets"], queryFn: () => unwrap(api.GET("/api/v1/settings/messenger/personal-targets")) });
+  if (!data || data.length === 0) return null;
+  const linked = data.filter((p) => p.linked).length;
+  const remove = async () => {
+    setRemoving(true);
+    try {
+      await unwrap(api.DELETE("/api/v1/settings/messenger/personal-targets"));
+      qc.invalidateQueries({ queryKey: ["personal-targets"] });
+      qc.invalidateQueries({ queryKey: ["health"] });
+    } catch (e) {
+      toast.fromError(e);
+    } finally {
+      setRemoving(false);
+    }
+  };
+  return (
+    <div className="flex flex-col gap-3 rounded-lg border border-warn/40 bg-warn/10 p-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <AlertTriangle className="size-4 shrink-0 text-warn" />
+        <p className="min-w-0 flex-1 text-sm">
+          {plural(data.length, {
+            one: t("A notification target someone made for themselves was turned off: people link Telegram or Discord on My account now."),
+            other: t("{count} notification targets people made for themselves were turned off: people link Telegram or Discord on My account now.", { count: data.length }),
+          })}
+          {linked > 0 && " " + t("{count} of them used this Telegram bot and became linked accounts.", { count: linked })}
+        </p>
+        <Button size="sm" onClick={() => setOpen(!open)}>{open ? t("Hide them") : t("Show them")}</Button>
+        <Button size="sm" loading={removing} onClick={() => void remove()}>{t("Remove them")}</Button>
+      </div>
+      {open && (
+        <ul className="ml-7 flex flex-col gap-1 text-sm text-muted">
+          {data.map((p) => (
+            <li key={p.id}>
+              <span className="text-fg">{p.username || "?"}</span>{" · "}{p.name}{" · "}{p.implementation}
+              {p.linked && <> · <span className="text-ok">{t("now linked")}</span></>}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
@@ -188,7 +238,7 @@ export function MessengerBots() {
         </div>
         <label className="flex items-center gap-2 text-sm">
           {t("Daily digest at")}
-          <Select value={m.digestHour} onChange={(e) => patch({ digestHour: Number(e.target.value) })} disabled={!!lock("digestHour")} className="w-24">
+          <Select value={m.digestHour} onChange={(e) => patch({ digestHour: Number(e.target.value) })} disabled={!!lock("digestHour")} className="w-28">
             {Array.from({ length: 24 }, (_, h) => (
               <option key={h} value={h}>{String(h).padStart(2, "0")}:00</option>
             ))}
@@ -197,6 +247,7 @@ export function MessengerBots() {
           {lock("digestHour") && <Badge tone="warn">env</Badge>}
         </label>
       </div>
+      <PersonalTargets />
       <SaveBar dirty={dirty} saving={saving} onSave={() => void save()} onDiscard={reset} />
     </section>
   );

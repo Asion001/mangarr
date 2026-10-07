@@ -2,11 +2,10 @@ import { t as tr, t, label } from "../../lib/i18n/core";
 import { useUIPreferences } from "../../lib/uiPreferences";
 import { useState, type FormEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bell, Download, KeyRound, Link2, LogOut, Monitor, Pencil, Plus, Trash2, Unlink } from "lucide-react";
-import { api, apiUrl, unwrap, type Implementation, type ModuleResource } from "../../api/client";
+import { Download, KeyRound, Link2, LogOut, Monitor, Unlink } from "lucide-react";
+import { api, apiUrl, unwrap } from "../../api/client";
 import { DynamicForm, defaultsOf } from "../../components/DynamicForm";
-import { Badge, Button, Card, Confirm, ErrorBox, Field, IconButton, Input, Modal, PageHeader, Select, Switch, Tabs } from "../../components/ui";
-import { ModuleEditor, type Draft } from "../settings/Modules";
+import { Badge, Button, Card, ErrorBox, Field, IconButton, Input, PageHeader, Select, Switch, Tabs } from "../../components/ui";
 import { appAddress, appTabs, DevicesCard, Guide, type App } from "../settings/ReadingApps";
 import { useAccount } from "../../lib/account";
 import { useAuthStatus } from "../../api/queries";
@@ -54,7 +53,6 @@ export function AccountPage() {
         </Card>
         <ReadingStatsCard />
         {account?.kind === "user" && <MessengerCard />}
-        {account?.kind === "user" && <NotificationsCard />}
         {account?.kind === "user" && <LibraryAccountsCard />}
         {can("apps") && <ReadingAppsCard />}
         {account?.kind === "user" && <PasswordCard />}
@@ -236,87 +234,6 @@ function SessionsCard() {
           </div>
         ))}
       </div>
-    </Card>
-  );
-}
-
-/** NotificationsCard: your own notification targets (new chapters of series you follow, your requests). */
-function NotificationsCard() {
-  const qc = useQueryClient();
-  const toast = useToast();
-  const { data: targets, error } = useQuery({ queryKey: ["me-notifications"], queryFn: () => unwrap(api.GET("/api/v1/me/notifications")) });
-  const { data: impls } = useQuery({
-    queryKey: ["me-notifications", "schema"],
-    queryFn: () => unwrap(api.GET("/api/v1/me/notifications/schema")),
-    staleTime: Infinity,
-  });
-  const [picking, setPicking] = useState(false);
-  const [draft, setDraft] = useState<Draft | null>(null);
-  const [deleting, setDeleting] = useState<ModuleResource | null>(null);
-  const implOf = (name: string) => impls?.find((i) => i.name === name);
-  const startNew = (impl: Implementation) => {
-    setPicking(false);
-    setDraft({ implementation: impl.name, name: impl.displayName, enabled: true, priority: 25, events: impl.events ?? [], settings: defaultsOf(impl.fields) });
-  };
-  const remove = async () => {
-    if (!deleting) return;
-    try {
-      await unwrap(api.DELETE("/api/v1/me/notifications/{id}", { params: { path: { id: deleting.id } } }));
-      qc.invalidateQueries({ queryKey: ["me-notifications"] });
-      setDeleting(null);
-    } catch (e) {
-      toast.fromError(e);
-    }
-  };
-  return (
-    <Card
-      title={t("Notifications")}
-      actions={
-        <Button size="sm" icon={<Plus className="size-4" />} onClick={() => setPicking(true)}>{t("Add")}</Button>
-      }
-    >
-      <p className="mb-3 text-sm text-muted">{t("Get new chapters of the series you follow, and news about your requests, on your phone or chat. Follow a series with the bell on its page.")}</p>
-      {error && <ErrorBox error={error} />}
-      {targets?.length === 0 && <p className="text-sm text-muted">{t("No notifications set up yet.")}</p>}
-      <div className="flex flex-col gap-2">
-        {targets?.map((m) => (
-          <div key={m.id} className="flex items-center gap-3 rounded-md bg-panel-2 px-3 py-2 text-sm">
-            <Bell className="size-4 text-muted" />
-            <div className="min-w-0 flex-1">
-              <div className="truncate font-medium">{m.name}</div>
-              <div className="text-xs text-muted">
-                {implOf(m.implementation)?.displayName ?? m.implementation}
-                {(m.events ?? []).length > 0 && ` · ${m.events.length === 1 ? (m.events[0] === "chapter.imported" ? "new chapters only" : "requests only") : "everything"}`}
-              </div>
-              {m.error && <div className="text-xs text-err">{m.error}</div>}
-            </div>
-            {!m.enabled && <Badge>{t("off")}</Badge>}
-            <IconButton
-              title={t("Edit")}
-              onClick={() =>
-                setDraft({ id: m.id, implementation: m.implementation, name: m.name, enabled: m.enabled, priority: m.priority, events: m.events ?? [], settings: { ...m.settings } })
-              }
-            >
-              <Pencil className="size-4" />
-            </IconButton>
-            <IconButton title={t("Delete")} onClick={() => setDeleting(m)}>
-              <Trash2 className="size-4" />
-            </IconButton>
-          </div>
-        ))}
-      </div>
-      <Modal open={picking} onClose={() => setPicking(false)} title={t("Send my notifications to")}>
-        <div className="flex flex-col gap-2">
-          {impls?.map((i) => (
-            <button key={i.name} onClick={() => startNew(i)} className="rounded-lg border border-border p-3 text-left hover:border-accent hover:bg-panel-2">
-              <div className="font-medium">{i.displayName}</div>
-              <div className="mt-0.5 text-sm text-muted">{i.description}</div>
-            </button>
-          ))}
-        </div>
-      </Modal>
-      {draft && <ModuleEditor kind="notify" personal draft={draft} impl={implOf(draft.implementation)} onClose={() => setDraft(null)} />}
-      <Confirm open={!!deleting} title={t("Delete notification")} danger confirmLabel={t("Delete")} message={`Delete ${deleting?.name}?`} onConfirm={remove} onClose={() => setDeleting(null)} />
     </Card>
   );
 }

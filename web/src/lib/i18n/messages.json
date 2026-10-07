@@ -8614,5 +8614,33 @@
   "New requests": {
     "ru": "Новые запросы",
     "uk": "Нові запити"
+  },
+  "{count} notification targets people made for themselves were turned off: people link Telegram or Discord on My account now.": {
+    "ru": "Отключено уведомлений, которые люди настроили себе сами: {count}. Теперь люди привязывают Telegram или Discord в «Моём аккаунте».",
+    "uk": "Вимкнено сповіщень, які люди налаштували собі самі: {count}. Тепер люди прив’язують Telegram чи Discord у «Моєму акаунті»."
+  },
+  "{count} of them used this Telegram bot and became linked accounts.": {
+    "ru": "Из них {count} использовали этого бота Telegram и стали привязанными аккаунтами.",
+    "uk": "З них {count} використовували цього бота Telegram і стали прив’язаними акаунтами."
+  },
+  "Hide them": {
+    "ru": "Скрыть",
+    "uk": "Сховати"
+  },
+  "Show them": {
+    "ru": "Показать",
+    "uk": "Показати"
+  },
+  "Remove them": {
+    "ru": "Удалить их",
+    "uk": "Видалити їх"
+  },
+  "now linked": {
+    "ru": "теперь привязан",
+    "uk": "тепер прив’язано"
+  },
+  "A notification target someone made for themselves was turned off: people link Telegram or Discord on My account now.": {
+    "ru": "Отключено уведомление, которое кто-то настроил себе сам. Теперь люди привязывают Telegram или Discord в «Моём аккаунте».",
+    "uk": "Вимкнено сповіщення, яке хтось налаштував собі сам. Тепер люди прив’язують Telegram чи Discord у «Моєму акаунті»."
   }
 }

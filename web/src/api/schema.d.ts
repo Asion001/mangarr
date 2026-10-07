@@ -817,73 +817,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/me/notifications": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Your notification targets */
-        get: operations["me-notifications"];
-        put?: never;
-        post: operations["me-notifications-create"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/me/notifications/schema": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Notification services you can send your own notifications to */
-        get: operations["me-notifications-schema"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/me/notifications/test": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Send a test message to a target (saved or not) */
-        post: operations["me-notifications-test"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/me/notifications/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put: operations["me-notifications-update"];
-        post?: never;
-        delete: operations["me-notifications-delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/me/reading-stats": {
         parameters: {
             query?: never;
@@ -2621,6 +2554,24 @@ export interface paths {
         put: operations["settings-put-messenger"];
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/messenger/personal-targets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Notification targets people made for themselves, turned off since the bots replaced them */
+        get: operations["settings-messenger-personal-targets"];
+        put?: never;
+        post?: never;
+        /** Remove the notification targets people made for themselves */
+        delete: operations["settings-messenger-personal-targets-remove"];
         options?: never;
         head?: never;
         patch?: never;
@@ -4993,17 +4944,6 @@ export interface components {
             /** @enum {string} */
             mode: "off" | "instant" | "daily_digest" | "instant_and_digest";
         };
-        "Me-notifications-testRequest": {
-            enabled: boolean;
-            events?: string[];
-            /** Format: int64 */
-            id?: number;
-            implementation: string;
-            name: string;
-            settings: {
-                [key: string]: unknown;
-            };
-        };
         "Me-ui-preferences-saveRequest": {
             /** @enum {string} */
             locale: "auto" | "en" | "ru" | "uk" | "ua";
@@ -5248,15 +5188,6 @@ export interface components {
             url?: string;
             version: string;
         };
-        OwnTargetInput: {
-            enabled: boolean;
-            events?: string[];
-            implementation: string;
-            name: string;
-            settings: {
-                [key: string]: unknown;
-            };
-        };
         Page: {
             items: components["schemas"]["History"][];
             /** Format: int64 */
@@ -5311,6 +5242,14 @@ export interface components {
             description: string;
             key: string;
             label: string;
+        };
+        PersonalTarget: {
+            /** Format: int64 */
+            id: number;
+            implementation: string;
+            linked: boolean;
+            name: string;
+            username: string;
         };
         PreviewPage: {
             encodedFormat: string;
@@ -8998,192 +8937,6 @@ export interface operations {
             header?: never;
             path: {
                 kind: "telegram" | "discord";
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description No Content */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "me-notifications": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ModuleResource"][];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "me-notifications-create": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["OwnTargetInput"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ModuleResource"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "me-notifications-schema": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ImplementationResource"][];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "me-notifications-test": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["Me-notifications-testRequest"];
-            };
-        };
-        responses: {
-            /** @description No Content */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "me-notifications-update": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["OwnTargetInput"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ModuleResource"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "me-notifications-delete": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
             };
             cookie?: never;
         };
@@ -13402,6 +13155,62 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["MessengerSettings"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "settings-messenger-personal-targets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonalTarget"][];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "settings-messenger-personal-targets-remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {

@@ -50,6 +50,9 @@ func (a *App) wireMore(ctx context.Context) error {
 			return cmp.Or(u.DisplayName, u.Username)
 		}}
 	a.AddService(a.Messenger)
+	if err := a.RetirePersonalTargets(ctx); err != nil {
+		log.Warn("can't turn off people's own notification targets", "err", err)
+	}
 	a.Notifications.Announce = func(ctx context.Context, event string, msg notify.Message) {
 		ctx, cancel := context.WithTimeout(ctx, time.Minute)
 		defer cancel()
@@ -75,6 +78,13 @@ func (a *App) wireMore(ctx context.Context) error {
 		return out
 	})
 	a.Health.AddStatus("Library servers", a.Rescanner.Status)
+	a.Health.AddCheck(func(ctx context.Context) []health.Check {
+		if left, err := a.PersonalTargets(ctx); err == nil && len(left) > 0 {
+			return []health.Check{{Source: "Notifications", Type: health.Notice, Link: "/settings/notifications", Key: "personal-targets",
+				Message: fmt.Sprintf("%d notification targets people made for themselves were turned off: people link Telegram or Discord now", len(left))}}
+		}
+		return nil
+	})
 	a.Health.AddCheck(func(ctx context.Context) []health.Check {
 		var out []health.Check
 		if msg := a.Messenger.Status(model.MessengerTelegram); msg != "" {

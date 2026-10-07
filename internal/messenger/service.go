@@ -460,3 +460,17 @@ func (s *Service) LinkDiscord(ctx context.Context, state, code, redirectURI stri
 	}
 	return s.Redeem(ctx, model.MessengerDiscord, state, who)
 }
+
+// Adopt links an account already known to belong to userID (an old
+// Telegram target that used the server's bot), unless the user or the
+// account is linked already.
+func (s *Service) Adopt(ctx context.Context, userID int64, kind, externalID string, now time.Time) error {
+	n, err := s.DB.NewSelect().Model((*model.MessengerLink)(nil)).
+		Where("kind = ? AND (user_id = ? OR external_id = ?)", kind, userID, externalID).Count(ctx)
+	if err != nil || n > 0 {
+		return err
+	}
+	return s.DB.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		return s.link(ctx, tx, userID, kind, Identity{ID: externalID, Name: "chat " + externalID}, now)
+	})
+}

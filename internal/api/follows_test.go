@@ -3,7 +3,6 @@ package api_test
 import (
 	"context"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 
@@ -79,54 +78,16 @@ func TestFollowsAndOwnTargets(t *testing.T) {
 		t.Fatalf("followers after unfollowing %v", followers)
 	}
 
-	// own notification targets
-	var created map[string]any
-	body := `{"implementation":"webhook","name":"My hook","enabled":true,"events":["health.issue","request.updated"],"settings":{"url":"http://127.0.0.1:9/hook"}}`
-	if code := ann.do("POST", "/api/v1/me/notifications", body, &created); code != 200 {
-		t.Fatalf("create own target: %d", code)
+	// notifications are linked accounts now; only admins see the old targets
+	var mine map[string]any
+	if code := ann.do("GET", "/api/v1/me/messenger", "", &mine); code != 200 || mine["telegram"].(map[string]any)["available"] != false {
+		t.Fatalf("my messenger %d %v", code, mine)
 	}
-	id := strconv.FormatInt(int64(created["id"].(float64)), 10)
-	if evs, _ := created["events"].([]any); len(evs) != 1 || evs[0] != "request.updated" {
-		t.Fatalf("events not limited to personal ones: %v", created["events"])
+	if code := ann.do("GET", "/api/v1/settings/messenger/personal-targets", "", nil); code != 403 {
+		t.Fatalf("a user listing personal targets: %d", code)
 	}
-	var mine []map[string]any
-	ann.do("GET", "/api/v1/me/notifications", "", &mine)
-	if len(mine) != 1 {
-		t.Fatalf("own targets %v", mine)
-	}
-	var mods []map[string]any
-	admin.do("GET", "/api/v1/modules?kind=notify", "", &mods)
-	if len(mods) != 0 {
-		t.Fatalf("a user's target in the install's list: %v", mods)
-	}
-	if code := bob.do("PUT", "/api/v1/me/notifications/"+id, body, nil); code != 404 {
-		t.Fatalf("bob editing ann's target: %d", code)
-	}
-	if code := bob.do("DELETE", "/api/v1/me/notifications/"+id, "", nil); code != 404 {
-		t.Fatalf("bob deleting ann's target: %d", code)
-	}
-	// the local network is off limits
-	req := `{"id":` + id + `,"implementation":"webhook","name":"My hook","enabled":true,"settings":{"url":"http://127.0.0.1:9/hook"}}`
-	resp, err := ann.c.Post(srv.URL+"/api/v1/me/notifications/test", "application/json", strings.NewReader(req))
-	if err != nil {
-		t.Fatal(err)
-	}
-	b := make([]byte, 2048)
-	n, _ := resp.Body.Read(b)
-	resp.Body.Close()
-	if resp.StatusCode != 400 || !strings.Contains(string(b[:n]), "address not allowed") {
-		t.Fatalf("test to a local address: %d %s", resp.StatusCode, b[:n])
-	}
-	// editing keeps it ann's
-	if code := ann.do("PUT", "/api/v1/me/notifications/"+id, strings.Replace(body, "My hook", "Renamed", 1), nil); code != 200 {
-		t.Fatalf("update: %d", code)
-	}
-	ann.do("GET", "/api/v1/me/notifications", "", &mine)
-	if len(mine) != 1 || mine[0]["name"] != "Renamed" {
-		t.Fatalf("after update %v", mine)
-	}
-	if code := ann.do("DELETE", "/api/v1/me/notifications/"+id, "", nil); code != 204 {
-		t.Fatalf("delete: %d", code)
+	if code := admin.do("GET", "/api/v1/settings/messenger/personal-targets", "", nil); code != 200 {
+		t.Fatalf("admin listing personal targets: %d", code)
 	}
 }
 

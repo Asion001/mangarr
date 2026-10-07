@@ -4456,41 +4456,6 @@
         ],
         "type": "object"
       },
-      "Me-notifications-testRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "enabled": {
-            "type": "boolean"
-          },
-          "events": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
-          },
-          "id": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "implementation": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "settings": {
-            "additionalProperties": {},
-            "type": "object"
-          }
-        },
-        "required": [
-          "implementation",
-          "name",
-          "enabled",
-          "settings"
-        ],
-        "type": "object"
-      },
       "Me-ui-preferences-saveRequest": {
         "additionalProperties": false,
         "properties": {
@@ -5353,37 +5318,6 @@
         ],
         "type": "object"
       },
-      "OwnTargetInput": {
-        "additionalProperties": false,
-        "properties": {
-          "enabled": {
-            "type": "boolean"
-          },
-          "events": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
-          },
-          "implementation": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "settings": {
-            "additionalProperties": {},
-            "type": "object"
-          }
-        },
-        "required": [
-          "implementation",
-          "name",
-          "enabled",
-          "settings"
-        ],
-        "type": "object"
-      },
       "Page": {
         "additionalProperties": false,
         "properties": {
@@ -5531,6 +5465,35 @@
           "key",
           "label",
           "description"
+        ],
+        "type": "object"
+      },
+      "PersonalTarget": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "implementation": {
+            "type": "string"
+          },
+          "linked": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "username",
+          "name",
+          "implementation",
+          "linked"
         ],
         "type": "object"
       },
@@ -14446,229 +14409,6 @@
         ]
       }
     },
-    "/api/v1/me/notifications": {
-      "get": {
-        "operationId": "me-notifications",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/ModuleResource"
-                  },
-                  "type": "array"
-                }
-              }
-            },
-            "description": "OK"
-          },
-          "default": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorModel"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "summary": "Your notification targets",
-        "tags": [
-          "Account"
-        ]
-      },
-      "post": {
-        "operationId": "me-notifications-create",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/OwnTargetInput"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ModuleResource"
-                }
-              }
-            },
-            "description": "OK"
-          },
-          "default": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorModel"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "tags": [
-          "Account"
-        ]
-      }
-    },
-    "/api/v1/me/notifications/schema": {
-      "get": {
-        "operationId": "me-notifications-schema",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/ImplementationResource"
-                  },
-                  "type": "array"
-                }
-              }
-            },
-            "description": "OK"
-          },
-          "default": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorModel"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "summary": "Notification services you can send your own notifications to",
-        "tags": [
-          "Account"
-        ]
-      }
-    },
-    "/api/v1/me/notifications/test": {
-      "post": {
-        "operationId": "me-notifications-test",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/Me-notifications-testRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "204": {
-            "description": "No Content"
-          },
-          "default": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorModel"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "summary": "Send a test message to a target (saved or not)",
-        "tags": [
-          "Account"
-        ]
-      }
-    },
-    "/api/v1/me/notifications/{id}": {
-      "delete": {
-        "operationId": "me-notifications-delete",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "format": "int64",
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "No Content"
-          },
-          "default": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorModel"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "tags": [
-          "Account"
-        ]
-      },
-      "put": {
-        "operationId": "me-notifications-update",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "format": "int64",
-              "type": "integer"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/OwnTargetInput"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ModuleResource"
-                }
-              }
-            },
-            "description": "OK"
-          },
-          "default": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorModel"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "tags": [
-          "Account"
-        ]
-      }
-    },
     "/api/v1/me/reading-stats": {
       "get": {
         "operationId": "me-reading-stats",
@@ -20447,6 +20187,62 @@
           }
         },
         "summary": "Save the messenger bots (send a masked secret back to keep the stored one)",
+        "tags": [
+          "Settings"
+        ]
+      }
+    },
+    "/api/v1/settings/messenger/personal-targets": {
+      "delete": {
+        "operationId": "settings-messenger-personal-targets-remove",
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Remove the notification targets people made for themselves",
+        "tags": [
+          "Settings"
+        ]
+      },
+      "get": {
+        "operationId": "settings-messenger-personal-targets",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PersonalTarget"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Notification targets people made for themselves, turned off since the bots replaced them",
         "tags": [
           "Settings"
         ]

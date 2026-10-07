@@ -87,9 +87,10 @@ which mangarr tells to rescan after every change.
   links it to a series that's already there, or declines with a reason. A
   group's requests can be added automatically when Quick search finds a
   confident source. Requesters follow the series and hear when it arrives.
-- **Follow series and your own notifications** — follow what you care about
-  and get its new chapters on your own ntfy, Discord, Telegram, Gotify,
-  Apprise or webhook, next to news about your requests.
+- **Follow series and get private messages** — follow what you care about
+  and get its new chapters, and news about your requests, from the server's
+  Telegram or Discord bot: right away or as a daily digest. Link your account
+  once; only the admin handles bot tokens.
 - **Discover and Updates** — recommendations from your unread library,
   recently updated series and popular titles from your catalogs, and a feed
   of new chapters and titles.
@@ -143,7 +144,8 @@ See [docker/compose.example.yml](docker/compose.example.yml) and the full
    titles).
 7. **Settings → Library servers**: add *Komga* with an admin API key and a
    path mapping if Komga mounts the library elsewhere.
-8. **Settings → Notifications**: add Telegram/ntfy/…
+8. **Settings → Notifications**: set up the Telegram or Discord bot that
+   messages people, and broadcast targets (ntfy, webhooks, …) for yourself.
 9. **Add series**: pick metadata, pick one or more sources, choose what to
    monitor.
 

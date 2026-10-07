@@ -72,7 +72,8 @@ when it loads pages. mangarr itself speaks HTTP/1.1 and cleartext HTTP/2
    - Komga has no file watcher; mangarr triggers the scan (debounced 30 s).
    - In Komga's library settings, enable "Empty trash after scan" if you use
      cleanup.
-7. Settings → Notifications → e.g. *Telegram* (bot token + chat id).
+7. Settings → Notifications → *Messenger bots*: a Telegram and/or Discord
+   bot for people's own messages (§7), and broadcast targets for the admin.
 
 ## 4. Sources: where chapters come from
 
@@ -295,14 +296,42 @@ the run of the library.
   Notifications).
 
 **Following**: the bell on a series page (and the *Following* filter in the
-library). New chapters of series you follow go to your own notifications.
+library). New chapters of series you follow go to your linked Telegram or
+Discord account.
 
-**Your own notifications**: My account → *Notifications* → Add, and set up
-ntfy, Discord, Telegram, Gotify, Apprise or a webhook that is yours alone.
-You choose whether it gets new chapters of series you follow, news about your
-requests, or both. These targets can only reach public addresses — for one
-inside your network, ask an administrator to add it under Settings →
-Notifications.
+**Personal notifications** come from the server's own Telegram and Discord
+bots, as private messages. Nobody enters tokens or addresses but the admin.
+
+1. The admin sets up the bots under **Settings → Notifications → Messenger
+   bots** (or with `MANGARR_MESSENGER_*` variables, see
+   [configuration](configuration.md)):
+   - **Telegram**: create a bot with @BotFather and paste its token. **Test**
+     checks it. mangarr long-polls the bot, so it needs no public address.
+   - **Discord**: create an application in the Discord developer portal, add
+     a bot to it, and paste the client id, client secret and bot token. Add
+     the redirect URL the page shows (built from Settings → General → *Public
+     URL*) under OAuth2 → Redirects. The bot can only message people who share
+     a server with it, so invite it to your server.
+   - **Allow instant messages** and the **daily digest** hour apply to
+     everyone.
+2. Everyone links their own account under **My account → Notifications**:
+   **Link Telegram** opens a chat with the bot (press *Start*), **Link
+   Discord** signs in with Discord. They choose what they hear about (new
+   chapters of series they follow, their requests) and how often: off,
+   instant, a daily digest, or both. Request news always goes out right away.
+   `/stop` in Telegram unlinks.
+3. Messages wait in a queue and are retried, so a restart or a hiccup at
+   Telegram or Discord delays them instead of losing them. If someone blocks
+   the bot, their link is paused and My account says how to fix it.
+
+Each bot can also post install-wide events (new requests, health, failed
+downloads, …) to a Telegram group or channel, or a Discord channel: set the
+*Announcements* field on its card and pick the events. The other broadcast
+targets (ntfy, Gotify, Apprise, webhooks) stay under **Broadcast targets**.
+
+Notification targets people set up for themselves in earlier versions are
+turned off; a Telegram one that used the server's bot becomes a linked
+account. Settings → Notifications lists the rest so you can remove them.
 
 ## 8. Reading in the browser
 

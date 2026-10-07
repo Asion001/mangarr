@@ -3,6 +3,10 @@ package app_test
 import (
 	"context"
 	"errors"
+	"html"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"sync"
 	"testing"
@@ -11,6 +15,7 @@ import (
 	"github.com/Asion001/mangarr/internal/access"
 	"github.com/Asion001/mangarr/internal/auth"
 	"github.com/Asion001/mangarr/internal/dbtest"
+	"github.com/Asion001/mangarr/internal/events"
 	"github.com/Asion001/mangarr/internal/metadataagg"
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/modules"
@@ -19,6 +24,7 @@ import (
 	"github.com/Asion001/mangarr/internal/modules/source"
 	"github.com/Asion001/mangarr/internal/requests"
 	"github.com/Asion001/mangarr/internal/series"
+	"github.com/Asion001/mangarr/internal/settings"
 	"github.com/Asion001/mangarr/internal/testutil/fakesource"
 )
 
@@ -128,14 +134,37 @@ func testRequests(t *testing.T, dsn string) {
 	if !pAnn.Can(access.RequestsCreate) || requests.Manages(pAnn) {
 		t.Fatalf("Users group permissions %v", pAnn.Perms)
 	}
-	for _, d := range []*model.ProviderDefinition{
-		{Kind: "notify", Implementation: "capture", Name: "install", Enabled: true, Events: []string{"request.created", "chapter.imported"}},
-		{Kind: "notify", Implementation: "capture", Name: "ann-phone", Enabled: true, UserID: &ann.ID},
-		{Kind: "notify", Implementation: "capture", Name: "bob-phone", Enabled: true, UserID: &bob.ID, Events: []string{"request.updated"}},
-	} {
-		if err := e.App.Modules.Create(ctx, d); err != nil {
-			t.Fatal(err)
+	if err := e.App.Modules.Create(ctx, &model.ProviderDefinition{Kind: "notify", Implementation: "capture", Name: "install", Enabled: true,
+		Events: []string{"request.created", "chapter.imported"}}); err != nil {
+		t.Fatal(err)
+	}
+	// Ann and Bob linked Telegram; their chats are named after their phones
+	tg := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = r.ParseForm()
+		if strings.HasSuffix(r.URL.Path, "/sendMessage") {
+			title, rest, _ := strings.Cut(strings.TrimPrefix(r.Form.Get("text"), "<b>"), "</b>")
+			body, _, _ := strings.Cut(strings.TrimPrefix(rest, "\n"), "\n")
+			captured.Lock()
+			captured.m[r.Form.Get("chat_id")] = append(captured.m[r.Form.Get("chat_id")], notify.Message{Title: html.UnescapeString(title), Body: html.UnescapeString(body)})
+			captured.Unlock()
+		} else if strings.HasSuffix(r.URL.Path, "/getUpdates") {
+			time.Sleep(20 * time.Millisecond)
 		}
+		_, _ = io.WriteString(w, `{"ok":true,"result":[]}`)
+	}))
+	t.Cleanup(tg.Close)
+	bots := settings.DefaultMessenger()
+	bots.Telegram.Enabled, bots.Telegram.BotToken, bots.Telegram.APIURL = true, "token", tg.URL
+	if err := e.App.Settings.Set(ctx, settings.KeyMessenger, bots); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC()
+	links := []model.MessengerLink{
+		{UserID: ann.ID, Kind: model.MessengerTelegram, ExternalID: "ann-phone", Mode: model.DeliveryInstant, Events: events.PersonalEvents, Status: model.LinkActive, CreatedAt: now, UpdatedAt: now},
+		{UserID: bob.ID, Kind: model.MessengerTelegram, ExternalID: "bob-phone", Mode: model.DeliveryInstant, Events: []string{events.RequestUpdated}, Status: model.LinkActive, CreatedAt: now, UpdatedAt: now},
+	}
+	if _, err := e.App.DB.NewInsert().Model(&links).Exec(ctx); err != nil {
+		t.Fatal(err)
 	}
 
 	// Ann asks; Bob asks for the same one and joins her request

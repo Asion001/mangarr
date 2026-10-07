@@ -9,11 +9,21 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"github.com/Asion001/mangarr/internal/access"
 	"github.com/Asion001/mangarr/internal/messenger"
 	"github.com/Asion001/mangarr/internal/model"
 )
 
 func init() { register((*Server).registerMyMessenger) }
+
+// me is the signed-in user (not the API key or logins off).
+func me(ctx context.Context) (*access.Principal, error) {
+	p := access.From(ctx)
+	if p == nil || p.Kind != access.KindUser {
+		return nil, huma.Error400BadRequest("sign in as a user for this")
+	}
+	return p, nil
+}
 
 // MessengerBot is whether people can link an account on a bot.
 type MessengerBot struct {

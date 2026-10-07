@@ -256,23 +256,12 @@ func (d *Dispatcher) dispatch(event string, seriesID int64, msg notify.Message) 
 	}
 }
 
-// SendToUsers sends an event to those users' linked messenger accounts
-// and their own notification targets.
+// SendToUsers sends an event to those users' linked messenger accounts.
 func (d *Dispatcher) SendToUsers(users []int64, event string, seriesID int64, msg notify.Message) {
 	ctx := d.context()
-	to := map[int64]bool{}
-	for _, u := range users {
-		to[u] = true
-	}
 	d.fill(ctx, event, seriesID, &msg)
 	if d.Personal != nil {
 		d.Personal(ctx, users, event, seriesID, msg)
-	}
-	for _, inst := range modules.ActiveAs[notify.Module](d.mods, modules.KindNotify) {
-		if inst.Def.UserID == nil || !to[*inst.Def.UserID] || !wantsPersonal(inst.Def, event) {
-			continue
-		}
-		d.send(ctx, inst, event, msg)
 	}
 }
 
@@ -305,18 +294,6 @@ func (d *Dispatcher) send(ctx context.Context, inst modules.Typed[notify.Module]
 }
 
 // wantsPersonal: a user's target gets every personal event unless it picked some.
-func wantsPersonal(def model.ProviderDefinition, event string) bool {
-	if len(def.Events) == 0 {
-		return true
-	}
-	for _, e := range def.Events {
-		if e == event {
-			return true
-		}
-	}
-	return false
-}
-
 func tagsMatch(defTags, seriesTags []int64) bool {
 	if len(defTags) == 0 {
 		return true

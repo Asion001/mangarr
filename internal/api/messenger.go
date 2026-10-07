@@ -8,6 +8,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"github.com/Asion001/mangarr/internal/app"
 	"github.com/Asion001/mangarr/internal/messenger"
 	"github.com/Asion001/mangarr/internal/settings"
 )
@@ -102,7 +103,25 @@ func (s *Server) registerMessengerSettings() {
 				return nil, toHTTPError(err)
 			}
 			s.app.Bus.Changed("settings", "updated", 0)
+			if err := s.app.RetirePersonalTargets(ctx); err != nil { // old Telegram targets on this bot become links
+				s.app.Log.Warn("can't convert people's Telegram targets", "err", err)
+			}
 			return s.messengerSettings(ctx)
+		})
+	huma.Register(s.api, huma.Operation{OperationID: "settings-messenger-personal-targets", Method: http.MethodGet, Path: "/api/v1/settings/messenger/personal-targets", Tags: tags,
+		Summary: "Notification targets people made for themselves, turned off since the bots replaced them"},
+		func(ctx context.Context, _ *struct{}) (*struct{ Body []app.PersonalTarget }, error) {
+			list, err := s.app.PersonalTargets(ctx)
+			return &struct{ Body []app.PersonalTarget }{list}, toHTTPError(err)
+		})
+	huma.Register(s.api, huma.Operation{OperationID: "settings-messenger-personal-targets-remove", Method: http.MethodDelete, Path: "/api/v1/settings/messenger/personal-targets", Tags: tags,
+		Summary: "Remove the notification targets people made for themselves", DefaultStatus: http.StatusNoContent},
+		func(ctx context.Context, _ *struct{}) (*struct{}, error) {
+			_, err := s.app.RemovePersonalTargets(ctx)
+			if err == nil {
+				s.app.Bus.Changed("module", "deleted", 0)
+			}
+			return nil, toHTTPError(err)
 		})
 	huma.Register(s.api, huma.Operation{OperationID: "settings-messenger-test", Method: http.MethodPost, Path: "/api/v1/settings/messenger/test", Tags: tags,
 		Summary: "Check a bot's credentials without sending anything"},
