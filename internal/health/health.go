@@ -232,6 +232,21 @@ func (c *Checker) checkRootFolders(ctx context.Context, add func(Check)) {
 	if len(roots) == 0 {
 		add(Check{Source: "Root folders", Type: Warning, Message: "No root folder is configured", Link: "/settings/media"})
 	}
+	// a folder with no language receives nothing: start-up could not pick
+	// one (no series, or a tie), so the user has to
+	var unset []CheckItem
+	for _, r := range roots {
+		if r.Language == "" {
+			unset = append(unset, CheckItem{Label: r.Path, Link: "/settings/media", Detail: "set its language in Settings → Media; new titles only go to a folder with a language"})
+		}
+	}
+	if len(unset) > 0 {
+		msg := fmt.Sprintf("%d root folders have no language", len(unset))
+		if len(unset) == 1 {
+			msg = unset[0].Label + " has no language"
+		}
+		add(Check{Source: "Root folders", Type: Warning, Message: msg, Link: "/settings/media", Items: unset, Key: "no-language"})
+	}
 	mm, _ := c.settings.MediaManagement(ctx)
 	for _, r := range roots {
 		if err := fsutil.Writable(r.Path); err != nil {
