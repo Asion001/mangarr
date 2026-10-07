@@ -133,6 +133,15 @@ func (m *Manager) fetchPage(ctx context.Context, mod source.Module, p source.Pag
 			lastErr = err
 			continue
 		}
+		if imagecheck.Truncated(info.Format, data) {
+			// a page cut short downloads again; one that always comes like
+			// this is kept, as the site serves it
+			if attempt < retries-1 {
+				lastErr = fmt.Errorf("page %d is cut off (%d bytes)", i+1, len(data))
+				continue
+			}
+			m.log.Warn("page is cut off on every download; keeping it", "page", i+1, "bytes", len(data))
+		}
 		name := cbz.PageName(i, imagecheck.Ext(info.Format))
 		path := filepath.Join(workDir, name)
 		// written through a temporary name: the reader serves pages out of

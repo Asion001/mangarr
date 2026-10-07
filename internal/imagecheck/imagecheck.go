@@ -76,6 +76,25 @@ func Detect(data []byte) (Info, error) {
 	return info, nil
 }
 
+// Truncated reports whether data in format stops before the image ends: a
+// download cut short. Decoders that read what is there show the top of
+// such a page sharp and the rest blurred or gray, with a stepped edge
+// between them, and upscaling makes it plain. Formats it can't judge pass.
+func Truncated(format string, data []byte) bool {
+	switch format {
+	case "jpeg":
+		// the image ends with EOI after its last scan; an EOI before that
+		// belongs to an embedded thumbnail
+		sos := bytes.LastIndex(data, []byte{0xFF, 0xDA})
+		return sos >= 0 && bytes.LastIndex(data, []byte{0xFF, 0xD9}) < sos
+	case "png":
+		return !bytes.Contains(data[max(0, len(data)-64):], []byte("IEND"))
+	case "webp":
+		return len(data) >= 8 && int64(len(data)) < int64(binary.LittleEndian.Uint32(data[4:8]))+8
+	}
+	return false
+}
+
 func sniff(b []byte) string {
 	switch {
 	case bytes.HasPrefix(b, []byte{0xFF, 0xD8, 0xFF}):

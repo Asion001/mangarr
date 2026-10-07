@@ -65,3 +65,32 @@ func TestModernFormats(t *testing.T) {
 		}
 	}
 }
+
+func TestTruncated(t *testing.T) {
+	img := image.NewGray(image.Rect(0, 0, 64, 64))
+	for i := range img.Pix {
+		img.Pix[i] = uint8(i * 7)
+	}
+	var j, p bytes.Buffer
+	if err := jpeg.Encode(&j, img, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := png.Encode(&p, img); err != nil {
+		t.Fatal(err)
+	}
+	webp := append([]byte("RIFF\x20\x00\x00\x00WEBPVP8 "), make([]byte, 24)...) // RIFF size 32: 40 bytes in all
+	for _, c := range []struct {
+		format string
+		data   []byte
+	}{{"jpeg", j.Bytes()}, {"png", p.Bytes()}, {"webp", webp}} {
+		if Truncated(c.format, c.data) {
+			t.Errorf("a whole %s is cut off", c.format)
+		}
+		if cut := c.data[:len(c.data)*3/4]; !Truncated(c.format, cut) {
+			t.Errorf("a %s cut at 3/4 passes", c.format)
+		}
+		if _, err := Detect(c.data[:len(c.data)*3/4]); err != nil && c.format == "jpeg" {
+			t.Errorf("a cut jpeg's header still reads: %v", err)
+		}
+	}
+}
