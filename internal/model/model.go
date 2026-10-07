@@ -411,7 +411,10 @@ type UpscaleConfig struct {
 	// MaxWidth caps output width (downscaled after upscaling). 0 = no cap.
 	MaxWidth int `json:"maxWidth"`
 	// Model name understood by the upscaler (e.g. "waifu2x-cunet", "realcugan", "realesr-animevideov3").
+	// With a ColorModel it upscales the black-and-white pages only.
 	Model string `json:"model"`
+	// ColorModel upscales the pages in color. Empty = Model for every page.
+	ColorModel string `json:"colorModel,omitempty" doc:"Model for pages in color (empty = model for every page)"`
 	// Noise reduction level (model dependent, -1..3).
 	Noise int `json:"noise"`
 	// Format of upscaled pages: "source" (each page's own format), "webp",

@@ -6677,6 +6677,8 @@ export interface components {
             title?: string;
         };
         UpscaleConfig: {
+            /** @description Model for pages in color (empty = model for every page) */
+            colorModel?: string;
             enabled: boolean;
             format: string;
             /** Format: int64 */

@@ -149,3 +149,44 @@ func TestWorkerRunsTheModelOfItsRoute(t *testing.T) {
 		}
 	}
 }
+
+// TestColorPagesGetTheirOwnModel: with a color model, black-and-white pages
+// run the profile's model and color pages the color one.
+func TestColorPagesGetTheirOwnModel(t *testing.T) {
+	pages, gray, dir := routePages(t, 2, 2, 2)
+	red := image.NewRGBA(image.Rect(0, 0, 8, 8))
+	for i := 0; i < len(red.Pix); i += 4 {
+		red.Pix[i], red.Pix[i+3] = 220, 255
+	}
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, red); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(pages[1].Path, buf.Bytes(), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	eng := &recordingEngine{models: []upscale.Model{{Name: "bw", Scales: []int{2, 4}}, {Name: "col", Scales: []int{2, 4}}}, out: gray}
+	p := &Processor{Fixed: eng}
+	cfg := model.UpscaleConfig{Enabled: true, MinWidth: 4, Model: "bw", ColorModel: "col", Format: "png"}
+	_, _, name, err := p.Process(context.Background(), cfg, pages, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]int{}
+	for _, r := range eng.runs {
+		got[r.Model]++
+	}
+	if len(eng.runs) != 2 || got["bw"] != 1 || got["col"] != 1 || name != "bw, col" {
+		t.Fatalf("ran %+v, recorded %q", eng.runs, name)
+	}
+
+	// without a color model every page runs the one model
+	eng.runs = nil
+	cfg.ColorModel = ""
+	if _, _, name, err = p.Process(context.Background(), cfg, pages, dir); err != nil {
+		t.Fatal(err)
+	}
+	if len(eng.runs) != 1 || eng.runs[0].Model != "bw" || name != "bw" {
+		t.Fatalf("ran %+v, recorded %q", eng.runs, name)
+	}
+}

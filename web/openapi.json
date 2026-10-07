@@ -10375,6 +10375,10 @@
       "UpscaleConfig": {
         "additionalProperties": false,
         "properties": {
+          "colorModel": {
+            "description": "Model for pages in color (empty = model for every page)",
+            "type": "string"
+          },
           "enabled": {
             "type": "boolean"
           },

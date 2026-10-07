@@ -234,7 +234,7 @@ func DefaultProfileConfig() model.ProfileConfig {
 		BlockedScanlators:   []string{},
 		AllowUpgrades:       false,
 		Upscale: model.UpscaleConfig{
-			Enabled: false, MinWidth: 1400, MaxWidth: 2048, Model: "waifu2x-cunet", Noise: 1, Format: "source", Quality: 90,
+			Enabled: false, MinWidth: 1400, MaxWidth: 2048, Model: "realcugan", ColorModel: "realesr-animevideov3", Noise: 1, Format: "source", Quality: 90,
 		},
 		Encode:        model.EncodeConfig{Format: "keep", Preset: "balanced", Grayscale: true, MinSavingsPct: 10, RecycleOriginals: true},
 		ProcessTiming: "background",

@@ -460,8 +460,11 @@ threshold (default 1400 px) with waifu2x / Real-CUGAN / Real-ESRGAN.
    model that was really used.
 2. Pick a model: `realesr-animevideov3` is fastest (good for colour
    webtoons), `waifu2x-cunet` cleans black & white manga well, `realcugan`
-   is sharper and slower. Profile → *Preview on a chapter* shows what each
-   does to your own pages.
+   is sharper and slower. A profile can use one model for black & white
+   pages and another for color ones (each page is checked for color): new
+   profiles start with `realcugan` for black & white, which keeps hatching
+   and screentone crisp, and `realesr-animevideov3` for color. Profile →
+   *Preview on a chapter* shows what each does to your own pages.
 3. Settings → Profiles → enable upscaling, choose model and widths. If the
    upscaler is offline, chapters wait and are upscaled when it's back.
 

@@ -4,11 +4,14 @@
 package upscaling
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"image"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -16,6 +19,7 @@ import (
 
 	"github.com/Asion001/mangarr/internal/downloads"
 	"github.com/Asion001/mangarr/internal/imagecheck"
+	"github.com/Asion001/mangarr/internal/imageenc"
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/modules"
 	"github.com/Asion001/mangarr/internal/modules/upscale"
@@ -204,57 +208,83 @@ func (p *Processor) ProcessEach(ctx context.Context, cfg model.UpscaleConfig, pa
 	if err != nil {
 		return nil, false, "", err
 	}
-	var mdl *upscale.Model
-	for i := range info.Models {
-		if info.Models[i].Name == cfg.Model {
-			mdl = &info.Models[i]
+	find := func(name string) *upscale.Model {
+		for i := range info.Models {
+			if info.Models[i].Name == name {
+				return &info.Models[i]
+			}
 		}
+		return nil
 	}
+	mdl := find(cfg.Model)
 	if mdl == nil {
 		if len(info.Models) == 0 {
 			return nil, false, "", errors.New("upscaler has no models")
 		}
 		mdl = &info.Models[0]
 	}
+	// pages in color may get a model of their own; one the upscaler
+	// doesn't have leaves them with the black-and-white one
+	colorMdl := mdl
+	if m := find(cfg.ColorModel); m != nil {
+		colorMdl = m
+	}
+	color := make([]bool, len(pages))
+	if colorMdl != mdl {
+		for _, i := range todo {
+			color[i] = InColor(pages[i])
+		}
+	}
+	modelFor := func(i int) *upscale.Model {
+		if color[i] {
+			return colorMdl
+		}
+		return mdl
+	}
 	var routes []model.UpscaleRoute
 	if p.Routes != nil {
 		routes = p.Routes(ctx)
 	}
-	// group pages by the scale, output format and route they need so each
-	// batch is one engine run
+	// group pages by the scale, output format, route and model they need
+	// so each batch is one engine run
 	type batch struct {
 		scale    int
 		format   string
 		maxWidth int
-		routes   string // the routes the pages match, as a key
+		lane     string // the routes the pages match and their kind, as a key
 	}
+	laneKey := func(matched []int, i int) string { return fmt.Sprint(matched, color[i]) }
 	groups := map[batch][]int{}
 	for _, i := range todo {
 		width := model.PageWidth(pages[i].Width, pages[i].Height)
-		s := ChooseScale(width, cfg.MinWidth, mdl.Scales)
+		s := ChooseScale(width, cfg.MinWidth, modelFor(i).Scales)
 		if s == 0 {
 			continue
 		}
-		b := batch{s, OutputFormat(cfg.Format, pages[i].Format), cfg.MaxWidth, fmt.Sprint(model.RoutesFor(routes, s, width))}
+		b := batch{s, OutputFormat(cfg.Format, pages[i].Format), cfg.MaxWidth, laneKey(model.RoutesFor(routes, s, width), i)}
 		if b.maxWidth > 0 && pages[i].Width > pages[i].Height {
 			b.maxWidth *= 2 // a spread holds two pages
 		}
 		groups[b] = append(groups[b], i)
 	}
 	// the pages of some routes go to their upscalers with their models
-	lanes := map[string]*lane{"[]": {up: up, model: mdl.Name}}
+	lanes := map[string]*lane{}
 	for _, i := range todo {
 		width := model.PageWidth(pages[i].Width, pages[i].Height)
-		matched := model.RoutesFor(routes, ChooseScale(width, cfg.MinWidth, mdl.Scales), width)
-		key := fmt.Sprint(matched)
+		matched := model.RoutesFor(routes, ChooseScale(width, cfg.MinWidth, modelFor(i).Scales), width)
+		key := laneKey(matched, i)
 		if _, ok := lanes[key]; ok {
+			continue
+		}
+		if len(matched) == 0 {
+			lanes[key] = &lane{up: up, model: modelFor(i).Name}
 			continue
 		}
 		chain := make([]model.UpscaleRoute, len(matched))
 		for k, r := range matched {
 			chain[k] = routes[r]
 		}
-		l, err := p.lane(ctx, chain, up, mdl.Name)
+		l, err := p.lane(ctx, chain, up, modelFor(i).Name)
 		if err != nil {
 			return nil, false, "", err
 		}
@@ -302,7 +332,7 @@ run:
 				break run
 			}
 			wg.Add(1)
-			l := lanes[b.routes]
+			l := lanes[b.lane]
 			go func() {
 				defer func() { <-sem; wg.Done() }()
 				cctx := ctx
@@ -328,10 +358,31 @@ run:
 		return nil, false, "", err
 	}
 	name := mdl.Name
+	if colorMdl != mdl && slices.Contains(color, true) {
+		if slices.Contains(color, false) {
+			name += ", " + colorMdl.Name
+		} else {
+			name = colorMdl.Name
+		}
+	}
 	if names := used(); len(names) > 0 {
 		name = strings.Join(names, ", ")
 	}
 	return out, true, name, nil
+}
+
+// InColor reports whether a page is in color, judged the way the encoder
+// judges it. A page that can't be read counts as black and white.
+func InColor(pg downloads.PageFile) bool {
+	data, err := os.ReadFile(pg.Path)
+	if err != nil {
+		return false
+	}
+	img, _, err := image.Decode(bytes.NewReader(data))
+	if err != nil {
+		return false
+	}
+	return !imageenc.IsGrayscale(img)
 }
 
 // ChunkPages is how many pages go to the upscaler at once: short runs keep

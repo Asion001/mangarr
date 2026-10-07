@@ -21,7 +21,7 @@ const emptyConfig: Cfg = {
   blockedScanlators: [],
   allowUpgrades: false,
   minPages: 0,
-  upscale: { enabled: false, upscalerId: 0, minWidth: 1400, maxWidth: 2048, model: "waifu2x-cunet", noise: 1, format: "source", quality: 90 },
+  upscale: { enabled: false, upscalerId: 0, minWidth: 1400, maxWidth: 2048, model: "realcugan", colorModel: "realesr-animevideov3", noise: 1, format: "source", quality: 90 },
   encode: { format: "keep", preset: "balanced", quality: 0, speed: 0, grayscale: true, progressive: false, minSavingsPct: 10, recycleOriginals: true },
   pages: { junkUnder: 0, removeJunk: false, maxWidth: 0, splitTall: false, splitRatio: 0, segmentRatio: 0 },
   lowRes: { width: 0, action: "retry" },
@@ -203,6 +203,17 @@ function ProfileEditor({ profile, onClose }: { profile: Profile; onClose: () => 
   const modelOptions: UpscalerModel[] = modelCatalog?.models.some((model) => model.name === up.model)
     ? modelCatalog.models
     : [...(modelCatalog?.models ?? []), { name: up.model, description: "", scales: [], sources: [] }];
+  const colorModelOptions: UpscalerModel[] = !up.colorModel || modelCatalog?.models.some((model) => model.name === up.colorModel)
+    ? (modelCatalog?.models ?? [])
+    : [...(modelCatalog?.models ?? []), { name: up.colorModel, description: "", scales: [], sources: [] }];
+  const modelOption = (m: UpscalerModel) => {
+    const locations = m.sources.map((source) => source.available ? source.name : `${source.name} (${t("offline")})`).join(", ");
+    return (
+      <option key={m.name} value={m.name} title={m.description}>
+        {m.name}{" — "}{locations || t("unavailable")}
+      </option>
+    );
+  };
   const selectedModel = modelOptions.find((model) => model.name === up.model);
   const modelLocations = selectedModel?.sources.map((source) => source.available ? source.name : `${source.name} (${t("offline")})`).join(", ");
   const hasAvailableModel = modelCatalog?.models.some((model) => model.sources.some((source) => source.available));
@@ -420,16 +431,15 @@ function ProfileEditor({ profile, onClose }: { profile: Profile; onClose: () => 
               >
                 {up.enabled && (
                   <div className="grid gap-4 md:grid-cols-2">
-                    <Field label={t("Model")} help={modelHelp}>
+                    <Field label={t("Model for black & white pages")} help={modelHelp}>
                       <Select value={up.model} onChange={(e) => setUp({ model: e.target.value })}>
-                        {modelOptions.map((m) => {
-                          const locations = m.sources.map((source) => source.available ? source.name : `${source.name} (${t("offline")})`).join(", ");
-                          return (
-                            <option key={m.name} value={m.name} title={m.description}>
-                              {m.name}{" — "}{locations || t("unavailable")}
-                            </option>
-                          );
-                        })}
+                        {modelOptions.map(modelOption)}
+                      </Select>
+                    </Field>
+                    <Field label={t("Model for color pages")} help={t("Each page is checked for color, so covers get this model too.")}>
+                      <Select value={up.colorModel ?? ""} onChange={(e) => setUp({ colorModel: e.target.value || undefined })}>
+                        <option value="">{t("Same as black & white")}</option>
+                        {colorModelOptions.map(modelOption)}
                       </Select>
                     </Field>
                     <Field label={t("When narrower than (px)")} help={t("iPad portrait: ~1600–2000. Two-page spreads count each half.")}>
