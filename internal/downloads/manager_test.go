@@ -10,11 +10,13 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/Asion001/mangarr/internal/db"
 	"github.com/Asion001/mangarr/internal/dbtest"
+	"github.com/Asion001/mangarr/internal/events"
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/modules/source"
 	"github.com/Asion001/mangarr/internal/settings"
@@ -201,6 +203,42 @@ func TestLocalTaskLimit(t *testing.T) {
 		}
 		if !m.takeLocal(ctx, model.JobKindReprocess) {
 			t.Fatal("reprocessing hands its image work to the workers and still runs")
+		}
+	})
+}
+
+// TestRemovedJobFailsQuietly: a job removed from the queue while it ran
+// (its worker task can no longer be stored) is not a failed download.
+func TestRemovedJobFailsQuietly(t *testing.T) {
+	dbtest.ForEachDialect(t, func(t *testing.T, d *db.DB) {
+		q, chapters := rankFixture(t, d, 1)
+		m := NewManager(d, q.bus, nil, settings.NewStore(d), nil, q, nil,
+			slog.New(slog.NewTextHandler(io.Discard, nil)), t.TempDir())
+		ctx := t.Context()
+		ch := chapters[0]
+		job, _, err := q.Enqueue(ctx, ch.SeriesID, ch.ID, nil, model.JobKindDownload, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !m.claim(ctx, job) {
+			t.Fatal("claim")
+		}
+		jc, err := m.load(ctx, job)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var failed atomic.Int32
+		q.bus.Subscribe(func(events.Event) { failed.Add(1) }, events.DownloadFailed)
+		if err := q.Remove(ctx, job.ID, false); err != nil {
+			t.Fatal(err)
+		}
+		m.fail(ctx, job, jc, permanent(errors.New(`violates foreign key constraint "worker_tasks_job_id_fkey"`)))
+		if n := failed.Load(); n != 0 {
+			t.Fatalf("removed job announced %d failures", n)
+		}
+		var h []model.History
+		if err := d.NewSelect().Model(&h).Where("event_type = ?", model.HistoryFailed).Scan(ctx); err != nil || len(h) != 0 {
+			t.Fatalf("removed job recorded as failed: %v %+v", err, h)
 		}
 	})
 }

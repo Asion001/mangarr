@@ -45,6 +45,12 @@ func (m *Manager) fail(ctx context.Context, job *model.DownloadJob, jc *jobCtx, 
 		return
 	}
 	bg := context.Background()
+	if exists, err2 := m.db.NewSelect().Model((*model.DownloadJob)(nil)).Where("id = ?", job.ID).Exists(bg); err2 == nil && !exists {
+		// removed from the queue while it ran (its worker task then can't be
+		// stored either): nothing failed, and there is nothing to retry
+		m.log.Debug("job removed while running", "job", job.ID, "err", err)
+		return
+	}
 	dl, _ := m.settings.Downloads(bg)
 	maxAttempts := dl.MaxAttempts
 	if maxAttempts <= 0 {
