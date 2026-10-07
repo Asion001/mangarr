@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRightLeft, Database, PlugZap, RotateCcw } from "lucide-react";
 import { api, basePath, unwrap, type S } from "../../api/client";
-import { Badge, Button, Card, Confirm, ErrorBox, Field, Input, Loading, PageHeader, Progress, Select, Switch } from "../../components/ui";
+import { Badge, Button, Card, Confirm, ErrorBox, Field, Input, Loading, PageHeader, Progress, SecretInput, Select, Switch } from "../../components/ui";
 import { bytes } from "../../lib/format";
 import { useToast } from "../../lib/toast";
 
@@ -147,7 +147,7 @@ function MoveForm({ info }: { info: S["DatabaseInfo"] }) {
                 <Input value={f.user} autoComplete="off" onChange={(e) => patch({ user: e.target.value })} />
               </Field>
               <Field label={t("Password")}>
-                <Input type="password" value={f.password} autoComplete="new-password" onChange={(e) => patch({ password: e.target.value })} />
+                <SecretInput value={f.password} onChange={(password) => patch({ password })} />
               </Field>
             </div>
           )}

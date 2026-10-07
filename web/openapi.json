@@ -2006,6 +2006,41 @@
         ],
         "type": "object"
       },
+      "DiscordBot": {
+        "additionalProperties": false,
+        "properties": {
+          "announceChannel": {
+            "type": "string"
+          },
+          "announceEvents": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "botToken": {
+            "type": "string"
+          },
+          "clientId": {
+            "type": "string"
+          },
+          "clientSecret": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled",
+          "clientId",
+          "clientSecret",
+          "botToken",
+          "announceChannel",
+          "announceEvents"
+        ],
+        "type": "object"
+      },
       "DiscoverLibraryItem": {
         "additionalProperties": false,
         "properties": {
@@ -3147,6 +3182,25 @@
           "sourceTitle",
           "data",
           "createdAt"
+        ],
+        "type": "object"
+      },
+      "Identity": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "username"
         ],
         "type": "object"
       },
@@ -4493,6 +4547,57 @@
           "renameFolderOnTitleChange",
           "fileMode",
           "dirMode"
+        ],
+        "type": "object"
+      },
+      "MessengerSettings": {
+        "additionalProperties": false,
+        "properties": {
+          "allowInstant": {
+            "type": "boolean"
+          },
+          "digestHour": {
+            "format": "int64",
+            "maximum": 23,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "discord": {
+            "$ref": "#/components/schemas/DiscordBot"
+          },
+          "discordRedirectUrl": {
+            "readOnly": true,
+            "type": "string"
+          },
+          "telegram": {
+            "$ref": "#/components/schemas/TelegramBot"
+          }
+        },
+        "required": [
+          "telegram",
+          "discord",
+          "allowInstant",
+          "digestHour"
+        ],
+        "type": "object"
+      },
+      "MessengerTestInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "bot": {
+            "enum": [
+              "telegram",
+              "discord"
+            ],
+            "type": "string"
+          },
+          "settings": {
+            "$ref": "#/components/schemas/MessengerSettings"
+          }
+        },
+        "required": [
+          "bot",
+          "settings"
         ],
         "type": "object"
       },
@@ -9722,6 +9827,37 @@
         },
         "required": [
           "kind"
+        ],
+        "type": "object"
+      },
+      "TelegramBot": {
+        "additionalProperties": false,
+        "properties": {
+          "announceChat": {
+            "type": "string"
+          },
+          "announceEvents": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "apiUrl": {
+            "type": "string"
+          },
+          "botToken": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled",
+          "botToken",
+          "apiUrl",
+          "announceChat",
+          "announceEvents"
         ],
         "type": "object"
       },
@@ -19809,6 +19945,117 @@
           }
         },
         "summary": "Render naming templates with sample values",
+        "tags": [
+          "Settings"
+        ]
+      }
+    },
+    "/api/v1/settings/messenger": {
+      "get": {
+        "operationId": "settings-get-messenger",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessengerSettings"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Messenger bots (secrets masked)",
+        "tags": [
+          "Settings"
+        ]
+      },
+      "put": {
+        "operationId": "settings-put-messenger",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MessengerSettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessengerSettings"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Save the messenger bots (send a masked secret back to keep the stored one)",
+        "tags": [
+          "Settings"
+        ]
+      }
+    },
+    "/api/v1/settings/messenger/test": {
+      "post": {
+        "operationId": "settings-messenger-test",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MessengerTestInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Identity"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Check a bot's credentials without sending anything",
         "tags": [
           "Settings"
         ]

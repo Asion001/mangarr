@@ -1,7 +1,7 @@
 import { t as tr, t, label as translateLabel } from "../lib/i18n/core";
 import { useState } from "react";
 import type { ModuleField } from "../api/client";
-import { EnvLock, Field, Input, KeyValueEditor, Locked, Select, Switch, TagInput, Textarea } from "./ui";
+import { EnvLock, Field, Input, KeyValueEditor, Locked, SecretInput, Select, Switch, TagInput, Textarea } from "./ui";
 
 type Values = Record<string, unknown>;
 
@@ -88,14 +88,20 @@ export function DynamicForm({
             <Textarea value={String(v ?? "")} placeholder={f.placeholder} onChange={(e) => set(f.name, e.target.value)} />
           </Field>
         );
+      case "password":
+        return (
+          <Field key={f.name} label={label} help={f.help ? translateLabel(f.help) : undefined} env={env}>
+            <SecretInput value={String(v ?? "")} placeholder={f.placeholder} onChange={(x) => set(f.name, x)} />
+          </Field>
+        );
       default:
         return (
           <Field key={f.name} label={label} help={f.help ? translateLabel(f.help) : undefined} env={env}>
             <Input
-              type={f.type === "password" ? "password" : f.type === "url" ? "url" : "text"}
+              type={f.type === "url" ? "url" : "text"}
               value={String(v ?? "")}
               placeholder={f.placeholder}
-              autoComplete={f.type === "password" ? "new-password" : "off"}
+              autoComplete="off"
               onChange={(e) => set(f.name, e.target.value)}
             />
           </Field>

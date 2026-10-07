@@ -2489,6 +2489,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/settings/messenger": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Messenger bots (secrets masked) */
+        get: operations["settings-get-messenger"];
+        /** Save the messenger bots (send a masked secret back to keep the stored one) */
+        put: operations["settings-put-messenger"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/messenger/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Check a bot's credentials without sending anything */
+        post: operations["settings-messenger-test"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/settings/reading": {
         parameters: {
             query?: never;
@@ -4095,6 +4130,14 @@ export interface components {
             lastSeen: string;
             origin: string;
         };
+        DiscordBot: {
+            announceChannel: string;
+            announceEvents: string[];
+            botToken: string;
+            clientId: string;
+            clientSecret: string;
+            enabled: boolean;
+        };
         DiscoverLibraryItem: {
             /** Format: int64 */
             books: number;
@@ -4441,6 +4484,11 @@ export interface components {
             /** Format: int64 */
             seriesId: number;
             sourceTitle: string;
+        };
+        Identity: {
+            id: string;
+            name?: string;
+            username: string;
         };
         ImplementationResource: {
             accountFields?: components["schemas"]["ModuleField"][];
@@ -4853,6 +4901,19 @@ export interface components {
             writeCover: boolean;
             writeSeriesJson: boolean;
             writeVolume: boolean;
+        };
+        MessengerSettings: {
+            allowInstant: boolean;
+            /** Format: int64 */
+            digestHour: number;
+            discord: components["schemas"]["DiscordBot"];
+            readonly discordRedirectUrl?: string;
+            telegram: components["schemas"]["TelegramBot"];
+        };
+        MessengerTestInputBody: {
+            /** @enum {string} */
+            bot: "telegram" | "discord";
+            settings: components["schemas"]["MessengerSettings"];
         };
         MetadataRef: {
             id: string;
@@ -6392,6 +6453,13 @@ export interface components {
             kind: string;
             timesOfDay?: string[];
             weekdays?: string[];
+        };
+        TelegramBot: {
+            announceChat: string;
+            announceEvents: string[];
+            apiUrl: string;
+            botToken: string;
+            enabled: boolean;
         };
         ThrottleConfig: {
             /** Format: int64 */
@@ -12900,6 +12968,101 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NamingPreview"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "settings-get-messenger": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessengerSettings"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "settings-put-messenger": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MessengerSettings"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessengerSettings"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "settings-messenger-test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MessengerTestInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Identity"];
                 };
             };
             /** @description Error */

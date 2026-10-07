@@ -172,6 +172,24 @@ Read wherever the engine runs: in the server, or on a worker with the upscale ro
 | `MANGARR_APPEARANCE_START_PAGE` | string | `series` | Default start page. |
 | `MANGARR_APPEARANCE_LOCALE` | string | `auto` | Default interface language. |
 
+### messenger
+
+| Variable | Type | Default | Description |
+|---|---|---|---|
+| `MANGARR_MESSENGER_TELEGRAM_ENABLED` | bool | `false` | Send messages through the Telegram bot. |
+| `MANGARR_MESSENGER_TELEGRAM_BOT_TOKEN` | string | `` | Telegram bot token (from @BotFather). |
+| `MANGARR_MESSENGER_TELEGRAM_API_URL` | string | `https://api.telegram.org` | Telegram Bot API server. |
+| `MANGARR_MESSENGER_TELEGRAM_ANNOUNCE_CHAT` | string | `` | Chat or channel for announcements (@name or id; empty = none). |
+| `MANGARR_MESSENGER_TELEGRAM_ANNOUNCE_EVENTS` | list | `` | Events announced in the chat. |
+| `MANGARR_MESSENGER_DISCORD_ENABLED` | bool | `false` | Send messages through the Discord bot. |
+| `MANGARR_MESSENGER_DISCORD_CLIENT_ID` | string | `` | Discord application (client) id. |
+| `MANGARR_MESSENGER_DISCORD_CLIENT_SECRET` | string | `` | Discord application client secret. |
+| `MANGARR_MESSENGER_DISCORD_BOT_TOKEN` | string | `` | Discord bot token. |
+| `MANGARR_MESSENGER_DISCORD_ANNOUNCE_CHANNEL` | string | `` | Channel id for announcements (empty = none). |
+| `MANGARR_MESSENGER_DISCORD_ANNOUNCE_EVENTS` | list | `` | Events announced in the channel. |
+| `MANGARR_MESSENGER_ALLOW_INSTANT` | bool | `true` | Let people get messages as chapters arrive (off: daily digest only). |
+| `MANGARR_MESSENGER_DIGEST_HOUR` | int | `9` | Hour of the daily digest (server time, 0-23). |
+
 ## Modules
 
 Module instances are declared with `MANGARR_MODULE_<NAME>_IMPL=<kind>/<implementation>`; `<NAME>` is any identifier you choose (it keeps the instance's identity, so don't rename it). Then set fields with `MANGARR_MODULE_<NAME>_<FIELD>` and optionally:

@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { basePath } from "../../api/client";
 import { useToast } from "../../lib/toast";
 
-type Doc = "media" | "downloads" | "cleanup" | "readsync" | "general" | "sources" | "schedule" | "reading" | "sso" | "appearance";
+type Doc = "media" | "downloads" | "cleanup" | "readsync" | "general" | "sources" | "schedule" | "reading" | "sso" | "appearance" | "messenger";
 
 /** useSettingsDoc loads a settings document into editable local state. */
 export function useSettingsDoc<T extends object>(name: Doc) {

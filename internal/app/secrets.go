@@ -28,6 +28,12 @@ func (a *App) Secrets(ctx context.Context) []string {
 	if g, err := a.Settings.General(ctx); err == nil {
 		out = append(out, g.APIKey, g.SessionSecret)
 	}
+	if m, err := a.Settings.Messenger(ctx); err == nil {
+		out = append(out, m.Telegram.BotToken, m.Discord.ClientSecret, m.Discord.BotToken)
+	}
+	if sso, err := a.Settings.SSO(ctx); err == nil {
+		out = append(out, sso.ClientSecret)
+	}
 	var defs []model.ProviderDefinition
 	_ = a.DB.NewSelect().Model(&defs).Scan(ctx)
 	for _, d := range defs {

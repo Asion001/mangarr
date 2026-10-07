@@ -8366,5 +8366,81 @@
   "Watch": {
     "ru": "Смотреть",
     "uk": "Дивитися"
+  },
+  "Saved. Type to replace it.": {
+    "ru": "Сохранено. Введите, чтобы заменить.",
+    "uk": "Збережено. Введіть, щоб замінити."
+  },
+  "The bot answered": {
+    "ru": "Бот ответил",
+    "uk": "Бот відповів"
+  },
+  "The bot didn't answer": {
+    "ru": "Бот не ответил",
+    "uk": "Бот не відповів"
+  },
+  "Not set up": {
+    "ru": "Не настроен",
+    "uk": "Не налаштований"
+  },
+  "Messenger bots": {
+    "ru": "Боты мессенджеров",
+    "uk": "Боти месенджерів"
+  },
+  "Your own Telegram and Discord bots send people their updates in private messages. People link their account under My account › Notifications; they never enter tokens or addresses.": {
+    "ru": "Ваши боты Telegram и Discord присылают людям их обновления в личные сообщения. Люди привязывают свой аккаунт в разделе «Мой аккаунт › Уведомления» и никогда не вводят токены или адреса.",
+    "uk": "Ваші боти Telegram і Discord надсилають людям їхні оновлення в особисті повідомлення. Люди прив’язують свій акаунт у розділі «Мій акаунт › Сповіщення» і ніколи не вводять токени чи адреси."
+  },
+  "Bot token": {
+    "ru": "Токен бота",
+    "uk": "Токен бота"
+  },
+  "From @BotFather. Test checks it and sends nothing.": {
+    "ru": "От @BotFather. «Проверить» проверяет его и ничего не отправляет.",
+    "uk": "Від @BotFather. «Перевірити» перевіряє його й нічого не надсилає."
+  },
+  "Bot API server": {
+    "ru": "Сервер Bot API",
+    "uk": "Сервер Bot API"
+  },
+  "Leave as it is unless you run your own Bot API server.": {
+    "ru": "Не меняйте, если у вас нет своего сервера Bot API.",
+    "uk": "Не змінюйте, якщо у вас немає власного сервера Bot API."
+  },
+  "Application (client) ID": {
+    "ru": "ID приложения (client ID)",
+    "uk": "ID застосунку (client ID)"
+  },
+  "From the Discord developer portal. Test checks it and sends nothing.": {
+    "ru": "Из портала разработчиков Discord. «Проверить» проверяет его и ничего не отправляет.",
+    "uk": "З порталу розробників Discord. «Перевірити» перевіряє його й нічого не надсилає."
+  },
+  "Add exactly this address under OAuth2 › Redirects in the Discord application. It's built from Settings › General › Public URL.": {
+    "ru": "Добавьте ровно этот адрес в OAuth2 › Redirects приложения Discord. Он строится из «Настройки › Общие › Публичный URL».",
+    "uk": "Додайте саме цю адресу в OAuth2 › Redirects застосунку Discord. Вона будується з «Налаштування › Загальні › Публічний URL»."
+  },
+  "Allow instant messages": {
+    "ru": "Разрешить мгновенные сообщения",
+    "uk": "Дозволити миттєві повідомлення"
+  },
+  "Off: people can only pick the daily digest.": {
+    "ru": "Выключено: можно выбрать только ежедневную сводку.",
+    "uk": "Вимкнено: можна обрати лише щоденне зведення."
+  },
+  "Daily digest at": {
+    "ru": "Ежедневная сводка в",
+    "uk": "Щоденне зведення о"
+  },
+  "Broadcast targets": {
+    "ru": "Общие уведомления",
+    "uk": "Загальні сповіщення"
+  },
+  "Install-wide events to a service of yours: health, failed downloads, new requests.": {
+    "ru": "События всего сервера в ваш сервис: состояние, ошибки загрузок, новые запросы.",
+    "uk": "Події всього сервера у ваш сервіс: стан, помилки завантажень, нові запити."
+  },
+  "Set Settings › General › Public URL first: Discord sends people back to that address after they link.": {
+    "ru": "Сначала задайте «Настройки › Общие › Публичный URL»: Discord возвращает людей на этот адрес после привязки.",
+    "uk": "Спершу задайте «Налаштування › Загальні › Публічний URL»: Discord повертає людей на цю адресу після прив’язки."
   }
 }

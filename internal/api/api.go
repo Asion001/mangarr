@@ -75,6 +75,7 @@ func build(a *app.App) (http.Handler, *Server) {
 	s.registerAuth()
 	s.registerSystem()
 	s.registerSettings()
+	s.registerMessengerSettings()
 	s.registerModules()
 	for _, reg := range extraRoutes {
 		reg(s)

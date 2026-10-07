@@ -2,7 +2,7 @@ import { t } from "../../lib/i18n/core";
 import { Plus, Trash2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { api, unwrap, type S } from "../../api/client";
-import { Badge, Button, Card, ErrorBox, Field, IconButton, Input, Loading, PageHeader, SaveBar, Select, Switch, TagInput } from "../../components/ui";
+import { Badge, Button, Card, ErrorBox, Field, IconButton, Input, Loading, PageHeader, SaveBar, SecretInput, Select, Switch, TagInput } from "../../components/ui";
 import { useSettingsDoc } from "./useSettingsDoc";
 
 type SSO = S["SSOSettings"];
@@ -35,7 +35,7 @@ export function SingleSignOnPage() {
                   <Input value={c.clientId} onChange={(e) => patch({ clientId: e.target.value })} />
                 </Field>
                 <Field label={t("Client secret")} help={t("Leave as it is to keep the stored one.")}>
-                  <Input type="password" value={c.clientSecret ?? ""} onChange={(e) => patch({ clientSecret: e.target.value })} autoComplete="new-password" />
+                  <SecretInput value={c.clientSecret ?? ""} onChange={(clientSecret) => patch({ clientSecret })} />
                 </Field>
                 <Field label={t("Button label")}>
                   <Input value={c.buttonLabel} onChange={(e) => patch({ buttonLabel: e.target.value })} placeholder={t("Sign in with SSO")} />

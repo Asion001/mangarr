@@ -2,7 +2,7 @@ import { t, label as translateLabel } from "../lib/i18n/core";
 import { useDocumentTitle } from "../lib/documentTitle";
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
 import clsx from "clsx";
-import { ChevronDown, Loader2, Lock, X, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, Eye, EyeOff, Loader2, Lock, X, Plus, Trash2 } from "lucide-react";
 
 type Variant = "primary" | "secondary" | "danger" | "ghost";
 
@@ -56,6 +56,48 @@ const width = (className?: string) => (/(^|\s)(w-|flex-1)/.test(className ?? "")
 
 export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={clsx(inputCls, width(props.className), props.className)} />;
+}
+
+// the server sends a stored secret back as a mask (•••••••• or ********)
+const isMask = (v: string) => /^(•{4,}|\*{4,})$/.test(v);
+
+/**
+ * SecretInput is a password field with a button that shows or hides what is
+ * typed. A stored secret comes back masked: the field then shows an empty
+ * box saying so, typing replaces it, and clearing the box keeps it.
+ */
+export function SecretInput({ value, onChange, className, ...rest }: Omit<InputHTMLAttributes<HTMLInputElement>, "value" | "onChange" | "type"> & { value: string; onChange: (v: string) => void }) {
+  const [shown, setShown] = useState(false);
+  const [mask, setMask] = useState(() => (isMask(value) ? value : ""));
+  useEffect(() => {
+    if (isMask(value)) setMask(value);
+  }, [value]);
+  const saved = isMask(value);
+  return (
+    <div className={clsx("relative", width(className), className)}>
+      <input
+        {...rest}
+        type={shown ? "text" : "password"}
+        autoComplete="new-password"
+        spellCheck={false}
+        value={saved ? "" : value}
+        placeholder={saved ? t("Saved. Type to replace it.") : rest.placeholder}
+        onChange={(e) => onChange(e.target.value === "" && mask ? mask : e.target.value)}
+        className={clsx(inputCls, "w-full pr-9", shown && "font-mono")}
+      />
+      {!rest.disabled && !rest.readOnly && (
+        <button
+          type="button"
+          onClick={() => setShown(!shown)}
+          aria-label={shown ? t("Hide") : t("Show")}
+          aria-pressed={shown}
+          className="absolute inset-y-0 right-0 flex w-9 items-center justify-center text-muted hover:text-fg"
+        >
+          {shown ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+        </button>
+      )}
+    </div>
+  );
 }
 
 export function Textarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {

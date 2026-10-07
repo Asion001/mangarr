@@ -433,6 +433,7 @@ var Docs = []DocInfo{
 	{KeySchedule, "schedule", "SCHEDULE", func() any { v := Schedule{Windows: []ScheduleWindow{}}; return &v }},
 	{KeyReading, "reading", "READING", func() any { v := DefaultReading(); return &v }},
 	{KeyAppearance, "appearance", "APPEARANCE", func() any { v := DefaultAppearance(); return &v }},
+	{KeyMessenger, "messenger", "MESSENGER", func() any { v := DefaultMessenger(); return &v }},
 }
 
 // SetOverlay pins fields of document key: raw is a partial JSON object that

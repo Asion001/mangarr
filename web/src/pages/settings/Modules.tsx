@@ -7,6 +7,7 @@ import { useModules, useSchema } from "../../api/queries";
 import { DynamicForm, defaultsOf } from "../../components/DynamicForm";
 import { Badge, Button, Confirm, EmptyState, ErrorBox, Field, IconButton, Input, Loading, Modal, PageHeader, Switch } from "../../components/ui";
 import { useToast } from "../../lib/toast";
+import { MessengerBots } from "./MessengerBots";
 
 const titles: Record<string, { title: string; subtitle: string }> = {
   source: { title: "Source modules", subtitle: "Engines that find and download chapters (e.g. Suwayomi running Keiyoushi extensions)." },
@@ -103,6 +104,13 @@ export function ModulesPage({ kind }: { kind: string }) {
           <Button variant="primary" icon={<Plus className="size-4" />} onClick={() => setPicking(true)}>{translateUI("Add")}</Button>
         }
       />
+      {kind === "notify" && <MessengerBots />}
+      {kind === "notify" && (
+        <div className="mb-3">
+          <h2 className="text-base font-semibold">{tr("Broadcast targets")}</h2>
+          <p className="text-sm text-muted">{tr("Install-wide events to a service of yours: health, failed downloads, new requests.")}</p>
+        </div>
+      )}
       {isLoading && <Loading />}
       {error && <ErrorBox error={error} />}
       {mods?.length === 0 && <EmptyState title={translateUI("Nothing configured yet")}>{translateUI("Click “Add” to set one up.")}</EmptyState>}
