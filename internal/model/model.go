@@ -199,7 +199,7 @@ type ProfileConfig struct {
 	MinPages int `json:"minPages"`
 	// Upscale settings applied to chapters downloaded with this profile.
 	Upscale UpscaleConfig `json:"upscale"`
-	// Encode re-encodes pages to save space (AVIF, lossless JPEG XL).
+	// Encode re-encodes pages to save space (AVIF, JPEG XL).
 	Encode EncodeConfig `json:"encode"`
 	// Pages are size rules applied to every page, with or without upscaling.
 	Pages PageRules `json:"pages"`
@@ -275,11 +275,14 @@ const (
 // EncodeConfig re-encodes page images to save storage.
 type EncodeConfig struct {
 	// Format: keep, avif (lossy, much smaller) or jxl (lossless JPEG
-	// recompression, ~20% smaller and reversible).
+	// recompression, ~20% smaller and reversible; lossy with Lossy).
 	Format string `json:"format" enum:"keep,avif,jxl"`
+	// Lossy writes JPEG XL at Quality instead of recompressing losslessly.
+	// omitempty keeps the processing hash of profiles saved before it.
+	Lossy bool `json:"lossy,omitempty"`
 	// Preset trades speed for size: max (smallest), balanced, fast.
 	Preset string `json:"preset" enum:"max,balanced,fast"`
-	// Quality overrides the preset (AVIF 1-100; 0 = preset).
+	// Quality overrides the preset (AVIF and lossy JPEG XL 1-100; 0 = preset).
 	Quality int `json:"quality"`
 	// Speed overrides the preset (avifenc -s 0-10, cjxl effort 1-9; 0 = preset).
 	Speed int `json:"speed"`

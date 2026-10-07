@@ -1,6 +1,6 @@
 // Package imageenc re-encodes page images to save storage: lossy AVIF
 // (avifenc from libavif, or a slower built-in WebAssembly encoder) and
-// lossless JPEG XL recompression (cjxl). Each page is kept only when the new
+// JPEG XL (cjxl), lossless recompression or lossy. Each page is kept only when the new
 // file is meaningfully smaller, black-and-white pages are encoded without
 // color, and pages that are already AVIF/JXL (or animated GIFs) are left alone.
 package imageenc
@@ -28,7 +28,8 @@ import (
 // Options are resolved encoder parameters.
 type Options struct {
 	Format      string // avif or jxl
-	Quality     int    // AVIF 1-100
+	Quality     int    // AVIF and lossy JPEG XL 1-100
+	Lossy       bool   // lossy JPEG XL at Quality
 	Speed       int    // avifenc -s (0-10) / cjxl -e (1-9)
 	Progressive bool   // layered AVIF for incremental display
 	// Jobs is the encoder threads for one page (0 or 1 = single-threaded).
@@ -46,6 +47,13 @@ func Resolve(cfg model.EncodeConfig) Options {
 		if o.Speed == 0 {
 			o.Speed = 7
 		}
+		if o.Lossy = cfg.Lossy; o.Lossy {
+			// cjxl -q 90 is about visually lossless; line art holds up lower
+			o.Quality = map[string]int{"max": 75, "balanced": 80, "fast": 85}[cfg.Preset]
+			if o.Quality == 0 {
+				o.Quality = 80
+			}
+		}
 	default:
 		q := map[string][2]int{"max": {48, 3}, "balanced": {55, 6}, "fast": {60, 8}}[cfg.Preset]
 		if q == [2]int{} {
@@ -53,7 +61,7 @@ func Resolve(cfg model.EncodeConfig) Options {
 		}
 		o.Quality, o.Speed = q[0], q[1]
 	}
-	if cfg.Quality > 0 {
+	if cfg.Quality > 0 && (cfg.Format != "jxl" || cfg.Lossy) {
 		o.Quality = min(cfg.Quality, 100)
 	}
 	if cfg.Speed > 0 {
@@ -165,13 +173,13 @@ func (e *Encoder) Engines() []Engine { return append([]Engine(nil), e.engines...
 var ErrNoEngine = errors.New("no encoder for this format is installed")
 
 // skip reports pages that are never re-encoded.
-func skip(format, target string) bool {
+func skip(format string, cfg model.EncodeConfig) bool {
 	switch format {
 	case "avif", "jxl", "gif", "":
 		return true
 	}
 	// lossless JPEG XL only makes sense for JPEG (reversible) and PNG
-	return target == "jxl" && format != "jpeg" && format != "png"
+	return cfg.Format == "jxl" && !cfg.Lossy && format != "jpeg" && format != "png"
 }
 
 // EncodePages re-encodes pages into workDir and returns the pages to keep:
@@ -190,14 +198,14 @@ func (e *Encoder) EncodePages(ctx context.Context, pages []Page, cfg model.Encod
 	var wg sync.WaitGroup
 	skipped := 0
 	for _, p := range pages {
-		if skip(p.Format, cfg.Format) {
+		if skip(p.Format, cfg) {
 			skipped++
 		}
 	}
 	done := skipped
 	progress.Report(ctx, progress.Event{Stage: progress.StageEncode, Done: done, Total: len(pages)})
 	for i, p := range pages {
-		if skip(p.Format, cfg.Format) {
+		if skip(p.Format, cfg) {
 			continue
 		}
 		wg.Add(1)
@@ -274,7 +282,7 @@ func (e *Encoder) Stream(cfg model.EncodeConfig, workDir string) (*Stream, error
 // it isn't worth it or p is never re-encoded (AVIF, JXL, animations).
 // It is safe to call from many goroutines at once.
 func (s *Stream) Encode(ctx context.Context, p Page) (Page, error) {
-	if skip(p.Format, s.cfg.Format) {
+	if skip(p.Format, s.cfg) {
 		s.mu.Lock()
 		s.st.Skipped++
 		s.mu.Unlock()

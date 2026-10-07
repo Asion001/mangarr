@@ -2627,6 +2627,9 @@
           "grayscale": {
             "type": "boolean"
           },
+          "lossy": {
+            "type": "boolean"
+          },
           "minSavingsPct": {
             "format": "int64",
             "type": "integer"

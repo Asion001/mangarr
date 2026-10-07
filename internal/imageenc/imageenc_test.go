@@ -33,6 +33,15 @@ func TestResolve(t *testing.T) {
 	if o := Resolve(model.EncodeConfig{Format: "jxl", Preset: "balanced"}); o.Speed != 7 {
 		t.Fatalf("jxl: %+v", o)
 	}
+	if o := Resolve(model.EncodeConfig{Format: "jxl", Preset: "balanced", Quality: 60}); o.Lossy || o.Quality != 0 {
+		t.Fatalf("lossless jxl ignores quality: %+v", o)
+	}
+	if o := Resolve(model.EncodeConfig{Format: "jxl", Preset: "max", Lossy: true}); !o.Lossy || o.Quality != 75 || o.Speed != 9 {
+		t.Fatalf("lossy jxl: %+v", o)
+	}
+	if o := Resolve(model.EncodeConfig{Format: "jxl", Lossy: true, Quality: 90}); o.Quality != 90 {
+		t.Fatalf("lossy jxl override: %+v", o)
+	}
 	if o := Resolve(model.EncodeConfig{Format: "avif"}); !o.Progressive {
 		t.Fatalf("AVIF is always progressive: %+v", o)
 	}
@@ -299,5 +308,43 @@ func TestJobsSplitCoresByPageSize(t *testing.T) {
 	}
 	if got := (&Encoder{Threads: 8}).jobs(Page{Width: 2048, Height: 60000}); got != 1 {
 		t.Errorf("no budget: jobs %d, want 1", got)
+	}
+}
+
+func TestSkipLossyJXL(t *testing.T) {
+	lossless, lossy := model.EncodeConfig{Format: "jxl"}, model.EncodeConfig{Format: "jxl", Lossy: true}
+	if !skip("webp", lossless) || skip("jpeg", lossless) {
+		t.Fatal("lossless JPEG XL takes JPEG and PNG only")
+	}
+	if skip("webp", lossy) || !skip("jxl", lossy) {
+		t.Fatal("lossy JPEG XL takes WebP too, but not JPEG XL")
+	}
+}
+
+func TestCjxlArgs(t *testing.T) {
+	var got []string
+	orig := run
+	defer func() { run = orig }()
+	run = func(_ context.Context, name string, args ...string) ([]byte, error) {
+		got = append([]string{name}, args...)
+		return nil, nil
+	}
+	c := &Cjxl{Bin: "/usr/bin/cjxl"}
+	for _, tc := range []struct {
+		src  string
+		o    Options
+		want string
+	}{
+		{"jpeg", Options{Speed: 7}, "--lossless_jpeg=1"},
+		{"png", Options{Speed: 7}, "-d 0"},
+		{"jpeg", Options{Speed: 7, Lossy: true, Quality: 80}, "-q 80 --lossless_jpeg=0"},
+		{"png", Options{Speed: 7, Lossy: true, Quality: 85}, "-q 85"},
+	} {
+		if err := c.Encode(context.Background(), "in", tc.src, "out.jxl", tc.o, false); err != nil {
+			t.Fatal(err)
+		}
+		if a := strings.Join(got, " "); !strings.Contains(a, tc.want) {
+			t.Errorf("%s %+v: args %q missing %q", tc.src, tc.o, a, tc.want)
+		}
 	}
 }

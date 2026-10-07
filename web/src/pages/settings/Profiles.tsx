@@ -34,8 +34,8 @@ const emptyConfig: Cfg = {
 const defaultJunk = 300;
 const defaultLowRes = 720;
 
-// AVIF quality each speed preset uses when Quality is left empty (imageenc.Resolve)
-const presetQuality: Record<Preset, number> = { fast: 60, balanced: 55, max: 48 };
+// quality each speed preset uses when Quality is left empty (imageenc.Resolve)
+const presetQuality: Record<"avif" | "jxl", Record<Preset, number>> = { avif: { fast: 60, balanced: 55, max: 48 }, jxl: { fast: 85, balanced: 80, max: 75 } };
 
 // reader support for re-encoded pages (see docs/setup.md)
 const compat: Record<string, { yes: string; no: string; note?: string }> = {
@@ -44,7 +44,7 @@ const compat: Record<string, { yes: string; no: string; note?: string }> = {
     no: "Chunky",
     note: "KOReader through mangarr's OPDS catalog, which converts pages to JPEG; Chunky through Komga's OPDS; 32-bit ARM Komga can't read AVIF.",
   },
-  jxl: { yes: "Mihon 0.17+, Tachimanga, Panels (iOS 17+), Komga", no: "Kavita", note: "JPEG pages can be restored bit for bit. KOReader through mangarr's OPDS catalog, which converts pages to JPEG." },
+  jxl: { yes: "Mihon 0.17+, Tachimanga, Panels (iOS 17+), Komga", no: "Kavita", note: "KOReader through mangarr's OPDS catalog, which converts pages to JPEG." },
 };
 
 /** normalize fills defaults and maps older upscale formats onto "Save pages as". */
@@ -60,7 +60,11 @@ function normalize(profile: Profile): Profile {
   return { ...profile, config: { ...emptyConfig, ...profile.config, upscale, encode, pages, lowRes } };
 }
 
-const formatName = (f: Cfg["encode"]["format"]) => (f === "avif" ? "AVIF" : f === "jxl" ? "JPEG XL" : "");
+const formatName = (e: Pick<Cfg["encode"], "format" | "lossy">) => (e.format === "avif" ? "AVIF" : e.format === "jxl" ? (e.lossy ? tr("JPEG XL, lossy") : "JPEG XL") : "");
+
+// "Save pages as" choices: a format, and lossless or lossy for JPEG XL
+type SaveAs = Cfg["encode"]["format"] | "jxl-lossy";
+const saveAsOf = (e: Cfg["encode"]): SaveAs => (e.format === "jxl" && e.lossy ? "jxl-lossy" : e.format);
 const presetName = (p: Preset) => (p === "fast" ? tr("Fast") : p === "max" ? tr("Smallest") : tr("Balanced"));
 
 /** processingSummary is the one-line pipeline of a profile, e.g. "Upscale under 1400 px → AVIF". */
@@ -69,7 +73,7 @@ function processingSummary(c: Cfg) {
   if (c.pages?.maxWidth) steps.push(tr("shrink over {px} px", { px: c.pages.maxWidth }));
   if (c.upscale.enabled) steps.push(tr("Upscale under {px} px", { px: c.upscale.minWidth }));
   if (c.pages?.splitTall) steps.push(tr("Split strips over {ratio}× width", { ratio: c.pages.splitRatio || 3 }));
-  if (c.encode?.format && c.encode.format !== "keep") steps.push(formatName(c.encode.format));
+  if (c.encode?.format && c.encode.format !== "keep") steps.push(formatName(c.encode));
   return steps.length ? steps.join(" → ") : tr("Pages as downloaded");
 }
 
@@ -248,11 +252,13 @@ function ProfileEditor({ profile, onClose }: { profile: Profile; onClose: () => 
     { value: "processing", label: tr("Page processing"), hint: processingSummary(cfg) },
     { value: "cleanup", label: tr("Cleanup"), hint: cleanupMode === "inherit" ? tr("Library default") : cleanupMode === "never" ? tr("Never") : tr("Custom") },
   ];
-  const saveAs: { value: Cfg["encode"]["format"]; name: string; desc: string }[] = [
+  const saveAs: { value: SaveAs; name: string; desc: string }[] = [
     { value: "keep", name: tr("As downloaded"), desc: up.enabled ? tr("Upscaled pages keep their format; the rest stay untouched.") : tr("Pages stay exactly as the source sent them.") },
     { value: "avif", name: "AVIF", desc: tr("Smallest files, typically 40–70% less. Lossy.") },
     { value: "jxl", name: "JPEG XL", desc: tr("Lossless. About 20% less for JPEG pages.") },
+    { value: "jxl-lossy", name: tr("JPEG XL, lossy"), desc: tr("Smaller than lossless at a quality you choose. Keeps fine lines well.") },
   ];
+  const lossy = enc.format === "avif" || (enc.format === "jxl" && enc.lossy);
   const c = compat[enc.format];
 
   return (
@@ -369,7 +375,7 @@ function ProfileEditor({ profile, onClose }: { profile: Profile; onClose: () => 
                 <ArrowRight className="size-4 text-muted" />
                 <span className={clsx("rounded px-2.5 py-1", encoding ? "bg-accent/15 text-accent-2" : "bg-panel-2 text-fg/80")}>
                   {encoding
-                    ? t("Save as {format} · {speed}", { format: formatName(enc.format), speed: presetName(enc.preset).toLowerCase() })
+                    ? t("Save as {format} · {speed}", { format: formatName(enc), speed: presetName(enc.preset).toLowerCase() })
                     : up.enabled || pg.splitTall
                       ? t("Keep each page's format")
                       : t("Saved as downloaded")}
@@ -460,16 +466,16 @@ function ProfileEditor({ profile, onClose }: { profile: Profile; onClose: () => 
               </Step>
 
               <Step n={4} title={t("Save pages as")} hint={encoding && (up.enabled || pg.splitTall) ? t("Changed pages go straight into it, lossless.") : undefined}>
-                <div role="radiogroup" aria-label={t("Save pages as")} className="grid gap-2 sm:grid-cols-3">
+                <div role="radiogroup" aria-label={t("Save pages as")} className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                   {saveAs.map((f) => (
-                    <label key={f.value} className={clsx("flex cursor-pointer flex-col gap-1 rounded-md border p-2.5", enc.format === f.value ? "border-accent bg-accent/8" : "border-border hover:border-muted")}>
+                    <label key={f.value} className={clsx("flex cursor-pointer flex-col gap-1 rounded-md border p-2.5", saveAsOf(enc) === f.value ? "border-accent bg-accent/8" : "border-border hover:border-muted")}>
                       <span className="flex items-center gap-2 text-sm font-semibold">
                         <input
                           type="radio"
                           name="save-as"
                           className="accent-accent"
-                          checked={enc.format === f.value}
-                          onChange={() => setEnc({ format: f.value, progressive: false })}
+                          checked={saveAsOf(enc) === f.value}
+                          onChange={() => setEnc({ format: f.value === "jxl-lossy" ? "jxl" : f.value, lossy: f.value === "jxl-lossy", progressive: false })}
                         />
                         {f.name}
                       </span>
@@ -494,13 +500,13 @@ function ProfileEditor({ profile, onClose }: { profile: Profile; onClose: () => 
                       />
                       <span className="text-xs text-muted">{t("Smallest is much slower")}</span>
                     </div>
-                    {enc.format === "avif" && (
+                    {lossy && (
                       <Field label={t("Quality")} help={t("1–100, empty follows speed")}>
                         <Input
                           type="number"
                           min={0}
                           max={100}
-                          placeholder={t("Auto ({q})", { q: presetQuality[enc.preset] })}
+                          placeholder={t("Auto ({q})", { q: presetQuality[enc.format === "jxl" ? "jxl" : "avif"][enc.preset] })}
                           value={enc.quality || ""}
                           onChange={(e) => setEnc({ quality: Number(e.target.value) || 0 })}
                         />
@@ -642,7 +648,7 @@ function PipelinePreview({ upscale, encode, pages, onClose }: { upscale: Cfg["up
   const res = run.data;
   const noUpscaler = run.error instanceof ApiError && run.error.status === 409;
   const img = (i: number, v: "original" | "encoded") => apiUrl(`api/v1/processing/preview/${res!.token}/${i}/${v}`);
-  const steps = [pages.maxWidth > 0 && t("shrink"), upscaling && t("upscale"), pages.splitTall && t("split"), encoding && formatName(encode.format)].filter(Boolean).join(" → ");
+  const steps = [pages.maxWidth > 0 && t("shrink"), upscaling && t("upscale"), pages.splitTall && t("split"), encoding && formatName(encode)].filter(Boolean).join(" → ");
   return (
     <Modal open onClose={onClose} title={<span className="flex flex-wrap items-baseline gap-x-3">{t("Preview: {steps}", { steps })}<span className="text-xs font-normal text-muted">{t("Uses the unsaved settings")}</span></span>} size="xl">
       <div className="mb-4 flex flex-wrap items-end gap-2">
@@ -677,7 +683,7 @@ function PipelinePreview({ upscale, encode, pages, onClose }: { upscale: Cfg["up
               <Link to="/system/workers" className="font-semibold text-accent-2 hover:underline">{t("Open Workers")}</Link>
               {encoding && (
                 <button type="button" className="font-semibold text-accent-2 hover:underline" onClick={() => (setEncodeOnly(true), run.reset())}>
-                  {t("Preview {format} only", { format: formatName(encode.format) })}
+                  {t("Preview {format} only", { format: formatName(encode) })}
                 </button>
               )}
             </span>

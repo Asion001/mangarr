@@ -95,7 +95,7 @@ func (a *Avifenc) Encode(ctx context.Context, src, _ /*srcFormat*/, dst string, 
 	return nil
 }
 
-// Cjxl runs libjxl's cjxl for lossless JPEG recompression.
+// Cjxl runs libjxl's cjxl: lossless JPEG recompression, or lossy at a quality.
 type Cjxl struct {
 	Bin     string
 	Version string
@@ -121,9 +121,13 @@ func (c *Cjxl) Accepts(format string) bool { return format == "jpeg" || format =
 
 func (c *Cjxl) Encode(ctx context.Context, src, srcFormat, dst string, o Options, _ bool) error {
 	args := []string{src, dst, "-e", strconv.Itoa(min(max(o.Speed, 1), 9)), "--num_threads", strconv.Itoa(max(o.Jobs, 1)), "--quiet"}
-	if srcFormat == "jpeg" {
+	switch {
+	case o.Lossy:
+		// JPEG input is recompressed losslessly unless told otherwise
+		args = append(args, "-q", strconv.Itoa(min(max(o.Quality, 1), 100)), "--lossless_jpeg=0")
+	case srcFormat == "jpeg":
 		args = append(args, "--lossless_jpeg=1")
-	} else {
+	default:
 		args = append(args, "-d", "0")
 	}
 	bin, args := niceArgs(c.Bin, args)

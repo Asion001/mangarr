@@ -8642,5 +8642,13 @@
   "A notification target someone made for themselves was turned off: people link Telegram or Discord on My account now.": {
     "ru": "Отключено уведомление, которое кто-то настроил себе сам. Теперь люди привязывают Telegram или Discord в «Моём аккаунте».",
     "uk": "Вимкнено сповіщення, яке хтось налаштував собі сам. Тепер люди прив’язують Telegram чи Discord у «Моєму акаунті»."
+  },
+  "JPEG XL, lossy": {
+    "ru": "JPEG XL с потерями",
+    "uk": "JPEG XL із втратами"
+  },
+  "Smaller than lossless at a quality you choose. Keeps fine lines well.": {
+    "ru": "Меньше, чем без потерь, с выбранным качеством. Хорошо сохраняет тонкие линии.",
+    "uk": "Менше, ніж без втрат, з обраною якістю. Добре зберігає тонкі лінії."
   }
 }

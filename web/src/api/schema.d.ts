@@ -4380,6 +4380,7 @@ export interface components {
             /** @enum {string} */
             format: "keep" | "avif" | "jxl";
             grayscale: boolean;
+            lossy?: boolean;
             /** Format: int64 */
             minSavingsPct: number;
             /** @enum {string} */

@@ -488,6 +488,7 @@ same split to files already in the library.
 |---|---|---|
 | AVIF (lossy) | typically 40–70% | Chunky only through Komga's OPDS (Komga converts); 32-bit ARM Komga. KOReader reads it through mangarr's `/opds`, which converts to JPEG |
 | JPEG XL (lossless, JPEG pages only) | ~20%, reversible | Kavita. KOReader reads it through mangarr's `/opds`, which converts to JPEG |
+| JPEG XL (lossy, quality 1–100) | depends on quality; more than lossless | Same as lossless JPEG XL |
 
 Mihon 0.17+, Tachimanga, Panels (iOS 17+) and Komga's official amd64/arm64
 image read both. After the first re-encoded chapter mangarr asks Komga whether

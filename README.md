@@ -72,7 +72,8 @@ which mangarr tells to rescan after every change.
 - **Fast webtoons** (off by default) — tall strips are split near quiet rows
   after upscaling, so readers can download and decode smaller pages sooner.
 - **Re-encoding to save space** (off by default) — AVIF (typically 40–70%
-  smaller) or lossless JPEG XL (~20%, reversible). Chapters are readable right
+  smaller) or JPEG XL (lossless, ~20% and reversible, or lossy at a set
+  quality). Chapters are readable right
   away and processed in the background, at the same path; mangarr checks that
   Komga can read the new format before continuing.
 - **Share it with friends** — accounts with their own progress, devices and
