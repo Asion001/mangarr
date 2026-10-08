@@ -43,6 +43,12 @@ test("large chapter tables render a small remembered page while bulk selection s
   await page.reload();
   await expect(pageSize).toHaveValue("50");
   await expect(page.getByRole("table").locator("tbody > tr")).toHaveCount(50);
+
+  // the page survives a reload too
+  await page.getByRole("button", { name: "Next" }).click();
+  await expect(page).toHaveURL(/chapterPage=2/);
+  await page.reload();
+  await expect(page.getByText("51–100 / 250")).toBeVisible();
 });
 
 test("desktop reading actions stay aligned and queue controls expand below the row", async ({ page }) => {

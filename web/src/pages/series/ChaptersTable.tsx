@@ -70,7 +70,10 @@ export function ChaptersTable({ seriesId, manage = true, nextChapterId, editions
   const [explain, setExplain] = useState<Chapter | null>(null);
   const [deleteIds, setDeleteIds] = useState<number[]>([]);
   const [deleting, setDeleting] = useState(false);
-  const [page, setPage] = useState(1);
+  // the page is in the URL, so a reload or Back returns to it
+  const [pageParam, setPageParam] = useListParam("chapterPage", "1");
+  const page = Math.max(1, Number(pageParam) || 1);
+  const setPage = useCallback((next: number) => setPageParam(String(next)), [setPageParam]);
   const [filterParam, setFilter] = useListParam("chapters", "all");
   const [pageSizeParam, setPageSize] = useStoredListParam("chapterPageSize", "25", "mangarr:chapters:page-size", chapterPageSizes);
   const filter = filterParam as "all" | "missing" | "downloaded";
@@ -178,7 +181,7 @@ export function ChaptersTable({ seriesId, manage = true, nextChapterId, editions
   const goToPage = useCallback((next: number) => {
     setPage(next);
     requestAnimationFrame(() => tableTop.current?.scrollIntoView({ block: "start" }));
-  }, []);
+  }, [setPage]);
 
   const sel = [...selected];
   const selectedJobs = list.filter((chapter) => selected.has(chapter.id) && chapter.job).length;
