@@ -2,7 +2,7 @@ import { useUIMode } from "../../lib/uiPreferences";
 import { useDocumentTitle } from "../../lib/documentTitle";
 import { t as tr, t } from "../../lib/i18n/core";
 import { useState } from "react";
-import { Link, useNavigate, useParams } from "react-router";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { Bell, BellOff, Plus, BookOpen, ExternalLink, Eye, FilePen, HardDrive, Pencil, RefreshCw, Search, Sparkles, Trash2, FileSearch, BookText, Link2, Unlink } from "lucide-react";
 import { api, apiUrl, unwrap, type Chapter, type S } from "../../api/client";
@@ -18,7 +18,7 @@ import { ChaptersTable, readable } from "./ChaptersTable";
 import { EditSeriesModal } from "./EditSeriesModal";
 import { RenameModal } from "./Organize";
 import { useAccount } from "../../lib/account";
-import { AddLanguageModal } from "./AddLanguage";
+import { AddLanguageModal, RequestLanguageModal } from "./AddLanguage";
 import { PreviewBanner } from "./Preview";
 import { AdaptationsChip } from "./Adaptations";
 
@@ -46,6 +46,19 @@ export function SeriesDetail() {
   const [groupTarget, setGroupTarget] = useState("");
   const [groupBusy, setGroupBusy] = useState(false);
   const [addingLang, setAddingLang] = useState(false);
+  // a request for another language, opened from Requests: ?addLanguage=xx&request=id
+  const [params, setParams] = useSearchParams();
+  const requestedLang = params.get("addLanguage") ?? "";
+  const fulfils = Number(params.get("request") ?? 0);
+  const handlesRequests = can(["library.manage", "requests.manage"]) && !s?.preview;
+  const closeRequested = () => {
+    const next = new URLSearchParams(params);
+    next.delete("addLanguage");
+    next.delete("request");
+    setParams(next, { replace: true });
+  };
+  // people who can't add a language ask for one
+  const asksLang = !manage && !s?.preview && can("requests.create") && account?.kind === "user";
 
   if (isLoading) return <Loading />;
   if (error || !s) return <ErrorBox error={error ?? "Series not found"} />;
@@ -123,7 +136,7 @@ export function SeriesDetail() {
           </div>
         </div>
         <div className="col-span-2 min-w-0 md:col-span-1 md:col-start-2">
-          {((s.editions?.length ?? 0) > 1 || manage) && (
+          {((s.editions?.length ?? 0) > 1 || manage || asksLang) && (
             <nav className="mt-3 flex flex-wrap gap-2" aria-label={t("Language editions")}>
               {(s.editions ?? []).map((edition) => (
                 <Link
@@ -136,10 +149,11 @@ export function SeriesDetail() {
                   {edition.title !== s.title && <span className="ml-2 text-muted">{edition.title}</span>}
                 </Link>
               ))}
-              {manage && (
+              {(manage || asksLang) && (
                 <button
                   type="button"
                   onClick={() => setAddingLang(true)}
+                  title={manage ? undefined : t("Ask for this title in another language")}
                   className="inline-flex items-center gap-1 rounded-md border border-dashed border-border px-3 py-1.5 text-sm text-accent-2 hover:border-accent/60"
                 >
                   <Plus className="size-4" />{t("Add language")}
@@ -236,6 +250,8 @@ export function SeriesDetail() {
       {manage && edit && <EditSeriesModal series={s} onClose={() => setEdit(false)} />}
       {manage && renaming && <RenameModal seriesIds={[id]} onClose={() => setRenaming(false)} />}
       {manage && addingLang && <AddLanguageModal series={s} onClose={() => setAddingLang(false)} />}
+      {asksLang && addingLang && <RequestLanguageModal series={s} onClose={() => setAddingLang(false)} />}
+      {handlesRequests && !!requestedLang && fulfils > 0 && <AddLanguageModal series={s} initialLang={requestedLang} requestId={fulfils} onClose={closeRequested} />}
       {manage && grouping && (
         <Modal open onClose={() => setGrouping(false)} title={t("Group language edition")}>
           <p className="mb-4 text-sm text-muted">{t("Choose the title this edition belongs to. Files, sources, and settings stay separate; reading progress, the cover and the title's info are shared.")}</p>

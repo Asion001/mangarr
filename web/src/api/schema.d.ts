@@ -1847,7 +1847,7 @@ export interface paths {
         /** Requests: yours, or everyone's (all=true, for managers) */
         get: operations["requests-list"];
         put?: never;
-        /** Ask for a series found with the series lookup (joins an open request for it) */
+        /** Ask for a series found with the series lookup, or another language of a series (joins an open request for it) */
         post: operations["requests-create"];
         delete?: never;
         options?: never;
@@ -5938,11 +5938,14 @@ export interface components {
             count: number;
             /** Format: date-time */
             createdAt: string;
+            /** Format: int64 */
+            editionOf?: number;
             /** Format: date-time */
             handledAt?: string;
             handledBy?: string;
             /** Format: int64 */
             id: number;
+            language?: string;
             metadata: components["schemas"]["RequestMetadata"];
             mine: boolean;
             reason?: string;
@@ -5955,6 +5958,8 @@ export interface components {
             title: string;
             /** Format: date-time */
             updatedAt: string;
+            /** Format: int64 */
+            workId?: number;
         };
         RequestMetadata: {
             adult?: boolean;
@@ -5988,10 +5993,18 @@ export interface components {
             pending: number;
         };
         "Requests-createRequest": {
-            id: string;
+            /** @description Metadata id from the series lookup */
+            id?: string;
+            /** @description The edition asked for, one of GET /api/v1/languages (empty: the default languages) */
+            language?: string;
             /** Format: int64 */
-            moduleId: number;
+            moduleId?: number;
             note?: string;
+            /**
+             * Format: int64
+             * @description A series in the library, to ask for another language of it
+             */
+            seriesId?: number;
         };
         "Requests-createResponse": {
             joined: boolean;

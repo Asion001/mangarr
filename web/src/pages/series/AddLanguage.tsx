@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import clsx from "clsx";
 import { X } from "lucide-react";
 import { api, unwrap, type S, type SourceManga } from "../../api/client";
-import { Badge, Button, IconButton, Modal, Spinner } from "../../components/ui";
+import { Badge, Button, IconButton, Modal, Select, Spinner, Textarea } from "../../components/ui";
 import { LanguageSelect, useLanguageFolders, useOfferedLanguages } from "../../components/LanguageSelect";
 import { languageName } from "../../lib/format";
 import { useToast } from "../../lib/toast";
@@ -19,10 +19,16 @@ type Monitor = "all" | "future" | "none";
  * prefilled (the first primary, the rest fallbacks). Review, choose what to
  * download, add. A language the title already has gets the sources instead.
  */
-export function AddLanguageModal({ series, onClose }: { series: S["SeriesResource"]; onClose: () => void }) {
+export function AddLanguageModal({ series, onClose, initialLang, requestId }: {
+  series: S["SeriesResource"];
+  onClose: () => void;
+  initialLang?: string;
+  /** requestId is the request this fulfils (linked once added). */
+  requestId?: number;
+}) {
   const have = new Set((series.editions ?? []).map((e) => e.language));
   const langs = useOfferedLanguages().languages;
-  const [chosen, setLang] = useState<string | null>(null);
+  const [chosen, setLang] = useState<string | null>(initialLang || null);
   // until you pick, the first language this title doesn't have yet
   const lang = chosen ?? langs.find((l) => !have.has(l)) ?? "";
   const titles = [...new Set([series.workTitle, series.title, ...(series.metadata.altTitles ?? [])].filter((x): x is string => !!x))];
@@ -68,11 +74,13 @@ export function AddLanguageModal({ series, onClose }: { series: S["SeriesResourc
             monitor,
             monitorNew: monitor === "none" ? "none" : "all",
             searchMissing: monitor === "all",
+            requestId: requestId || undefined,
           },
         }),
       );
       qc.invalidateQueries({ queryKey: ["series"] });
       qc.invalidateQueries({ queryKey: ["rootfolders"] });
+      qc.invalidateQueries({ queryKey: ["requests"] });
       const e = res.editions[0];
       toast.success(t("{lang} edition added", { lang: languageName(lang) }), monitor === "all" ? t("Fetching chapters…") : undefined);
       onClose();
@@ -177,6 +185,72 @@ export function AddLanguageModal({ series, onClose }: { series: S["SeriesResourc
             <Button className="self-start" onClick={() => setSearchingMore(true)}>{t("Search sources")}</Button>
           )}
         </div>
+      )}
+    </Modal>
+  );
+}
+
+/**
+ * RequestLanguageModal asks for this title in another language, for people
+ * who can't add one themselves: a manager adds it (or it is added
+ * automatically for their group) and they hear when it arrives.
+ */
+export function RequestLanguageModal({ series, onClose }: { series: S["SeriesResource"]; onClose: () => void }) {
+  const have = new Set((series.editions ?? []).map((e) => e.language));
+  const langs = useOfferedLanguages().languages.filter((l) => !have.has(l));
+  const [chosen, setLang] = useState<string | null>(null);
+  const lang = chosen ?? langs[0] ?? "";
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const qc = useQueryClient();
+  const toast = useToast();
+  const send = async () => {
+    if (busy || !lang) return;
+    setBusy(true);
+    try {
+      const res = await unwrap(api.POST("/api/v1/requests", { body: { seriesId: series.id, language: lang, note: note.trim() || undefined } }));
+      qc.invalidateQueries({ queryKey: ["requests"] });
+      toast.success(
+        res.joined ? t("Added you to the request") : t("Requested"),
+        res.joined ? t("Someone asked for it already; you'll be told too.") : t("You'll be told when it's added."),
+      );
+      onClose();
+    } catch (err) {
+      toast.fromError(err, t("Couldn't request it"));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={t("Request {title} in another language", { title: series.workTitle || series.title })}
+      size="sm"
+      footer={
+        <>
+          <Button onClick={onClose}>{t("Cancel")}</Button>
+          <Button variant="primary" loading={busy} disabled={!lang} onClick={() => void send()}>{t("Request")}</Button>
+        </>
+      }
+    >
+      {langs.length ? (
+        <div className="flex flex-col gap-4">
+          <label className="flex flex-col gap-1.5 text-sm font-medium">
+            {t("Language")}
+            <Select value={lang} onChange={(e) => setLang(e.target.value)} className="w-52">
+              {langs.map((code) => (
+                <option key={code} value={code}>{languageName(code)}</option>
+              ))}
+            </Select>
+          </label>
+          <label className="flex flex-col gap-1.5 text-sm font-medium">
+            {t("Note (optional)")}
+            <Textarea value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} />
+          </label>
+        </div>
+      ) : (
+        <p className="text-sm text-muted">{t("This title is here in every language the server is set up for.")}</p>
       )}
     </Modal>
   );

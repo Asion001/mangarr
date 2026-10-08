@@ -8686,5 +8686,29 @@
   "See downloads and processing": {
     "ru": "Просмотр загрузок и обработки",
     "uk": "Перегляд завантажень і обробки"
+  },
+  "Added you to the request": {
+    "ru": "Вы добавлены к запросу",
+    "uk": "Вас додано до запиту"
+  },
+  "Someone asked for it already; you'll be told too.": {
+    "ru": "Кто-то уже попросил это; вам тоже сообщат.",
+    "uk": "Хтось уже попросив це; вам теж повідомлять."
+  },
+  "You'll be told when it's added.": {
+    "ru": "Вам сообщат, когда его добавят.",
+    "uk": "Вам повідомлять, коли його додадуть."
+  },
+  "Request {title} in another language": {
+    "ru": "Запросить {title} на другом языке",
+    "uk": "Запитати {title} іншою мовою"
+  },
+  "This title is here in every language the server is set up for.": {
+    "ru": "Этот тайтл уже есть на всех языках, настроенных на сервере.",
+    "uk": "Цей тайтл уже є всіма мовами, налаштованими на сервері."
+  },
+  "Ask for this title in another language": {
+    "ru": "Попросить этот тайтл на другом языке",
+    "uk": "Попросити цей тайтл іншою мовою"
   }
 }

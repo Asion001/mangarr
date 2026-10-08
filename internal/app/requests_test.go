@@ -109,7 +109,8 @@ func testRequests(t *testing.T, dsn string) {
 	captured.m = map[string][]notify.Message{}
 	captured.Unlock()
 	sc := fakesource.NewScenario("requests")
-	sc.Sources = []source.SourceInfo{{ID: "A", Name: "Source A", Lang: "en"}}
+	sc.Sources = []source.SourceInfo{{ID: "A", Name: "Source A", Lang: "en"}, {ID: "R", Name: "Source R", Lang: "ru"}}
+	sc.AddManga(&fakesource.Manga{SourceID: "R", URL: "/bl-ru", Title: "Blue Lock", Status: source.StatusOngoing})
 	sc.AddManga(&fakesource.Manga{SourceID: "A", URL: "/bl", Title: "Blue Lock", Status: source.StatusOngoing, Chapters: []fakesource.Chapter{
 		{URL: "/bl/1", Name: "Chapter 1", Number: 1, Uploaded: time.Now()}}})
 	sc.AddManga(&fakesource.Manga{SourceID: "A", URL: "/k8", Title: "Kaiju No. 8", Status: source.StatusOngoing, Chapters: []fakesource.Chapter{
@@ -168,12 +169,12 @@ func testRequests(t *testing.T, dsn string) {
 	}
 
 	// Ann asks; Bob asks for the same one and joins her request
-	v, joined, err := e.App.Requests.Create(ctx, pAnn, meta.ID, "42", "please!")
+	v, joined, err := e.App.Requests.Create(ctx, pAnn, requests.CreateInput{ModuleID: meta.ID, MetaID: "42", Note: "please!"})
 	if err != nil || joined || v.Status != model.RequestPending || v.Title != "Blue Lock" || v.Metadata.ExternalIDs["fakemeta"] != "42" {
 		t.Fatalf("create %+v %v %v", v, joined, err)
 	}
 	waitFor(t, 5*time.Second, "the install hears about the request", func() bool { return hasTitle(capturedFor("install"), "New request: Blue Lock") })
-	v2, joined, err := e.App.Requests.Create(ctx, pBob, meta.ID, "42", "")
+	v2, joined, err := e.App.Requests.Create(ctx, pBob, requests.CreateInput{ModuleID: meta.ID, MetaID: "42", Note: ""})
 	if err != nil || !joined || v2.ID != v.ID || v2.Count != 2 {
 		t.Fatalf("join %+v %v %v", v2, joined, err)
 	}
@@ -232,12 +233,42 @@ func testRequests(t *testing.T, dsn string) {
 	}
 
 	// asking for something in the library says so
-	if _, _, err := e.App.Requests.Create(ctx, pAnn, meta.ID, "42", ""); !errors.As(err, new(requests.AvailableError)) {
+	if _, _, err := e.App.Requests.Create(ctx, pAnn, requests.CreateInput{ModuleID: meta.ID, MetaID: "42", Note: ""}); !errors.As(err, new(requests.AvailableError)) {
 		t.Fatalf("request for a series in the library: %v", err)
 	}
 
+	// another language of it: only one the server is set up for, and one
+	// it has already is in the library
+	if _, err := e.App.DB.NewInsert().Model(&model.RootFolder{Path: t.TempDir(), Language: "ru", CreatedAt: time.Now().UTC()}).Exec(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := e.App.Requests.Create(ctx, pAnn, requests.CreateInput{SeriesID: ser.ID, Language: "xx"}); !errors.As(err, new(requests.ValidationError)) {
+		t.Fatalf("a language the server isn't set up for: %v", err)
+	}
+	if _, _, err := e.App.Requests.Create(ctx, pAnn, requests.CreateInput{SeriesID: ser.ID, Language: "en"}); !errors.As(err, new(requests.AvailableError)) {
+		t.Fatalf("a language the title has: %v", err)
+	}
+	ru, joined, err := e.App.Requests.Create(ctx, pAnn, requests.CreateInput{SeriesID: ser.ID, Language: "ru"})
+	if err != nil || joined || ru.Language != "ru" || ru.WorkID == nil || *ru.WorkID != ser.WorkID || ru.EditionOf != ser.ID || ru.Title != "Blue Lock" {
+		t.Fatalf("language request %+v %v %v", ru, joined, err)
+	}
+	// the same language from the metadata search joins it
+	if again, joined, err := e.App.Requests.Create(ctx, pBob, requests.CreateInput{ModuleID: meta.ID, MetaID: "42", Language: "ru"}); err != nil || !joined || again.ID != ru.ID {
+		t.Fatalf("join the language request %+v %v %v", again, joined, err)
+	}
+	// adding the Russian edition fulfils it
+	added, err := e.App.Series.AddEditions(ctx, series.AddEditionsRequest{WorkID: ser.WorkID, Monitor: model.MonitorNone, NoRefresh: true,
+		Sources: []series.SourceLink{{ModuleID: src, SourceID: "R", URL: "/bl-ru", SourceName: "Source R", Lang: "ru"}}})
+	if err != nil || len(added.Editions) != 1 {
+		t.Fatalf("add the ru edition %+v %v", added, err)
+	}
+	waitFor(t, 5*time.Second, "the language request is approved", func() bool {
+		r, _ := e.App.Requests.Get(ctx, pBoss, ru.ID)
+		return r.Status == model.RequestApproved && r.SeriesID != nil && *r.SeriesID == added.Editions[0].ID
+	})
+
 	// declined, and withdrawn
-	k, _, err := e.App.Requests.Create(ctx, pAnn, meta.ID, "7", "")
+	k, _, err := e.App.Requests.Create(ctx, pAnn, requests.CreateInput{ModuleID: meta.ID, MetaID: "7", Note: ""})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -258,7 +289,7 @@ func testRequests(t *testing.T, dsn string) {
 	if _, err := e.App.Requests.Get(ctx, pBoss, k.ID); err != nil {
 		t.Fatalf("a declined request stays for the record: %v", err)
 	}
-	p, _, _ := e.App.Requests.Create(ctx, pBob, meta.ID, "7", "")
+	p, _, _ := e.App.Requests.Create(ctx, pBob, requests.CreateInput{ModuleID: meta.ID, MetaID: "7", Note: ""})
 	if err := e.App.Requests.Withdraw(ctx, p.ID, bob.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -273,7 +304,7 @@ func testRequests(t *testing.T, dsn string) {
 	}
 	carl, _ := e.App.Auth.CreateUser(ctx, auth.NewUser{Username: "carl", Password: "carl-pass-1", GroupID: trusted.ID})
 	pCarl, _ := e.App.Auth.UserPrincipal(ctx, carl.ID)
-	auto, _, err := e.App.Requests.Create(ctx, pCarl, meta.ID, "7", "")
+	auto, _, err := e.App.Requests.Create(ctx, pCarl, requests.CreateInput{ModuleID: meta.ID, MetaID: "7", Note: ""})
 	if err != nil {
 		t.Fatal(err)
 	}

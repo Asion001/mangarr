@@ -17,7 +17,10 @@ type RequestView = requests.Request
 
 func requestError(err error) error {
 	var av requests.AvailableError
+	var bad requests.ValidationError
 	switch {
+	case errors.As(err, &bad):
+		return huma.Error400BadRequest(bad.Msg)
 	case errors.As(err, &av):
 		return huma.Error409Conflict("already in the library")
 	case errors.Is(err, requests.ErrNotFound):
@@ -69,11 +72,13 @@ func (s *Server) registerRequests() {
 		})
 
 	huma.Register(s.api, huma.Operation{OperationID: "requests-create", Method: http.MethodPost, Path: "/api/v1/requests", Tags: tags,
-		Summary: "Ask for a series found with the series lookup (joins an open request for it)"},
+		Summary: "Ask for a series found with the series lookup, or another language of a series (joins an open request for it)"},
 		func(ctx context.Context, in *struct {
 			Body struct {
-				ModuleID int64  `json:"moduleId"`
-				ID       string `json:"id" minLength:"1"`
+				ModuleID int64  `json:"moduleId,omitempty"`
+				ID       string `json:"id,omitempty" doc:"Metadata id from the series lookup"`
+				SeriesID int64  `json:"seriesId,omitempty" doc:"A series in the library, to ask for another language of it"`
+				Language string `json:"language,omitempty" maxLength:"20" doc:"The edition asked for, one of GET /api/v1/languages (empty: the default languages)"`
 				Note     string `json:"note,omitempty" maxLength:"500"`
 			}
 		}) (*struct {
@@ -83,7 +88,11 @@ func (s *Server) registerRequests() {
 				Joined bool `json:"joined"`
 			}
 		}, error) {
-			v, joined, err := s.app.Requests.Create(ctx, access.From(ctx), in.Body.ModuleID, in.Body.ID, in.Body.Note)
+			if in.Body.SeriesID == 0 && in.Body.ID == "" {
+				return nil, huma.Error400BadRequest("id or seriesId is required")
+			}
+			v, joined, err := s.app.Requests.Create(ctx, access.From(ctx), requests.CreateInput{ModuleID: in.Body.ModuleID, MetaID: in.Body.ID,
+				SeriesID: in.Body.SeriesID, Language: in.Body.Language, Note: in.Body.Note})
 			if err != nil {
 				return nil, requestError(err)
 			}

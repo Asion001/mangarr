@@ -8,7 +8,8 @@ import { api, unwrap, type LookupResult, type S } from "../../api/client";
 import { Cover } from "../../components/Cover";
 import { Badge, Button, Card, EmptyState, ErrorBox, Field, Input, Loading, Modal, PageHeader, Select, Tabs, Textarea } from "../../components/ui";
 import { useAccount } from "../../lib/account";
-import { relative } from "../../lib/format";
+import { languageName, relative } from "../../lib/format";
+import { LanguageSelect, useOfferedLanguages } from "../../components/LanguageSelect";
 import { useToast } from "../../lib/toast";
 import { useQueryParam } from "../../lib/urlState";
 import { MetadataSearch } from "../series/AddSeries";
@@ -93,10 +94,14 @@ function AskModal({ result, onClose, onDone }: { result: LookupResult; onClose: 
   const toast = useToast();
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
+  // one language, so the title isn't downloaded in every language the server has
+  const offered = useOfferedLanguages();
+  const [chosen, setLanguage] = useState<string | null>(null);
+  const language = chosen ?? offered.defaults[0] ?? offered.languages[0] ?? "";
   const send = async () => {
     setBusy(true);
     try {
-      const res = await unwrap(api.POST("/api/v1/requests", { body: { moduleId: result.moduleId, id: result.id, note: note.trim() || undefined } }));
+      const res = await unwrap(api.POST("/api/v1/requests", { body: { moduleId: result.moduleId, id: result.id, language: language || undefined, note: note.trim() || undefined } }));
       qc.invalidateQueries({ queryKey: ["requests"] });
       qc.invalidateQueries({ queryKey: ["lookup"] });
       toast.success(res.joined ? "Added you to the request" : "Requested", res.joined ? "Someone asked for it already; you'll be told too." : "You'll be told when it's added.");
@@ -129,6 +134,11 @@ function AskModal({ result, onClose, onDone }: { result: LookupResult; onClose: 
           {result.request && <p className="mt-2 text-muted">{t("Someone asked for this already; you'll be added to their request.")}</p>}
         </div>
       </div>
+      {offered.languages.length > 0 && (
+        <Field label={t("Language")} className="mt-4">
+          <LanguageSelect offered value={language} onChange={setLanguage} />
+        </Field>
+      )}
       <Field label={t("Note (optional)")} className="mt-4">
         <Textarea value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} placeholder={t("e.g. the official English translation")} />
       </Field>
@@ -213,12 +223,19 @@ function ManageTab() {
             showRequesters
             actions={
               <>
-                {(r.status === "pending" || r.status === "declined") && r.metadata.moduleId && r.metadata.id && (
+                {(r.status === "pending" || r.status === "declined") && r.editionOf && r.language ? (
                   <Button
                     size="sm"
                     variant="primary"
                     icon={<PlusCircle className="size-4" />}
-                    onClick={() => nav(`/add/${r.metadata.moduleId}/${encodeURIComponent(r.metadata.id!)}/sources?request=${r.id}`)}
+                    onClick={() => nav(`/series/${r.editionOf}?addLanguage=${encodeURIComponent(r.language!)}&request=${r.id}`)}
+                  >{t("Add language")}</Button>
+                ) : (r.status === "pending" || r.status === "declined") && r.metadata.moduleId && r.metadata.id && (
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    icon={<PlusCircle className="size-4" />}
+                    onClick={() => nav(`/add/${r.metadata.moduleId}/${encodeURIComponent(r.metadata.id!)}/sources?request=${r.id}${r.language ? `&lang=${encodeURIComponent(r.language)}` : ""}`)}
                   >{t("Add series")}</Button>
                 )}
                 {(r.status === "pending" || r.status === "declined") && (
@@ -257,6 +274,7 @@ function RequestRow({ r, actions, showRequesters }: { r: Request; actions?: Reac
           )}
           {md.year ? <Badge>{md.year}</Badge> : null}
           {md.format && <Badge>{md.format}</Badge>}
+          {r.language && <Badge tone="info">{languageName(r.language)}</Badge>}
           <Badge tone={statusTone[r.status]}>{statusLabel[r.status]}</Badge>
           {r.count > 1 && <Badge title={t("People who asked for it")}>{r.count}{" " + t("people")}</Badge>}
         </div>

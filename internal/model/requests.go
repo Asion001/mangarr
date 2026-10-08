@@ -20,14 +20,18 @@ type Request struct {
 	ID            int64           `bun:"id,pk,autoincrement" json:"id"`
 	Title         string          `bun:"title,notnull" json:"title"`
 	Metadata      RequestMetadata `bun:"metadata,notnull" json:"metadata"`
-	Status        string          `bun:"status,notnull" json:"status" enum:"pending,approved,available,declined"`
-	Reason        string          `bun:"reason,notnull" json:"reason,omitempty"`
-	SeriesID      *int64          `bun:"series_id" json:"seriesId,omitempty"`
-	HandledBy     *int64          `bun:"handled_by" json:"-"`
-	CreatedAt     time.Time       `bun:"created_at,notnull" json:"createdAt"`
-	UpdatedAt     time.Time       `bun:"updated_at,notnull" json:"updatedAt"`
-	HandledAt     *time.Time      `bun:"handled_at" json:"handledAt,omitempty"`
-	AvailableAt   *time.Time      `bun:"available_at" json:"availableAt,omitempty"`
+	// Language is the edition asked for (empty: the server's default languages).
+	Language string `bun:"language,notnull" json:"language,omitempty"`
+	// WorkID is the title in the library a new language is asked for.
+	WorkID      *int64     `bun:"work_id" json:"workId,omitempty"`
+	Status      string     `bun:"status,notnull" json:"status" enum:"pending,approved,available,declined"`
+	Reason      string     `bun:"reason,notnull" json:"reason,omitempty"`
+	SeriesID    *int64     `bun:"series_id" json:"seriesId,omitempty"`
+	HandledBy   *int64     `bun:"handled_by" json:"-"`
+	CreatedAt   time.Time  `bun:"created_at,notnull" json:"createdAt"`
+	UpdatedAt   time.Time  `bun:"updated_at,notnull" json:"updatedAt"`
+	HandledAt   *time.Time `bun:"handled_at" json:"handledAt,omitempty"`
+	AvailableAt *time.Time `bun:"available_at" json:"availableAt,omitempty"`
 }
 
 // RequestMetadata is what the metadata search said about the series.

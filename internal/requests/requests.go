@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 	"time"
 
@@ -79,9 +80,11 @@ type Requester struct {
 // Request is a request as the API shows it.
 type Request struct {
 	model.Request
-	SeriesTitle string      `json:"seriesTitle,omitempty"`
-	HandledBy   string      `json:"handledBy,omitempty"`
-	Requesters  []Requester `json:"requesters"`
+	SeriesTitle string `json:"seriesTitle,omitempty"`
+	// EditionOf is a series of the title a new language is asked for.
+	EditionOf  int64       `json:"editionOf,omitempty"`
+	HandledBy  string      `json:"handledBy,omitempty"`
+	Requesters []Requester `json:"requesters"`
 	// Count is how many people asked (Requesters may list only you).
 	Count int `json:"count"`
 	// Mine: you asked for it.
@@ -127,27 +130,101 @@ func sameSeries(a, b map[string]string) bool {
 	return false
 }
 
-// Create asks for a series. Asking for one someone already asked for joins
-// their request.
-func (s *Service) Create(ctx context.Context, p *access.Principal, moduleID int64, metaID, note string) (*Request, bool, error) {
+// ValidationError is a request that can't be made as asked.
+type ValidationError struct{ Msg string }
+
+func (e ValidationError) Error() string { return e.Msg }
+
+// CreateInput is what someone asks for: a metadata result (ModuleID and
+// MetaID) or a title in the library (SeriesID), in a language or in the
+// server's default languages.
+type CreateInput struct {
+	ModuleID int64
+	MetaID   string
+	SeriesID int64
+	Language string
+	Note     string
+}
+
+// fromSeries describes a title in the library the way a metadata result
+// would (the module and id when an active metadata module knows it).
+func (s *Service) fromSeries(ser *model.Series) *model.RequestMetadata {
+	m := ser.Metadata
+	md := &model.RequestMetadata{AltTitles: m.AltTitles, Year: m.Year, Format: m.Format, Description: m.Description,
+		CoverURL: m.CoverURL, Genres: m.Genres, ExternalIDs: m.ExternalIDs}
+	for _, mod := range modules.ActiveAs[metadata.Module](s.Mods, modules.KindMetadata) {
+		if id := m.ExternalIDs[mod.Def.Implementation]; id != "" {
+			md.ModuleID, md.Provider, md.ID = mod.Def.ID, mod.Def.Implementation, id
+			break
+		}
+	}
+	return md
+}
+
+// Create asks for a series, or for another language of one. Asking for
+// what someone already asked for joins their request.
+func (s *Service) Create(ctx context.Context, p *access.Principal, in CreateInput) (*Request, bool, error) {
 	if p == nil || p.Kind != access.KindUser {
 		return nil, false, errors.New("sign in as a user to request series")
 	}
-	md, title, err := s.Lookup(ctx, moduleID, metaID)
-	if err != nil {
-		return nil, false, err
-	}
-	var existing []model.Series
-	if err := s.DB.NewSelect().Model(&existing).Column("id", "title", "metadata", "tags", "root_folder_id").Where("preview = ?", false).Scan(ctx); err != nil {
-		return nil, false, err
-	}
-	for i := range existing {
-		// one they can't see still gets a request: a manager may widen their access
-		if sameSeries(md.ExternalIDs, existing[i].Metadata.ExternalIDs) && p.Sees(&existing[i]) {
-			return nil, false, AvailableError{existing[i].ID}
+	lang := strings.ToLower(strings.TrimSpace(in.Language))
+	if lang != "" {
+		_, offered, err := s.Series.Offered(ctx)
+		if err != nil {
+			return nil, false, err
+		}
+		if !slices.Contains(offered, lang) {
+			return nil, false, ValidationError{"this server isn't set up for that language"}
 		}
 	}
-	note = strings.TrimSpace(note)
+	var existing []model.Series
+	if err := s.DB.NewSelect().Model(&existing).Column("id", "title", "metadata", "tags", "root_folder_id", "work_id", "language").Where("preview = ?", false).Scan(ctx); err != nil {
+		return nil, false, err
+	}
+	var md *model.RequestMetadata
+	var title string
+	var workID *int64
+	if in.SeriesID > 0 {
+		// another language of a title in the library
+		i := slices.IndexFunc(existing, func(x model.Series) bool { return x.ID == in.SeriesID })
+		if i < 0 || !p.Sees(&existing[i]) {
+			return nil, false, ErrNotFound
+		}
+		if lang == "" {
+			return nil, false, ValidationError{"choose a language"}
+		}
+		ser := existing[i]
+		var full model.Series
+		if err := s.DB.NewSelect().Model(&full).Where("id = ?", ser.ID).Scan(ctx); err != nil {
+			return nil, false, err
+		}
+		md, title = s.fromSeries(&full), full.Title
+		if ser.WorkID > 0 {
+			id := ser.WorkID
+			workID = &id
+		}
+	} else {
+		var err error
+		if md, title, err = s.Lookup(ctx, in.ModuleID, in.MetaID); err != nil {
+			return nil, false, err
+		}
+	}
+	for i := range existing {
+		ser := &existing[i]
+		same := sameSeries(md.ExternalIDs, ser.Metadata.ExternalIDs) || (workID != nil && ser.WorkID == *workID) || ser.ID == in.SeriesID
+		// one they can't see still gets a request: a manager may widen their access
+		if !same || !p.Sees(ser) {
+			continue
+		}
+		if lang == "" || strings.EqualFold(ser.Language, lang) {
+			return nil, false, AvailableError{ser.ID}
+		}
+		if workID == nil && ser.WorkID > 0 {
+			id := ser.WorkID
+			workID = &id
+		}
+	}
+	note := strings.TrimSpace(in.Note)
 	if len(note) > 500 {
 		note = note[:500]
 	}
@@ -157,7 +234,8 @@ func (s *Service) Create(ctx context.Context, p *access.Principal, moduleID int6
 		return nil, false, err
 	}
 	for _, r := range open {
-		if sameSeries(md.ExternalIDs, r.Metadata.ExternalIDs) {
+		same := sameSeries(md.ExternalIDs, r.Metadata.ExternalIDs) || (workID != nil && r.WorkID != nil && *r.WorkID == *workID)
+		if same && r.Language == lang {
 			ru := &model.RequestUser{RequestID: r.ID, UserID: p.UserID, Note: note, CreatedAt: now}
 			if _, err := s.DB.NewInsert().Model(ru).On("CONFLICT DO NOTHING").Exec(ctx); err != nil {
 				return nil, false, err
@@ -170,8 +248,8 @@ func (s *Service) Create(ctx context.Context, p *access.Principal, moduleID int6
 			return v, true, err
 		}
 	}
-	r := &model.Request{Title: title, Metadata: *md, Status: model.RequestPending, CreatedAt: now, UpdatedAt: now}
-	err = s.DB.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+	r := &model.Request{Title: title, Metadata: *md, Language: lang, WorkID: workID, Status: model.RequestPending, CreatedAt: now, UpdatedAt: now}
+	err := s.DB.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
 		if _, err := tx.NewInsert().Model(r).Exec(ctx); err != nil {
 			return err
 		}
@@ -188,6 +266,9 @@ func (s *Service) Create(ctx context.Context, p *access.Principal, moduleID int6
 	body := who + " asked for " + title
 	if md.Year > 0 {
 		body += fmt.Sprintf(" (%d)", md.Year)
+	}
+	if lang != "" {
+		body += " in " + lang
 	}
 	if note != "" {
 		body += ": " + note
@@ -217,6 +298,9 @@ func (s *Service) autoAdd(id int64) {
 		return
 	}
 	langs, err := s.Series.Languages(ctx)
+	if r.Language != "" {
+		langs, err = []string{r.Language}, nil
+	}
 	if err != nil || len(langs) == 0 {
 		s.Log.Info("request waits for a manager: no language to add it in", "request", r.Title)
 		s.attemptFailed(ctx, id, "Set a language on a root folder (or default search languages) so requests know where to go; choose sources and retry Add.", err)
@@ -245,10 +329,17 @@ func (s *Service) autoAdd(id int64) {
 		s.attemptFailed(ctx, id, "No confident source match was found; choose a source and retry Add.", nil)
 		return
 	}
-	res, err := s.Series.AddEditions(ctx, series.AddEditionsRequest{
-		Metadata: &metadataagg.Ref{ModuleID: r.Metadata.ModuleID, Provider: r.Metadata.Provider, ID: r.Metadata.ID},
-		Sources:  links, Monitor: model.MonitorAll, MonitorNew: model.MonitorAll, SearchMissing: true,
-	})
+	add := series.AddEditionsRequest{Sources: links, Monitor: model.MonitorAll, MonitorNew: model.MonitorAll, SearchMissing: true}
+	if r.WorkID != nil {
+		add.WorkID = *r.WorkID // a new language joins the title
+	} else if r.Metadata.ID != "" {
+		add.Metadata = &metadataagg.Ref{ModuleID: r.Metadata.ModuleID, Provider: r.Metadata.Provider, ID: r.Metadata.ID}
+	}
+	if add.WorkID == 0 && add.Metadata == nil {
+		s.attemptFailed(ctx, id, "This request has no metadata to add it by; choose sources and add it.", nil)
+		return
+	}
+	res, err := s.Series.AddEditions(ctx, add)
 	if err != nil && (res == nil || len(res.Editions) == 0) {
 		s.Log.Warn("request waits for a manager: couldn't add it", "request", r.Title, "err", err)
 		s.attemptFailed(ctx, id, "Automatic add failed.", err)
@@ -489,6 +580,24 @@ func (s *Service) views(ctx context.Context, p *access.Principal, rs []model.Req
 			}
 		}
 	}
+	editions := map[int64]int64{}
+	var workIDs []int64
+	for _, r := range rs {
+		if r.WorkID != nil {
+			workIDs = append(workIDs, *r.WorkID)
+		}
+	}
+	if len(workIDs) > 0 {
+		var ss []model.Series
+		if err := s.DB.NewSelect().Model(&ss).Column("id", "work_id").Where("work_id IN (?)", bun.In(workIDs)).Where("preview = ?", false).Order("id").Scan(ctx); err != nil {
+			return nil, err
+		}
+		for _, x := range ss {
+			if editions[x.WorkID] == 0 {
+				editions[x.WorkID] = x.ID
+			}
+		}
+	}
 	titles := map[int64]string{}
 	if len(seriesIDs) > 0 {
 		var ss []model.Series
@@ -504,6 +613,9 @@ func (s *Service) views(ctx context.Context, p *access.Principal, rs []model.Req
 		v := Request{Request: r, Requesters: []Requester{}}
 		if r.SeriesID != nil {
 			v.SeriesTitle = titles[*r.SeriesID]
+		}
+		if r.WorkID != nil {
+			v.EditionOf = editions[*r.WorkID]
 		}
 		if r.HandledBy != nil {
 			v.HandledBy = names[*r.HandledBy]
@@ -528,7 +640,7 @@ func (s *Service) views(ctx context.Context, p *access.Principal, rs []model.Req
 func (s *Service) seriesAdded(seriesID int64) {
 	ctx := s.context()
 	var ser model.Series
-	if err := s.DB.NewSelect().Model(&ser).Column("id", "metadata").Where("id = ?", seriesID).Scan(ctx); err != nil || len(ser.Metadata.ExternalIDs) == 0 {
+	if err := s.DB.NewSelect().Model(&ser).Column("id", "metadata", "work_id", "language").Where("id = ?", seriesID).Scan(ctx); err != nil {
 		return
 	}
 	var pending []model.Request
@@ -536,7 +648,9 @@ func (s *Service) seriesAdded(seriesID int64) {
 		return
 	}
 	for _, r := range pending {
-		if sameSeries(r.Metadata.ExternalIDs, ser.Metadata.ExternalIDs) {
+		same := sameSeries(r.Metadata.ExternalIDs, ser.Metadata.ExternalIDs) || (r.WorkID != nil && ser.WorkID == *r.WorkID)
+		// a request for one language waits for that language's edition
+		if same && (r.Language == "" || strings.EqualFold(r.Language, ser.Language)) {
 			if err := s.Link(ctx, r.ID, seriesID, nil); err != nil {
 				s.Log.Warn("link request", "request", r.ID, "err", err)
 			}

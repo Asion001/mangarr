@@ -7692,6 +7692,10 @@
             "format": "date-time",
             "type": "string"
           },
+          "editionOf": {
+            "format": "int64",
+            "type": "integer"
+          },
           "handledAt": {
             "format": "date-time",
             "type": "string"
@@ -7702,6 +7706,9 @@
           "id": {
             "format": "int64",
             "type": "integer"
+          },
+          "language": {
+            "type": "string"
           },
           "metadata": {
             "$ref": "#/components/schemas/RequestMetadata"
@@ -7740,6 +7747,10 @@
           "updatedAt": {
             "format": "date-time",
             "type": "string"
+          },
+          "workId": {
+            "format": "int64",
+            "type": "integer"
           }
         },
         "required": [
@@ -7853,7 +7864,12 @@
         "additionalProperties": false,
         "properties": {
           "id": {
-            "minLength": 1,
+            "description": "Metadata id from the series lookup",
+            "type": "string"
+          },
+          "language": {
+            "description": "The edition asked for, one of GET /api/v1/languages (empty: the default languages)",
+            "maxLength": 20,
             "type": "string"
           },
           "moduleId": {
@@ -7863,12 +7879,13 @@
           "note": {
             "maxLength": 500,
             "type": "string"
+          },
+          "seriesId": {
+            "description": "A series in the library, to ask for another language of it",
+            "format": "int64",
+            "type": "integer"
           }
         },
-        "required": [
-          "moduleId",
-          "id"
-        ],
         "type": "object"
       },
       "Requests-createResponse": {
@@ -17796,7 +17813,7 @@
             "description": "Error"
           }
         },
-        "summary": "Ask for a series found with the series lookup (joins an open request for it)",
+        "summary": "Ask for a series found with the series lookup, or another language of a series (joins an open request for it)",
         "tags": [
           "Requests"
         ]
