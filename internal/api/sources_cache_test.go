@@ -231,7 +231,7 @@ func TestThumbnailServedStaleWhenSourceFails(t *testing.T) {
 	})
 	e.sc.Update(func() { e.sc.ThumbErr = errors.New("site down") })
 	resp, err = http.Get(thumb)
-	if err != nil || resp.StatusCode != 200 || resp.Header.Get("Cache-Control") != "public, max-age=300" {
+	if err != nil || resp.StatusCode != 200 || resp.Header.Get("Cache-Control") != "private, max-age=300" {
 		t.Fatalf("stale thumbnail: %v %v %q", err, resp.StatusCode, resp.Header.Get("Cache-Control"))
 	}
 	resp.Body.Close()

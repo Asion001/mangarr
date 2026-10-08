@@ -7927,6 +7927,7 @@ export interface operations {
                 headers: {
                     "Cache-Control"?: string;
                     "Content-Type"?: string;
+                    ETag?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -8429,6 +8430,7 @@ export interface operations {
                 headers: {
                     "Cache-Control"?: string;
                     "Content-Type"?: string;
+                    ETag?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -9447,6 +9449,7 @@ export interface operations {
                 headers: {
                     "Cache-Control"?: string;
                     "Content-Type"?: string;
+                    ETag?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -9889,6 +9892,7 @@ export interface operations {
                 headers: {
                     "Cache-Control"?: string;
                     "Content-Type"?: string;
+                    ETag?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -12433,6 +12437,7 @@ export interface operations {
                 headers: {
                     "Cache-Control"?: string;
                     "Content-Type"?: string;
+                    ETag?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -14092,6 +14097,7 @@ export interface operations {
                 headers: {
                     "Cache-Control"?: string;
                     "Content-Type"?: string;
+                    ETag?: string;
                     [name: string]: unknown;
                 };
                 content: {

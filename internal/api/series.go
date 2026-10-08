@@ -1187,7 +1187,7 @@ func (s *Server) registerSeries() {
 			if in.Size == "full" {
 				if p := s.app.Library.CoverPath(ctx, ser); p != "" {
 					if data, err := os.ReadFile(p); err == nil {
-						return &imageOutput{ContentType: http.DetectContentType(data), CacheControl: "public, max-age=3600", Body: data}, nil
+						return imageReply(ctx, data, http.DetectContentType(data), coverCache(in.V)), nil
 					}
 				}
 			}
@@ -1195,6 +1195,6 @@ func (s *Server) registerSeries() {
 			if err != nil {
 				return nil, huma.Error404NotFound("no cover")
 			}
-			return &imageOutput{ContentType: ct, CacheControl: "public, max-age=3600", Body: data}, nil
+			return imageReply(ctx, data, ct, coverCache(in.V)), nil
 		})
 }

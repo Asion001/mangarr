@@ -49,8 +49,10 @@ type SourceResource = catalogs.Catalog
 type SearchResultGroup = sourcesearch.SearchResultGroup
 
 type imageOutput struct {
+	Status       int
 	ContentType  string `header:"Content-Type"`
 	CacheControl string `header:"Cache-Control"`
+	ETag         string `header:"ETag"`
 	Body         []byte
 }
 
@@ -69,11 +71,11 @@ func (s *Server) sourceThumbnail(ctx context.Context, moduleID int64, ref source
 	if err != nil {
 		return nil, huma.Error404NotFound(err.Error())
 	}
-	cc := "public, max-age=86400"
+	cc := cachePrivate(24 * time.Hour)
 	if stale {
-		cc = "public, max-age=300"
+		cc = cachePrivate(5 * time.Minute)
 	}
-	return &imageOutput{ContentType: ct, CacheControl: cc, Body: data}, nil
+	return imageReply(ctx, data, ct, cc), nil
 }
 
 // Cache TTLs for catalog responses.
@@ -270,7 +272,7 @@ func (s *Server) registerSources() {
 			if err != nil {
 				return nil, huma.Error404NotFound(err.Error())
 			}
-			return &imageOutput{ContentType: ct, CacheControl: "public, max-age=604800", Body: data}, nil
+			return imageReply(ctx, data, ct, cachePrivate(7*24*time.Hour)), nil
 		})
 
 	// ---- extensions / stores / preferences

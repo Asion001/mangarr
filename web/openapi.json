@@ -12870,6 +12870,11 @@
                 "schema": {
                   "type": "string"
                 }
+              },
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                }
               }
             }
           },
@@ -13743,6 +13748,11 @@
                 }
               },
               "Content-Type": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "ETag": {
                 "schema": {
                   "type": "string"
                 }
@@ -15034,6 +15044,11 @@
                 "schema": {
                   "type": "string"
                 }
+              },
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                }
               }
             }
           },
@@ -15666,6 +15681,11 @@
                 }
               },
               "Content-Type": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "ETag": {
                 "schema": {
                   "type": "string"
                 }
@@ -19309,6 +19329,11 @@
                 "schema": {
                   "type": "string"
                 }
+              },
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                }
               }
             }
           },
@@ -21491,6 +21516,11 @@
                 }
               },
               "Content-Type": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "ETag": {
                 "schema": {
                   "type": "string"
                 }

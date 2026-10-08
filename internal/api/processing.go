@@ -426,7 +426,7 @@ func (s *Server) registerProcessing() {
 				return nil, huma.Error404NotFound("preview expired")
 			}
 			info, _ := imagecheck.Detect(data)
-			return &imageOutput{ContentType: "image/" + info.Format, CacheControl: "private, max-age=3600", Body: data}, nil
+			return imageReply(ctx, data, "image/"+info.Format, cachePrivate(time.Hour)), nil
 		})
 
 	huma.Register(s.api, huma.Operation{OperationID: "processing-preview-cbz", Method: http.MethodGet, Path: "/api/v1/processing/preview/{token}/sample.cbz", Tags: tags,

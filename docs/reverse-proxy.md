@@ -137,3 +137,21 @@ guards every route, including `/api`. Single sign-on (OpenID Connect,
 `docs/setup.md` §9) keeps mangarr's accounts and permissions instead.
 Reading apps can't get through a forward-auth login page, so keep the
 reading-app host outside it.
+
+## Behind a CDN or caching proxy
+
+Every response says how it may be cached, so a CDN that honours
+`Cache-Control` needs no rules of its own:
+
+| What | Cache-Control | Shared cache |
+| --- | --- | --- |
+| `assets/*` (hashed build files) | `public, max-age=31536000, immutable` | yes, for good |
+| `index.html` and other UI files | `no-cache` | revalidates each time |
+| Covers, thumbnails, page images, previews | `private, max-age=…` with an `ETag` | never |
+| Everything else under `/api/` | `private, no-store` | never |
+| `/api/v1/events` (live updates) | `private, no-store, no-transform` | never, and must not be buffered |
+
+Anything behind a login is `private`, so a cache in front of mangarr never
+hands one person's library to someone else. If your CDN has a "cache
+everything" mode, keep `/api/` out of it, or set it to respect the
+origin's headers.

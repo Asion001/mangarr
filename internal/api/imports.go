@@ -176,7 +176,7 @@ func (s *Server) registerImports() {
 						return th.Thumbnail(ctx, source.MangaRef{SourceID: src.SourceID, URL: src.URL, TitleHint: src.Title})
 					})
 					if err == nil {
-						return &imageOutput{ContentType: ct, CacheControl: "public, max-age=86400", Body: data}, nil
+						return imageReply(ctx, data, ct, cachePrivate(24*time.Hour)), nil
 					}
 				}
 			}
@@ -201,7 +201,7 @@ func (s *Server) registerImports() {
 			if err != nil {
 				return nil, huma.Error404NotFound("no cover: " + err.Error())
 			}
-			return &imageOutput{ContentType: ct, CacheControl: "public, max-age=86400", Body: data}, nil
+			return imageReply(ctx, data, ct, cachePrivate(24*time.Hour)), nil
 		})
 
 	huma.Register(s.api, huma.Operation{OperationID: "imports-entries-update", Method: http.MethodPatch, Path: "/api/v1/imports/{id}/entries", Tags: tags,

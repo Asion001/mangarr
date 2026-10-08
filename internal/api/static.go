@@ -55,13 +55,13 @@ func (s *Server) staticHandler() http.Handler {
 					w.Header().Set("Content-Type", "application/manifest+json")
 				}
 				if strings.HasPrefix(p, "assets/") {
-					w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+					w.Header().Set("Cache-Control", cacheForever)
 				}
 				files.ServeHTTP(w, r)
 				return
 			}
 		}
-		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Cache-Control", cacheRecheck)
 		http.ServeContent(w, r, "index.html", start, bytes.NewReader(index))
 	})
 }
