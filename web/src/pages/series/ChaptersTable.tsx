@@ -191,7 +191,7 @@ export function ChaptersTable({ seriesId, manage = true, nextChapterId, editions
       title={`Chapters (${data?.length ?? 0})`}
       actions={
         <div className="flex flex-wrap items-center gap-2">
-          {sel.length > 0 && (
+          {manage && sel.length > 0 && (
             <>
               <span className="text-xs text-muted">{sel.length}{" " + t("selected")}</span>
               <Button size="sm" onClick={() => monitor(sel, true)}>{t("Monitor")}</Button>
@@ -265,11 +265,14 @@ export function ChaptersTable({ seriesId, manage = true, nextChapterId, editions
             <thead>
               <tr>
                 <Th className="w-8">
-                  <input
-                    type="checkbox"
-                    checked={sel.length === list.length && list.length > 0}
-                    onChange={(e) => setSelected(e.target.checked ? new Set(list.map((c) => c.id)) : new Set())}
-                  />
+                  {/* selecting is for managing; readers have nothing to do with a selection */}
+                  {manage && (
+                    <input
+                      type="checkbox"
+                      checked={sel.length === list.length && list.length > 0}
+                      onChange={(e) => setSelected(e.target.checked ? new Set(list.map((c) => c.id)) : new Set())}
+                    />
+                  )}
                 </Th>
                 <Th className="w-8" />
                 <Th>#</Th>
