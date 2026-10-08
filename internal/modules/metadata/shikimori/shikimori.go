@@ -217,7 +217,7 @@ func (m *Module) convert(item manga, requestedLanguage string) metadata.SeriesMe
 	out := metadata.SeriesMetadata{
 		Provider: "shikimori", ID: strconv.Itoa(item.ID), Title: title, AltTitles: dedupeExcept(alt, title),
 		Description: item.Description, Status: status(item.Status), Year: year(item.AiredOn),
-		Genres: genres(item.Genres, language), CoverURL: absolute(base, firstNonEmpty(item.Image.Original, item.Image.Preview)),
+		Genres: genres(item.Genres), CoverURL: absolute(base, firstNonEmpty(item.Image.Original, item.Image.Preview)),
 		Links:         map[string]string{"Shikimori": pageURL, "MyAnimeList": "https://myanimelist.net/manga/" + strconv.Itoa(malID)},
 		ExternalIDs:   map[string]string{"shikimori": strconv.Itoa(item.ID), "mal": strconv.Itoa(malID)},
 		TotalChapters: item.Chapters, Format: format(item.Kind), Country: country(item.Kind), URL: pageURL,
@@ -301,16 +301,15 @@ func year(date string) int {
 	return n
 }
 
+// genres are the English names, which mangarr keeps whatever the title's
+// language; the web UI translates them.
 func genres(in []struct {
 	Name    string `json:"name"`
 	Russian string `json:"russian"`
-}, language string) []string {
+}) []string {
 	out := make([]string, 0, len(in))
 	for _, genre := range in {
-		name := genre.Name
-		if language == "ru" || language == "rus" || language == "russian" {
-			name = firstNonEmpty(genre.Russian, genre.Name)
-		}
+		name := firstNonEmpty(genre.Name, genre.Russian)
 		if name != "" {
 			out = append(out, name)
 		}

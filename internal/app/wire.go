@@ -60,6 +60,9 @@ func (a *App) wire(ctx context.Context) error {
 	if err := a.Series.ReconcileWorks(ctx); err != nil {
 		return fmt.Errorf("group language editions: %w", err)
 	}
+	if _, err := a.Series.NormalizeAllGenres(ctx); err != nil {
+		log.Warn("rename genres to their English names", "err", err)
+	}
 	if _, err := a.Series.ShareAllMetadata(ctx); err != nil {
 		log.Warn("share cover and info between language editions", "err", err)
 	}

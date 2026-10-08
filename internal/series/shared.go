@@ -7,6 +7,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/Asion001/mangarr/internal/genres"
 	"github.com/Asion001/mangarr/internal/model"
 )
 
@@ -149,4 +150,28 @@ func (s *Service) shareMetadata(ctx context.Context, editions []model.Series) in
 		s.bus.Changed("series", "updated", ed.ID)
 	}
 	return n
+}
+
+// NormalizeAllGenres gives the genres and tags stored before they had one
+// name across providers their English names. It returns how many series
+// changed.
+func (s *Service) NormalizeAllGenres(ctx context.Context) (int, error) {
+	var all []model.Series
+	if err := s.db.NewSelect().Model(&all).Column("id", "metadata").Scan(ctx); err != nil {
+		return 0, err
+	}
+	n := 0
+	for i := range all {
+		md := &all[i].Metadata
+		g, t := genres.Normalize(md.Genres), genres.Normalize(md.Tags)
+		if slices.Equal(g, md.Genres) && slices.Equal(t, md.Tags) {
+			continue
+		}
+		md.Genres, md.Tags = g, t
+		if _, err := s.db.NewUpdate().Model(&all[i]).Column("metadata").WherePK().Exec(ctx); err != nil {
+			return n, err
+		}
+		n++
+	}
+	return n, nil
 }

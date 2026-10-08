@@ -10,6 +10,7 @@ import { useChapters, usePushCommand, useSeries, useSeriesList } from "../../api
 import { Cover } from "../../components/Cover";
 import { Badge, Button, Confirm, ErrorBox, Loading, Menu, Modal, Select, Switch } from "../../components/ui";
 import { bytes, languageName, relative } from "../../lib/format";
+import { genreName } from "../../lib/genres";
 import { useToast } from "../../lib/toast";
 import { statusTone } from "./SeriesIndex";
 import { SourcesPanel } from "./SourcesPanel";
@@ -116,7 +117,7 @@ export function SeriesDetail() {
             {md.ageRating && <Badge tone="warn">{md.ageRating}</Badge>}
             {(md.genres ?? []).slice(0, 8).map((g) => (
               <Badge key={g} tone="info">
-                {g}
+                {genreName(g)}
               </Badge>
             ))}
           </div>

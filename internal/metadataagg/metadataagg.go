@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/Asion001/mangarr/internal/genres"
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/modules"
 	"github.com/Asion001/mangarr/internal/modules/metadata"
@@ -341,8 +342,8 @@ func Merge(parts []metadata.SeriesMetadata) (metadata.SeriesMetadata, map[string
 		}
 		list("authors", &out.Authors, p.Authors, p.Provider)
 		list("artists", &out.Artists, p.Artists, p.Provider)
-		list("genres", &out.Genres, p.Genres, p.Provider)
-		list("tags", &out.Tags, p.Tags, p.Provider)
+		list("genres", &out.Genres, genres.Normalize(p.Genres), p.Provider)
+		list("tags", &out.Tags, genres.Normalize(p.Tags), p.Provider)
 		alt := append([]string{}, p.AltTitles...)
 		if p.Title != "" && p.Title != out.Title {
 			alt = append(alt, p.Title)

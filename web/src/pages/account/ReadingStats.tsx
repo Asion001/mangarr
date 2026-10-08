@@ -6,6 +6,7 @@ import { api, unwrap, type S } from "../../api/client";
 import { Button, Card, ErrorBox, Progress, Spinner } from "../../components/ui";
 import { getLocale, plural, t } from "../../lib/i18n/core";
 import { calendarMonth, languageName, readingTime } from "../../lib/format";
+import { genreName } from "../../lib/genres";
 
 type Stats = S["ReadingStats"];
 
@@ -75,7 +76,7 @@ function StatsBody({ stats }: { stats: Stats }) {
       {(languages.length > 0 || genres.length > 0) && (
         <div className="grid gap-5 md:grid-cols-2">
           {languages.length > 0 && <Breakdown title={t("Languages")} rows={languages.map((l) => ({ key: l.language, name: languageName(l.language), seconds: l.activeSeconds, completed: l.completedChapters }))} by="seconds" />}
-          {genres.length > 0 && <Breakdown title={t("Genres")} rows={genres.map((g) => ({ key: g.genre, name: g.genre, seconds: g.activeSeconds, completed: g.completedChapters }))} by="completed" />}
+          {genres.length > 0 && <Breakdown title={t("Genres")} rows={genres.map((g) => ({ key: g.genre, name: genreName(g.genre), seconds: g.activeSeconds, completed: g.completedChapters }))} by="completed" />}
         </div>
       )}
       <p className="text-xs text-muted">{t("Reading time counts the web reader only. Finished chapters also include progress from reading apps and library servers.")}</p>

@@ -8,6 +8,7 @@ import { useAccount } from "../../lib/account";
 import { relative } from "../../lib/format";
 import { t } from "../../lib/i18n/core";
 import { languageName } from "../../lib/format";
+import { genreName } from "../../lib/genres";
 import { useUIMode } from "../../lib/uiPreferences";
 import { ContinueReading, useReadingShelf } from "../series/ContinueReading";
 
@@ -25,7 +26,7 @@ export function useDiscover() {
 function recommendationReason(item: LibraryItem) {
   switch (item.reason) {
     case "matches-genres":
-      return t("Based on your {genres} reading", { genres: item.matchingGenres?.join(" · ") || t("library") });
+      return t("Based on your {genres} reading", { genres: item.matchingGenres?.map(genreName).join(" · ") || t("library") });
     case "followed":
       return t("You follow this series");
     case "recently-added":
@@ -106,7 +107,7 @@ function Spotlight({ item }: { item: LibraryItem }) {
         <div className="max-w-2xl">
           <div className="mb-3 flex flex-wrap gap-2">
             <Badge tone="accent">{item.reason === "recent-update" ? t("Recently updated") : t("Recommended for you")}</Badge>
-            {item.genres.slice(0, 3).map((genre) => <Badge key={genre}>{genre}</Badge>)}
+            {item.genres.slice(0, 3).map((genre) => <Badge key={genre}>{genreName(genre)}</Badge>)}
           </div>
           <h2 className="text-2xl font-semibold sm:text-3xl">{item.title}</h2>
           {recommendationReason(item) && <p className="mt-2 text-sm text-accent-2">{recommendationReason(item)}</p>}

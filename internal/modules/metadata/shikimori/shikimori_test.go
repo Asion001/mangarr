@@ -46,7 +46,7 @@ func TestGetMapsDetailedMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Title != "Атака титанов" || got.Description != "Описание" || got.Publisher != "Kodansha" || got.Genres[0] != "Экшен" || got.TotalChapters != 141 || got.Status != "completed" {
+	if got.Title != "Атака титанов" || got.Description != "Описание" || got.Publisher != "Kodansha" || got.Genres[0] != "Action" || got.TotalChapters != 141 || got.Status != "completed" {
 		t.Fatalf("unexpected metadata: %+v", got)
 	}
 	if len(got.AltTitles) != 4 {
