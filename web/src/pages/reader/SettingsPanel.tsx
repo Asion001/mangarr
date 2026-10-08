@@ -140,6 +140,7 @@ export function SettingsPanel({
             onChange={(tapZones) => set({ tapZones })}
           />
           <Toggle checked={s.invertTaps} onChange={(invertTaps) => set({ invertTaps })} label={t("Invert tap zones")} />
+          {s.tapZones !== "off" && <Toggle checked={s.showTapZones} onChange={(showTapZones) => set({ showTapZones })} label={t("Show tap zones when opening a chapter")} />}
         </Row>
         <Row label={t("Background")}>
           <Choice

@@ -15,6 +15,7 @@ import { SettingsPanel } from "./SettingsPanel";
 import { ChapterPicker } from "./ChapterPicker";
 import { ImagePreloader, useImagePreload } from "./preload";
 import { useReadingTime } from "./time";
+import { TapZones } from "./TapZones";
 import { canFullscreen, toggleFullscreen as toggleFull, useFullscreen } from "./fullscreen";
 
 const chapterQuery = (id: number) => ({
@@ -186,6 +187,22 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
     return () => window.clearTimeout(t);
   }, [chapterId]);
 
+  // Like Mihon, show the tap zones for a moment when a chapter opens and
+  // when they change; any tap hides them early.
+  const [zones, setZones] = useState(false);
+  const zonesKey = `${s.tapZones} ${s.invertTaps} ${s.mode} ${s.direction}`;
+  useEffect(() => {
+    if (settingsLoading || !s.showTapZones || s.tapZones === "off") return setZones(false);
+    setZones(true);
+    const t = window.setTimeout(() => setZones(false), 3000);
+    const hide = () => setZones(false);
+    window.addEventListener("pointerdown", hide, { once: true });
+    return () => {
+      window.clearTimeout(t);
+      window.removeEventListener("pointerdown", hide);
+    };
+  }, [chapterId, zonesKey, s.showTapZones, s.tapZones, settingsLoading]);
+
   useDocumentTitle(ch ? `${ch.seriesTitle} ch. ${ch.number}` : undefined);
 
   const goChapter = useCallback(
@@ -268,6 +285,8 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
           onMenu={() => setBars((b) => !b)}
         />
       )}
+
+      {zones && <TapZones s={s} />}
 
       {/* top bar */}
       <div
