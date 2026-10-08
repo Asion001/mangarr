@@ -215,7 +215,7 @@ export function ChaptersTable({ seriesId, manage = true, nextChapterId, editions
             <Button size="sm" variant="ghost" onClick={() => setSelected(new Set(list.map((chapter) => chapter.id)))}>{t("Select all {count}", { count: list.length })}</Button>
           )}
           <select
-            className="rounded-md border border-border bg-bg px-2 py-1 text-xs"
+            className="rounded-md border border-border bg-bg bg-size-[0.875rem] bg-position-[right_0.5rem_center] py-1 pl-2 pr-7 text-xs"
             value={filter}
             onChange={(e) => {
               setFilter(e.target.value);
@@ -313,7 +313,7 @@ export function ChaptersTable({ seriesId, manage = true, nextChapterId, editions
           <Button size="sm" disabled={currentPage <= 1} onClick={() => goToPage(currentPage - 1)}>{t("Previous")}</Button>
           <Button size="sm" disabled={currentPage >= pages} onClick={() => goToPage(currentPage + 1)}>{t("Next")}</Button>
           <select
-            className="rounded-md border border-border bg-bg px-2 py-1 text-xs"
+            className="rounded-md border border-border bg-bg bg-size-[0.875rem] bg-position-[right_0.5rem_center] py-1 pl-2 pr-7 text-xs"
             aria-label={t("per page")}
             value={pageSizeParam}
             onChange={(event) => {

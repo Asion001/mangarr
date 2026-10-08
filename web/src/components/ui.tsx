@@ -106,7 +106,7 @@ export function Textarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
 
 export function Select({ children, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
   return (
-    <select {...props} className={clsx(inputCls, "pr-8", width(props.className), props.className)}>
+    <select {...props} className={clsx(inputCls, "pr-9", width(props.className), props.className)}>
       {children}
     </select>
   );
