@@ -82,6 +82,13 @@ type media struct {
 			Node         *media `json:"node"`
 		} `json:"edges"`
 	} `json:"relations"`
+	// Recommendations is nil when the query didn't ask for them.
+	Recommendations *struct {
+		Nodes []struct {
+			Rating              int    `json:"rating"`
+			MediaRecommendation *media `json:"mediaRecommendation"`
+		} `json:"nodes"`
+	} `json:"recommendations"`
 	ID    int `json:"id"`
 	IDMal int `json:"idMal"`
 	Title struct {

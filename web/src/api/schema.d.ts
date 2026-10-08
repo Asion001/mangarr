@@ -2329,6 +2329,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/series/{id}/recommendations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Titles related to and recommended alongside a series
+         * @description Related titles (sequels, prequels, side stories, ...) and recommendations come from the first metadata module that knows the series and can recommend; library titles sharing its genres follow. Titles past the caller's content limits are left out, and so are titles outside the library for people who can't add or request them.
+         */
+        get: operations["series-recommendations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/series/{id}/refresh": {
         parameters: {
             query?: never;
@@ -6013,6 +6033,47 @@ export interface components {
             listening: boolean;
             publicUrl: string;
         };
+        RecommendationItem: {
+            adaptations?: components["schemas"]["Adaptation"][];
+            adult?: boolean;
+            also?: components["schemas"]["MetadataRef"][];
+            altTitles?: string[];
+            artists?: string[];
+            authors?: string[];
+            country?: string;
+            coverUrl?: string;
+            description?: string;
+            /** Format: int64 */
+            existingSeriesId?: number;
+            externalIds?: {
+                [key: string]: string;
+            };
+            format?: string;
+            genres?: string[];
+            id: string;
+            links?: {
+                [key: string]: string;
+            };
+            /** Format: int64 */
+            moduleId: number;
+            moduleName: string;
+            provider: string;
+            publisher?: string;
+            relation?: string;
+            request?: components["schemas"]["LookupRequest"];
+            seriesCoverUrl?: string;
+            sharedGenres?: string[];
+            status?: string;
+            tags?: string[];
+            title: string;
+            /** Format: int64 */
+            totalChapters?: number;
+            url?: string;
+            /** Format: int64 */
+            votes?: number;
+            /** Format: int64 */
+            year?: number;
+        };
         "Recycle-deleteRequest": {
             ids?: number[];
         };
@@ -6406,6 +6467,11 @@ export interface components {
             totalChapters?: number;
             /** Format: int64 */
             year?: number;
+        };
+        SeriesRecommendations: {
+            errors: string[];
+            related: components["schemas"]["RecommendationItem"][];
+            similar: components["schemas"]["RecommendationItem"][];
         };
         SeriesRename: {
             files: components["schemas"]["FileRename"][];
@@ -12739,6 +12805,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Command"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "series-recommendations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeriesRecommendations"];
                 };
             };
             /** @description Error */

@@ -22,6 +22,7 @@ import { PreviewBanner } from "./Preview";
 import { AdaptationsChip } from "./Adaptations";
 import { ReleaseCard } from "./ReleaseSchedule";
 import { RequestDownloadButton, waitingChapters } from "./RequestDownload";
+import { Recommendations } from "./Recommendations";
 
 export function SeriesDetail() {
   const id = Number(useParams().id);
@@ -257,6 +258,7 @@ export function SeriesDetail() {
 
       {manage && <SourcesPanel series={s} />}
       <ChaptersTable key={String(manage)} seriesId={id} manage={manage} nextChapterId={readTarget?.id} editions={s.editions ?? []} />
+      {!s.preview && <Recommendations seriesId={id} />}
 
       {manage && edit && <EditSeriesModal series={s} onClose={() => setEdit(false)} />}
       {manage && renaming && <RenameModal seriesIds={[id]} onClose={() => setRenaming(false)} />}

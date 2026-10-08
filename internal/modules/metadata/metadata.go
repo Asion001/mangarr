@@ -64,3 +64,30 @@ type ExternalLookup interface {
 
 // ErrNotFound is returned when a provider has no such series.
 var ErrNotFound = errors.New("metadata not found")
+
+// Related is a title in the same story: a sequel, prequel, side story, ...
+type Related struct {
+	SeriesMetadata
+	// Relation is the provider's relation in lower case: sequel, prequel,
+	// side_story, spin_off, alternative, parent, source, ...
+	Relation string `json:"relation"`
+}
+
+// Recommended is a title the provider's users recommend alongside another.
+type Recommended struct {
+	SeriesMetadata
+	// Votes is how many users recommend it (the provider's rating).
+	Votes int `json:"votes"`
+}
+
+// Recommendations are what a provider suggests for one of its series.
+type Recommendations struct {
+	Related     []Related
+	Recommended []Recommended
+}
+
+// Recommender is implemented by providers that know related and
+// recommended titles for a series.
+type Recommender interface {
+	Recommendations(ctx context.Context, id string) (*Recommendations, error)
+}

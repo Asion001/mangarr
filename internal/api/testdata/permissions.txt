@@ -168,6 +168,7 @@ series-lookup-get GET /api/v1/series/lookup/{moduleId}/{id} -> library.add | lib
 series-metadata-link PUT /api/v1/series/{id}/metadata -> library.edit
 series-metadata-refresh POST /api/v1/series/{id}/metadata/refresh -> library.edit
 series-query GET /api/v1/series/search -> signedin
+series-recommendations GET /api/v1/series/{id}/recommendations -> signedin
 series-refresh POST /api/v1/series/{id}/refresh -> library.edit
 series-rename POST /api/v1/series/rename -> library.edit
 series-rename-preview POST /api/v1/series/rename/preview -> library.edit

@@ -116,7 +116,8 @@ export function RequestSearch({ query, setQuery, onDone, hideInput, add }: {
   );
 }
 
-function AskModal({ result, onClose, onDone }: { result: LookupResult; onClose: () => void; onDone: () => void }) {
+/** AskModal asks for a title found by the metadata search, in one language. */
+export function AskModal({ result, onClose, onDone }: { result: LookupResult; onClose: () => void; onDone: () => void }) {
   const qc = useQueryClient();
   const toast = useToast();
   const [note, setNote] = useState("");

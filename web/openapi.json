@@ -7702,6 +7702,144 @@
         ],
         "type": "object"
       },
+      "RecommendationItem": {
+        "additionalProperties": false,
+        "properties": {
+          "adaptations": {
+            "items": {
+              "$ref": "#/components/schemas/Adaptation"
+            },
+            "type": "array"
+          },
+          "adult": {
+            "type": "boolean"
+          },
+          "also": {
+            "items": {
+              "$ref": "#/components/schemas/MetadataRef"
+            },
+            "type": "array"
+          },
+          "altTitles": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "artists": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "authors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "country": {
+            "type": "string"
+          },
+          "coverUrl": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "existingSeriesId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "externalIds": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "format": {
+            "type": "string"
+          },
+          "genres": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "id": {
+            "type": "string"
+          },
+          "links": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "moduleId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "moduleName": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "publisher": {
+            "type": "string"
+          },
+          "relation": {
+            "type": "string"
+          },
+          "request": {
+            "$ref": "#/components/schemas/LookupRequest"
+          },
+          "seriesCoverUrl": {
+            "type": "string"
+          },
+          "sharedGenres": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "status": {
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "title": {
+            "type": "string"
+          },
+          "totalChapters": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "url": {
+            "type": "string"
+          },
+          "votes": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "year": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "moduleId",
+          "moduleName",
+          "provider",
+          "id",
+          "title"
+        ],
+        "type": "object"
+      },
       "Recycle-deleteRequest": {
         "additionalProperties": false,
         "properties": {
@@ -9064,6 +9202,35 @@
             "type": "integer"
           }
         },
+        "type": "object"
+      },
+      "SeriesRecommendations": {
+        "additionalProperties": false,
+        "properties": {
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "related": {
+            "items": {
+              "$ref": "#/components/schemas/RecommendationItem"
+            },
+            "type": "array"
+          },
+          "similar": {
+            "items": {
+              "$ref": "#/components/schemas/RecommendationItem"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "related",
+          "similar",
+          "errors"
+        ],
         "type": "object"
       },
       "SeriesRename": {
@@ -19884,6 +20051,49 @@
             "description": "Error"
           }
         },
+        "tags": [
+          "Series"
+        ]
+      }
+    },
+    "/api/v1/series/{id}/recommendations": {
+      "get": {
+        "description": "Related titles (sequels, prequels, side stories, ...) and recommendations come from the first metadata module that knows the series and can recommend; library titles sharing its genres follow. Titles past the caller's content limits are left out, and so are titles outside the library for people who can't add or request them.",
+        "operationId": "series-recommendations",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeriesRecommendations"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Titles related to and recommended alongside a series",
         "tags": [
           "Series"
         ]

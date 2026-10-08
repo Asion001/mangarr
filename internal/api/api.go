@@ -28,6 +28,7 @@ type Server struct {
 	app   *app.App
 	api   huma.API
 	links imageLinks
+	recs  recommendationCache
 }
 
 func init() {
