@@ -267,6 +267,32 @@ func testRequests(t *testing.T, dsn string) {
 		return r.Status == model.RequestApproved && r.SeriesID != nil && *r.SeriesID == added.Editions[0].ID
 	})
 
+	// chapters that are here but not monitored: ask for them to be downloaded
+	if _, _, err := e.App.Requests.Create(ctx, pAnn, requests.CreateInput{SeriesID: ser.ID, Monitor: true}); !errors.As(err, new(requests.ValidationError)) {
+		t.Fatalf("download request with nothing waiting: %v", err)
+	}
+	later := &model.Chapter{SeriesID: ser.ID, NumberKey: "2", NumberSort: 2, State: model.ChapterMissing, FirstSeenAt: now, UpdatedAt: now}
+	if _, err := e.App.DB.NewInsert().Model(later).Exec(ctx); err != nil {
+		t.Fatal(err)
+	}
+	dl, joined, err := e.App.Requests.Create(ctx, pAnn, requests.CreateInput{SeriesID: ser.ID, Monitor: true, Note: "please"})
+	if err != nil || joined || dl.Kind != model.RequestKindMonitor || dl.SeriesID == nil || *dl.SeriesID != ser.ID || dl.Status != model.RequestPending {
+		t.Fatalf("download request %+v %v %v", dl, joined, err)
+	}
+	if again, joined, err := e.App.Requests.Create(ctx, pBob, requests.CreateInput{SeriesID: ser.ID, Monitor: true}); err != nil || !joined || again.ID != dl.ID {
+		t.Fatalf("join the download request %+v %v %v", again, joined, err)
+	}
+	if err := e.App.Requests.Monitor(ctx, dl.ID, pBoss); err != nil {
+		t.Fatal(err)
+	}
+	var got model.Chapter
+	if err := e.App.DB.NewSelect().Model(&got).Where("id = ?", later.ID).Scan(ctx); err != nil || !got.Monitored {
+		t.Fatalf("chapter monitored %v %v", got.Monitored, err)
+	}
+	if r, _ := e.App.Requests.Get(ctx, pAnn, dl.ID); r.Status != model.RequestApproved {
+		t.Fatalf("download request after monitoring %+v", r)
+	}
+
 	// declined, and withdrawn
 	k, _, err := e.App.Requests.Create(ctx, pAnn, requests.CreateInput{ModuleID: meta.ID, MetaID: "7", Note: ""})
 	if err != nil {

@@ -100,6 +100,7 @@ var operationPermissions = map[string][]string{
 	"requests-count":    {access.RequestsManage, access.LibraryManage},
 	"requests-decline":  {access.RequestsManage, access.LibraryManage},
 	"requests-link":     {access.RequestsManage, access.LibraryManage},
+	"requests-monitor":  {access.RequestsManage, access.LibraryManage},
 	"requests-delete":   {access.RequestsManage, access.LibraryManage},
 
 	// managing the library

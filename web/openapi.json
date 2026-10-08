@@ -7707,6 +7707,13 @@
             "format": "int64",
             "type": "integer"
           },
+          "kind": {
+            "enum": [
+              "",
+              "monitor"
+            ],
+            "type": "string"
+          },
           "language": {
             "type": "string"
           },
@@ -7875,6 +7882,10 @@
           "moduleId": {
             "format": "int64",
             "type": "integer"
+          },
+          "monitor": {
+            "description": "With seriesId: download its chapters that aren't monitored",
+            "type": "boolean"
           },
           "note": {
             "maxLength": 500,
@@ -18049,6 +18060,41 @@
           }
         },
         "summary": "Take back your request (it goes away when nobody else asked)",
+        "tags": [
+          "Requests"
+        ]
+      }
+    },
+    "/api/v1/requests/{id}/monitor": {
+      "post": {
+        "operationId": "requests-monitor",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Fulfil a download request: monitor the title's chapters, search the missing ones",
         "tags": [
           "Requests"
         ]

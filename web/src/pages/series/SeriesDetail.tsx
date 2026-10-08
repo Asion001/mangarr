@@ -22,6 +22,7 @@ import { AddLanguageModal, RequestLanguageModal } from "./AddLanguage";
 import { PreviewBanner } from "./Preview";
 import { AdaptationsChip } from "./Adaptations";
 import { ReleaseLine } from "./ReleaseSchedule";
+import { RequestDownloadButton, waitingChapters } from "./RequestDownload";
 
 export function SeriesDetail() {
   const id = Number(useParams().id);
@@ -64,6 +65,7 @@ export function SeriesDetail() {
   if (isLoading) return <Loading />;
   if (error || !s) return <ErrorBox error={error ?? "Series not found"} />;
   const readTarget = readTargetOf(chapters, s.reading?.nextUnread);
+  const waiting = asksLang ? waitingChapters(chapters) : 0;
 
   const setMonitored = async (v: boolean) => {
     try {
@@ -175,6 +177,7 @@ export function SeriesDetail() {
                 <BookOpen className="size-4" /> {readTarget.label}
               </Link>
             )}
+            {waiting > 0 && <RequestDownloadButton seriesId={id} waiting={waiting} />}
             {manage && <Button icon={<Pencil className="size-4" />} onClick={() => setEdit(true)}>{t("Edit")}</Button>}
             {manage && (
               <Menu

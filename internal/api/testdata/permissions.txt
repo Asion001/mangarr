@@ -146,6 +146,7 @@ requests-delete DELETE /api/v1/requests/{id} -> requests.manage | library.manage
 requests-get GET /api/v1/requests/{id} -> requests.create | requests.manage | library.manage
 requests-link POST /api/v1/requests/{id}/link -> requests.manage | library.manage
 requests-list GET /api/v1/requests -> requests.create | requests.manage | library.manage
+requests-monitor POST /api/v1/requests/{id}/monitor -> requests.manage | library.manage
 requests-withdraw DELETE /api/v1/requests/{id}/mine -> requests.create
 rootfolders-create POST /api/v1/rootfolders -> admin
 rootfolders-delete DELETE /api/v1/rootfolders/{id} -> admin

@@ -11,7 +11,11 @@ import (
 // chapters go to followers who can see the series.
 func (a *App) wireRequests() {
 	a.Requests = &requests.Service{DB: a.DB, Bus: a.Bus, Mods: a.Modules, Series: a.Series, Search: a.Search,
-		Log: a.Log.With("component", "requests"), Tell: a.Notifications.SendToUsers}
+		Log: a.Log.With("component", "requests"), Tell: a.Notifications.SendToUsers,
+		QueueSearch: func(ctx context.Context, seriesID int64) error {
+			_, err := a.Queue.Push(ctx, "SearchMissing", map[string]any{"seriesId": seriesID}, "request")
+			return err
+		}}
 	a.AddService(a.Requests)
 	a.Notifications.Followers = a.Followers
 }

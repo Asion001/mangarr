@@ -14,12 +14,18 @@ const (
 	RequestDeclined  = "declined"
 )
 
+// RequestKindMonitor asks for a title in the library to be downloaded.
+const RequestKindMonitor = "monitor"
+
 // Request is a series someone asked for.
 type Request struct {
 	bun.BaseModel `bun:"table:requests"`
 	ID            int64           `bun:"id,pk,autoincrement" json:"id"`
 	Title         string          `bun:"title,notnull" json:"title"`
 	Metadata      RequestMetadata `bun:"metadata,notnull" json:"metadata"`
+	// Kind is "" for a title or language, or "monitor": download a title
+	// that is here but not monitored (SeriesID is that title).
+	Kind string `bun:"kind,notnull" json:"kind,omitempty" enum:",monitor"`
 	// Language is the edition asked for (empty: the server's default languages).
 	Language string `bun:"language,notnull" json:"language,omitempty"`
 	// WorkID is the title in the library a new language is asked for.

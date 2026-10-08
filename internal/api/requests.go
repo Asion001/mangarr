@@ -79,6 +79,7 @@ func (s *Server) registerRequests() {
 				ID       string `json:"id,omitempty" doc:"Metadata id from the series lookup"`
 				SeriesID int64  `json:"seriesId,omitempty" doc:"A series in the library, to ask for another language of it"`
 				Language string `json:"language,omitempty" maxLength:"20" doc:"The edition asked for, one of GET /api/v1/languages (empty: the default languages)"`
+				Monitor  bool   `json:"monitor,omitempty" doc:"With seriesId: download its chapters that aren't monitored"`
 				Note     string `json:"note,omitempty" maxLength:"500"`
 			}
 		}) (*struct {
@@ -92,7 +93,7 @@ func (s *Server) registerRequests() {
 				return nil, huma.Error400BadRequest("id or seriesId is required")
 			}
 			v, joined, err := s.app.Requests.Create(ctx, access.From(ctx), requests.CreateInput{ModuleID: in.Body.ModuleID, MetaID: in.Body.ID,
-				SeriesID: in.Body.SeriesID, Language: in.Body.Language, Note: in.Body.Note})
+				SeriesID: in.Body.SeriesID, Language: in.Body.Language, Monitor: in.Body.Monitor, Note: in.Body.Note})
 			if err != nil {
 				return nil, requestError(err)
 			}
@@ -131,6 +132,12 @@ func (s *Server) registerRequests() {
 			}
 		}) (*struct{}, error) {
 			return nil, requestError(s.app.Requests.Link(ctx, in.ID, in.Body.SeriesID, access.From(ctx)))
+		})
+
+	huma.Register(s.api, huma.Operation{OperationID: "requests-monitor", Method: http.MethodPost, Path: "/api/v1/requests/{id}/monitor", Tags: tags,
+		Summary: "Fulfil a download request: monitor the title's chapters, search the missing ones"},
+		func(ctx context.Context, in *IDPath) (*struct{}, error) {
+			return nil, requestError(s.app.Requests.Monitor(ctx, in.ID, access.From(ctx)))
 		})
 
 	huma.Register(s.api, huma.Operation{OperationID: "requests-delete", Method: http.MethodDelete, Path: "/api/v1/requests/{id}", Tags: tags},

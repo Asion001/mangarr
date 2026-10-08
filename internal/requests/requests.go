@@ -44,6 +44,8 @@ type Service struct {
 	Series *series.Service
 	Search *sourcesearch.Service
 	Log    *slog.Logger
+	// QueueSearch searches for a series' missing chapters (in the background).
+	QueueSearch func(ctx context.Context, seriesID int64) error
 	// Tell sends users a message on their own notification targets.
 	Tell func(users []int64, event string, seriesID int64, msg notify.Message)
 	// ctx outlives requests (automatic adds run after the call returns).
@@ -144,6 +146,9 @@ type CreateInput struct {
 	SeriesID int64
 	Language string
 	Note     string
+	// Monitor asks for SeriesID's chapters that aren't monitored to be
+	// downloaded.
+	Monitor bool
 }
 
 // fromSeries describes a title in the library the way a metadata result
@@ -166,6 +171,9 @@ func (s *Service) fromSeries(ser *model.Series) *model.RequestMetadata {
 func (s *Service) Create(ctx context.Context, p *access.Principal, in CreateInput) (*Request, bool, error) {
 	if p == nil || p.Kind != access.KindUser {
 		return nil, false, errors.New("sign in as a user to request series")
+	}
+	if in.Monitor {
+		return s.createMonitor(ctx, p, in)
 	}
 	lang := strings.ToLower(strings.TrimSpace(in.Language))
 	if lang != "" {
@@ -224,10 +232,7 @@ func (s *Service) Create(ctx context.Context, p *access.Principal, in CreateInpu
 			workID = &id
 		}
 	}
-	note := strings.TrimSpace(in.Note)
-	if len(note) > 500 {
-		note = note[:500]
-	}
+	note := trimNote(in.Note)
 	now := time.Now().UTC()
 	var open []model.Request
 	if err := s.DB.NewSelect().Model(&open).Where("status IN (?)", bun.In([]string{model.RequestPending, model.RequestApproved})).Scan(ctx); err != nil {
@@ -235,7 +240,7 @@ func (s *Service) Create(ctx context.Context, p *access.Principal, in CreateInpu
 	}
 	for _, r := range open {
 		same := sameSeries(md.ExternalIDs, r.Metadata.ExternalIDs) || (workID != nil && r.WorkID != nil && *r.WorkID == *workID)
-		if same && r.Language == lang {
+		if same && r.Language == lang && r.Kind == "" {
 			ru := &model.RequestUser{RequestID: r.ID, UserID: p.UserID, Note: note, CreatedAt: now}
 			if _, err := s.DB.NewInsert().Model(ru).On("CONFLICT DO NOTHING").Exec(ctx); err != nil {
 				return nil, false, err
@@ -282,6 +287,109 @@ func (s *Service) Create(ctx context.Context, p *access.Principal, in CreateInpu
 	return v, false, err
 }
 
+func trimNote(note string) string {
+	note = strings.TrimSpace(note)
+	if len(note) > 500 {
+		note = strings.ToValidUTF8(note[:500], "")
+	}
+	return note
+}
+
+// waiting counts a series' chapters that aren't monitored or downloaded.
+func (s *Service) waiting(ctx context.Context, seriesID int64) (int, error) {
+	return s.DB.NewSelect().Model((*model.Chapter)(nil)).Where("series_id = ?", seriesID).Where("monitored = ?", false).
+		Where("file_id IS NULL").Where("state <> ?", model.ChapterCleaned).Count(ctx)
+}
+
+// createMonitor asks for a title in the library to be downloaded: its
+// chapters that aren't monitored yet.
+func (s *Service) createMonitor(ctx context.Context, p *access.Principal, in CreateInput) (*Request, bool, error) {
+	var ser model.Series
+	if err := s.DB.NewSelect().Model(&ser).Where("id = ?", in.SeriesID).Where("preview = ?", false).Scan(ctx); err != nil || !p.Sees(&ser) {
+		return nil, false, ErrNotFound
+	}
+	n, err := s.waiting(ctx, ser.ID)
+	if err != nil {
+		return nil, false, err
+	}
+	if n == 0 {
+		return nil, false, ValidationError{"every chapter of this title is already downloaded or on its way"}
+	}
+	note := trimNote(in.Note)
+	now := time.Now().UTC()
+	var open model.Request
+	err = s.DB.NewSelect().Model(&open).Where("kind = ? AND series_id = ? AND status = ?", model.RequestKindMonitor, ser.ID, model.RequestPending).Limit(1).Scan(ctx)
+	if err == nil {
+		if _, err := s.DB.NewInsert().Model(&model.RequestUser{RequestID: open.ID, UserID: p.UserID, Note: note, CreatedAt: now}).On("CONFLICT DO NOTHING").Exec(ctx); err != nil {
+			return nil, false, err
+		}
+		s.follow(ctx, ser.ID, p.UserID)
+		s.Bus.Changed("request", "updated", open.ID)
+		v, err := s.Get(ctx, p, open.ID)
+		return v, true, err
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return nil, false, err
+	}
+	id := ser.ID
+	r := &model.Request{Title: ser.Title, Metadata: *s.fromSeries(&ser), Kind: model.RequestKindMonitor, Language: ser.Language, SeriesID: &id,
+		Status: model.RequestPending, CreatedAt: now, UpdatedAt: now}
+	err = s.DB.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		if _, err := tx.NewInsert().Model(r).Exec(ctx); err != nil {
+			return err
+		}
+		_, err := tx.NewInsert().Model(&model.RequestUser{RequestID: r.ID, UserID: p.UserID, Note: note, CreatedAt: now}).Exec(ctx)
+		return err
+	})
+	if err != nil {
+		return nil, false, err
+	}
+	s.follow(ctx, ser.ID, p.UserID)
+	who := p.DisplayName
+	if who == "" {
+		who = p.Username
+	}
+	body := fmt.Sprintf("%s asked to download %s (%d chapters not monitored)", who, ser.Title, n)
+	if note != "" {
+		body += ": " + note
+	}
+	s.Bus.Publish(events.Event{Type: events.RequestCreated, Payload: events.MessagePayload{Title: "Download request: " + ser.Title, Message: body}})
+	s.Bus.Changed("request", "created", r.ID)
+	if s.autoApproves(ctx, p.GroupID) {
+		go s.autoAdd(r.ID)
+	}
+	v, err := s.Get(ctx, p, r.ID)
+	return v, false, err
+}
+
+// Monitor fulfils a download request: the title and its chapters that
+// aren't downloaded are monitored, the missing ones searched, and the
+// request approved. handler is who did it (nil: automatic).
+func (s *Service) Monitor(ctx context.Context, id int64, handler *access.Principal) error {
+	var r model.Request
+	if err := s.DB.NewSelect().Model(&r).Where("id = ?", id).Scan(ctx); err != nil {
+		return notFound(err)
+	}
+	if r.Kind != model.RequestKindMonitor || r.SeriesID == nil {
+		return ValidationError{"not a download request"}
+	}
+	seriesID := *r.SeriesID
+	now := time.Now().UTC()
+	if _, err := s.DB.NewUpdate().Model((*model.Series)(nil)).Set("monitored = ?", true).Set("updated_at = ?", now).Where("id = ?", seriesID).Exec(ctx); err != nil {
+		return err
+	}
+	if _, err := s.DB.NewUpdate().Model((*model.Chapter)(nil)).Set("monitored = ?", true).Set("updated_at = ?", now).
+		Where("series_id = ? AND monitored = ? AND file_id IS NULL AND state <> ?", seriesID, false, model.ChapterCleaned).Exec(ctx); err != nil {
+		return err
+	}
+	s.Bus.Changed("series", "updated", seriesID)
+	if s.QueueSearch != nil {
+		if err := s.QueueSearch(ctx, seriesID); err != nil {
+			return err
+		}
+	}
+	return s.Link(ctx, id, seriesID, handler)
+}
+
 func (s *Service) autoApproves(ctx context.Context, groupID int64) bool {
 	var g model.Group
 	err := s.DB.NewSelect().Model(&g).Column("auto_approve_requests").Where("id = ?", groupID).Scan(ctx)
@@ -295,6 +403,12 @@ func (s *Service) autoAdd(id int64) {
 	defer cancel()
 	var r model.Request
 	if err := s.DB.NewSelect().Model(&r).Where("id = ?", id).Scan(ctx); err != nil || r.Status != model.RequestPending {
+		return
+	}
+	if r.Kind == model.RequestKindMonitor {
+		if err := s.Monitor(ctx, id, nil); err != nil {
+			s.attemptFailed(ctx, id, "Automatic download failed.", err)
+		}
 		return
 	}
 	langs, err := s.Series.Languages(ctx)
@@ -396,7 +510,8 @@ func (s *Service) Link(ctx context.Context, id, seriesID int64, handler *access.
 	now := time.Now().UTC()
 	r.SeriesID, r.HandledAt, r.UpdatedAt, r.Reason = &seriesID, &now, now, ""
 	r.Status = model.RequestApproved
-	if files > 0 {
+	// a download request waits for the chapters it asked for
+	if files > 0 && r.Kind != model.RequestKindMonitor {
 		r.Status, r.AvailableAt = model.RequestAvailable, &now
 	}
 	var handledBy *int64
@@ -422,7 +537,9 @@ func (s *Service) Link(ctx context.Context, id, seriesID int64, handler *access.
 		s.follow(ctx, seriesID, u)
 	}
 	s.Bus.Changed("request", "updated", id)
-	if r.Status == model.RequestAvailable {
+	if r.Kind == model.RequestKindMonitor {
+		s.tell(users, seriesID, "Downloading: "+ser.Title, "The chapters you asked for are being downloaded; you'll hear when they arrive.")
+	} else if r.Status == model.RequestAvailable {
 		s.tell(users, seriesID, "Available: "+ser.Title, "The series you asked for is in the library.")
 	} else {
 		s.tell(users, seriesID, "Approved: "+ser.Title, "The series you asked for was added; you'll hear when its first chapter arrives.")
@@ -648,6 +765,9 @@ func (s *Service) seriesAdded(seriesID int64) {
 		return
 	}
 	for _, r := range pending {
+		if r.Kind == model.RequestKindMonitor {
+			continue
+		}
 		same := sameSeries(r.Metadata.ExternalIDs, ser.Metadata.ExternalIDs) || (r.WorkID != nil && ser.WorkID == *r.WorkID)
 		// a request for one language waits for that language's edition
 		if same && (r.Language == "" || strings.EqualFold(r.Language, ser.Language)) {

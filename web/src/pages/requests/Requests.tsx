@@ -201,6 +201,20 @@ function ManageTab() {
   const toast = useToast();
   const [declining, setDeclining] = useState<Request | null>(null);
   const [linking, setLinking] = useState<Request | null>(null);
+  const [monitoring, setMonitoring] = useState(0);
+  const monitor = async (r: Request) => {
+    setMonitoring(r.id);
+    try {
+      await unwrap(api.POST("/api/v1/requests/{id}/monitor", { params: { path: { id: r.id } } }));
+      qc.invalidateQueries({ queryKey: ["requests"] });
+      qc.invalidateQueries({ queryKey: ["series"] });
+      toast.success(tr("Downloading"), tr("The requesters were told."));
+    } catch (e) {
+      toast.fromError(e);
+    } finally {
+      setMonitoring(0);
+    }
+  };
   const remove = async (r: Request) => {
     try {
       await unwrap(api.DELETE("/api/v1/requests/{id}", { params: { path: { id: r.id } } }));
@@ -235,7 +249,11 @@ function ManageTab() {
             showRequesters
             actions={
               <>
-                {(r.status === "pending" || r.status === "declined") && r.editionOf && r.language ? (
+                {r.kind === "monitor" ? (
+                  (r.status === "pending" || r.status === "declined") && (
+                    <Button size="sm" variant="primary" icon={<PlusCircle className="size-4" />} loading={monitoring === r.id} onClick={() => void monitor(r)}>{t("Monitor and download")}</Button>
+                  )
+                ) : (r.status === "pending" || r.status === "declined") && r.editionOf && r.language ? (
                   <Button
                     size="sm"
                     variant="primary"
@@ -250,7 +268,7 @@ function ManageTab() {
                     onClick={() => nav(`/add/${r.metadata.moduleId}/${encodeURIComponent(r.metadata.id!)}/sources?request=${r.id}${r.language ? `&lang=${encodeURIComponent(r.language)}` : ""}`)}
                   >{t("Add series")}</Button>
                 )}
-                {(r.status === "pending" || r.status === "declined") && (
+                {(r.status === "pending" || r.status === "declined") && r.kind !== "monitor" && (
                   <Button size="sm" icon={<Link2 className="size-4" />} onClick={() => setLinking(r)}>{t("Link")}</Button>
                 )}
                 {r.status === "pending" && (
@@ -286,6 +304,7 @@ function RequestRow({ r, actions, showRequesters }: { r: Request; actions?: Reac
           )}
           {md.year ? <Badge>{md.year}</Badge> : null}
           {md.format && <Badge>{md.format}</Badge>}
+          {r.kind === "monitor" && <Badge tone="accent">{t("Download")}</Badge>}
           {r.language && <Badge tone="info">{languageName(r.language)}</Badge>}
           <Badge tone={statusTone[r.status]}>{statusLabel[r.status]}</Badge>
           {r.count > 1 && <Badge title={t("People who asked for it")}>{r.count}{" " + t("people")}</Badge>}

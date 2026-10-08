@@ -1938,6 +1938,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/requests/{id}/monitor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Fulfil a download request: monitor the title's chapters, search the missing ones */
+        post: operations["requests-monitor"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/rootfolders": {
         parameters: {
             query?: never;
@@ -5945,6 +5962,8 @@ export interface components {
             handledBy?: string;
             /** Format: int64 */
             id: number;
+            /** @enum {string} */
+            kind?: "" | "monitor";
             language?: string;
             metadata: components["schemas"]["RequestMetadata"];
             mine: boolean;
@@ -5999,6 +6018,8 @@ export interface components {
             language?: string;
             /** Format: int64 */
             moduleId?: number;
+            /** @description With seriesId: download its chapters that aren't monitored */
+            monitor?: boolean;
             note?: string;
             /**
              * Format: int64
@@ -11566,6 +11587,35 @@ export interface operations {
         };
     };
     "requests-withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "requests-monitor": {
         parameters: {
             query?: never;
             header?: never;
