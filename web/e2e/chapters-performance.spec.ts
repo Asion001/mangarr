@@ -45,7 +45,7 @@ test("large chapter tables render a small remembered page while bulk selection s
   await expect(page.getByRole("table").locator("tbody > tr")).toHaveCount(50);
 
   // the page survives a reload too
-  await page.getByRole("button", { name: "Next" }).click();
+  await page.getByRole("button", { name: "Next", exact: true }).click();
   await expect(page).toHaveURL(/chapterPage=2/);
   await page.reload();
   await expect(page.getByText("51–100 / 250")).toBeVisible();
