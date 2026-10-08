@@ -21,6 +21,7 @@ import { useAccount } from "../../lib/account";
 import { AddLanguageModal, RequestLanguageModal } from "./AddLanguage";
 import { PreviewBanner } from "./Preview";
 import { AdaptationsChip } from "./Adaptations";
+import { ReleaseLine } from "./ReleaseSchedule";
 
 export function SeriesDetail() {
   const id = Number(useParams().id);
@@ -167,6 +168,7 @@ export function SeriesDetail() {
             <Stat label={t("Cleaned")} value={String(s.stats.cleanedCount)} />
             <Stat label={t("On disk")} value={s.stats.spaceSaved > 0 ? `${bytes(s.stats.sizeOnDisk)} (saved ${bytes(s.stats.spaceSaved)})` : bytes(s.stats.sizeOnDisk)} />
           </div>
+          <ReleaseLine chapters={chapters} status={s.status} />
           <div className="mt-4 flex flex-wrap items-center gap-2">
             {readTarget && (
               <Link to={`/read/${readTarget.id}`} className="inline-flex h-9 items-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-white hover:bg-primary-hover">
