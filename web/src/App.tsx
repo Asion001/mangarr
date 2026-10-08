@@ -43,6 +43,7 @@ const ReadersPage = lazy(() => import("./pages/settings/Readers").then((m) => ({
 const ReadingAppsPage = lazy(() => import("./pages/settings/ReadingApps").then((m) => ({ default: m.ReadingAppsPage })));
 const GeneralPage = lazy(() => import("./pages/settings/General").then((m) => ({ default: m.GeneralPage })));
 const DownloadsPage = lazy(() => import("./pages/settings/Downloads").then((m) => ({ default: m.DownloadsPage })));
+const PerformancePage = lazy(() => import("./pages/system/Performance").then((m) => ({ default: m.PerformancePage })));
 const StatusPage = lazy(() => import("./pages/system/Status").then((m) => ({ default: m.StatusPage })));
 const TasksPage = lazy(() => import("./pages/system/Tasks").then((m) => ({ default: m.TasksPage })));
 const BackupsPage = lazy(() => import("./pages/system/Backups").then((m) => ({ default: m.BackupsPage })));
@@ -165,6 +166,7 @@ export function App() {
           <Route path="settings/general" element={<Need perm="admin"><GeneralPage /></Need>} />
           <Route path="system" element={<Navigate to="/system/status" replace />} />
           <Route path="system/status" element={<Need perm="admin"><StatusPage /></Need>} />
+          <Route path="system/performance" element={<Need perm="admin"><PerformancePage /></Need>} />
           <Route path="system/tasks" element={<Need perm="admin"><TasksPage /></Need>} />
           <Route path="system/workers" element={<Need perm="admin"><WorkersPage /></Need>} />
           <Route path="system/backups" element={<Need perm="admin"><BackupsPage /></Need>} />

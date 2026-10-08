@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/uptrace/bun"
+
+	"github.com/Asion001/mangarr/internal/apitiming"
 )
 
 // bounds are the latency histogram's upper bounds; the last bin is
@@ -209,6 +211,8 @@ type queryHook struct{ c *Collector }
 
 func (queryHook) BeforeQuery(ctx context.Context, _ *bun.QueryEvent) context.Context { return ctx }
 
-func (h queryHook) AfterQuery(_ context.Context, e *bun.QueryEvent) {
-	h.c.Query(time.Since(e.StartTime))
+func (h queryHook) AfterQuery(ctx context.Context, e *bun.QueryEvent) {
+	d := time.Since(e.StartTime)
+	h.c.Query(d)
+	apitiming.From(ctx).Add("db", d) // the request's Server-Timing gets a database phase
 }

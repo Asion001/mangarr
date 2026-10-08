@@ -185,7 +185,6 @@ func (c *Collector) Report(rng string) Report {
 	routes := map[string]*Stat{}
 	phases := map[string]time.Duration{}
 	var slow int64
-	stepMinutes := float64(out.StepSeconds) / 60
 	for i := 0; i < len(bs); i += spec.group {
 		var p Stat
 		for _, b := range bs[i:min(i+spec.group, len(bs))] {
@@ -205,9 +204,14 @@ func (c *Collector) Report(rng string) Report {
 		total.merge(&p)
 		out.Points = append(out.Points, Point{At: time.Unix(bs[i].at, 0).UTC(), Requests: p.Count, P50Ms: ms(p.Quantile(0.5)),
 			P95Ms: ms(p.Quantile(0.95)), Errors: p.Errors, NotModified: p.NotModified})
-		if rate := float64(p.Count) / stepMinutes; rate > out.Summary.PeakPerMinute {
-			out.Summary.PeakPerMinute = rate
+	}
+	// the busiest minute (the busiest hour's average for a week)
+	for _, b := range bs {
+		rate := float64(b.total.Count)
+		if spec.hourly {
+			rate /= 60
 		}
+		out.Summary.PeakPerMinute = max(out.Summary.PeakPerMinute, rate)
 	}
 	minutes := float64(spec.n) * float64(r.step) / 60
 	if since := now.Sub(c.started).Minutes(); since < minutes {
@@ -215,6 +219,7 @@ func (c *Collector) Report(rng string) Report {
 	}
 	out.Summary.Requests, out.Summary.Errors, out.Summary.Bytes = total.Count, total.Errors, total.Bytes
 	out.Summary.PerMinute = float64(total.Count) / minutes
+	out.Summary.PeakPerMinute = max(out.Summary.PeakPerMinute, out.Summary.PerMinute)
 	out.Summary.P95Ms = ms(total.Quantile(0.95))
 	if total.Count > 0 {
 		out.Summary.CachedShare = float64(total.NotModified) / float64(total.Count)

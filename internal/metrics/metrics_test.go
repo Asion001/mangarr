@@ -45,6 +45,9 @@ func TestReport(t *testing.T) {
 	if r.Summary.Requests != 12 || len(r.Points) != 60 || r.StepSeconds != 60 {
 		t.Fatalf("1h: %+v", r.Summary)
 	}
+	if r.Summary.PeakPerMinute != 12 {
+		t.Fatalf("peak: %v", r.Summary.PeakPerMinute)
+	}
 	if r.Summary.Errors != 1 || r.Summary.CachedShare != 1.0/12 || r.Queries.Count != 2 || r.Queries.Slow != 1 {
 		t.Fatalf("1h summary: %+v queries %+v", r.Summary, r.Queries)
 	}
