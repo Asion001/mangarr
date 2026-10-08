@@ -42,6 +42,8 @@ type Config struct {
 	// upscaled, re-encoded): ProcessingLocal in this process, or
 	// ProcessingWorkers on a worker with the encode role.
 	Processing string
+	// Pprof serves Go's profiler to admins at /api/v1/system/pprof/.
+	Pprof bool
 	// Env is the MANGARR_* environment used to pin settings, root folders and
 	// modules (see internal/envcfg). Nil in tests unless set explicitly.
 	Env map[string]string
@@ -63,6 +65,7 @@ var Vars = []VarDoc{
 	{"MANGARR_AUTH_DISABLED", "false", "Disable login and API key checks (only behind an auth proxy)."},
 	{"MANGARR_WEB_DIR", "", "Serve the UI from this directory instead of the embedded copy (development)."},
 	{"MANGARR_PROCESSING", "local", "Where downloaded pages are processed (resized, split, upscaled, re-encoded): local (in this process) or workers (on a worker with the encode role, so heavy image work never runs in the server)."},
+	{"MANGARR_PPROF", "false", "Serve Go's profiler to admins at /api/v1/system/pprof/ (for finding what is slow)."},
 	{"MANGARR_KOMGA_LISTEN", ":25600", "Listen address of the Komga-compatible API for reading apps (when enabled in Settings → Reading apps)."},
 }
 
@@ -115,6 +118,9 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("MANGARR_PROCESSING must be local or workers (got %q)", c.Processing)
 	}
 	if c.AuthDisabled, err = envBool("MANGARR_AUTH_DISABLED", false); err != nil {
+		return nil, err
+	}
+	if c.Pprof, err = envBool("MANGARR_PPROF", false); err != nil {
 		return nil, err
 	}
 	abs, err := filepath.Abs(c.DataDir)

@@ -233,6 +233,8 @@ system-env GET /api/v1/system/env -> admin
 system-log-files GET /api/v1/system/logs/files -> admin
 system-logs GET /api/v1/system/logs -> admin
 system-logs-download GET /api/v1/system/logs/download -> admin
+system-metrics GET /api/v1/system/metrics -> admin
+system-metrics-prometheus GET /api/v1/system/metrics/prometheus -> admin
 system-restart POST /api/v1/system/restart -> admin
 system-status GET /api/v1/system/status -> admin
 system-tasks GET /api/v1/system/tasks -> admin

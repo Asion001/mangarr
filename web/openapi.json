@@ -863,6 +863,28 @@
         ],
         "type": "object"
       },
+      "CacheStat": {
+        "additionalProperties": false,
+        "properties": {
+          "hits": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "misses": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "hits",
+          "misses"
+        ],
+        "type": "object"
+      },
       "CacheStatus": {
         "additionalProperties": false,
         "properties": {
@@ -4756,6 +4778,253 @@
         ],
         "type": "object"
       },
+      "MetricsEndpoint": {
+        "additionalProperties": false,
+        "properties": {
+          "bytes": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "calls": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "errors": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "notModified": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "p50Ms": {
+            "format": "double",
+            "type": "number"
+          },
+          "p95Ms": {
+            "format": "double",
+            "type": "number"
+          },
+          "route": {
+            "type": "string"
+          },
+          "totalMs": {
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "required": [
+          "route",
+          "calls",
+          "p50Ms",
+          "p95Ms",
+          "notModified",
+          "errors",
+          "bytes",
+          "totalMs"
+        ],
+        "type": "object"
+      },
+      "MetricsGauges": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "dbInUse": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "dbMaxOpen": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "dbOpen": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "dbWaitCount": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "dbWaitMs": {
+            "format": "double",
+            "type": "number"
+          },
+          "gcPauseP99Ms": {
+            "format": "double",
+            "type": "number"
+          },
+          "goroutines": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "heapBytes": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "queueRunning": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "queueWaiting": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "at",
+          "heapBytes",
+          "goroutines",
+          "gcPauseP99Ms",
+          "dbOpen",
+          "dbInUse",
+          "dbMaxOpen",
+          "dbWaitCount",
+          "dbWaitMs",
+          "queueWaiting",
+          "queueRunning"
+        ],
+        "type": "object"
+      },
+      "MetricsPhaseShare": {
+        "additionalProperties": false,
+        "properties": {
+          "ms": {
+            "format": "double",
+            "type": "number"
+          },
+          "name": {
+            "type": "string"
+          },
+          "share": {
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "required": [
+          "name",
+          "ms",
+          "share"
+        ],
+        "type": "object"
+      },
+      "MetricsPoint": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "errors": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "notModified": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "p50Ms": {
+            "format": "double",
+            "type": "number"
+          },
+          "p95Ms": {
+            "format": "double",
+            "type": "number"
+          },
+          "requests": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "at",
+          "requests",
+          "p50Ms",
+          "p95Ms",
+          "errors",
+          "notModified"
+        ],
+        "type": "object"
+      },
+      "MetricsQueryStats": {
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "p95Ms": {
+            "format": "double",
+            "type": "number"
+          },
+          "slow": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "count",
+          "p95Ms",
+          "slow"
+        ],
+        "type": "object"
+      },
+      "MetricsSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "bytes": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "cachedShare": {
+            "format": "double",
+            "type": "number"
+          },
+          "errorShare": {
+            "format": "double",
+            "type": "number"
+          },
+          "errors": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "p95Ms": {
+            "format": "double",
+            "type": "number"
+          },
+          "peakPerMinute": {
+            "format": "double",
+            "type": "number"
+          },
+          "perMinute": {
+            "format": "double",
+            "type": "number"
+          },
+          "prevP95Ms": {
+            "format": "double",
+            "type": "number"
+          },
+          "requests": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "requests",
+          "perMinute",
+          "peakPerMinute",
+          "p95Ms",
+          "prevP95Ms",
+          "cachedShare",
+          "errorShare",
+          "errors",
+          "bytes"
+        ],
+        "type": "object"
+      },
       "ModuleEnvLock": {
         "additionalProperties": false,
         "properties": {
@@ -5524,6 +5793,81 @@
             "$ref": "#/components/schemas/ThrottleConfig"
           }
         },
+        "type": "object"
+      },
+      "PerformanceReport": {
+        "additionalProperties": false,
+        "properties": {
+          "caches": {
+            "items": {
+              "$ref": "#/components/schemas/CacheStat"
+            },
+            "type": "array"
+          },
+          "endpoints": {
+            "items": {
+              "$ref": "#/components/schemas/MetricsEndpoint"
+            },
+            "type": "array"
+          },
+          "gauges": {
+            "$ref": "#/components/schemas/MetricsGauges"
+          },
+          "goVersion": {
+            "type": "string"
+          },
+          "phases": {
+            "items": {
+              "$ref": "#/components/schemas/MetricsPhaseShare"
+            },
+            "type": "array"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/MetricsPoint"
+            },
+            "type": "array"
+          },
+          "profiling": {
+            "type": "boolean"
+          },
+          "queries": {
+            "$ref": "#/components/schemas/MetricsQueryStats"
+          },
+          "range": {
+            "type": "string"
+          },
+          "started": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "stepSeconds": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/MetricsSummary"
+          },
+          "uptimeSeconds": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "caches",
+          "uptimeSeconds",
+          "goVersion",
+          "profiling",
+          "range",
+          "stepSeconds",
+          "started",
+          "points",
+          "summary",
+          "phases",
+          "endpoints",
+          "queries",
+          "gauges"
+        ],
         "type": "object"
       },
       "Permission": {
@@ -22278,6 +22622,92 @@
             "description": "Error"
           }
         },
+        "tags": [
+          "System"
+        ]
+      }
+    },
+    "/api/v1/system/metrics": {
+      "get": {
+        "operationId": "system-metrics",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "range",
+            "schema": {
+              "default": "24h",
+              "enum": [
+                "1h",
+                "24h",
+                "7d"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PerformanceReport"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "How fast the server answers and where the time goes, over the last hour, day or week",
+        "tags": [
+          "System"
+        ]
+      }
+    },
+    "/api/v1/system/metrics/prometheus": {
+      "get": {
+        "operationId": "system-metrics-prometheus",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "contentEncoding": "base64",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "OK",
+            "headers": {
+              "Content-Type": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "The same numbers for Prometheus (scrape with the API key as a bearer token)",
         "tags": [
           "System"
         ]

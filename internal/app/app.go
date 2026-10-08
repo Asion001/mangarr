@@ -23,6 +23,7 @@ import (
 	"github.com/Asion001/mangarr/internal/jobs"
 	"github.com/Asion001/mangarr/internal/komgaapi"
 	"github.com/Asion001/mangarr/internal/logging"
+	"github.com/Asion001/mangarr/internal/metrics"
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/modules"
 	"github.com/Asion001/mangarr/internal/organize"
@@ -71,6 +72,8 @@ type App struct {
 	Scheduler *jobs.Scheduler
 	HTTP      *http.Client
 	StartedAt time.Time
+	// Metrics counts requests, queries and caches for the performance page.
+	Metrics *metrics.Collector
 	Services
 	MoreServices
 	ReaderServices
@@ -103,8 +106,10 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger, ring *loggin
 	if unknown := envcfg.Unknown(cfg.Env); len(unknown) > 0 {
 		log.Warn("ignoring unknown MANGARR_ variables", "vars", unknown)
 	}
+	collector := metrics.New()
+	d.AddQueryHook(collector.QueryHook())
 	a := &App{
-		Cfg: cfg, Log: log, LogRing: ring, DB: d,
+		Cfg: cfg, Log: log, LogRing: ring, DB: d, Metrics: collector,
 		Settings:  st,
 		Bus:       events.NewBus(),
 		HTTP:      &http.Client{Timeout: 5 * time.Minute},
@@ -165,6 +170,7 @@ func (a *App) Start(ctx context.Context) error {
 	if err := a.trackRuns(ctx); err != nil {
 		return err
 	}
+	go a.sampleMetrics(ctx)
 	if err := a.Queue.Start(ctx); err != nil {
 		return err
 	}

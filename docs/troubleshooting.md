@@ -73,3 +73,20 @@ System → Backups → **Add a backup file**, then **Restore**. A backup holds
 the whole database and restores into SQLite or PostgreSQL alike, also on
 another install. Library files aren't touched. Every backup is verified when
 it's made or uploaded; the page shows the result and has **Verify**.
+
+## Finding what is slow
+
+System › Performance shows how fast the server answers over the last hour,
+day or week, which endpoints take the most time, and how the caches and
+the database are doing. The numbers are kept in memory and start again at
+every restart.
+
+- Every answer carries a `Server-Timing` header with its phases, so the
+  browser's network panel shows where one slow request spent its time;
+  answers slower than a second are logged as warnings with their request id.
+- Prometheus can scrape `/api/v1/system/metrics/prometheus` with the API
+  key as a bearer token.
+- With `MANGARR_PPROF=true`, admins can use Go's profiler at
+  `/api/v1/system/pprof/` (for example `go tool pprof
+  https://manga.example.com/api/v1/system/pprof/profile?seconds=30` with the
+  API key in an `Authorization: Bearer` header).

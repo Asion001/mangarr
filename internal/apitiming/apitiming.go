@@ -69,6 +69,18 @@ func (t *Timings) Add(name string, d time.Duration) {
 	}
 }
 
+// Each calls fn with every phase recorded so far.
+func (t *Timings) Each(fn func(name string, d time.Duration)) {
+	if t == nil {
+		return
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	for _, s := range t.spans {
+		fn(s.name, s.dur)
+	}
+}
+
 // Header renders the Server-Timing value, total first.
 func (t *Timings) Header(total time.Duration) string {
 	parts := []string{fmt.Sprintf("total;dur=%.1f", ms(total))}

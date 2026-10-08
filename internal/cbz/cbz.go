@@ -15,6 +15,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -281,6 +282,12 @@ type cachedList struct {
 
 const listCacheMax = 256
 
+var listHits, listMisses atomic.Int64
+
+// ListCacheCounts reports how often Entries found an archive's page list
+// already read, since start.
+func ListCacheCounts() (hits, misses int64) { return listHits.Load(), listMisses.Load() }
+
 // Entries is List with a cache keyed by the file's size and modification
 // time, so a rewritten archive (an upgrade, a re-encode) is read again.
 func Entries(path string) ([]Entry, error) {
@@ -293,9 +300,11 @@ func Entries(path string) ([]Entry, error) {
 		c.used = time.Now()
 		listCache.m[path] = c
 		listCache.Unlock()
+		listHits.Add(1)
 		return c.entries, nil
 	}
 	listCache.Unlock()
+	listMisses.Add(1)
 
 	entries, err := List(path)
 	if err != nil {

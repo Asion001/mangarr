@@ -20,6 +20,7 @@ import (
 	"github.com/Asion001/mangarr/internal/access"
 	"github.com/Asion001/mangarr/internal/apitiming"
 	"github.com/Asion001/mangarr/internal/app"
+	"github.com/Asion001/mangarr/internal/metrics"
 	"github.com/Asion001/mangarr/internal/version"
 )
 
@@ -49,7 +50,7 @@ func Permissions(a *app.App) []string {
 
 func build(a *app.App) (http.Handler, *Server) {
 	r := chi.NewMux()
-	r.Use(middleware.RealIP, middleware.RequestID, middleware.Recoverer, apitiming.Middleware, requestLogger(a.Log))
+	r.Use(middleware.RealIP, middleware.RequestID, middleware.Recoverer, apitiming.Middleware, requestLogger(a.Log, a.Metrics, a.Cfg.URLBase))
 
 	base := a.Cfg.URLBase
 	sub := chi.NewMux()
@@ -83,6 +84,9 @@ func build(a *app.App) (http.Handler, *Server) {
 	}
 
 	s.registerImageLinks(sub)
+	if a.Cfg.Pprof {
+		sub.Handle(pprofPath+"*", s.pprofHandler())
+	}
 	sub.Get("/api/v1/events", s.handleEvents)
 	sub.Get("/ping", func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte("pong")) })
 	sub.Handle("/*", s.staticHandler())
@@ -123,6 +127,8 @@ func schemaNamer(t reflect.Type, hint string) string {
 		return "Health" + name
 	case strings.HasSuffix(pkg, "/internal/backup"):
 		return "Backup" + name
+	case strings.HasSuffix(pkg, "/internal/metrics"):
+		return "Metrics" + name
 	case strings.HasSuffix(pkg, "/internal/metadataagg"):
 		return "Metadata" + name
 	}
@@ -209,7 +215,29 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-func requestLogger(log *slog.Logger) func(http.Handler) http.Handler {
+// slowRequest is when an answer is slow enough to log as a warning.
+const slowRequest = time.Second
+
+// routeName is how the performance page names a request: its method and
+// route pattern, with ids left as {id}.
+func routeName(r *http.Request, base string) string {
+	pattern := ""
+	if rc := chi.RouteContext(r.Context()); rc != nil {
+		pattern = strings.TrimPrefix(rc.RoutePattern(), base)
+	}
+	if pattern == "" || pattern == "/*" || !strings.HasPrefix(pattern, "/api/") {
+		if strings.HasPrefix(strings.TrimPrefix(r.URL.Path, base), "/api/") {
+			// turned away before routing (no login) or no such endpoint
+			return r.Method + " (API, refused or unknown)"
+		}
+		return r.Method + " (web interface files)"
+	}
+	return r.Method + " " + pattern
+}
+
+// requestLogger logs API requests (slow ones as warnings) and counts every
+// request for the performance page.
+func requestLogger(log *slog.Logger, m *metrics.Collector, base string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
@@ -219,8 +247,25 @@ func requestLogger(log *slog.Logger) func(http.Handler) http.Handler {
 			}
 			ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
 			next.ServeHTTP(ww, r)
-			if strings.HasPrefix(r.URL.Path, "/api/") && r.URL.Path != "/api/v1/events" {
-				log.Debug("http", "method", r.Method, "path", r.URL.Path, "status", ww.Status(), "duration", time.Since(start), "request", id)
+			path := strings.TrimPrefix(r.URL.Path, base)
+			if path == "/api/v1/events" {
+				return // open for as long as the page is
+			}
+			took := time.Since(start)
+			status := ww.Status()
+			if status == 0 {
+				status = http.StatusOK
+			}
+			var phases []metrics.Phase
+			apitiming.From(r.Context()).Each(func(name string, d time.Duration) { phases = append(phases, metrics.Phase{Name: name, Dur: d}) })
+			m.Request(routeName(r, base), status, took, int64(ww.BytesWritten()), phases)
+			if !strings.HasPrefix(path, "/api/") {
+				return
+			}
+			if took >= slowRequest {
+				log.Warn("slow request", "method", r.Method, "path", path, "status", status, "duration", took.Round(time.Millisecond), "request", id)
+			} else {
+				log.Debug("http", "method", r.Method, "path", path, "status", status, "duration", took, "request", id)
 			}
 		})
 	}

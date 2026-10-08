@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/sync/singleflight"
@@ -34,7 +35,12 @@ type Cache struct {
 	max   int64
 	sf    singleflight.Group
 	now   func() time.Time
+
+	hits, misses atomic.Int64
 }
+
+// HitCounts reports how often a lookup found a live entry, since start.
+func (c *Cache) HitCounts() (hits, misses int64) { return c.hits.Load(), c.misses.Load() }
 
 func New(maxBytes int64) *Cache {
 	return &Cache{ll: list.New(), items: map[string]*list.Element{}, max: maxBytes, now: time.Now}
@@ -46,14 +52,17 @@ func (c *Cache) Get(key string) (any, bool) {
 	defer c.mu.Unlock()
 	el, ok := c.items[key]
 	if !ok {
+		c.misses.Add(1)
 		return nil, false
 	}
 	e := el.Value.(*entry)
 	if c.now().After(e.expires) {
 		c.remove(el)
+		c.misses.Add(1)
 		return nil, false
 	}
 	c.ll.MoveToFront(el)
+	c.hits.Add(1)
 	return e.val, true
 }
 

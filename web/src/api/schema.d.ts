@@ -3160,6 +3160,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/system/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** How fast the server answers and where the time goes, over the last hour, day or week */
+        get: operations["system-metrics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/system/metrics/prometheus": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The same numbers for Prometheus (scrape with the API key as a bearer token) */
+        get: operations["system-metrics-prometheus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/system/restart": {
         parameters: {
             query?: never;
@@ -3909,6 +3943,13 @@ export interface components {
             results?: components["schemas"]["BulkResult"][];
             /** Format: int64 */
             total: number;
+        };
+        CacheStat: {
+            /** Format: int64 */
+            hits: number;
+            /** Format: int64 */
+            misses: number;
+            name: string;
         };
         CacheStatus: {
             /** Format: int64 */
@@ -5077,6 +5118,96 @@ export interface components {
             moduleId: number;
             provider: string;
         };
+        MetricsEndpoint: {
+            /** Format: int64 */
+            bytes: number;
+            /** Format: int64 */
+            calls: number;
+            /** Format: int64 */
+            errors: number;
+            /** Format: int64 */
+            notModified: number;
+            /** Format: double */
+            p50Ms: number;
+            /** Format: double */
+            p95Ms: number;
+            route: string;
+            /** Format: double */
+            totalMs: number;
+        };
+        MetricsGauges: {
+            /** Format: date-time */
+            at: string;
+            /** Format: int64 */
+            dbInUse: number;
+            /** Format: int64 */
+            dbMaxOpen: number;
+            /** Format: int64 */
+            dbOpen: number;
+            /** Format: int64 */
+            dbWaitCount: number;
+            /** Format: double */
+            dbWaitMs: number;
+            /** Format: double */
+            gcPauseP99Ms: number;
+            /** Format: int64 */
+            goroutines: number;
+            /** Format: int64 */
+            heapBytes: number;
+            /** Format: int64 */
+            queueRunning: number;
+            /** Format: int64 */
+            queueWaiting: number;
+        };
+        MetricsPhaseShare: {
+            /** Format: double */
+            ms: number;
+            name: string;
+            /** Format: double */
+            share: number;
+        };
+        MetricsPoint: {
+            /** Format: date-time */
+            at: string;
+            /** Format: int64 */
+            errors: number;
+            /** Format: int64 */
+            notModified: number;
+            /** Format: double */
+            p50Ms: number;
+            /** Format: double */
+            p95Ms: number;
+            /** Format: int64 */
+            requests: number;
+        };
+        MetricsQueryStats: {
+            /** Format: int64 */
+            count: number;
+            /** Format: double */
+            p95Ms: number;
+            /** Format: int64 */
+            slow: number;
+        };
+        MetricsSummary: {
+            /** Format: int64 */
+            bytes: number;
+            /** Format: double */
+            cachedShare: number;
+            /** Format: double */
+            errorShare: number;
+            /** Format: int64 */
+            errors: number;
+            /** Format: double */
+            p95Ms: number;
+            /** Format: double */
+            peakPerMinute: number;
+            /** Format: double */
+            perMinute: number;
+            /** Format: double */
+            prevP95Ms: number;
+            /** Format: int64 */
+            requests: number;
+        };
         ModuleEnvLock: {
             fields: {
                 [key: string]: string;
@@ -5308,6 +5439,24 @@ export interface components {
             /** Format: int64 */
             priority?: number;
             throttle?: components["schemas"]["ThrottleConfig"];
+        };
+        PerformanceReport: {
+            caches: components["schemas"]["CacheStat"][];
+            endpoints: components["schemas"]["MetricsEndpoint"][];
+            gauges: components["schemas"]["MetricsGauges"];
+            goVersion: string;
+            phases: components["schemas"]["MetricsPhaseShare"][];
+            points: components["schemas"]["MetricsPoint"][];
+            profiling: boolean;
+            queries: components["schemas"]["MetricsQueryStats"];
+            range: string;
+            /** Format: date-time */
+            started: string;
+            /** Format: int64 */
+            stepSeconds: number;
+            summary: components["schemas"]["MetricsSummary"];
+            /** Format: int64 */
+            uptimeSeconds: number;
         };
         Permission: {
             description: string;
@@ -14709,6 +14858,67 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LogFiles"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "system-metrics": {
+        parameters: {
+            query?: {
+                range?: "1h" | "24h" | "7d";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PerformanceReport"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "system-metrics-prometheus": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "Content-Type"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string;
                 };
             };
             /** @description Error */

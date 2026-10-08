@@ -43,6 +43,32 @@ type Store struct {
 	trimming atomic.Bool
 	mu       sync.Mutex // serializes Compact, Clear and Trim
 	fetching singleflight.Group
+	counts   sync.Map // bucket -> *hitCounter
+}
+
+type hitCounter struct{ hits, misses atomic.Int64 }
+
+// HitCount is how often a bucket had what was asked for.
+type HitCount struct{ Hits, Misses int64 }
+
+func (s *Store) count(bucket string, hit bool) {
+	v, _ := s.counts.LoadOrStore(bucket, &hitCounter{})
+	if c := v.(*hitCounter); hit {
+		c.hits.Add(1)
+	} else {
+		c.misses.Add(1)
+	}
+}
+
+// HitCounts reports hits and misses per bucket since start.
+func (s *Store) HitCounts() map[string]HitCount {
+	out := map[string]HitCount{}
+	s.counts.Range(func(k, v any) bool {
+		c := v.(*hitCounter)
+		out[k.(string)] = HitCount{Hits: c.hits.Load(), Misses: c.misses.Load()}
+		return true
+	})
+	return out
 }
 
 // NewStore opens the cache at root and measures it.
@@ -86,9 +112,11 @@ func (s *Store) Get(ctx context.Context, bucket, key string, ttl time.Duration, 
 	st, statErr := os.Stat(p)
 	if statErr == nil && time.Since(st.ModTime()) < ttl {
 		if data, ct, ok := readCached(); ok {
+			s.count(bucket, true)
 			return data, ct, false, nil
 		}
 	}
+	s.count(bucket, false)
 	// one fetch per key: a burst of readers on a cold page (a chapter being
 	// streamed to several devices) must not hit the source once each
 	type result struct {
