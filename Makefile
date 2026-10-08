@@ -8,7 +8,7 @@ IMAGE      ?=
 LDFLAGS := -s -w -X github.com/Asion001/mangarr/internal/version.Version=$(VERSION) -X github.com/Asion001/mangarr/internal/version.Build=$(BUILD) -X github.com/Asion001/mangarr/internal/version.Commit=$(COMMIT) -X 'github.com/Asion001/mangarr/internal/version.UpdateURL=$(UPDATE_URL)' -X github.com/Asion001/mangarr/internal/version.Image=$(IMAGE)
 NODE_IMAGE ?= node:24-alpine
 
-.PHONY: build build-worker run test test-pg test-integration vet web web-types lint gate hooks docker docker-slim clean
+.PHONY: build build-worker run test test-pg test-integration vet web web-types lint gate docker docker-slim clean
 
 build:
 	CGO_ENABLED=0 go build -tags nodynamic -ldflags "$(LDFLAGS)" -o bin/mangarr ./cmd/mangarr
@@ -47,10 +47,6 @@ web-types: build
 gate:
 	./scripts/gate.sh
 	./scripts/gate-web.sh
-
-# Run the gate before every push (only the side a push touches).
-hooks:
-	git config core.hooksPath .githooks
 
 docker:
 	docker build -f docker/Dockerfile --target full -t ghcr.io/asion001/mangarr:dev --build-arg VERSION=$(VERSION) --build-arg BUILD=$(BUILD) --build-arg COMMIT=$(COMMIT) --build-arg UPDATE_URL='$(UPDATE_URL)' --build-arg IMAGE=$(IMAGE) .
