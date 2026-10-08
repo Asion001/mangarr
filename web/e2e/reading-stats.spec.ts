@@ -12,13 +12,15 @@ const empty={totalActiveSeconds:0,completedChapters:0,languages:[],genres:[]};
 
 /** mockAccount serves a signed-in account page; stats answers /me/reading-stats. */
 async function mockAccount(page:Page,stats:(route:import('@playwright/test').Route)=>Promise<void>) {
+  let preferences:Record<string,unknown>={locale:'en',mode:'reading'};
   await page.route('**/api/v1/**',async route=>{
     const p=new URL(route.request().url()).pathname;
     if(p.endsWith('/auth/status')) return route.fulfill({json:{authenticated:true,account:{kind:'user',id:1,username:'reader',permissions:[]}}});
     if(p.endsWith('/me/reading-stats')) return stats(route);
     if(p.endsWith('/me/ui-preferences')) {
-      const saved=route.request().method()==='PUT'?route.request().postDataJSON():{locale:'en',mode:'reading'};
-      return route.fulfill({json:{...saved,updatedAt:'2026-09-17T00:00:00Z'}});
+      // keep what was saved: a new locale refetches every query, preferences included
+      if(route.request().method()==='PUT') preferences=route.request().postDataJSON();
+      return route.fulfill({json:{...preferences,updatedAt:'2026-09-17T00:00:00Z'}});
     }
     if(p.endsWith('/me/notifications')||p.endsWith('/me/notifications/schema')||p.endsWith('/me/library-accounts')||p.endsWith('/me/sessions')) return route.fulfill({json:[]});
     return route.fulfill({json:{}});

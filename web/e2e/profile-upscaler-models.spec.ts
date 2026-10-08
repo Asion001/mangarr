@@ -30,7 +30,8 @@ async function openModel(page: Page) {
   await page.goto("/settings/profiles");
   await page.getByRole("button", { name: "Edit" }).click();
   await page.getByRole("button", { name: "Page processing" }).click();
-  return page.getByRole("combobox");
+  // the black & white model comes first; the color model select follows it
+  return page.getByRole("combobox").first();
 }
 
 test("profile model list combines engines and preserves an unavailable saved model", async ({ page }) => {
