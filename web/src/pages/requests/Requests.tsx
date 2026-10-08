@@ -68,8 +68,16 @@ function AskTab({ onDone }: { onDone: () => void }) {
  * RequestSearch finds titles to request with the metadata search; with
  * hideInput the query comes from a search box elsewhere (the library's).
  */
-export function RequestSearch({ query, setQuery, onDone, hideInput }: { query: string; setQuery?: (q: string) => void; onDone?: () => void; hideInput?: boolean }) {
+export function RequestSearch({ query, setQuery, onDone, hideInput, add }: {
+  query: string;
+  setQuery?: (q: string) => void;
+  onDone?: () => void;
+  hideInput?: boolean;
+  /** add offers "Add…" (the add flow) instead of Request, for people who add titles. */
+  add?: boolean;
+}) {
   const [asking, setAsking] = useState<LookupResult | null>(null);
+  const nav = useNavigate();
   return (
     <>
         <MetadataSearch
@@ -83,6 +91,13 @@ export function RequestSearch({ query, setQuery, onDone, hideInput }: { query: s
               <Link to={`/series/${r.existingSeriesId}`}>
                 <Button size="sm" icon={<BookOpen className="size-4" />}>{t("In library")}</Button>
               </Link>
+            ) : add ? (
+              <span className="flex gap-2">
+                <ReadButton result={r} />
+                <Button size="sm" variant="primary" icon={<PlusCircle className="size-4" />} onClick={() => nav(`/add/${r.moduleId}/${encodeURIComponent(r.id)}/sources`)}>
+                  {t("Add…")}
+                </Button>
+              </span>
             ) : r.request?.mine ? (
               <Badge tone={statusTone[r.request.status as Status] ?? "info"}>
                 <Check className="size-3" />{" " + t("Requested")}</Badge>

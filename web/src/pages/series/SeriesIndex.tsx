@@ -52,7 +52,8 @@ export function SeriesIndex() {
   const account = useAccount();
   const toast = useToast();
   const manage = account.can("library.edit") && editing;
-  const adds = account.can("library.add") && editing;
+  // adding is offered in both modes: it's how a title gets into the library
+  const adds = account.can("library.add");
   // people who ask for titles instead of adding them
   const requester = !account.can("library.add") && account.can("requests.create");
   const push = usePushCommand();
@@ -361,11 +362,13 @@ export function SeriesIndex() {
           </Select>
         </div>
       )}
-      {requester && q.trim().length > 1 && page === 1 && (
+      {(adds || requester) && q.trim().length > 1 && page === 1 && (
         <section aria-labelledby="request-results" className="mt-8">
           <h2 id="request-results" className="mb-1 text-lg font-semibold">{t("Not in the library?")}</h2>
-          <p className="mb-3 text-sm text-muted">{t("Titles matching “{query}” you can ask for.", { query: q.trim() })}</p>
-          <RequestSearch query={q.trim()} hideInput />
+          <p className="mb-3 text-sm text-muted">
+            {adds ? t("Titles matching “{query}” you can add.", { query: q.trim() }) : t("Titles matching “{query}” you can ask for.", { query: q.trim() })}
+          </p>
+          <RequestSearch query={q.trim()} hideInput add={adds} />
         </section>
       )}
       {selecting && selected.size > 0 && (

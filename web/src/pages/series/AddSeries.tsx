@@ -76,7 +76,7 @@ export function MetadataSearch({
         </p>
       ))}
       <div className="flex flex-col gap-2">
-        {data?.results.map((r) => (
+        {data?.results?.map((r) => (
           <div key={r.provider + r.id} className={clsx("flex gap-3 rounded-lg border border-border bg-panel p-3", isNovel(r.format) && "opacity-60")}>
             <Cover src={r.coverUrl} alt={r.title} className="aspect-[2/3] w-16 shrink-0" />
             <div className="min-w-0 flex-1">
