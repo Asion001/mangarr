@@ -11,7 +11,7 @@ test('searches, scopes and paginates the library through the server query',async
     if(p.endsWith('/series/search')) {
       seen.push(url.search);
       const title=url.searchParams.get('q')?'Moonlight Alternative':'Moonlight';
-      return route.fulfill({json:{page:Number(url.searchParams.get('page')||1),pageSize:36,total:80,totalSize:1234,languages:['en','uk'],items:[{
+      return route.fulfill({json:{page:Number(url.searchParams.get('page')||1),pageSize:36,total:80,totalSize:1234,languages:['en','uk'],genres:['Romance','Action'],items:[{
         id:1,title,sortTitle:'moonlight',status:'ongoing',monitored:true,monitorNew:'all',rootFolderId:1,path:'Moonlight',profileId:1,language:'en',sourcePriorityMode:'inherit',readingDirection:'rtl',tags:[],metadata:{altTitles:['Luna']},addOptions:{pending:false},addedAt:'2026-09-17T00:00:00Z',updatedAt:'2026-09-17T00:00:00Z',coverUrl:'',following:false,
         stats:{chapterCount:10,monitoredCount:10,fileCount:8,missingCount:2,cleanedCount:0,sizeOnDisk:1234,spaceSaved:0,lastChapter:10,readCount:2,inProgressCount:1}
       }]}});
@@ -21,15 +21,16 @@ test('searches, scopes and paginates the library through the server query',async
 
   await page.goto('/');
   await expect(page.getByRole('heading',{name:'Series',exact:true})).toBeVisible();
-  await page.getByPlaceholder('Search titles and alternative titles…').fill('moon');
+  await page.getByPlaceholder('Search titles, alternative titles and genres…').fill('moon');
   await expect(page.getByText('Moonlight Alternative')).toBeVisible();
   await expect.poll(()=>seen.some(value=>value.includes('q=moon'))).toBe(true);
   await page.getByRole('combobox').nth(0).selectOption('reading');
   await page.getByRole('combobox').nth(1).selectOption('latest');
   await page.getByRole('combobox').nth(2).selectOption('2');
   await page.getByRole('combobox').nth(3).selectOption('uk');
-  await page.getByRole('combobox').nth(4).selectOption('48');
-  await expect.poll(()=>seen.some(value=>value.includes('filter=reading')&&value.includes('sort=latest')&&value.includes('rootFolderId=2')&&value.includes('language=uk')&&value.includes('pageSize=48'))).toBe(true);
+  await page.getByRole('combobox').nth(4).selectOption('Romance');
+  await page.getByRole('combobox').nth(5).selectOption('48');
+  await expect.poll(()=>seen.some(value=>value.includes('filter=reading')&&value.includes('sort=latest')&&value.includes('rootFolderId=2')&&value.includes('language=uk')&&value.includes('genre=Romance')&&value.includes('pageSize=48'))).toBe(true);
   await page.getByRole('button',{name:'Next',exact:true}).click();
   await expect.poll(()=>seen.some(value=>value.includes('page=2'))).toBe(true);
 
@@ -38,6 +39,6 @@ test('searches, scopes and paginates the library through the server query',async
   await expect(page.getByRole('combobox').nth(1)).toHaveValue('latest');
   await expect(page.getByRole('combobox').nth(2)).toHaveValue('2');
   await expect(page.getByRole('combobox').nth(3)).toHaveValue('uk');
-  await expect(page.getByRole('combobox').nth(4)).toHaveValue('48');
+  await expect(page.getByRole('combobox').nth(5)).toHaveValue('48');
   await expect.poll(()=>seen.some(value=>value.includes('filter=reading')&&value.includes('sort=latest')&&value.includes('rootFolderId=2')&&value.includes('language=uk')&&value.includes('pageSize=48')&&!value.includes('page=2'))).toBe(true);
 });

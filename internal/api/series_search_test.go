@@ -65,3 +65,18 @@ func TestLocalEditionFollowsInterfaceLanguage(t *testing.T) {
 		t.Fatal("ua should read as Ukrainian")
 	}
 }
+
+func TestMatchesSeriesQueryByGenre(t *testing.T) {
+	item := searchSeries(1, "Moonlit Journey")
+	item.Metadata.Genres, item.Metadata.Tags = []string{"Romance"}, []string{"Комедия"}
+	for _, query := range []SeriesSearchQuery{{Genre: "Romance"}, {Genre: "романтика"}, {Genre: "Comedy"}, {Query: "Романтика"}, {Query: "comedy"}} {
+		if !matchesSeriesQuery(item, query) {
+			t.Fatalf("query should match: %+v", query)
+		}
+	}
+	for _, query := range []SeriesSearchQuery{{Genre: "Horror"}, {Query: "rom"}} {
+		if matchesSeriesQuery(item, query) {
+			t.Fatalf("query should not match: %+v", query)
+		}
+	}
+}

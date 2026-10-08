@@ -130,9 +130,9 @@ export function SeriesDetail() {
             {s.language && <Badge>{languageName(s.language)}</Badge>}
             {md.ageRating && <Badge tone="warn">{md.ageRating}</Badge>}
             {(md.genres ?? []).slice(0, 8).map((g) => (
-              <Badge key={g} tone="info">
-                {genreName(g)}
-              </Badge>
+              <Link key={g} to={{ pathname: "/", search: `?genre=${encodeURIComponent(g)}` }} title={t("Series with this genre")}>
+                <Badge tone="info">{genreName(g)}</Badge>
+              </Link>
             ))}
           </div>
         </div>

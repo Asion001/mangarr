@@ -8833,6 +8833,12 @@
       "SeriesSearchResponse": {
         "additionalProperties": false,
         "properties": {
+          "genres": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "items": {
             "items": {
               "$ref": "#/components/schemas/SeriesResource"
@@ -8868,7 +8874,8 @@
           "pageSize",
           "total",
           "totalSize",
-          "languages"
+          "languages",
+          "genres"
         ],
         "type": "object"
       },
@@ -18717,6 +18724,17 @@
             "name": "language",
             "schema": {
               "maxLength": 20,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Only series with this genre or tag",
+            "explode": false,
+            "in": "query",
+            "name": "genre",
+            "schema": {
+              "description": "Only series with this genre or tag",
+              "maxLength": 100,
               "type": "string"
             }
           },

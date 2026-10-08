@@ -9,6 +9,7 @@ import { usePushCommand, useRootFolders, useSeriesSearch } from "../../api/queri
 import { Cover } from "../../components/Cover";
 import { Badge, Button, EmptyState, ErrorBox, Input, Loading, PageHeader, Progress, Select, Table, Td, Th } from "../../components/ui";
 import { bytes, date, languageName } from "../../lib/format";
+import { genreName } from "../../lib/genres";
 import { useListParam, useQueryParam, useStoredListParam } from "../../lib/urlState";
 import { MassEditBar } from "./Organize";
 import { ContinueReading } from "./ContinueReading";
@@ -63,6 +64,7 @@ export function SeriesIndex() {
   const setSort = (v: string) => { setSortOnly(v); void saveUI({ options: { librarySort: v } }).catch(() => undefined); };
   const [rootParam, setRoot] = useStoredListParam("root", "", libraryStateKey("root"));
   const [language, setLanguage] = useStoredListParam("language", "", libraryStateKey("language"));
+  const [genre, setGenre] = useListParam("genre");
   const [pageParam, setPage] = useListParam("page", "1");
   const [pageSizeParam, setPageSizeOnly] = useStoredListParam("pageSize", ui.libraryPageSize && (pageSizes as readonly string[]).includes(ui.libraryPageSize) ? ui.libraryPageSize : "36", libraryStateKey("pageSize"), pageSizes);
   const setPageSize = (v: string) => { setPageSizeOnly(v); void saveUI({ options: { libraryPageSize: v } }).catch(() => undefined); };
@@ -81,7 +83,7 @@ export function SeriesIndex() {
     }, 250);
     return () => window.clearTimeout(timeout);
   }, [searchDraft, q]);
-  const { data, isLoading, isPlaceholderData, error } = useSeriesSearch({ q: q || undefined, filter, sort, rootFolderId, language: language || undefined, page, pageSize });
+  const { data, isLoading, isPlaceholderData, error } = useSeriesSearch({ q: q || undefined, filter, sort, rootFolderId, language: language || undefined, genre: genre || undefined, page, pageSize });
   useEffect(() => {
     if (!data?.total) return;
     const last = Math.max(1, Math.ceil(data.total / pageSize));
@@ -94,7 +96,7 @@ export function SeriesIndex() {
   const [selectingAll, setSelectingAll] = useState(false);
   useEffect(()=>{if(!manage){setSelecting(false);setSelected(new Map());}},[manage]);
   // a shift-click range starts on this page, not where the last one was clicked
-  useEffect(() => setLastClicked(null), [q, filter, sort, rootFolderId, language, page, pageSize]);
+  useEffect(() => setLastClicked(null), [q, filter, sort, rootFolderId, language, genre, page, pageSize]);
   /** toggle flips one series; shift+click sets the whole range from the last click the same way. */
   const toggle = (idx: number, shift = false) => {
     const s = list[idx];
@@ -113,7 +115,7 @@ export function SeriesIndex() {
     try {
       const all = new Map<number, string>();
       for (let p = 1; ; p++) {
-        const r = await unwrap(api.GET("/api/v1/series/search", { params: { query: { q: q || undefined, filter, sort, rootFolderId, language: language || undefined, page: p, pageSize: 100 } } }));
+        const r = await unwrap(api.GET("/api/v1/series/search", { params: { query: { q: q || undefined, filter, sort, rootFolderId, language: language || undefined, genre: genre || undefined, page: p, pageSize: 100 } } }));
         r.items.forEach((s) => all.set(s.id, s.title));
         if (r.items.length < 100 || all.size >= r.total) break;
       }
@@ -156,11 +158,11 @@ export function SeriesIndex() {
           ) : null
         }
       />
-      {!q && filter === "all" && !rootFolderId && !language && <ContinueReading />}
+      {!q && filter === "all" && !rootFolderId && !language && !genre && <ContinueReading />}
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <div className="relative w-full max-w-xs">
           <Search className="absolute left-2.5 top-2.5 size-4 text-muted" />
-          <Input className="pl-8" placeholder={t("Search titles and alternative titles…")} value={searchDraft} onChange={(e) => setSearchDraft(e.target.value)} />
+          <Input className="pl-8" placeholder={t("Search titles, alternative titles and genres…")} value={searchDraft} onChange={(e) => setSearchDraft(e.target.value)} />
         </div>
         <Select className="w-auto" value={filter} onChange={(e) => setFilterAndReset(e.target.value)}>
           <option value="all">{t("All")}</option>
@@ -195,6 +197,13 @@ export function SeriesIndex() {
             {data?.languages?.map((item) => <option key={item} value={item}>{languageName(item)}</option>)}
           </Select>
         )}
+        {((data?.genres?.length ?? 0) > 0 || genre !== "") && (
+          <Select className="w-auto max-w-xs" value={genre} onChange={(e) => { setGenre(e.target.value); setPage("1"); }}>
+            <option value="">{t("All genres and tags")}</option>
+            {genre !== "" && !data?.genres?.includes(genre) && <option value={genre}>{genreName(genre)}</option>}
+            {[...(data?.genres ?? [])].sort((a, b) => genreName(a).localeCompare(genreName(b))).map((item) => <option key={item} value={item}>{genreName(item)}</option>)}
+          </Select>
+        )}
         <div className="ml-auto flex gap-1">
           {manage && (
             <Button
@@ -221,7 +230,7 @@ export function SeriesIndex() {
           <Button size="sm" variant="ghost" loading={selectingAll} onClick={() => void selectAllMatching()}>{t("Select all {count} matching", { count: data.total })}</Button>
         </div>
       )}
-      {data && data.total === 0 && !q && filter === "all" && !rootFolderId && !language && (
+      {data && data.total === 0 && !q && filter === "all" && !rootFolderId && !language && !genre && (
         account.isAdmin ? (
           <SetupChecklist />
         ) : (
@@ -236,7 +245,7 @@ export function SeriesIndex() {
           </EmptyState>
         )
       )}
-      {data && data.total === 0 && (q || filter !== "all" || rootFolderId || language) && (
+      {data && data.total === 0 && (q || filter !== "all" || rootFolderId || language || genre) && (
         <EmptyState title={t("No series match these filters")}>{t("Try a shorter title or clear one of the filters.")}</EmptyState>
       )}
       {view === "posters" ? (

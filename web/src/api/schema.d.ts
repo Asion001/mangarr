@@ -6254,6 +6254,7 @@ export interface components {
             workTitle?: string;
         };
         SeriesSearchResponse: {
+            genres: string[];
             items: components["schemas"]["SeriesResource"][];
             languages: string[];
             /** Format: int64 */
@@ -12055,6 +12056,8 @@ export interface operations {
                 sort?: "title" | "added" | "latest" | "missing" | "size" | "read";
                 rootFolderId?: number;
                 language?: string;
+                /** @description Only series with this genre or tag */
+                genre?: string;
                 page?: number;
                 pageSize?: number;
             };

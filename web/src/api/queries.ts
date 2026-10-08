@@ -12,6 +12,7 @@ export type SeriesSearchQuery = {
   sort?: "title" | "added" | "latest" | "missing" | "size" | "read";
   rootFolderId?: number;
   language?: string;
+  genre?: string;
   page?: number;
   pageSize?: number;
 };

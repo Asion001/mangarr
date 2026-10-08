@@ -15,8 +15,9 @@ const queryClient = new QueryClient({
   },
 });
 
-// titles come back in the interface language, so a new one refetches them
-subscribeLocale(() => void queryClient.invalidateQueries());
+// series titles come back in the interface language, so a new one refetches
+// them (only them: refetching the preferences mid-save would undo the switch)
+subscribeLocale(() => void queryClient.invalidateQueries({ queryKey: ["series"] }));
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
