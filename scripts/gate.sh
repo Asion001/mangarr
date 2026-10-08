@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 # What CI checks, run here: formatting, vet, the import rule and the tests
 # on both databases. Postgres comes from MANGARR_TEST_POSTGRES when it is
-# set (scripts/pg-test.sh starts one).
+# set.
 set -eu
 cd "$(dirname "$0")/.."
 echo "== gofmt"
