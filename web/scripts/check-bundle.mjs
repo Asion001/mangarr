@@ -4,7 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
-const BUDGET_KB = 220;
+const BUDGET_KB = 140;
 const dist = new URL('../dist/', import.meta.url).pathname;
 const html = fs.readFileSync(path.join(dist, 'index.html'), 'utf8');
 const files = [...html.matchAll(/(?:src|href)="\.?\/?(assets\/[^"]+\.js)"/g)].map((m) => m[1]);

@@ -53,7 +53,7 @@ func build(a *app.App) (http.Handler, *Server) {
 	base := a.Cfg.URLBase
 	sub := chi.NewMux()
 	s := &Server{app: a}
-	sub.Use(apiCacheDefaults, s.authMiddleware, s.maintenanceMiddleware)
+	sub.Use(apiCacheDefaults, compressAPI, s.authMiddleware, s.maintenanceMiddleware)
 
 	cfg := huma.DefaultConfig("mangarr", version.Version)
 	cfg.Info.Description = "Sonarr-style PVR for manga. All endpoints accept an X-Api-Key header."

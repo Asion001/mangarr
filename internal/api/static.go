@@ -36,6 +36,7 @@ func (s *Server) staticHandler() http.Handler {
 		index = withBase(index, s.app.Cfg.URLBase)
 	}
 	files := http.FileServerFS(root)
+	gz := newGzipAssets(root)
 	start := time.Now()
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/api/") {
@@ -56,6 +57,9 @@ func (s *Server) staticHandler() http.Handler {
 				}
 				if strings.HasPrefix(p, "assets/") {
 					w.Header().Set("Cache-Control", cacheForever)
+					if r.Header.Get("Range") == "" && gz.serve(w, r, p) {
+						return
+					}
 				}
 				files.ServeHTTP(w, r)
 				return
