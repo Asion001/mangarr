@@ -1,19 +1,19 @@
 import { t as tr, t } from "../../lib/i18n/core";
-import { LanguageChips, useSearchLanguages, useSourcesSettings } from "../../components/LanguageChooser";
+import { LanguageChips, useSourcesSettings } from "../../components/LanguageChooser";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import clsx from "clsx";
 import { ArrowDown, ArrowUp, Plus, Search, X } from "lucide-react";
 import { api, apiUrl, unwrap, type AddEditionsRequest, type EditionOptions, type LookupResult, type S } from "../../api/client";
-import { useCatalogs, useProfiles } from "../../api/queries";
+import { useProfiles } from "../../api/queries";
 import { Cover } from "../../components/Cover";
 import { Badge, Button, ErrorBox, Field, IconButton, Input, Loading, PageHeader, Select, Spinner, Switch } from "../../components/ui";
 import { sessionState, useQueryParam } from "../../lib/urlState";
 import { useToast } from "../../lib/toast";
 import { useAccount } from "../../lib/account";
 import { useSettingsDoc } from "../settings/useSettingsDoc";
-import { LanguageSelect, useLanguageFolders } from "../../components/LanguageSelect";
+import { LanguageSelect, useLanguageFolders, useOfferedLanguages } from "../../components/LanguageSelect";
 import { languageName } from "../../lib/format";
 import { ReadButton } from "./Preview";
 import { SourceSearchModal, pickKey, useCatalogTargets, useDefaultsSearch, useQuickSearch, type Picked, type Scope } from "./SourceSearch";
@@ -120,9 +120,8 @@ export function AddSearchStep() {
   const qc = useQueryClient();
   const [q, setQ] = useQueryParam("q");
   const [lang, setLang] = useQueryParam("lang");
-  const { data: catalogs } = useCatalogs();
-  const languages = Array.from(new Set((catalogs?.items ?? []).filter((c) => !c.hidden).map((c) => c.lang).filter((v) => v && v !== "all" && v !== "multi")));
-  const searchLanguages = useSearchLanguages();
+  // the languages set up on this server, not every language a catalog has
+  const { defaults: searchLanguages, languages } = useOfferedLanguages();
   const account = useAccount();
   const searchSettings = useSourcesSettings();
   const [title, setTitle] = useState(q);
@@ -261,9 +260,7 @@ export function AddReviewStep() {
   const scope: Scope = keys.length ? "custom" : "active";
   const { data: profiles } = useProfiles();
   const sourceSettings = useSettingsDoc<S["Sources"]>("sources");
-  const useLangsFallback = useSearchLanguages();
-  const { data: catalogList } = useCatalogs();
-  const allLangs = Array.from(new Set((catalogList?.items ?? []).filter((c) => !c.hidden).map((c) => c.lang).filter((l) => l && l !== "all" && l !== "multi")));
+  const { defaults: useLangsFallback, languages: allLangs } = useOfferedLanguages();
   const [picked, setPicked] = usePicked(ctx.storageKey);
   const [searching, setSearching] = useState<{ mode: "change" | "add"; lang: string } | null>(null);
   const defaults: Options = { monitor: "all", latestCount: 10, fromChapter: 1, monitorNew: "all" };
@@ -515,7 +512,7 @@ export function AddReviewStep() {
                             </span>
                           </div>
                           {!normLang(p.group.lang) && (
-                            <LanguageSelect aria-label={t("Edition language")} className="w-36" value={normLang(p.lang)} onChange={(l) => setLang(p, l)} placeholder="—" />
+                            <LanguageSelect offered aria-label={t("Edition language")} className="w-36" value={normLang(p.lang)} onChange={(l) => setLang(p, l)} placeholder="—" />
                           )}
                           <div className="flex items-center gap-1">
                             {i === 0 && <Button size="sm" onClick={() => setSearching({ mode: "change", lang: g.lang })}>{t("Change")}</Button>}

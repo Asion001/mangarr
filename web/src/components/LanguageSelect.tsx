@@ -1,6 +1,6 @@
 import { t } from "../lib/i18n/core";
 import type { SelectHTMLAttributes } from "react";
-import { useQueries } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import { api, unwrap } from "../api/client";
 import { useCatalogs, useRootFolders } from "../api/queries";
 import { languageName } from "../lib/format";
@@ -25,12 +25,20 @@ export function useLanguages(): string[] {
   return [...codes].sort((a, b) => languageName(a).localeCompare(languageName(b)));
 }
 
+/** useOfferedLanguages: the languages titles are added or requested in,
+ * the ones set up on the server (search defaults first), for any account. */
+export function useOfferedLanguages(): { defaults: string[]; languages: string[] } {
+  const { data } = useQuery({ queryKey: ["languages"], queryFn: () => unwrap(api.GET("/api/v1/languages")), staleTime: 60_000 });
+  return { defaults: data?.defaults ?? [], languages: data?.languages ?? [] };
+}
+
 /** LanguageSelect picks a language by its name; the value is the code. */
 export function LanguageSelect({
   value,
   onChange,
   auto,
   placeholder,
+  offered,
   ...props
 }: Omit<SelectHTMLAttributes<HTMLSelectElement>, "value" | "onChange"> & {
   value: string;
@@ -38,8 +46,12 @@ export function LanguageSelect({
   /** auto offers the automatic folder ("Every language"). */
   auto?: boolean;
   placeholder?: string;
+  /** offered limits the choice to the languages set up for adding titles. */
+  offered?: boolean;
 }) {
-  const langs = useLanguages();
+  const all = useLanguages();
+  const set = useOfferedLanguages().languages;
+  const langs = offered ? set : all;
   const options = value && value !== AUTO && !langs.includes(value) ? [value, ...langs] : langs;
   return (
     <Select {...props} value={value} onChange={(e) => onChange(e.target.value)}>

@@ -664,6 +664,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/languages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Languages titles can be added or requested in */
+        get: operations["languages-list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/library-accounts": {
         parameters: {
             query?: never;
@@ -5189,6 +5206,12 @@ export interface components {
             url?: string;
             version: string;
         };
+        OfferedLanguages: {
+            /** @description Searched by default, in order */
+            defaults: string[];
+            /** @description Every language set up: the defaults, root folder languages and language defaults */
+            languages: string[];
+        };
         Page: {
             items: components["schemas"]["History"][];
             /** Format: int64 */
@@ -8653,6 +8676,35 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "languages-list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferedLanguages"];
+                };
             };
             /** @description Error */
             default: {

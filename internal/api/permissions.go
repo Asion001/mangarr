@@ -65,6 +65,7 @@ var operationPermissions = map[string][]string{
 	"series-cover":        {permSignedIn},
 	"reading-shelf":       {permSignedIn},
 	"tags-list":           {permSignedIn},
+	"languages-list":      {permSignedIn},
 	"read-chapter":        {permSignedIn},
 	"read-chapter-picker": {permSignedIn},
 	"read-page":           {permSignedIn},

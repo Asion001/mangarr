@@ -6,7 +6,7 @@ import clsx from "clsx";
 import { X } from "lucide-react";
 import { api, unwrap, type S, type SourceManga } from "../../api/client";
 import { Badge, Button, IconButton, Modal, Spinner } from "../../components/ui";
-import { LanguageSelect, useLanguageFolders, useLanguages } from "../../components/LanguageSelect";
+import { LanguageSelect, useLanguageFolders, useOfferedLanguages } from "../../components/LanguageSelect";
 import { languageName } from "../../lib/format";
 import { useToast } from "../../lib/toast";
 import { SourceSearch, pickKey, useCatalogTargets, useDefaultsSearch, type PickGroup, type Picked, type Scope } from "./SourceSearch";
@@ -21,7 +21,7 @@ type Monitor = "all" | "future" | "none";
  */
 export function AddLanguageModal({ series, onClose }: { series: S["SeriesResource"]; onClose: () => void }) {
   const have = new Set((series.editions ?? []).map((e) => e.language));
-  const langs = useLanguages();
+  const langs = useOfferedLanguages().languages;
   const [chosen, setLang] = useState<string | null>(null);
   // until you pick, the first language this title doesn't have yet
   const lang = chosen ?? langs.find((l) => !have.has(l)) ?? "";
@@ -103,7 +103,7 @@ export function AddLanguageModal({ series, onClose }: { series: S["SeriesResourc
       <div className="mb-4 flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1.5 text-sm font-medium">
           {t("Language")}
-          <LanguageSelect value={lang} onChange={setLang} placeholder={t("Choose…")} className="w-44" />
+          <LanguageSelect offered value={lang} onChange={setLang} placeholder={t("Choose…")} className="w-44" />
         </label>
         {lang && (
           <div className="flex min-w-0 flex-col gap-1.5 text-sm">

@@ -5321,6 +5321,30 @@
         ],
         "type": "object"
       },
+      "OfferedLanguages": {
+        "additionalProperties": false,
+        "properties": {
+          "defaults": {
+            "description": "Searched by default, in order",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "languages": {
+            "description": "Every language set up: the defaults, root folder languages and language defaults",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "defaults",
+          "languages"
+        ],
+        "type": "object"
+      },
       "Page": {
         "additionalProperties": false,
         "properties": {
@@ -14045,6 +14069,37 @@
         },
         "tags": [
           "Users"
+        ]
+      }
+    },
+    "/api/v1/languages": {
+      "get": {
+        "operationId": "languages-list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OfferedLanguages"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Languages titles can be added or requested in",
+        "tags": [
+          "Series"
         ]
       }
     },

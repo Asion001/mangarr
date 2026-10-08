@@ -177,6 +177,47 @@ func (s *Service) joinSources(ctx context.Context, ser *model.Series, links []So
 	return nil
 }
 
+// Offered are the languages people pick from when they add or request a
+// title: the ones searched by default (Languages) first, then every other
+// language a root folder holds or has defaults set up.
+func (s *Service) Offered(ctx context.Context) (defaults, all []string, err error) {
+	if defaults, err = s.Languages(ctx); err != nil {
+		return nil, nil, err
+	}
+	seen := map[string]bool{}
+	add := func(lang string) {
+		// "*" is the automatic folder, not a language
+		if lang = library.NormalizeLanguage(lang); lang != "" && lang != "*" && !seen[lang] {
+			seen[lang] = true
+			all = append(all, lang)
+		}
+	}
+	for _, lang := range defaults {
+		add(lang)
+	}
+	var roots []model.RootFolder
+	if err := s.db.NewSelect().Model(&roots).Order("id").Scan(ctx); err != nil {
+		return nil, nil, err
+	}
+	for _, rf := range roots {
+		add(rf.Language)
+	}
+	src, err := s.lib.Settings().Sources(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	for _, d := range src.LanguageDefaults {
+		add(d.Language)
+	}
+	if defaults == nil {
+		defaults = []string{}
+	}
+	if all == nil {
+		all = []string{}
+	}
+	return defaults, all, nil
+}
+
 // Languages are the edition languages an automatic add looks for: the
 // default search languages, else the languages the root folders hold.
 func (s *Service) Languages(ctx context.Context) ([]string, error) {
