@@ -60,8 +60,10 @@ func (m *Manager) setStatus(ctx context.Context, job *model.DownloadJob, status 
 		job.StartedAt = &now
 		cols = append(cols, "started_at")
 	}
-	// compare-and-set: a job paused meanwhile keeps its paused status
-	res, err := m.db.NewUpdate().Model(job).Column(cols...).WherePK().Where("status <> ?", model.JobPaused).Exec(ctx)
+	// compare-and-set: a job paused meanwhile keeps its paused status, and
+	// one handed back to the queue (Release on shutdown) stays queued
+	res, err := m.db.NewUpdate().Model(job).Column(cols...).WherePK().
+		Where("status NOT IN (?)", bun.In([]string{model.JobPaused, model.JobQueued})).Exec(ctx)
 	if err != nil {
 		return
 	}
