@@ -3,7 +3,7 @@ import { t } from "../../lib/i18n/core";
 import { useEffect, useState } from "react";
 import clsx from "clsx";
 import { Link } from "react-router";
-import { Check, CheckSquare, LayoutGrid, List, PlusCircle, RefreshCw, Search } from "lucide-react";
+import { Check, CheckSquare, Inbox, LayoutGrid, List, PlusCircle, RefreshCw, Search } from "lucide-react";
 import { api, apiUrl, unwrap, type Series } from "../../api/client";
 import { usePushCommand, useRootFolders, useSeriesSearch } from "../../api/queries";
 import { Cover } from "../../components/Cover";
@@ -15,6 +15,7 @@ import { ContinueReading } from "./ContinueReading";
 import { SetupChecklist } from "./SetupChecklist";
 import { useAccount } from "../../lib/account";
 import { useToast } from "../../lib/toast";
+import { RequestSearch } from "../requests/Requests";
 
 type Filter = "all" | "monitored" | "missing" | "ongoing" | "completed" | "unread" | "reading" | "following";
 type Sort = "title" | "added" | "latest" | "missing" | "size" | "read";
@@ -50,6 +51,8 @@ export function SeriesIndex() {
   const account = useAccount();
   const toast = useToast();
   const manage = account.can("library.manage") && editing;
+  // people who ask for titles instead of adding them
+  const requester = !account.can("library.manage") && account.can("requests.create");
   const push = usePushCommand();
   const [q, setQ] = useQueryParam("q");
   // the account's library defaults for a browser that has none yet
@@ -139,14 +142,18 @@ export function SeriesIndex() {
         title={t("Series")}
         subtitle={data ? `${data.total} series · ${bytes(data.totalSize)}` : undefined}
         actions={
-          manage && (
+          manage ? (
             <>
               <Button icon={<RefreshCw className="size-4" />} onClick={() => push.mutate({ name: "RefreshSources", label: "Checking sources for new chapters" })}>{t("Check now")}</Button>
               <Link to="/add">
                 <Button variant="primary" icon={<PlusCircle className="size-4" />}>{t("Add series")}</Button>
               </Link>
             </>
-          )
+          ) : requester ? (
+            <Link to={q ? `/requests?tab=ask&q=${encodeURIComponent(q)}` : "/requests?tab=ask"}>
+              <Button variant="primary" icon={<Inbox className="size-4" />}>{t("Request a title")}</Button>
+            </Link>
+          ) : null
         }
       />
       {!q && filter === "all" && !rootFolderId && !language && <ContinueReading />}
@@ -221,6 +228,8 @@ export function SeriesIndex() {
           <EmptyState title={t("No series yet")}>
             {account.can(["library.manage", "requests.manage"]) ? (
               <Link to="/add"><Button variant="primary">{t("Add series")}</Button></Link>
+            ) : requester ? (
+              <Link to="/requests?tab=ask"><Button variant="primary" icon={<Inbox className="size-4" />}>{t("Request a title")}</Button></Link>
             ) : (
               t("The library is empty. Ask an admin to add series.")
             )}
@@ -339,6 +348,13 @@ export function SeriesIndex() {
             {[24, 36, 48, 72].map((size) => <option key={size} value={size}>{size} {t("per page")}</option>)}
           </Select>
         </div>
+      )}
+      {requester && q.trim().length > 1 && page === 1 && (
+        <section aria-labelledby="request-results" className="mt-8">
+          <h2 id="request-results" className="mb-1 text-lg font-semibold">{t("Not in the library?")}</h2>
+          <p className="mb-3 text-sm text-muted">{t("Titles matching “{query}” you can ask for.", { query: q.trim() })}</p>
+          <RequestSearch query={q.trim()} hideInput />
+        </section>
       )}
       {selecting && selected.size > 0 && (
         <>

@@ -57,13 +57,26 @@ export function RequestsPage() {
 
 function AskTab({ onDone }: { onDone: () => void }) {
   const [q, setQ] = useQueryParam("q");
+  return (
+    <Card>
+      <RequestSearch query={q} setQuery={(v) => setQ(v, { replace: false })} onDone={onDone} />
+    </Card>
+  );
+}
+
+/**
+ * RequestSearch finds titles to request with the metadata search; with
+ * hideInput the query comes from a search box elsewhere (the library's).
+ */
+export function RequestSearch({ query, setQuery, onDone, hideInput }: { query: string; setQuery?: (q: string) => void; onDone?: () => void; hideInput?: boolean }) {
   const [asking, setAsking] = useState<LookupResult | null>(null);
   return (
     <>
-      <Card>
         <MetadataSearch
-          query={q}
-          setQuery={(v) => setQ(v, { replace: false })}
+          query={query}
+          setQuery={setQuery}
+          hideInput={hideInput}
+          hideErrors={hideInput}
           placeholder={t("Search for a series to request")}
           action={(r) =>
             r.existingSeriesId ? (
@@ -83,8 +96,7 @@ function AskTab({ onDone }: { onDone: () => void }) {
             )
           }
         />
-      </Card>
-      {asking && <AskModal result={asking} onClose={() => setAsking(null)} onDone={onDone} />}
+      {asking && <AskModal result={asking} onClose={() => setAsking(null)} onDone={onDone ?? (() => undefined)} />}
     </>
   );
 }

@@ -27,6 +27,8 @@ export function MetadataSearch({
   action,
   placeholder = "Search by title (AniList and other metadata modules)",
   language = "",
+  hideInput = false,
+  hideErrors = false,
 }: {
   initialQuery?: string;
   query?: string;
@@ -36,6 +38,10 @@ export function MetadataSearch({
   action?: (c: LookupResult) => ReactNode;
   placeholder?: string;
   language?: string;
+  /** hideInput: the query comes from a search box elsewhere on the page. */
+  hideInput?: boolean;
+  /** hideErrors: no provider errors or "nothing found" notes. */
+  hideErrors?: boolean;
 }) {
   const { isAdmin } = useAccount();
   const [local, setLocal] = useState(initialQuery);
@@ -51,7 +57,7 @@ export function MetadataSearch({
   });
   return (
     <div>
-      <form
+      {!hideInput && <form
         className="mb-4 flex gap-2"
         onSubmit={(e) => {
           e.preventDefault();
@@ -60,10 +66,10 @@ export function MetadataSearch({
       >
         <Input autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={placeholder} />
         <Button type="submit" variant="primary" icon={<Search className="size-4" />}>{t("Search")}</Button>
-      </form>
+      </form>}
       {isLoading && <Loading />}
-      {error && <ErrorBox error={error} />}
-      {data?.errors?.map((e) => (
+      {error && !hideErrors && <ErrorBox error={error} />}
+      {!hideErrors && data?.errors?.map((e) => (
         <p key={e} className="mb-2 text-xs text-warn">
           {e}
         </p>
@@ -99,8 +105,8 @@ export function MetadataSearch({
             </div>
           </div>
         ))}
-        {data && data.results.length === 0 && data.providers > 0 && <p className="text-sm text-muted">{t("No metadata found.")}</p>}
-        {data && data.providers === 0 && (
+        {!hideErrors && data && data.results.length === 0 && data.providers > 0 && <p className="text-sm text-muted">{t("No metadata found.")}</p>}
+        {!hideErrors && data && data.providers === 0 && (
           <p className="text-sm text-warn">
             {t("No metadata provider is set up, so nothing was searched.")}{" "}
             {isAdmin ? <Link to="/settings/metadata" className="text-accent-2 hover:underline">{t("Add one in Settings → Metadata")}</Link> : t("Ask an admin to add one.")}
