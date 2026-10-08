@@ -15,7 +15,7 @@ import (
 func init() { register((*Server).registerUIPreferences) }
 
 func canEditUI(p *access.Principal) bool {
-	return p != nil && (p.IsAdmin() || p.Can(access.LibraryManage) || p.Can(access.RequestsManage))
+	return p != nil && (p.IsAdmin() || p.Can(access.LibraryAdd) || p.Can(access.LibraryEdit) || p.Can(access.LibraryDelete) || p.Can(access.QueueManage) || p.Can(access.RequestsManage))
 }
 
 func (s *Server) registerUIPreferences() {

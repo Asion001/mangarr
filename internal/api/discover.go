@@ -271,6 +271,7 @@ type discoverCatalogResult struct {
 
 func (s *Server) discoverPopular(ctx context.Context, rootFolderID int64, lang string, limit int, existing map[string]int64) ([]DiscoverSourceItem, []DiscoverSourceError, bool) {
 	targets, catalogErrors := s.app.Catalogs.Select(ctx, catalogs.Filter{RootFolderID: rootFolderID, Scope: catalogs.ScopeActive, Lang: lang})
+	targets = withoutAdultCatalogs(ctx, targets)
 	if len(targets) > 8 {
 		targets = targets[:8]
 	}

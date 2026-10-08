@@ -33,7 +33,7 @@ export function QueuePage({ mode }: { mode: "downloads" | "processing" }) {
   const qc = useQueryClient();
   const toast = useToast();
   // watching without library.manage: the queue as it is, nothing to change
-  const manage = useAccount().can("library.manage");
+  const manage = useAccount().can("queue.manage");
   const [status, setStatus] = useListParam("status");
   const [q, setQ] = useQueryParam("q");
   const [pageStr, setPage] = useListParam("page", "1");

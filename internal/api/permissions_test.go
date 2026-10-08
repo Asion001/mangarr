@@ -78,7 +78,7 @@ func TestUsersGroupCantManage(t *testing.T) {
 		}
 		resp.Body.Close()
 		switch {
-		case need == "admin" || need == "library.manage":
+		case need == "admin" || need == "queue.manage" || need == "activity.view" || (strings.HasPrefix(need, "library.") && !strings.Contains(need, "|")):
 			if resp.StatusCode != http.StatusForbidden {
 				t.Errorf("%s: %d, want 403", line, resp.StatusCode)
 			}

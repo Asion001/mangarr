@@ -18,8 +18,12 @@ import { MessengerCard } from "./MessengerCard";
 const permLabel: Record<string, string> = {
   admin: "Administrator",
   "library.manage": "Manage the library",
+  "library.add": "Add titles",
+  "library.edit": "Edit titles",
+  "library.delete": "Delete titles and files",
+  "queue.manage": "Manage the queue",
   "requests.manage": "Handle requests",
-  "requests.create": "Request series",
+  "requests.create": "Request titles",
   "activity.view": "See downloads and processing",
   apps: "Reading apps",
   download: "Download files",

@@ -51,9 +51,10 @@ export function SeriesIndex() {
   const { editing } = useUIMode();
   const account = useAccount();
   const toast = useToast();
-  const manage = account.can("library.manage") && editing;
+  const manage = account.can("library.edit") && editing;
+  const adds = account.can("library.add") && editing;
   // people who ask for titles instead of adding them
-  const requester = !account.can("library.manage") && account.can("requests.create");
+  const requester = !account.can("library.add") && account.can("requests.create");
   const push = usePushCommand();
   const [q, setQ] = useQueryParam("q");
   // the account's library defaults for a browser that has none yet
@@ -144,12 +145,14 @@ export function SeriesIndex() {
         title={t("Series")}
         subtitle={data ? `${data.total} series · ${bytes(data.totalSize)}` : undefined}
         actions={
-          manage ? (
+          manage || adds ? (
             <>
-              <Button icon={<RefreshCw className="size-4" />} onClick={() => push.mutate({ name: "RefreshSources", label: "Checking sources for new chapters" })}>{t("Check now")}</Button>
-              <Link to="/add">
-                <Button variant="primary" icon={<PlusCircle className="size-4" />}>{t("Add series")}</Button>
-              </Link>
+              {manage && <Button icon={<RefreshCw className="size-4" />} onClick={() => push.mutate({ name: "RefreshSources", label: "Checking sources for new chapters" })}>{t("Check now")}</Button>}
+              {adds && (
+                <Link to="/add">
+                  <Button variant="primary" icon={<PlusCircle className="size-4" />}>{t("Add series")}</Button>
+                </Link>
+              )}
             </>
           ) : requester ? (
             <Link to={q ? `/requests?tab=ask&q=${encodeURIComponent(q)}` : "/requests?tab=ask"}>
@@ -235,7 +238,7 @@ export function SeriesIndex() {
           <SetupChecklist />
         ) : (
           <EmptyState title={t("No series yet")}>
-            {account.can(["library.manage", "requests.manage"]) ? (
+            {account.can(["library.add", "requests.manage"]) ? (
               <Link to="/add"><Button variant="primary">{t("Add series")}</Button></Link>
             ) : requester ? (
               <Link to="/requests?tab=ask"><Button variant="primary" icon={<Inbox className="size-4" />}>{t("Request a title")}</Button></Link>

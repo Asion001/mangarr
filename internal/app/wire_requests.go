@@ -23,7 +23,7 @@ func (a *App) wireRequests() {
 // Followers lists the users following a series who can still see it.
 func (a *App) Followers(ctx context.Context, seriesID int64) []int64 {
 	var ser model.Series
-	if err := a.DB.NewSelect().Model(&ser).Column("id", "tags", "root_folder_id").Where("id = ?", seriesID).Scan(ctx); err != nil {
+	if err := a.DB.NewSelect().Model(&ser).Column("id", "tags", "root_folder_id", "metadata").Where("id = ?", seriesID).Scan(ctx); err != nil {
 		return nil
 	}
 	var users []int64

@@ -2914,6 +2914,12 @@
           "autoApproveRequests": {
             "type": "boolean"
           },
+          "blockedGenres": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "builtin": {
             "type": "string"
           },
@@ -2939,6 +2945,15 @@
             },
             "type": "array"
           },
+          "maxRating": {
+            "enum": [
+              "",
+              "all",
+              "teen",
+              "mature"
+            ],
+            "type": "string"
+          },
           "name": {
             "type": "string"
           },
@@ -2963,6 +2978,8 @@
           "includeTags",
           "excludeTags",
           "rootFolders",
+          "maxRating",
+          "blockedGenres",
           "autoApproveRequests",
           "createdAt"
         ],
@@ -2973,6 +2990,13 @@
         "properties": {
           "autoApproveRequests": {
             "type": "boolean"
+          },
+          "blockedGenres": {
+            "description": "Genres or tags members never see",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "excludeTags": {
             "description": "Never series with these tags",
@@ -2989,6 +3013,16 @@
               "type": "integer"
             },
             "type": "array"
+          },
+          "maxRating": {
+            "description": "Highest content rating members see (empty: no limit)",
+            "enum": [
+              "",
+              "all",
+              "teen",
+              "mature"
+            ],
+            "type": "string"
           },
           "name": {
             "minLength": 1,
@@ -3020,6 +3054,12 @@
           "autoApproveRequests": {
             "type": "boolean"
           },
+          "blockedGenres": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "builtin": {
             "type": "string"
           },
@@ -3044,6 +3084,15 @@
               "type": "integer"
             },
             "type": "array"
+          },
+          "maxRating": {
+            "enum": [
+              "",
+              "all",
+              "teen",
+              "mature"
+            ],
+            "type": "string"
           },
           "members": {
             "format": "int64",
@@ -3074,6 +3123,8 @@
           "includeTags",
           "excludeTags",
           "rootFolders",
+          "maxRating",
+          "blockedGenres",
           "autoApproveRequests",
           "createdAt"
         ],

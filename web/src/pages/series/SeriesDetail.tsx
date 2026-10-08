@@ -34,7 +34,9 @@ export function SeriesDetail() {
   const { can, account } = useAccount();
   const { editing } = useUIMode();
   // a preview is read-only until it is added
-  const manage = can("library.manage") && editing && !s?.preview;
+  const manage = can("library.edit") && editing && !s?.preview;
+  const adds = can("library.add") && editing && !s?.preview;
+  const deletes = can("library.delete");
   const qc = useQueryClient();
   const toast = useToast();
   const nav = useNavigate();
@@ -52,7 +54,7 @@ export function SeriesDetail() {
   const [params, setParams] = useSearchParams();
   const requestedLang = params.get("addLanguage") ?? "";
   const fulfils = Number(params.get("request") ?? 0);
-  const handlesRequests = can(["library.manage", "requests.manage"]) && !s?.preview;
+  const handlesRequests = can(["library.add", "requests.manage"]) && !s?.preview;
   const closeRequested = () => {
     const next = new URLSearchParams(params);
     next.delete("addLanguage");
@@ -60,7 +62,7 @@ export function SeriesDetail() {
     setParams(next, { replace: true });
   };
   // people who can't add a language ask for one
-  const asksLang = !manage && !s?.preview && can("requests.create") && account?.kind === "user";
+  const asksLang = !adds && !s?.preview && can("requests.create") && account?.kind === "user";
 
   if (isLoading) return <Loading />;
   if (error || !s) return <ErrorBox error={error ?? "Series not found"} />;
@@ -139,7 +141,7 @@ export function SeriesDetail() {
           </div>
         </div>
         <div className="col-span-2 min-w-0 md:col-span-1 md:col-start-2">
-          {((s.editions?.length ?? 0) > 1 || manage || asksLang) && (
+          {((s.editions?.length ?? 0) > 1 || adds || asksLang) && (
             <nav className="mt-3 flex flex-wrap gap-2" aria-label={t("Language editions")}>
               {(s.editions ?? []).map((edition) => (
                 <Link
@@ -152,11 +154,11 @@ export function SeriesDetail() {
                   {edition.title !== s.title && <span className="ml-2 text-muted">{edition.title}</span>}
                 </Link>
               ))}
-              {(manage || asksLang) && (
+              {(adds || asksLang) && (
                 <button
                   type="button"
                   onClick={() => setAddingLang(true)}
-                  title={manage ? undefined : t("Ask for this title in another language")}
+                  title={adds ? undefined : t("Ask for this title in another language")}
                   className="inline-flex items-center gap-1 rounded-md border border-dashed border-border px-3 py-1.5 text-sm text-accent-2 hover:border-accent/60"
                 >
                   <Plus className="size-4" />{t("Add language")}
@@ -196,7 +198,7 @@ export function SeriesDetail() {
                   { label: t("Group with another language…"), icon: <Link2 className="size-4" />, onSelect: () => setGrouping(true) },
                   { label: t("Separate edition"), icon: <Unlink className="size-4" />, onSelect: () => void setWork(0), hidden: (s.editions?.length ?? 0) <= 1 },
                   { section: "" },
-                  { label: t("Delete series…"), icon: <Trash2 className="size-4" />, onSelect: () => setDel(true), danger: true },
+                  { label: t("Delete series…"), icon: <Trash2 className="size-4" />, onSelect: () => setDel(true), danger: true, hidden: !deletes },
                 ]}
               />
             )}
@@ -254,7 +256,7 @@ export function SeriesDetail() {
 
       {manage && edit && <EditSeriesModal series={s} onClose={() => setEdit(false)} />}
       {manage && renaming && <RenameModal seriesIds={[id]} onClose={() => setRenaming(false)} />}
-      {manage && addingLang && <AddLanguageModal series={s} onClose={() => setAddingLang(false)} />}
+      {adds && addingLang && <AddLanguageModal series={s} onClose={() => setAddingLang(false)} />}
       {asksLang && addingLang && <RequestLanguageModal series={s} onClose={() => setAddingLang(false)} />}
       {handlesRequests && !!requestedLang && fulfils > 0 && <AddLanguageModal series={s} initialLang={requestedLang} requestId={fulfils} onClose={closeRequested} />}
       {manage && grouping && (

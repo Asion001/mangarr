@@ -1,4 +1,4 @@
-import { t as tr, t } from "../../lib/i18n/core";
+import { label, t as tr, t } from "../../lib/i18n/core";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Copy, KeyRound, Link2, LogOut, Pencil, Plus, Trash2, UserPlus } from "lucide-react";
@@ -387,17 +387,58 @@ function Chips<T extends number | string>({ options, value, onChange }: { option
   );
 }
 
+/** The permission groups of the group editor, in order. */
+const permissionSections: { title: string; keys: string[] }[] = [
+  { title: "Requests", keys: ["requests.create", "requests.manage"] },
+  { title: "Library", keys: ["library.add", "library.edit", "library.delete"] },
+  { title: "Downloads", keys: ["activity.view", "queue.manage"] },
+  { title: "Reading outside the browser", keys: ["apps", "download"] },
+];
+
+/** Presets fill the permissions in one go; the boxes fine-tune them. */
+const presets: { name: string; permissions: string[] }[] = [
+  { name: "Reader", permissions: ["apps", "download"] },
+  { name: "Requester", permissions: ["requests.create", "apps", "download"] },
+  { name: "Curator", permissions: ["requests.create", "library.add", "activity.view", "apps", "download"] },
+  { name: "Manager", permissions: ["requests.create", "requests.manage", "library.add", "library.edit", "library.delete", "activity.view", "queue.manage", "apps", "download"] },
+];
+
+/** expandPermissions spells "Manage the library" out as its parts. */
+function expandPermissions(perms: string[]): string[] {
+  if (!perms.includes("library.manage")) return perms;
+  const parts = ["library.add", "library.edit", "library.delete", "queue.manage", "activity.view", "requests.manage"];
+  return [...new Set([...perms.filter((p) => p !== "library.manage"), ...parts])];
+}
+
+const sameSet = (a: string[], b: string[]) => a.length === b.length && a.every((x) => b.includes(x));
+
 function GroupModal({ group, onClose }: { group?: Group; onClose: () => void }) {
   const qc = useQueryClient();
   const { data: perms } = usePermissions();
   const { data: tags } = useTags();
   const { data: roots } = useRootFolders();
   const [name, setName] = useState(group?.name ?? "");
-  const [permissions, setPermissions] = useState<string[]>(group?.permissions ?? ["requests.create", "apps", "download"]);
+  const [permissions, setPermissions] = useState<string[]>(expandPermissions(group?.permissions ?? ["requests.create", "apps", "download"]));
+  const preset = presets.find((p) => sameSet(p.permissions, permissions))?.name ?? "";
+  const toggle = (key: string, on: boolean) => {
+    let next = on ? [...permissions, key] : permissions.filter((x) => x !== key);
+    // managing the queue includes seeing it
+    if (key === "queue.manage" && on) next = [...new Set([...next, "activity.view"])];
+    if (key === "activity.view" && !on) next = next.filter((x) => x !== "queue.manage");
+    setPermissions(next);
+  };
   const [includeTags, setInclude] = useState<number[]>(group?.includeTags ?? []);
   const [excludeTags, setExclude] = useState<number[]>(group?.excludeTags ?? []);
   const [rootFolders, setRoots] = useState<number[]>(group?.rootFolders ?? []);
   const [autoApprove, setAutoApprove] = useState(group?.autoApproveRequests ?? false);
+  const [maxRating, setMaxRating] = useState<string>(group?.maxRating ?? "");
+  const [blocked, setBlocked] = useState<string[]>(group?.blockedGenres ?? []);
+  const [genreDraft, setGenreDraft] = useState("");
+  const addGenre = () => {
+    const g = genreDraft.trim();
+    if (g && !blocked.some((x) => x.toLowerCase() === g.toLowerCase())) setBlocked([...blocked, g]);
+    setGenreDraft("");
+  };
   const [error, setError] = useState<unknown>(null);
   const [saving, setSaving] = useState(false);
   const admins = group?.builtin === "admins";
@@ -405,7 +446,7 @@ function GroupModal({ group, onClose }: { group?: Group; onClose: () => void }) 
   const save = async () => {
     setSaving(true);
     setError(null);
-    const body = { name, permissions, includeTags, excludeTags, rootFolders, autoApproveRequests: autoApprove };
+    const body = { name, permissions, includeTags, excludeTags, rootFolders, autoApproveRequests: autoApprove, maxRating: maxRating as "" | "all" | "teen" | "mature", blockedGenres: blocked };
     try {
       if (group) await unwrap(api.PUT("/api/v1/groups/{id}", { params: { path: { id: group.id } }, body }));
       else await unwrap(api.POST("/api/v1/groups", { body }));
@@ -437,21 +478,74 @@ function GroupModal({ group, onClose }: { group?: Group; onClose: () => void }) 
           <p className="text-sm text-muted">{t("Admins can do everything and see every series.")}</p>
         ) : (
           <>
+            <div className="flex flex-col gap-2">
+              <span className="text-sm font-medium">{t("Start from a preset")}</span>
+              <div role="radiogroup" aria-label={t("Preset")} className="flex flex-wrap items-center gap-2">
+                {presets.map((p) => (
+                  <button
+                    key={p.name}
+                    type="button"
+                    role="radio"
+                    aria-checked={preset === p.name}
+                    onClick={() => setPermissions(p.permissions)}
+                    className={clsx("min-h-10 rounded-full border px-4 text-sm", preset === p.name ? "border-accent bg-accent/15 font-semibold text-fg" : "border-border text-muted hover:text-fg")}
+                  >
+                    {label(p.name)}
+                  </button>
+                ))}
+                {!preset && <Badge>{t("Custom")}</Badge>}
+              </div>
+            </div>
             <Field label={t("Members can")} help={t("Everyone can read the series their group sees and keep their own progress.")}>
-              <div className="flex flex-col gap-2">
-                {perms?.map((p) => (
-                  <label key={p.key} className="flex items-start gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      className="mt-1"
-                      checked={permissions.includes(p.key)}
-                      onChange={(e) => setPermissions(e.target.checked ? [...permissions, p.key] : permissions.filter((x) => x !== p.key))}
-                    />
-                    <span>
-                      <span className="font-medium">{p.label}</span> <span className="text-muted">— {p.description}</span>
-                    </span>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {permissionSections.map((section) => (
+                  <fieldset key={section.title} className="flex flex-col gap-2 rounded-lg border border-border p-3">
+                    <legend className="px-1 text-sm font-semibold">{label(section.title)}</legend>
+                    {section.keys.map((key) => perms?.find((p) => p.key === key)).filter((p) => !!p).map((p) => (
+                      <label key={p.key} className="flex items-start gap-2 text-sm">
+                        <input type="checkbox" className="mt-1" checked={permissions.includes(p.key)} onChange={(e) => toggle(p.key, e.target.checked)} />
+                        <span>
+                          <span className="font-medium">{label(p.label)}</span>
+                          <span className="block text-muted">{label(p.description)}</span>
+                        </span>
+                      </label>
+                    ))}
+                    {section.title === "Requests" && (
+                      <Switch checked={autoApprove} onChange={setAutoApprove} label={t("Add members' requests without approval (when a source is found automatically)")} />
+                    )}
+                  </fieldset>
+                ))}
+              </div>
+            </Field>
+            <Field label={t("Highest rating members see")} help={t("Hidden titles don't show in the library, search, Discover, previews or requests. Titles without a rating count as All ages unless a genre says otherwise.")}>
+              <div role="radiogroup" aria-label={t("Highest rating members see")} className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {([["all", t("All ages")], ["teen", t("Teen 13+")], ["mature", t("Mature 16+")], ["", t("Adult 18+")]] as const).map(([value, text]) => (
+                  <label key={value || "adult"} className={clsx("flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border px-3 text-sm", maxRating === value ? "border-accent bg-accent/10" : "border-border")}>
+                    <input type="radio" name="group-max-rating" className="accent-accent" checked={maxRating === value} onChange={() => setMaxRating(value)} />
+                    {text}
                   </label>
                 ))}
+              </div>
+            </Field>
+            <Field label={t("Always hide these genres and tags")}>
+              <div className="flex flex-col gap-2">
+                {blocked.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {blocked.map((g) => (
+                      <span key={g} className="inline-flex items-center gap-1 rounded-full border border-err/40 bg-err/10 py-1 pl-3 pr-1 text-sm">
+                        {g}
+                        <IconButton title={t("Remove {name}", { name: g })} onClick={() => setBlocked(blocked.filter((x) => x !== g))}>×</IconButton>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <form className="flex gap-2" onSubmit={(e) => (e.preventDefault(), addGenre())}>
+                  <Input list="group-hidden-genres" value={genreDraft} onChange={(e) => setGenreDraft(e.target.value)} placeholder={t("e.g. Hentai")} aria-label={t("Genre or tag to hide")} />
+                  <datalist id="group-hidden-genres">
+                    {["Hentai", "Ecchi", "Smut", "Erotica", "Gore", "Yaoi", "Yuri"].map((g) => <option key={g} value={g} />)}
+                  </datalist>
+                  <Button type="submit" disabled={!genreDraft.trim()}>{t("Add")}</Button>
+                </form>
               </div>
             </Field>
             <Field label={t("Only series tagged")} help={t("Members see series with any of these tags. None selected: every series.")}>
@@ -463,7 +557,6 @@ function GroupModal({ group, onClose }: { group?: Group; onClose: () => void }) 
             <Field label={t("Only these root folders")} help={t("None selected: all root folders.")}>
               <Chips options={(roots ?? []).map((r) => ({ value: r.id, label: r.path }))} value={rootFolders} onChange={setRoots} />
             </Field>
-            <Switch checked={autoApprove} onChange={setAutoApprove} label={t("Add members' requests without approval (when a source is found automatically)")} />
           </>
         )}
         {error !== null && <ErrorBox error={error} />}

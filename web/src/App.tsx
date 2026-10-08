@@ -130,21 +130,21 @@ export function App() {
           <Route path="series/:id" element={<SeriesDetail />} />
           <Route path="updates" element={<UpdatesPage />} />
           <Route path="account" element={<AccountPage />} />
-          <Route path="add" element={<Need perm={["library.manage", "requests.manage"]}><AddSearchStep /></Need>} />
-          <Route path="add/:moduleId/:metaId/sources" element={<Need perm={["library.manage", "requests.manage"]}><AddReviewStep /></Need>} />
-          <Route path="add/:moduleId/:metaId/options" element={<Need perm={["library.manage", "requests.manage"]}><AddOptionsRedirect /></Need>} />
+          <Route path="add" element={<Need perm={["library.add", "requests.manage"]}><AddSearchStep /></Need>} />
+          <Route path="add/:moduleId/:metaId/sources" element={<Need perm={["library.add", "requests.manage"]}><AddReviewStep /></Need>} />
+          <Route path="add/:moduleId/:metaId/options" element={<Need perm={["library.add", "requests.manage"]}><AddOptionsRedirect /></Need>} />
           <Route path="requests" element={<Need perm={["requests.create", "requests.manage", "library.manage"]}><RequestsPage /></Need>} />
           <Route path="import" element={<Need perm="admin"><ImportsPage /></Need>} />
           <Route path="import/:id" element={<Need perm="admin"><ImportDetailPage /></Need>} />
           <Route path="activity" element={<Navigate to="/activity/downloads" replace />} />
           <Route path="activity/queue" element={<Navigate to="/activity/downloads" replace />} />
-          <Route path="activity/downloads" element={<Need perm={["library.manage", "activity.view"]}><QueuePage mode="downloads" /></Need>} />
-          <Route path="activity/processing" element={<Need perm={["library.manage", "activity.view"]}><QueuePage mode="processing" /></Need>} />
-          <Route path="activity/history" element={<Need perm="library.manage"><HistoryPage /></Need>} />
-          <Route path="activity/blocklist" element={<Need perm="library.manage"><BlocklistPage /></Need>} />
-          <Route path="wanted" element={<Need perm="library.manage"><WantedPage /></Need>} />
-          <Route path="sources" element={<Need perm="library.manage"><SourcesPage /></Need>} />
-          <Route path="sources/:tab" element={<Need perm="library.manage"><SourcesPage /></Need>} />
+          <Route path="activity/downloads" element={<Need perm="activity.view"><QueuePage mode="downloads" /></Need>} />
+          <Route path="activity/processing" element={<Need perm="activity.view"><QueuePage mode="processing" /></Need>} />
+          <Route path="activity/history" element={<Need perm="queue.manage"><HistoryPage /></Need>} />
+          <Route path="activity/blocklist" element={<Need perm="queue.manage"><BlocklistPage /></Need>} />
+          <Route path="wanted" element={<Need perm="library.edit"><WantedPage /></Need>} />
+          <Route path="sources" element={<Need perm="library.edit"><SourcesPage /></Need>} />
+          <Route path="sources/:tab" element={<Need perm="library.edit"><SourcesPage /></Need>} />
           <Route path="cleanup" element={<Need perm="admin"><CleanupPage /></Need>} />
           <Route path="settings" element={<Navigate to="/settings/media" replace />} />
           <Route path="settings/media" element={<Need perm="admin"><MediaPage /></Need>} />

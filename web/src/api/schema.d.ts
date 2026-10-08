@@ -4521,6 +4521,7 @@ export interface components {
         };
         Group: {
             autoApproveRequests: boolean;
+            blockedGenres: string[];
             builtin?: string;
             /** Format: date-time */
             createdAt: string;
@@ -4528,16 +4529,25 @@ export interface components {
             /** Format: int64 */
             id: number;
             includeTags: number[];
+            /** @enum {string} */
+            maxRating: "" | "all" | "teen" | "mature";
             name: string;
             permissions: string[];
             rootFolders: number[];
         };
         GroupInput: {
             autoApproveRequests?: boolean;
+            /** @description Genres or tags members never see */
+            blockedGenres?: string[];
             /** @description Never series with these tags */
             excludeTags?: number[];
             /** @description Only series with any of these tags (empty = all) */
             includeTags?: number[];
+            /**
+             * @description Highest content rating members see (empty: no limit)
+             * @enum {string}
+             */
+            maxRating?: "" | "all" | "teen" | "mature";
             name: string;
             permissions?: string[];
             /** @description Only series in these root folders (empty = all) */
@@ -4545,6 +4555,7 @@ export interface components {
         };
         GroupView: {
             autoApproveRequests: boolean;
+            blockedGenres: string[];
             builtin?: string;
             /** Format: date-time */
             createdAt: string;
@@ -4552,6 +4563,8 @@ export interface components {
             /** Format: int64 */
             id: number;
             includeTags: number[];
+            /** @enum {string} */
+            maxRating: "" | "all" | "teen" | "mature";
             /** Format: int64 */
             members: number;
             name: string;

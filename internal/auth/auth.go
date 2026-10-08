@@ -172,7 +172,7 @@ func (s *Service) EnsureGroups(ctx context.Context) (map[string]int64, error) {
 			if n, _ := s.db.NewSelect().Model((*model.Group)(nil)).Where("name = ?", name).Count(ctx); n > 0 {
 				name += " (built-in)"
 			}
-			g = model.Group{Name: name, Builtin: b.key, Permissions: b.perms, IncludeTags: []int64{}, ExcludeTags: []int64{},
+			g = model.Group{Name: name, Builtin: b.key, Permissions: b.perms, IncludeTags: []int64{}, ExcludeTags: []int64{}, BlockedGenres: []string{},
 				RootFolders: []int64{}, CreatedAt: time.Now().UTC()}
 			if _, err := s.db.NewInsert().Model(&g).Exec(ctx); err != nil {
 				return nil, err

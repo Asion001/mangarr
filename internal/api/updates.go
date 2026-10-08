@@ -144,8 +144,16 @@ func (s *Server) applyUpdateVisibility(q *bun.SelectQuery, viewer *access.Princi
 		return q.Where("1 = 0")
 	}
 	q = q.Where(alias+".preview = ?", false) // previews aren't in the library
-	if viewer.Can(access.LibraryManage) {
+	if viewer.Can(access.LibraryEdit) {
 		return q
+	}
+	if viewer.Scope.ContentLimited() {
+		// ratings and genres live in the metadata: list the titles it lets through
+		ids, err := s.seriesSeenBy(context.Background(), viewer)
+		if err != nil || len(ids) == 0 {
+			return q.Where("1 = 0")
+		}
+		q = q.Where(alias+".id IN (?)", bun.In(ids))
 	}
 	if len(viewer.Scope.RootFolders) > 0 {
 		q = q.Where(alias+".root_folder_id IN (?)", bun.In(viewer.Scope.RootFolders))

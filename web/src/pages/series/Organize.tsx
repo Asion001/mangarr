@@ -15,6 +15,7 @@ import {
   Switch,
 } from "../../components/ui";
 import { useToast } from "../../lib/toast";
+import { useAccount } from "../../lib/account";
 import { BulkSourcesModal } from "./BulkSources";
 
 /** RenameModal previews and applies renames to the current naming format. */
@@ -138,6 +139,7 @@ export function MassEditBar({
   const { data: profiles } = useProfiles();
   const { data: roots } = useRootFolders();
   const { data: tags } = useTags();
+  const deletes = useAccount().can("library.delete");
   const ids = [...selected.keys()];
   const count = ids.length;
   const [moving, setMoving] = useState(false);
@@ -267,7 +269,7 @@ export function MassEditBar({
                   { label: t("Refresh sources"), onSelect: () => void command("RefreshSeries", t("Refreshing {count} series", { count })) },
                   { label: t("Rename files…"), onSelect: () => setRenaming(true) },
                   { section: "" },
-                  { label: t("Delete series…"), danger: true, onSelect: () => setDeleting(true) },
+                  { label: t("Delete series…"), danger: true, onSelect: () => setDeleting(true), hidden: !deletes },
                 ]}
               />
             </>

@@ -49,7 +49,10 @@ export function ChaptersTable({ seriesId, manage = true, nextChapterId, editions
   const queuePaused = !!useQueue({ pageSize: 1 }, manage).data?.state?.paused;
   const qc = useQueryClient();
   const toast = useToast();
-  const { account, isAdmin } = useAccount();
+  const { account, isAdmin, can } = useAccount();
+  // deleting files and handling the queue are permissions of their own
+  const deletes = can("library.delete");
+  const queues = can("queue.manage");
   // earlier versions of chapters, from the recycle bin (admins only)
   const { data: recycled } = useQuery({
     queryKey: ["recycle-bin", "series", seriesId],
@@ -198,10 +201,10 @@ export function ChaptersTable({ seriesId, manage = true, nextChapterId, editions
               <Button size="sm" onClick={() => monitor(sel, false)}>{t("Unmonitor")}</Button>
               <Button size="sm" icon={<Search className="size-3.5" />} onClick={() => search(sel)}>{t("Search")}</Button>
               <Button size="sm" icon={<Sparkles className="size-3.5" />} onClick={processSelected}>{t("Process")}</Button>
-              {selectedFileIDs.length > 0 && (
+              {deletes && selectedFileIDs.length > 0 && (
                 <Button size="sm" variant="danger" icon={<Trash2 className="size-3.5" />} onClick={() => setDeleteIds(selectedFileIDs)}>{t("Delete files")}</Button>
               )}
-              {selectedJobs > 0 && (
+              {queues && selectedJobs > 0 && (
                 <>
                   <Button size="sm" icon={<ArrowUpToLine className="size-3.5" />} onClick={() => queueBulk("top")}>{t("Top")}</Button>
                   <Button size="sm" icon={<ArrowDownToLine className="size-3.5" />} onClick={() => queueBulk("bottom")}>{t("Bottom")}</Button>
@@ -252,7 +255,7 @@ export function ChaptersTable({ seriesId, manage = true, nextChapterId, editions
                 onMonitor={monitorOne}
                 onSearch={searchOne}
                 onRestore={restore}
-                onDelete={(id) => setDeleteIds([id])}
+                onDelete={deletes ? (id) => setDeleteIds([id]) : undefined}
                 onMark={mark}
                 onQueueAction={queueAction}
                 onExplain={setExplain}
@@ -297,7 +300,7 @@ export function ChaptersTable({ seriesId, manage = true, nextChapterId, editions
                   onMonitor={monitorOne}
                   onSearch={searchOne}
                   onRestore={restore}
-                  onDelete={(id) => setDeleteIds([id])}
+                  onDelete={deletes ? (id) => setDeleteIds([id]) : undefined}
                   onMark={mark}
                   onQueueAction={queueAction}
                   onExplain={setExplain}
@@ -367,7 +370,7 @@ type ChapterRowProps = {
   onMonitor: (id: number, monitored: boolean) => void;
   onSearch: (id: number) => void;
   onRestore: (chapter: Chapter) => void;
-  onDelete: (id: number) => void;
+  onDelete?: (id: number) => void;
   onMark: (chapter: Chapter, read: boolean, scope?: "chapter" | "previous") => void;
   onQueueAction: (jobID: number, action: "top" | "bottom" | "pause" | "resume") => void;
   onExplain: (chapter: Chapter) => void;
@@ -638,7 +641,7 @@ function ChapterManagementActions({
   onQueueAction: (jobID: number, action: "top" | "bottom" | "pause" | "resume") => void;
   onRestore: (chapter: Chapter) => void;
   onSearch: (id: number) => void;
-  onDelete: (id: number) => void;
+  onDelete?: (id: number) => void;
   onExplain: (chapter: Chapter) => void;
 }) {
   return (
@@ -660,7 +663,7 @@ function ChapterManagementActions({
       ) : (
         <Button size="sm" icon={<Search className="size-3.5" />} onClick={() => onSearch(c.id)}>{t("Search")}</Button>
       )}
-      {deletableFile(c) && <Button size="sm" variant="danger" icon={<Trash2 className="size-3.5" />} onClick={() => onDelete(c.id)}>{t("Delete chapter file")}</Button>}
+      {onDelete && deletableFile(c) && <Button size="sm" variant="danger" icon={<Trash2 className="size-3.5" />} onClick={() => onDelete(c.id)}>{t("Delete chapter file")}</Button>}
       <Button size="sm" icon={<HelpCircle className="size-3.5" />} onClick={() => onExplain(c)}>{t("Why (not) downloaded?")}</Button>
     </div>
   );

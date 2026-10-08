@@ -900,7 +900,11 @@ func (s *Server) registerSeries() {
 			out.Body.Providers = len(s.app.Modules.Active(modules.KindMetadata))
 			existing := s.existingByExternalID(ctx)
 			requested := s.requestedByExternalID(ctx)
+			sc := access.From(ctx).ContentScope()
 			for _, c := range cands {
+				if sc != nil && !sc.AllowsContent("", c.Adult, append(append([]string{}, c.Genres...), c.Tags...)) {
+					continue // past the group's content limits
+				}
 				out.Body.Results = append(out.Body.Results, LookupResult{Candidate: c, ExistingSeriesID: existing(lookupIDs(c.SeriesMetadata)),
 					Request: requested(lookupIDs(c.SeriesMetadata))})
 			}
@@ -929,6 +933,9 @@ func (s *Server) registerSeries() {
 			}
 			if err != nil {
 				return nil, huma.Error404NotFound(err.Error())
+			}
+			if sc := access.From(ctx).ContentScope(); sc != nil && !sc.AllowsContent("", md.Adult, append(append([]string{}, md.Genres...), md.Tags...)) {
+				return nil, huma.Error404NotFound("not found")
 			}
 			c := metadataagg.Candidate{SeriesMetadata: *md, ModuleID: def.ID, ModuleName: def.Name}
 			ids := lookupIDs(*md)

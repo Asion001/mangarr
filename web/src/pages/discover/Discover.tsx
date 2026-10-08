@@ -135,8 +135,8 @@ export function DiscoverPage() {
   const query = useDiscover();
   const { can } = useAccount();
   const { editing } = useUIMode();
-  const manage = editing && can(["library.manage", "requests.manage"]);
-  const request = can("requests.create") && !can(["library.manage", "requests.manage"]);
+  const manage = editing && can(["library.add", "requests.manage"]);
+  const request = can("requests.create") && !can(["library.add", "requests.manage"]);
   const data = query.data;
   // the spotlight is for something new: never a series already on the Continue reading shelf
   const shelf = useReadingShelf();

@@ -69,7 +69,7 @@ export function PreviewBanner({ series }: { series: Series }) {
           ? t("This title isn't in your library. Pages stream from {source} and nothing is downloaded. Your progress is kept and carries over if you add it.", { source })
           : t("This title isn't in your library. Pages stream from the source and nothing is downloaded. Your progress is kept and carries over if you add it.")}
       </span>
-      {can("library.manage") ? (
+      {can("library.add") ? (
         <Button variant="primary" size="sm" icon={<Plus className="size-3.5" />} onClick={() => setAdding(true)}>{t("Add to library…")}</Button>
       ) : can("requests.create") ? (
         <Button variant="primary" size="sm" icon={<PlusCircle className="size-3.5" />} onClick={() => nav(`/requests?q=${encodeURIComponent(series.title)}`)}>{t("Request")}</Button>

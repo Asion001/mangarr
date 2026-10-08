@@ -44,7 +44,7 @@ function ShelfPage({ shelf, viewer }: { shelf: Shelf; viewer: string }) {
   const apply = (next: ShelfFilters) => setParams(shelfParams(parseShelfFilters(shelf, shelfParams(next))));
   const { can } = useAccount();
   const { editing } = useUIMode();
-  const manage = can(["library.manage", "requests.manage"]);
+  const manage = can(["library.add", "requests.manage"]);
   const discover = useDiscover();
   const catalogs = useQuery({ queryKey: ["catalogs"], enabled: manage, queryFn: () => unwrap(api.GET("/api/v1/catalogs")), staleTime: 30_000 });
   const roots = useQuery({ queryKey: ["rootfolders"], enabled: manage, queryFn: () => unwrap(api.GET("/api/v1/rootfolders")) });

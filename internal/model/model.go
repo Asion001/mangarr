@@ -46,6 +46,10 @@ type Group struct {
 	IncludeTags []int64 `bun:"include_tags,notnull" json:"includeTags"`
 	ExcludeTags []int64 `bun:"exclude_tags,notnull" json:"excludeTags"`
 	RootFolders []int64 `bun:"root_folders,notnull" json:"rootFolders"`
+	// MaxRating is the highest content rating members see ("all", "teen",
+	// "mature"; empty: no limit) and BlockedGenres genres or tags they never see.
+	MaxRating     string   `bun:"max_rating,notnull" json:"maxRating" enum:",all,teen,mature"`
+	BlockedGenres []string `bun:"blocked_genres,notnull" json:"blockedGenres"`
 	// AutoApproveRequests adds members' requests without a manager.
 	AutoApproveRequests bool      `bun:"auto_approve_requests,notnull" json:"autoApproveRequests"`
 	CreatedAt           time.Time `bun:"created_at,notnull" json:"createdAt"`

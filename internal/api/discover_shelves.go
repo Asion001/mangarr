@@ -174,6 +174,7 @@ func (s *Server) discoverShelf(ctx context.Context, in DiscoverShelfInput) (Disc
 		}
 		if in.Cursor == "" {
 			targets, errs := s.app.Catalogs.Select(ctx, catalogs.Filter{RootFolderID: in.RootFolderID, Scope: catalogs.ScopeActive, Lang: in.Lang})
+			targets = withoutAdultCatalogs(ctx, targets)
 			for _, e := range errs {
 				out.SourceErrors = append(out.SourceErrors, DiscoverSourceError{Source: "catalogs", Name: "Catalogs", Error: e})
 			}

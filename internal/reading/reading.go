@@ -503,7 +503,7 @@ func (s *Service) Cover(ctx context.Context, ser *model.Series) ([]byte, string,
 // for work mangarr does on its own).
 func scopeOf(ctx context.Context) *access.Scope {
 	p := access.From(ctx)
-	if p == nil || p.Can(access.LibraryManage) || !p.Scope.Limited() {
+	if p == nil || p.Can(access.LibraryEdit) || !p.Scope.Limited() {
 		return nil
 	}
 	return &p.Scope
@@ -524,7 +524,7 @@ func (s *Service) visibleSeries(ctx context.Context, id int64) (map[int64]bool, 
 		sc = &access.Scope{}
 	}
 	var list []model.Series
-	q := s.DB.NewSelect().Model(&list).Column("id", "root_folder_id", "tags", "preview")
+	q := s.DB.NewSelect().Model(&list).Column("id", "root_folder_id", "tags", "preview", "metadata")
 	if id > 0 {
 		q = q.Where("id = ?", id)
 	} else {

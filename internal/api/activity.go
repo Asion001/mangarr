@@ -9,6 +9,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/Asion001/mangarr/internal/access"
+	"github.com/Asion001/mangarr/internal/catalogs"
 	"github.com/Asion001/mangarr/internal/downloads"
 	"github.com/Asion001/mangarr/internal/history"
 	"github.com/Asion001/mangarr/internal/model"
@@ -76,7 +77,7 @@ func (s *Server) queueState(ctx context.Context) QueueState {
 // seriesSeenBy lists the ids of the series p may see.
 func (s *Server) seriesSeenBy(ctx context.Context, p *access.Principal) ([]int64, error) {
 	var all []model.Series
-	if err := s.app.DB.NewSelect().Model(&all).Column("id", "tags", "root_folder_id", "preview").Scan(ctx); err != nil {
+	if err := s.app.DB.NewSelect().Model(&all).Column("id", "tags", "root_folder_id", "preview", "metadata").Scan(ctx); err != nil {
 		return nil, err
 	}
 	ids := []int64{}
@@ -108,7 +109,7 @@ func (s *Server) registerActivity() {
 			}
 			f := downloads.ListFilter{Statuses: splitList(in.Status), Kind: in.Kind, SeriesID: in.SeriesID, Query: in.Query, IncludeDone: in.IncludeDone}
 			// watchers who see part of the library see only its entries
-			if who := access.From(ctx); !who.Can(access.LibraryManage) && who.Scope.Limited() {
+			if who := access.From(ctx); !who.Can(access.LibraryEdit) && who.Scope.Limited() {
 				visible, err := s.seriesSeenBy(ctx, who)
 				if err != nil {
 					return nil, toHTTPError(err)
@@ -299,4 +300,20 @@ func (s *Server) registerActivity() {
 			}
 			return &struct{ Body []WantedItem }{items}, toHTTPError(err)
 		})
+}
+
+// withoutAdultCatalogs drops NSFW catalogs for people whose group stops
+// short of adult titles.
+func withoutAdultCatalogs(ctx context.Context, targets []catalogs.Catalog) []catalogs.Catalog {
+	sc := access.From(ctx).ContentScope()
+	if sc == nil || sc.AllowsContent("", true, nil) {
+		return targets
+	}
+	out := targets[:0:0]
+	for _, c := range targets {
+		if !c.NSFW {
+			out = append(out, c)
+		}
+	}
+	return out
 }

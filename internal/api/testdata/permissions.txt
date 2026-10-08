@@ -12,22 +12,22 @@ backups-list GET /api/v1/system/backups -> admin
 backups-restore POST /api/v1/system/backups/{name}/restore -> admin
 backups-upload POST /api/v1/system/backups/upload -> admin
 backups-verify POST /api/v1/system/backups/{name}/verify -> admin
-blocklist-delete DELETE /api/v1/blocklist/{id} -> library.manage
-blocklist-list GET /api/v1/blocklist -> library.manage
-calendar GET /api/v1/calendar -> library.manage
-catalogs-health GET /api/v1/catalogs/health -> library.manage
-catalogs-list GET /api/v1/catalogs -> library.manage | requests.manage
+blocklist-delete DELETE /api/v1/blocklist/{id} -> queue.manage
+blocklist-list GET /api/v1/blocklist -> queue.manage
+calendar GET /api/v1/calendar -> library.edit
+catalogs-health GET /api/v1/catalogs/health -> library.edit
+catalogs-list GET /api/v1/catalogs -> library.add | library.edit | requests.manage
 catalogs-update PUT /api/v1/catalogs -> admin
-chapter-decision GET /api/v1/series/{id}/chapters/{chapterId}/decision -> library.manage
-chapter-restore POST /api/v1/chapters/{id}/restore -> library.manage
+chapter-decision GET /api/v1/series/{id}/chapters/{chapterId}/decision -> library.edit
+chapter-restore POST /api/v1/chapters/{id}/restore -> library.edit
 chapter-versions GET /api/v1/chapters/{id}/versions -> admin
-chapters-delete POST /api/v1/chapters/delete -> library.manage
-chapters-monitor PUT /api/v1/chapters/monitor -> library.manage
+chapters-delete POST /api/v1/chapters/delete -> library.delete
+chapters-monitor PUT /api/v1/chapters/monitor -> library.edit
 cleanup-preview GET /api/v1/cleanup/preview -> admin
 cleanup-run POST /api/v1/cleanup/run -> admin
-commands-get GET /api/v1/commands/{id} -> library.manage
-commands-list GET /api/v1/commands -> library.manage
-commands-push POST /api/v1/commands -> library.manage
+commands-get GET /api/v1/commands/{id} -> library.edit
+commands-list GET /api/v1/commands -> library.edit
+commands-push POST /api/v1/commands -> library.edit
 database-get GET /api/v1/system/database -> admin
 database-move POST /api/v1/system/database/move -> admin
 database-move-cancel POST /api/v1/system/database/cancel -> admin
@@ -43,7 +43,7 @@ groups-list GET /api/v1/groups -> admin
 groups-update PUT /api/v1/groups/{id} -> admin
 health-get GET /api/v1/health -> admin
 health-run POST /api/v1/health/check -> admin
-history-list GET /api/v1/history -> library.manage
+history-list GET /api/v1/history -> queue.manage
 imports-create POST /api/v1/imports -> admin
 imports-delete DELETE /api/v1/imports/{id} -> admin
 imports-entries GET /api/v1/imports/{id}/entries -> admin
@@ -77,7 +77,7 @@ me-sessions-revoke DELETE /api/v1/me/sessions/{id} -> signedin
 me-sessions-revoke-others POST /api/v1/me/sessions/revoke-others -> signedin
 me-ui-preferences GET /api/v1/me/ui-preferences -> signedin
 me-ui-preferences-save PUT /api/v1/me/ui-preferences -> signedin
-modules-asset GET /api/v1/modules/{id}/asset -> library.manage
+modules-asset GET /api/v1/modules/{id}/asset -> library.add | library.edit
 modules-create POST /api/v1/modules -> admin
 modules-delete DELETE /api/v1/modules/{id} -> admin
 modules-list GET /api/v1/modules -> admin
@@ -87,7 +87,7 @@ modules-test-saved POST /api/v1/modules/{id}/test -> admin
 modules-update PUT /api/v1/modules/{id} -> admin
 naming-preview GET /api/v1/settings/media/preview -> admin
 permissions-list GET /api/v1/permissions -> admin
-previews-open POST /api/v1/previews -> library.manage | requests.manage | requests.create
+previews-open POST /api/v1/previews -> library.add | requests.manage | requests.create
 processing-history GET /api/v1/processing/history -> admin
 processing-preview POST /api/v1/processing/preview -> admin
 processing-preview-cbz GET /api/v1/processing/preview/{token}/sample.cbz -> admin
@@ -96,16 +96,16 @@ processing-resume POST /api/v1/processing/resume -> admin
 processing-status GET /api/v1/processing -> admin
 profiles-create POST /api/v1/profiles -> admin
 profiles-delete DELETE /api/v1/profiles/{id} -> admin
-profiles-list GET /api/v1/profiles -> library.manage | requests.manage
+profiles-list GET /api/v1/profiles -> library.add | library.edit | requests.manage
 profiles-process-estimate GET /api/v1/profiles/{id}/process-estimate -> admin
 profiles-update PUT /api/v1/profiles/{id} -> admin
-queue-bulk POST /api/v1/queue/bulk -> library.manage
-queue-clear POST /api/v1/queue/clear-finished -> library.manage
-queue-list GET /api/v1/queue -> library.manage | activity.view
-queue-pause POST /api/v1/queue/pause -> library.manage
-queue-remove DELETE /api/v1/queue/{id} -> library.manage
-queue-resume POST /api/v1/queue/resume -> library.manage
-queue-retry POST /api/v1/queue/{id}/retry -> library.manage
+queue-bulk POST /api/v1/queue/bulk -> queue.manage
+queue-clear POST /api/v1/queue/clear-finished -> queue.manage
+queue-list GET /api/v1/queue -> activity.view
+queue-pause POST /api/v1/queue/pause -> queue.manage
+queue-remove DELETE /api/v1/queue/{id} -> queue.manage
+queue-resume POST /api/v1/queue/resume -> queue.manage
+queue-retry POST /api/v1/queue/{id}/retry -> queue.manage
 read-chapter GET /api/v1/read/chapters/{id} -> signedin
 read-chapter-bounds GET /api/v1/read/chapters/{id}/bounds -> signedin
 read-chapter-picker GET /api/v1/read/series/{id}/chapters -> signedin
@@ -150,39 +150,39 @@ requests-monitor POST /api/v1/requests/{id}/monitor -> requests.manage | library
 requests-withdraw DELETE /api/v1/requests/{id}/mine -> requests.create
 rootfolders-create POST /api/v1/rootfolders -> admin
 rootfolders-delete DELETE /api/v1/rootfolders/{id} -> admin
-rootfolders-for-language GET /api/v1/rootfolders/for-language -> library.manage | requests.manage
+rootfolders-for-language GET /api/v1/rootfolders/for-language -> library.add | library.edit | requests.manage
 rootfolders-language PUT /api/v1/rootfolders/{id}/language -> admin
-rootfolders-list GET /api/v1/rootfolders -> library.manage | requests.manage
+rootfolders-list GET /api/v1/rootfolders -> library.add | library.edit | requests.manage
 rootfolders-move PUT /api/v1/rootfolders/{id} -> admin
-series-add POST /api/v1/series -> library.manage | requests.manage
-series-add-editions POST /api/v1/series/editions -> library.manage | requests.manage
+series-add POST /api/v1/series -> library.add | requests.manage
+series-add-editions POST /api/v1/series/editions -> library.add | requests.manage
 series-chapters GET /api/v1/series/{id}/chapters -> signedin
 series-cover GET /api/v1/series/{id}/cover -> signedin
-series-delete DELETE /api/v1/series/{id} -> library.manage
-series-editor POST /api/v1/series/editor -> library.manage
+series-delete DELETE /api/v1/series/{id} -> library.delete
+series-editor POST /api/v1/series/editor -> library.edit
 series-follow PUT /api/v1/series/{id}/follow -> signedin
 series-get GET /api/v1/series/{id} -> signedin
 series-list GET /api/v1/series -> signedin
-series-lookup GET /api/v1/series/lookup -> library.manage | requests.create
-series-lookup-get GET /api/v1/series/lookup/{moduleId}/{id} -> library.manage | requests.create
-series-metadata-link PUT /api/v1/series/{id}/metadata -> library.manage
-series-metadata-refresh POST /api/v1/series/{id}/metadata/refresh -> library.manage
+series-lookup GET /api/v1/series/lookup -> library.add | library.edit | requests.create
+series-lookup-get GET /api/v1/series/lookup/{moduleId}/{id} -> library.add | library.edit | requests.create
+series-metadata-link PUT /api/v1/series/{id}/metadata -> library.edit
+series-metadata-refresh POST /api/v1/series/{id}/metadata/refresh -> library.edit
 series-query GET /api/v1/series/search -> signedin
-series-refresh POST /api/v1/series/{id}/refresh -> library.manage
-series-rename POST /api/v1/series/rename -> library.manage
-series-rename-preview POST /api/v1/series/rename/preview -> library.manage
-series-search POST /api/v1/series/{id}/search -> library.manage
-series-source-link POST /api/v1/series/{id}/sources -> library.manage
-series-source-order PUT /api/v1/series/{id}/sources/order -> library.manage
-series-source-replace POST /api/v1/series/{id}/sources/{linkId}/replace -> library.manage
-series-source-unlink DELETE /api/v1/series/{id}/sources/{linkId} -> library.manage
-series-source-update PUT /api/v1/series/{id}/sources/{linkId} -> library.manage
-series-sources-bulk POST /api/v1/series/sources/bulk -> library.manage
-series-sources-switch POST /api/v1/series/sources/switch -> library.manage
-series-sources-usage POST /api/v1/series/sources/usage -> library.manage
+series-refresh POST /api/v1/series/{id}/refresh -> library.edit
+series-rename POST /api/v1/series/rename -> library.edit
+series-rename-preview POST /api/v1/series/rename/preview -> library.edit
+series-search POST /api/v1/series/{id}/search -> library.edit
+series-source-link POST /api/v1/series/{id}/sources -> library.edit
+series-source-order PUT /api/v1/series/{id}/sources/order -> library.edit
+series-source-replace POST /api/v1/series/{id}/sources/{linkId}/replace -> library.edit
+series-source-unlink DELETE /api/v1/series/{id}/sources/{linkId} -> library.edit
+series-source-update PUT /api/v1/series/{id}/sources/{linkId} -> library.edit
+series-sources-bulk POST /api/v1/series/sources/bulk -> library.edit
+series-sources-switch POST /api/v1/series/sources/switch -> library.edit
+series-sources-usage POST /api/v1/series/sources/usage -> library.edit
 series-unfollow DELETE /api/v1/series/{id}/follow -> signedin
-series-update PUT /api/v1/series/{id} -> library.manage
-series-work-update PUT /api/v1/series/{id}/work -> library.manage
+series-update PUT /api/v1/series/{id} -> library.edit
+series-work-update PUT /api/v1/series/{id}/work -> library.edit
 settings-get-appearance GET /api/v1/settings/appearance -> admin
 settings-get-cleanup GET /api/v1/settings/cleanup -> admin
 settings-get-downloads GET /api/v1/settings/downloads -> admin
@@ -212,16 +212,16 @@ settings-put-sso PUT /api/v1/settings/sso -> admin
 settings-regenerate-apikey POST /api/v1/settings/general/apikey -> admin
 source-preferences GET /api/v1/sources/{moduleId}/{sourceId}/preferences -> admin
 source-preferences-set PUT /api/v1/sources/{moduleId}/{sourceId}/preferences -> admin
-source-priorities-inherit POST /api/v1/source-priorities/inherit -> library.manage
-source-priorities-list GET /api/v1/source-priorities -> library.manage
-source-priorities-save PUT /api/v1/source-priorities -> library.manage
-sources-browse GET /api/v1/sources/{moduleId}/{sourceId}/browse -> library.manage | requests.manage
-sources-defaults-search POST /api/v1/sources/defaults-search -> library.manage | requests.manage
-sources-list GET /api/v1/sources -> library.manage | requests.manage
-sources-manga GET /api/v1/sources/{moduleId}/{sourceId}/manga -> library.manage | requests.manage
-sources-quick-search POST /api/v1/sources/quick-search -> library.manage | requests.manage
-sources-search GET /api/v1/sources/search -> library.manage | requests.manage
-sources-thumbnail GET /api/v1/sources/{moduleId}/{sourceId}/thumbnail -> library.manage | requests.manage
+source-priorities-inherit POST /api/v1/source-priorities/inherit -> library.edit
+source-priorities-list GET /api/v1/source-priorities -> library.edit
+source-priorities-save PUT /api/v1/source-priorities -> library.edit
+sources-browse GET /api/v1/sources/{moduleId}/{sourceId}/browse -> library.add | library.edit | requests.manage
+sources-defaults-search POST /api/v1/sources/defaults-search -> library.add | library.edit | requests.manage
+sources-list GET /api/v1/sources -> library.add | library.edit | requests.manage
+sources-manga GET /api/v1/sources/{moduleId}/{sourceId}/manga -> library.add | library.edit | requests.manage
+sources-quick-search POST /api/v1/sources/quick-search -> library.add | library.edit | requests.manage
+sources-search GET /api/v1/sources/search -> library.add | library.edit | requests.manage
+sources-thumbnail GET /api/v1/sources/{moduleId}/{sourceId}/thumbnail -> library.add | library.edit | requests.manage
 stores-add POST /api/v1/modules/{id}/stores -> admin
 stores-list GET /api/v1/modules/{id}/stores -> admin
 stores-remove DELETE /api/v1/modules/{id}/stores -> admin
@@ -242,8 +242,8 @@ system-tasks-reset DELETE /api/v1/system/tasks/{name}/schedule -> admin
 system-tasks-resume POST /api/v1/system/tasks/{name}/resume -> admin
 system-tasks-resume-all POST /api/v1/system/tasks/resume-all -> admin
 system-tasks-schedule PUT /api/v1/system/tasks/{name}/schedule -> admin
-tags-create POST /api/v1/tags -> library.manage
-tags-delete DELETE /api/v1/tags/{id} -> library.manage
+tags-create POST /api/v1/tags -> library.edit
+tags-delete DELETE /api/v1/tags/{id} -> library.edit
 tags-list GET /api/v1/tags -> signedin
 updates-list GET /api/v1/updates -> signedin
 upscaler-info GET /api/v1/modules/{id}/upscaler-info -> admin
@@ -254,7 +254,7 @@ users-list GET /api/v1/users -> admin
 users-password POST /api/v1/users/{id}/password -> admin
 users-signout POST /api/v1/users/{id}/signout -> admin
 users-update PUT /api/v1/users/{id} -> admin
-wanted-missing GET /api/v1/wanted/missing -> library.manage
+wanted-missing GET /api/v1/wanted/missing -> library.edit
 worker-bye POST /api/v1/worker/bye -> worker
 worker-complete POST /api/v1/worker/tasks/{id}/complete -> worker
 worker-fail POST /api/v1/worker/tasks/{id}/fail -> worker

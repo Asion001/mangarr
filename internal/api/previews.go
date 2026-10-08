@@ -41,7 +41,7 @@ func (s *Server) registerPreviews() {
 			b := in.Body
 			b.Title = strings.TrimSpace(b.Title)
 			link := b.Source
-			if link != nil && !access.From(ctx).Can(access.LibraryManage) && !access.From(ctx).Can(access.RequestsManage) {
+			if link != nil && !access.From(ctx).Can(access.LibraryAdd) && !access.From(ctx).Can(access.RequestsManage) {
 				return nil, huma.Error403Forbidden("only library managers can pick a source")
 			}
 			if link == nil {

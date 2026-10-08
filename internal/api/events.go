@@ -36,7 +36,7 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 	// live progress when they may watch it (it carries only numbers)
 	who := access.From(r.Context())
 	admin := who.IsAdmin()
-	watches := who.Can(access.LibraryManage) || who.Can(access.ActivityView)
+	watches := who.Can(access.ActivityView)
 	unsub := s.app.Bus.Subscribe(func(e events.Event) {
 		if !admin && e.Type != events.ResourceChanged && (!watches || e.Type != downloads.EventProgress) {
 			return

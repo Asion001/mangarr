@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -61,6 +62,8 @@ type groupInput struct {
 	ExcludeTags         []int64  `json:"excludeTags,omitempty" doc:"Never series with these tags"`
 	RootFolders         []int64  `json:"rootFolders,omitempty" doc:"Only series in these root folders (empty = all)"`
 	AutoApproveRequests bool     `json:"autoApproveRequests,omitempty"`
+	MaxRating           string   `json:"maxRating,omitempty" enum:",all,teen,mature" doc:"Highest content rating members see (empty: no limit)"`
+	BlockedGenres       []string `json:"blockedGenres,omitempty" doc:"Genres or tags members never see"`
 }
 
 func (g groupInput) validate() error {
@@ -246,7 +249,7 @@ func (s *Server) registerUsers() {
 			}
 			g := model.Group{Name: strings.TrimSpace(in.Body.Name), Permissions: in.Body.Permissions, IncludeTags: nonNilIDs(in.Body.IncludeTags),
 				ExcludeTags: nonNilIDs(in.Body.ExcludeTags), RootFolders: nonNilIDs(in.Body.RootFolders), AutoApproveRequests: in.Body.AutoApproveRequests,
-				CreatedAt: time.Now().UTC()}
+				MaxRating: in.Body.MaxRating, BlockedGenres: cleanGenres(in.Body.BlockedGenres), CreatedAt: time.Now().UTC()}
 			if g.Permissions == nil {
 				g.Permissions = []string{}
 			}
@@ -270,12 +273,14 @@ func (s *Server) registerUsers() {
 			}
 			g.Name, g.Permissions, g.AutoApproveRequests = strings.TrimSpace(in.Body.Name), in.Body.Permissions, in.Body.AutoApproveRequests
 			g.IncludeTags, g.ExcludeTags, g.RootFolders = nonNilIDs(in.Body.IncludeTags), nonNilIDs(in.Body.ExcludeTags), nonNilIDs(in.Body.RootFolders)
+			g.MaxRating, g.BlockedGenres = in.Body.MaxRating, cleanGenres(in.Body.BlockedGenres)
 			if g.Permissions == nil {
 				g.Permissions = []string{}
 			}
 			if g.Builtin == model.GroupAdmins {
 				// admins always have everything and see everything
 				g.Permissions, g.IncludeTags, g.ExcludeTags, g.RootFolders = []string{access.Admin}, []int64{}, []int64{}, []int64{}
+				g.MaxRating, g.BlockedGenres = "", []string{}
 			}
 			if _, err := db.NewUpdate().Model(&g).WherePK().Exec(ctx); err != nil {
 				return nil, huma.Error409Conflict("a group with that name exists")
@@ -436,4 +441,16 @@ func (s *Server) keepAnAdmin(ctx context.Context, u *model.User, stillAdmin bool
 		return huma.Error400BadRequest("keep at least one administrator")
 	}
 	return nil
+}
+
+// cleanGenres trims and de-duplicates hidden genres (never nil).
+func cleanGenres(in []string) []string {
+	out := []string{}
+	for _, g := range in {
+		g = strings.TrimSpace(g)
+		if g != "" && !slices.ContainsFunc(out, func(x string) bool { return strings.EqualFold(x, g) }) {
+			out = append(out, g)
+		}
+	}
+	return out
 }

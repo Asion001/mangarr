@@ -102,7 +102,7 @@ export function Layout() {
   const drawer = useRef<HTMLElement>(null);
   const attemptedRoute = useRef("");
   const management = /^(\/add|\/activity|\/wanted|\/sources|\/settings|\/system|\/cleanup|\/import)(\/|$)/.test(loc.pathname);
-  const routePermission: Perm[] = loc.pathname.startsWith("/add") ? ["library.manage", "requests.manage"] : /^(\/activity|\/wanted|\/sources)(\/|$)/.test(loc.pathname) ? ["library.manage"] : ["admin"];
+  const routePermission: Perm[] = loc.pathname.startsWith("/add") ? ["library.add", "requests.manage"] : loc.pathname.startsWith("/activity") ? ["queue.manage"] : /^(\/wanted|\/sources)(\/|$)/.test(loc.pathname) ? ["library.edit"] : ["admin"];
   const routeKey = loc.pathname + loc.search;
   useEffect(() => {
     if (!management) { attemptedRoute.current = ""; return; }
@@ -138,7 +138,7 @@ export function Layout() {
     } catch(e) { toast.fromError(e); }
   };
   const { can, isAdmin, name } = useAccount();
-  const { data: queue } = useQueue({ pageSize: 1 }, can(["library.manage", "activity.view"]));
+  const { data: queue } = useQueue({ pageSize: 1 }, can("activity.view"));
   const queued = queue?.total ?? 0;
   const queuePaused = !!queue?.state?.paused;
   useTitleBadge(queued > 0 && !queuePaused ? `(${queued})` : "");
@@ -152,7 +152,7 @@ export function Layout() {
     { to: "/", section: "library", label: "Series", icon: <BookOpen className="size-4" /> },
     { to: "/discover", section: "library", label: "Discover", icon: <Compass className="size-4" /> },
     { to: "/updates", section: "library", label: "Updates", icon: <BellRing className="size-4" /> },
-    { to: "/add", section: "manage", label: "Add series", icon: <PlusCircle className="size-4" />, need: "library.manage" },
+    { to: "/add", section: "manage", label: "Add series", icon: <PlusCircle className="size-4" />, need: "library.add" },
     { to: "/requests", section: "library", label: "Requests", icon: <Inbox className="size-4" />, need: ["requests.create", "requests.manage", "library.manage"] },
     { to: "/import", section: "manage", label: "Import library", icon: <FileUp className="size-4" />, need: "admin" },
     {
@@ -160,16 +160,16 @@ export function Layout() {
       section: "manage",
       label: "Activity",
       icon: <Download className="size-4" />,
-      need: ["library.manage", "activity.view"],
+      need: "activity.view",
       children: [
         { to: "/activity/downloads", label: "Downloads" },
         { to: "/activity/processing", label: "Processing" },
-        { to: "/activity/history", label: "History", need: "library.manage" },
-        { to: "/activity/blocklist", label: "Blocklist", need: "library.manage" },
+        { to: "/activity/history", label: "History", need: "queue.manage" },
+        { to: "/activity/blocklist", label: "Blocklist", need: "queue.manage" },
       ],
     },
-    { to: "/wanted", section: "manage", label: "Wanted", icon: <AlertCircle className="size-4" />, need: "library.manage" },
-    { to: "/sources", section: "manage", label: "Sources", icon: <Compass className="size-4" />, need: "library.manage" },
+    { to: "/wanted", section: "manage", label: "Wanted", icon: <AlertCircle className="size-4" />, need: "library.edit" },
+    { to: "/sources", section: "manage", label: "Sources", icon: <Compass className="size-4" />, need: "library.edit" },
     { to: "/cleanup", section: "manage", label: "Cleanup", icon: <Eraser className="size-4" />, need: "admin" },
     {
       to: "/settings",
@@ -226,7 +226,7 @@ export function Layout() {
           </div>)}
       <nav aria-label={t("Navigation")} className="min-h-0 flex-1 overflow-y-auto overscroll-contain [&_a:focus-visible]:-outline-offset-2">
         {(["library","manage","admin"] as const).map(section=>{
-          const items = nav.filter(item => item.section === section && !hiddenNav.includes(item.to) && (!item.need || can(item.need)) && (editing || item.to === "/" || item.to === "/discover" || item.to === "/updates" || (item.to === "/requests" && can("requests.create")) || (item.to === "/activity" && !can("library.manage"))));
+          const items = nav.filter(item => item.section === section && !hiddenNav.includes(item.to) && (!item.need || can(item.need)) && (editing || item.to === "/" || item.to === "/discover" || item.to === "/updates" || (item.to === "/requests" && can("requests.create")) || (item.to === "/activity" && !can("queue.manage"))));
           if (!items.length) return null;
           const title = {library:t("Library"),manage:t("Manage"),admin:t("Admin")}[section];
           return <div key={section} role="group" aria-label={title} className="mb-2 space-y-0.5">
@@ -249,7 +249,7 @@ export function Layout() {
           <UserRound className="size-4 shrink-0"/>{!compact&&<span className="min-w-0 flex-1 truncate">{name||t("My account")}</span>}
         </NavLink>
         <div className={clsx("flex items-center gap-2 px-2 text-xs text-muted",compact?"justify-center":"justify-between")}>
-          {!compact&&<span>{editing&&can("library.manage")&&<span className="flex items-center gap-1">{queuePaused?<Pause className="size-3.5 text-warn"/>:<Activity className="size-3.5"/>}{queued} {queuePaused?`· ${t("paused")}`:t("in queue")}</span>}</span>}
+          {!compact&&<span>{editing&&can("activity.view")&&<span className="flex items-center gap-1">{queuePaused?<Pause className="size-3.5 text-warn"/>:<Activity className="size-3.5"/>}{queued} {queuePaused?`· ${t("paused")}`:t("in queue")}</span>}</span>}
           <button title={t("Log out")} aria-label={t("Log out")} className="flex shrink-0 items-center gap-1 whitespace-nowrap py-2 hover:text-fg" onClick={logout}><LogOut className="size-3.5"/>{!compact&&t("Log out")}</button>
         </div>
       </footer>
