@@ -29,8 +29,6 @@ export type ReaderSettings = {
   /** Go on to the next chapter at the end. */
   autoNext: boolean;
   showPageNumber: boolean;
-  /** The back button and the series and chapter title in the top bar. */
-  showTitle: boolean;
   /** A small full screen button in the corner while the bars are hidden. */
   quickFullscreen: boolean;
   /** Show the tap zones for a moment when the reader opens or they change. */
@@ -54,7 +52,6 @@ export const DEFAULTS: ReaderSettings = {
   keepAwake: true,
   autoNext: true,
   showPageNumber: true,
-  showTitle: true,
   quickFullscreen: true,
   showTapZones: true,
 };

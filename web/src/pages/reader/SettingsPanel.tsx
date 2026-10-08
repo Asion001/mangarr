@@ -157,7 +157,6 @@ export function SettingsPanel({
           <Toggle checked={s.autoNext} onChange={(autoNext) => set({ autoNext })} label={t("Go on to the next chapter")} />
           <Toggle checked={s.keepAwake} onChange={(keepAwake) => set({ keepAwake })} label={t("Keep the screen on")} />
           <Toggle checked={s.showPageNumber} onChange={(showPageNumber) => set({ showPageNumber })} label={t("Show the page number")} />
-          <Toggle checked={s.showTitle} onChange={(showTitle) => set({ showTitle })} label={t("Show the back button and chapter title")} />
           {canFullscreen() && <Toggle checked={s.quickFullscreen} onChange={(quickFullscreen) => set({ quickFullscreen })} label={t("Quick full screen button")} />}
         </div>
         <p className="text-xs text-muted">{t("Changes are kept for this series.")}</p>

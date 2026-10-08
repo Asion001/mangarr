@@ -296,21 +296,15 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
         )}
         style={{ paddingTop: "max(0.5rem, env(safe-area-inset-top))", paddingLeft: "max(0.5rem, env(safe-area-inset-left))", paddingRight: "max(0.5rem, env(safe-area-inset-right))" }}
       >
-        {s.showTitle && (
-          <Link to={`/series/${ch.seriesId}`} className="rounded p-2 hover:bg-panel-2" aria-label={t("Back to the series")}>
-            <ArrowLeft className="size-5" />
-          </Link>
-        )}
+        <Link to={`/series/${ch.seriesId}`} className="rounded p-2 hover:bg-panel-2" aria-label={t("Back to the series")}>
+          <ArrowLeft className="size-5" />
+        </Link>
         <div className="min-w-0 flex-1">
-          {s.showTitle && (
-            <>
-              <div className="truncate text-sm font-medium">{ch.seriesTitle}</div>
-              <div className="truncate text-xs text-muted">{t("Ch.") + " "}{ch.number}
-                {ch.title && ch.title !== ch.number && !ch.title.endsWith(ch.number) ? ` · ${ch.title}` : ""}
-                {!ch.downloaded && tr(" · streamed")}
-              </div>
-            </>
-          )}
+          <div className="truncate text-sm font-medium">{ch.seriesTitle}</div>
+          <div className="truncate text-xs text-muted">{t("Ch.") + " "}{ch.number}
+            {ch.title && ch.title !== ch.number && !ch.title.endsWith(ch.number) ? ` · ${ch.title}` : ""}
+            {!ch.downloaded && tr(" · streamed")}
+          </div>
         </div>
         {ch.canDownload && (
           <a href={apiUrl(`api/v1/read/chapters/${ch.id}/file`)} download className="rounded p-2 hover:bg-panel-2" aria-label={t("Download the chapter")}>
