@@ -30,6 +30,8 @@ type SeriesSearchQuery struct {
 	Language     string `query:"language,omitempty" maxLength:"20"`
 	Page         int    `query:"page" minimum:"1" default:"1"`
 	PageSize     int    `query:"pageSize" minimum:"12" maximum:"100" default:"36"`
+	// AcceptLanguage picks which edition's name and cover a title shows.
+	AcceptLanguage string `header:"Accept-Language"`
 }
 
 func matchesSeriesQuery(item SeriesResource, query SeriesSearchQuery) bool {
@@ -139,7 +141,7 @@ func (s *Server) registerSeriesSearch() {
 					rawMatches[key] = true
 				}
 			}
-			grouped, err := s.groupedSeriesResources(ctx, visible)
+			grouped, err := s.groupedSeriesResources(ctx, visible, uiLanguage(in.AcceptLanguage))
 			if err != nil {
 				return nil, toHTTPError(err)
 			}

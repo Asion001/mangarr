@@ -18283,6 +18283,15 @@
     "/api/v1/series": {
       "get": {
         "operationId": "series-list",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Accept-Language",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -18715,6 +18724,13 @@
               "maximum": 100,
               "minimum": 12,
               "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Accept-Language",
+            "schema": {
+              "type": "string"
             }
           }
         ],

@@ -52,3 +52,16 @@ func TestSortSeriesSearch(t *testing.T) {
 		t.Fatalf("title order: %s %s %s", items[0].Title, items[1].Title, items[2].Title)
 	}
 }
+
+func TestLocalEditionFollowsInterfaceLanguage(t *testing.T) {
+	editions := []model.Series{{ID: 1, Language: "en"}, {ID: 2, Language: "ru"}, {ID: 3, Language: "pt-BR"}}
+	for header, want := range map[string]int64{"ru": 2, "ru-RU,en;q=0.8": 2, "pt": 3, "EN": 1, "uk": 0, "": 0, "*": 0} {
+		got := localEdition(editions, uiLanguage(header))
+		if (got == nil && want != 0) || (got != nil && got.ID != want) {
+			t.Fatalf("%q: got %+v, want edition %d", header, got, want)
+		}
+	}
+	if uiLanguage("ua") != "uk" {
+		t.Fatal("ua should read as Ukrainian")
+	}
+}

@@ -1,5 +1,6 @@
 import createClient, { type Middleware } from "openapi-fetch";
 import type { components, paths } from "./schema";
+import { getLocale } from "../lib/i18n/core";
 
 /** Path prefix when mangarr runs under a URL base (from <base href>). */
 export const basePath = new URL(document.baseURI).pathname.replace(/\/$/, "");
@@ -21,8 +22,16 @@ const onUnauthorized: Middleware = {
   },
 };
 
+/** The interface language picks which language edition a title shows in lists. */
+const interfaceLanguage: Middleware = {
+  onRequest({ request }) {
+    request.headers.set("Accept-Language", getLocale());
+    return request;
+  },
+};
+
 export const api = createClient<paths>({ baseUrl: window.location.origin + basePath });
-api.use(onUnauthorized);
+api.use(onUnauthorized, interfaceLanguage);
 
 type ErrorBody = { title?: string; detail?: string; errors?: { message?: string; location?: string }[] } | undefined;
 

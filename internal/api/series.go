@@ -651,10 +651,49 @@ func (s *Server) visibleSeries(ctx context.Context, id int64) (*model.Series, er
 	return ser, nil
 }
 
+// baseLanguage is a language tag's primary subtag, lowercased ("pt-BR" ->
+// "pt"), with "ua" read as Ukrainian.
+func baseLanguage(tag string) string {
+	tag = strings.ToLower(strings.TrimSpace(tag))
+	if i := strings.IndexAny(tag, "-_;,"); i >= 0 {
+		tag = tag[:i]
+	}
+	if tag == "ua" {
+		return "uk"
+	}
+	return tag
+}
+
+// uiLanguage is the first language of an Accept-Language header, which the
+// web UI sets to its interface language.
+func uiLanguage(acceptLanguage string) string {
+	first, _, _ := strings.Cut(acceptLanguage, ",")
+	if lang := baseLanguage(first); lang != "*" {
+		return lang
+	}
+	return ""
+}
+
+// localEdition is the edition in the reader's language, or nil when the
+// title has none.
+func localEdition(editions []model.Series, lang string) *model.Series {
+	if lang == "" {
+		return nil
+	}
+	for i := range editions {
+		if baseLanguage(editions[i].Language) == lang {
+			return &editions[i]
+		}
+	}
+	return nil
+}
+
 // groupedSeriesResources turns visible language editions into one row per
 // canonical work. Callers may pre-filter list by library or language; only
 // those editions then contribute to the row and its aggregate statistics.
-func (s *Server) groupedSeriesResources(ctx context.Context, list []model.Series) ([]SeriesResource, error) {
+// A title with an edition in lang shows that edition's name and cover;
+// otherwise it shows the title's own name and its first listed edition.
+func (s *Server) groupedSeriesResources(ctx context.Context, list []model.Series, lang string) ([]SeriesResource, error) {
 	stats, err := s.seriesStats(ctx, 0)
 	if err != nil {
 		return nil, err
@@ -703,6 +742,10 @@ func (s *Server) groupedSeriesResources(ctx context.Context, list []model.Series
 	for _, key := range order {
 		editions := groups[key]
 		representative := editions[0]
+		local := localEdition(editions, lang)
+		if local != nil {
+			representative = *local
+		}
 		r := s.seriesResource(ctx, representative, stats, false)
 		r.Editions = make([]EditionSummary, 0, len(editions))
 		r.Stats = SeriesStats{}
@@ -713,7 +756,9 @@ func (s *Server) groupedSeriesResources(ctx context.Context, list []model.Series
 		}
 		if work, ok := works[representative.WorkID]; ok {
 			r.WorkTitle = work.Title
-			r.Title, r.SortTitle = work.Title, work.SortTitle
+			if local == nil {
+				r.Title, r.SortTitle = work.Title, work.SortTitle
+			}
 		}
 		if t, ok := titles[key]; ok {
 			// a chapter in two languages is one chapter of the title
@@ -776,12 +821,14 @@ func (s *Server) titleCounts(ctx context.Context, editions []int64) (map[int64]t
 func (s *Server) registerSeries() {
 	tags := []string{"Series"}
 	huma.Register(s.api, huma.Operation{OperationID: "series-list", Method: http.MethodGet, Path: "/api/v1/series", Tags: tags},
-		func(ctx context.Context, _ *struct{}) (*struct{ Body []SeriesResource }, error) {
+		func(ctx context.Context, in *struct {
+			AcceptLanguage string `header:"Accept-Language"`
+		}) (*struct{ Body []SeriesResource }, error) {
 			var list []model.Series
 			if err := s.app.DB.NewSelect().Model(&list).Where("preview = ?", false).Order("sort_title").Scan(ctx); err != nil {
 				return nil, toHTTPError(err)
 			}
-			out, err := s.groupedSeriesResources(ctx, list)
+			out, err := s.groupedSeriesResources(ctx, list, uiLanguage(in.AcceptLanguage))
 			if err != nil {
 				return nil, toHTTPError(err)
 			}

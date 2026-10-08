@@ -11775,7 +11775,9 @@ export interface operations {
     "series-list": {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "Accept-Language"?: string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -12043,7 +12045,9 @@ export interface operations {
                 page?: number;
                 pageSize?: number;
             };
-            header?: never;
+            header?: {
+                "Accept-Language"?: string;
+            };
             path?: never;
             cookie?: never;
         };
