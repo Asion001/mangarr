@@ -21,6 +21,9 @@ const (
 	RequestsManage = "requests.manage"
 	// RequestsCreate: ask for series.
 	RequestsCreate = "requests.create"
+	// ActivityView: watch the download and processing queues without
+	// changing anything.
+	ActivityView = "activity.view"
 	// Apps: the Komga-compatible API and device keys.
 	Apps = "apps"
 	// Download: CBZ files and offline downloads.
@@ -40,6 +43,7 @@ var All = []Permission{
 	{LibraryManage, "Manage the library", "Add, edit and delete series; queue, sources, history and wanted"},
 	{RequestsManage, "Handle requests", "See, approve and fulfil series requests"},
 	{RequestsCreate, "Request series", "Ask for series to be added"},
+	{ActivityView, "See downloads and processing", "Watch the download and processing queues, without pausing or removing anything"},
 	{Apps, "Reading apps", "Use Mihon, KMReader, Paperback… through the Komga-compatible API"},
 	{Download, "Download files", "Download chapters as CBZ files, also for offline reading"},
 }

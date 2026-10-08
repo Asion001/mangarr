@@ -189,6 +189,10 @@ type ListFilter struct {
 	IncludeDone bool   `json:"includeDone,omitempty"`
 	// IDs limits to these jobs.
 	IDs []int64 `json:"ids,omitempty"`
+	// Scoped limits to the series in Visible (people who see only part of
+	// the library).
+	Scoped  bool    `json:"-"`
+	Visible []int64 `json:"-"`
 }
 
 func (q *Queue) base(d bun.IDB, f ListFilter, withStatus bool) *bun.SelectQuery {
@@ -205,6 +209,13 @@ func (q *Queue) base(d bun.IDB, f ListFilter, withStatus bool) *bun.SelectQuery 
 	}
 	if len(f.IDs) > 0 {
 		sel = sel.Where("j.id IN (?)", bun.In(f.IDs))
+	}
+	if f.Scoped {
+		if len(f.Visible) == 0 {
+			sel = sel.Where("1 = 0")
+		} else {
+			sel = sel.Where("j.series_id IN (?)", bun.In(f.Visible))
+		}
 	}
 	if qs := strings.TrimSpace(f.Query); qs != "" {
 		sel = sel.Where("LOWER(s.title) LIKE ?", "%"+strings.ToLower(qs)+"%")

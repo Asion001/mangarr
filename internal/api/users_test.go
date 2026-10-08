@@ -50,7 +50,7 @@ func TestInvitesAndGroups(t *testing.T) {
 
 	var perms []map[string]string
 	admin.do("GET", "/api/v1/permissions", "", &perms)
-	if len(perms) != 6 {
+	if len(perms) != 7 {
 		t.Fatalf("permissions %v", perms)
 	}
 	var g map[string]any

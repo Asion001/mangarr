@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Asion001/mangarr/internal/access"
+	"github.com/Asion001/mangarr/internal/downloads"
 	"github.com/Asion001/mangarr/internal/events"
 	"github.com/Asion001/mangarr/internal/version"
 )
@@ -31,10 +32,13 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 
 	ch := make(chan events.Event, 256)
 	// people who aren't admins only get cache invalidation (no titles of
-	// series outside what they may see, no system events)
-	admin := access.From(r.Context()).IsAdmin()
+	// series outside what they may see, no system events), and the queue's
+	// live progress when they may watch it (it carries only numbers)
+	who := access.From(r.Context())
+	admin := who.IsAdmin()
+	watches := who.Can(access.LibraryManage) || who.Can(access.ActivityView)
 	unsub := s.app.Bus.Subscribe(func(e events.Event) {
-		if !admin && e.Type != events.ResourceChanged {
+		if !admin && e.Type != events.ResourceChanged && (!watches || e.Type != downloads.EventProgress) {
 			return
 		}
 		select {

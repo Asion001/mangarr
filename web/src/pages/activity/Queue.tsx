@@ -10,6 +10,7 @@ import { isPending, isRunning, queueGroups, queuePositions, selectionNeighbor } 
 import { relative } from "../../lib/format";
 import { useListParam, useQueryParam } from "../../lib/urlState";
 import { useToast } from "../../lib/toast";
+import { useAccount } from "../../lib/account";
 import { describe, useLiveProgress } from "../../lib/liveProgress";
 
 const tone = (s: string) => (s === "completed" ? "ok" : s === "failed" ? "err" : s === "paused" ? "warn" : s === "queued" ? "default" : "info");
@@ -31,6 +32,8 @@ const storedGroup = () => {
 export function QueuePage({ mode }: { mode: "downloads" | "processing" }) {
   const qc = useQueryClient();
   const toast = useToast();
+  // watching without library.manage: the queue as it is, nothing to change
+  const manage = useAccount().can("library.manage");
   const [status, setStatus] = useListParam("status");
   const [q, setQ] = useQueryParam("q");
   const [pageStr, setPage] = useListParam("page", "1");
@@ -179,9 +182,11 @@ export function QueuePage({ mode }: { mode: "downloads" | "processing" }) {
     const live = j.status === "completed" || j.status === "failed" ? undefined : (liveMap.get(j.id) ?? j.live);
     return (
     <tr key={j.id} data-queue-job={j.id} className={selected.has(j.id) || allMatching ? "bg-accent/5" : ""}>
-      <Td className="w-8">
-        <input type="checkbox" aria-label={t("Select")} checked={allMatching || selected.has(j.id)} onChange={() => undefined} onClick={(e) => toggle(idx, e.shiftKey)} />
-      </Td>
+      {manage && (
+        <Td className="w-8">
+          <input type="checkbox" aria-label={t("Select")} checked={allMatching || selected.has(j.id)} onChange={() => undefined} onClick={(e) => toggle(idx, e.shiftKey)} />
+        </Td>
+      )}
       <Td className="w-16 whitespace-nowrap tabular-nums">
         <QueuePosition job={j} position={positions.get(j.id)} />
       </Td>
@@ -252,7 +257,7 @@ export function QueuePage({ mode }: { mode: "downloads" | "processing" }) {
         subtitle={mode === "processing" ? t("Every chapter waiting to be upscaled or encoded, in processing order") : t("Chapters waiting to be downloaded and imported, in download order")}
         actions={
           <>
-            {!state?.paused && (
+            {manage && !state?.paused && (
               <Menu label={t("Pause")} icon={<Pause className="size-4" />} align="right" items={[
                 { label: t("for 1 hour"), onSelect: () => void pauseAll(60) },
                 { label: t("for 6 hours"), onSelect: () => void pauseAll(360) },
@@ -275,7 +280,7 @@ export function QueuePage({ mode }: { mode: "downloads" | "processing" }) {
               {t("{count} waiting", { count: data?.counts?.queued ?? 0 })}
             </span>
           </span>
-          <Button size="sm" variant="primary" icon={<Play className="size-3.5" />} onClick={() => pauseAll()}>{t("Resume queue")}</Button>
+          {manage && <Button size="sm" variant="primary" icon={<Play className="size-3.5" />} onClick={() => pauseAll()}>{t("Resume queue")}</Button>}
         </div>
       )}
       {state?.quiet?.windows?.length ? (
@@ -311,7 +316,7 @@ export function QueuePage({ mode }: { mode: "downloads" | "processing" }) {
       </div>
 
       <p role="status" aria-live="polite" className="sr-only">{announcement}</p>
-      {items.length > 0 && (
+      {manage && items.length > 0 && (
         <div className={`sticky top-0 z-10 mb-3 flex flex-wrap items-center gap-2 rounded-lg border bg-panel p-2 text-sm ${count > 0 ? "border-accent/40 shadow" : "border-border"}`}>
           <span className={count > 0 ? "font-medium" : "text-muted"}>{count > 0 ? t("{count} selected", { count }) : t("Nothing selected")}</span>
           {!allMatching && !(pageAllSelected && !morePages) && (
@@ -355,7 +360,7 @@ export function QueuePage({ mode }: { mode: "downloads" | "processing" }) {
       {data && total === 0 && <EmptyState title={t("Queue is empty")}>{t("New chapters are queued automatically when a monitored series gets an update.")}</EmptyState>}
       {items.length > 0 && (
         <ul className="flex flex-col gap-2 md:hidden">
-          {items.map((j, i) => <QueueCard key={j.id} job={j} status={shownStatus(j)} position={positions.get(j.id)} selected={allMatching || selected.has(j.id)} onToggle={(shift) => toggle(i, shift)} live={j.status === "completed" || j.status === "failed" ? undefined : (liveMap.get(j.id) ?? j.live)} />)}
+          {items.map((j, i) => <QueueCard key={j.id} manage={manage} job={j} status={shownStatus(j)} position={positions.get(j.id)} selected={allMatching || selected.has(j.id)} onToggle={(shift) => toggle(i, shift)} live={j.status === "completed" || j.status === "failed" ? undefined : (liveMap.get(j.id) ?? j.live)} />)}
         </ul>
       )}
       {items.length > 0 && (
@@ -363,14 +368,16 @@ export function QueuePage({ mode }: { mode: "downloads" | "processing" }) {
           <Table>
             <thead>
               <tr>
-                <Th className="w-8">
-                  <input
-                    type="checkbox"
-                    aria-label={t("Select page")}
-                    checked={pageAllSelected || allMatching}
-                    onChange={() => (pageAllSelected ? resetSelection() : setSelected(new Set(items.map((j) => j.id))))}
-                  />
-                </Th>
+                {manage && (
+                  <Th className="w-8">
+                    <input
+                      type="checkbox"
+                      aria-label={t("Select page")}
+                      checked={pageAllSelected || allMatching}
+                      onChange={() => (pageAllSelected ? resetSelection() : setSelected(new Set(items.map((j) => j.id))))}
+                    />
+                  </Th>
+                )}
                 <Th>#</Th>
                 {!group && <Th>{t("Series")}</Th>}
                 <Th>{t("Chapter")}</Th>
@@ -385,6 +392,7 @@ export function QueuePage({ mode }: { mode: "downloads" | "processing" }) {
                 ? groups.map((g) => (
                     <SeriesGroup
                       key={g.jobs[0].job.id}
+                      manage={manage}
                       seriesId={g.seriesId}
                       title={g.title}
                       count={g.jobs.length}
@@ -436,6 +444,7 @@ export function QueuePage({ mode }: { mode: "downloads" | "processing" }) {
 }
 
 function SeriesGroup({
+  manage,
   seriesId,
   title,
   count,
@@ -445,6 +454,7 @@ function SeriesGroup({
   onSelect,
   children,
 }: {
+  manage: boolean;
   seriesId: number;
   title: string;
   count: number;
@@ -459,9 +469,11 @@ function SeriesGroup({
   return (
     <>
       <tr className="bg-panel-2/60">
-        <Td className="w-8">
-          <input type="checkbox" aria-label={`Select ${title}`} checked={selected} onChange={(e) => onSelect(e.target.checked)} />
-        </Td>
+        {manage && (
+          <Td className="w-8">
+            <input type="checkbox" aria-label={`Select ${title}`} checked={selected} onChange={(e) => onSelect(e.target.checked)} />
+          </Td>
+        )}
         <Td colSpan={6}>
           <button className="mr-2 text-muted" onClick={() => setOpen(!open)} aria-label={open ? tr("Collapse") : tr("Expand")}>
             {open ? "▾" : "▸"}
@@ -485,12 +497,12 @@ function QueuePosition({ job, position }: { job: Job; position?: number }) {
   return <span className="font-medium">{position}</span>;
 }
 
-function QueueCard({ job, position, selected, onToggle, live, status }: {
-  job: Job; position?: number; selected: boolean; onToggle: (shift: boolean) => void; live?: ReturnType<ReturnType<typeof useLiveProgress>["get"]>; status: string;
+function QueueCard({ manage, job, position, selected, onToggle, live, status }: {
+  manage: boolean; job: Job; position?: number; selected: boolean; onToggle: (shift: boolean) => void; live?: ReturnType<ReturnType<typeof useLiveProgress>["get"]>; status: string;
 }) {
   return (
     <li className={`flex gap-3 rounded-lg border p-3 ${selected ? "border-accent/50 bg-accent/5" : "border-border bg-panel"}`}>
-      <input type="checkbox" className="mt-1" aria-label={t("Select")} checked={selected} onChange={() => undefined} onClick={(e) => onToggle(e.shiftKey)} />
+      {manage && <input type="checkbox" className="mt-1" aria-label={t("Select")} checked={selected} onChange={() => undefined} onClick={(e) => onToggle(e.shiftKey)} />}
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">

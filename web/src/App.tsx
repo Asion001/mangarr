@@ -138,8 +138,8 @@ export function App() {
           <Route path="import/:id" element={<Need perm="admin"><ImportDetailPage /></Need>} />
           <Route path="activity" element={<Navigate to="/activity/downloads" replace />} />
           <Route path="activity/queue" element={<Navigate to="/activity/downloads" replace />} />
-          <Route path="activity/downloads" element={<Need perm="library.manage"><QueuePage mode="downloads" /></Need>} />
-          <Route path="activity/processing" element={<Need perm="library.manage"><QueuePage mode="processing" /></Need>} />
+          <Route path="activity/downloads" element={<Need perm={["library.manage", "activity.view"]}><QueuePage mode="downloads" /></Need>} />
+          <Route path="activity/processing" element={<Need perm={["library.manage", "activity.view"]}><QueuePage mode="processing" /></Need>} />
           <Route path="activity/history" element={<Need perm="library.manage"><HistoryPage /></Need>} />
           <Route path="activity/blocklist" element={<Need perm="library.manage"><BlocklistPage /></Need>} />
           <Route path="wanted" element={<Need perm="library.manage"><WantedPage /></Need>} />

@@ -20,6 +20,7 @@ const permLabel: Record<string, string> = {
   "library.manage": "Manage the library",
   "requests.manage": "Handle requests",
   "requests.create": "Request series",
+  "activity.view": "See downloads and processing",
   apps: "Reading apps",
   download: "Download files",
 };

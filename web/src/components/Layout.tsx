@@ -35,7 +35,7 @@ import { useUIMode } from "../lib/uiPreferences";
 import { useToast } from "../lib/toast";
 
 type Section = "library" | "manage" | "admin";
-type NavItem = { to: string; label: string; icon: ReactNode; section: Section; need?: Perm | Perm[]; children?: { to: string; label: string }[]; };
+type NavItem = { to: string; label: string; icon: ReactNode; section: Section; need?: Perm | Perm[]; children?: { to: string; label: string; need?: Perm | Perm[] }[]; };
 
 /** Settings pages, grouped for the navigation inside Settings. */
 const settingsGroups: { title: string; items: { to: string; label: string }[] }[] = [
@@ -138,7 +138,7 @@ export function Layout() {
     } catch(e) { toast.fromError(e); }
   };
   const { can, isAdmin, name } = useAccount();
-  const { data: queue } = useQueue({ pageSize: 1 }, can("library.manage"));
+  const { data: queue } = useQueue({ pageSize: 1 }, can(["library.manage", "activity.view"]));
   const queued = queue?.total ?? 0;
   const queuePaused = !!queue?.state?.paused;
   useTitleBadge(queued > 0 && !queuePaused ? `(${queued})` : "");
@@ -160,12 +160,12 @@ export function Layout() {
       section: "manage",
       label: "Activity",
       icon: <Download className="size-4" />,
-      need: "library.manage",
+      need: ["library.manage", "activity.view"],
       children: [
         { to: "/activity/downloads", label: "Downloads" },
         { to: "/activity/processing", label: "Processing" },
-        { to: "/activity/history", label: "History" },
-        { to: "/activity/blocklist", label: "Blocklist" },
+        { to: "/activity/history", label: "History", need: "library.manage" },
+        { to: "/activity/blocklist", label: "Blocklist", need: "library.manage" },
       ],
     },
     { to: "/wanted", section: "manage", label: "Wanted", icon: <AlertCircle className="size-4" />, need: "library.manage" },
@@ -226,7 +226,7 @@ export function Layout() {
           </div>)}
       <nav aria-label={t("Navigation")} className="min-h-0 flex-1 overflow-y-auto overscroll-contain [&_a:focus-visible]:-outline-offset-2">
         {(["library","manage","admin"] as const).map(section=>{
-          const items = nav.filter(item => item.section === section && !hiddenNav.includes(item.to) && (!item.need || can(item.need)) && (editing || item.to === "/" || item.to === "/discover" || item.to === "/updates" || (item.to === "/requests" && can("requests.create"))));
+          const items = nav.filter(item => item.section === section && !hiddenNav.includes(item.to) && (!item.need || can(item.need)) && (editing || item.to === "/" || item.to === "/discover" || item.to === "/updates" || (item.to === "/requests" && can("requests.create")) || (item.to === "/activity" && !can("library.manage"))));
           if (!items.length) return null;
           const title = {library:t("Library"),manage:t("Manage"),admin:t("Admin")}[section];
           return <div key={section} role="group" aria-label={title} className="mb-2 space-y-0.5">
@@ -268,7 +268,7 @@ export function Layout() {
         <span className="truncate font-semibold">{siteName}</span>
       </header>
       <main className="min-h-0 min-w-0 flex-1 overflow-y-auto p-4 md:p-6">
-        {tabsFor&&<SectionTabs label={label(tabsFor.label)} items={tabsFor.children!}/>}
+        {tabsFor&&<SectionTabs label={label(tabsFor.label)} items={tabsFor.children!.filter((c)=>!c.need||can(c.need))}/>}
         {loc.pathname.startsWith("/settings")&&can("admin")
           ? <div className="md:flex md:gap-8"><SettingsNav/><div className="min-w-0 flex-1"><RouteBoundary><Outlet/></RouteBoundary></div></div>
           : <RouteBoundary><Outlet/></RouteBoundary>}

@@ -1,7 +1,7 @@
 import { useAuthStatus } from "../api/queries";
 
 /** Permission keys (internal/access). */
-export type Perm = "admin" | "library.manage" | "requests.manage" | "requests.create" | "apps" | "download";
+export type Perm = "admin" | "library.manage" | "requests.manage" | "requests.create" | "activity.view" | "apps" | "download";
 
 /** useAccount is the signed-in account and what it may do. */
 export function useAccount() {

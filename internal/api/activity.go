@@ -8,6 +8,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"github.com/Asion001/mangarr/internal/access"
 	"github.com/Asion001/mangarr/internal/downloads"
 	"github.com/Asion001/mangarr/internal/history"
 	"github.com/Asion001/mangarr/internal/model"
@@ -72,6 +73,21 @@ func (s *Server) queueState(ctx context.Context) QueueState {
 	return st
 }
 
+// seriesSeenBy lists the ids of the series p may see.
+func (s *Server) seriesSeenBy(ctx context.Context, p *access.Principal) ([]int64, error) {
+	var all []model.Series
+	if err := s.app.DB.NewSelect().Model(&all).Column("id", "tags", "root_folder_id", "preview").Scan(ctx); err != nil {
+		return nil, err
+	}
+	ids := []int64{}
+	for i := range all {
+		if p.Sees(&all[i]) {
+			ids = append(ids, all[i].ID)
+		}
+	}
+	return ids, nil
+}
+
 func (s *Server) registerActivity() {
 	tags := []string{"Activity"}
 	huma.Register(s.api, huma.Operation{OperationID: "queue-list", Method: http.MethodGet, Path: "/api/v1/queue", Tags: tags,
@@ -90,7 +106,16 @@ func (s *Server) registerActivity() {
 			if in.Revision >= 0 {
 				revision = &in.Revision
 			}
-			p, err := s.app.DLQueue.ListPageAt(ctx, downloads.ListFilter{Statuses: splitList(in.Status), Kind: in.Kind, SeriesID: in.SeriesID, Query: in.Query, IncludeDone: in.IncludeDone}, in.Page, in.PageSize, revision)
+			f := downloads.ListFilter{Statuses: splitList(in.Status), Kind: in.Kind, SeriesID: in.SeriesID, Query: in.Query, IncludeDone: in.IncludeDone}
+			// watchers who see part of the library see only its entries
+			if who := access.From(ctx); !who.Can(access.LibraryManage) && who.Scope.Limited() {
+				visible, err := s.seriesSeenBy(ctx, who)
+				if err != nil {
+					return nil, toHTTPError(err)
+				}
+				f.Scoped, f.Visible = true, visible
+			}
+			p, err := s.app.DLQueue.ListPageAt(ctx, f, in.Page, in.PageSize, revision)
 			if errors.Is(err, downloads.ErrQueueOrderChanged) {
 				return nil, huma.Error409Conflict(err.Error())
 			}

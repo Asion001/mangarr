@@ -127,7 +127,7 @@ var operationPermissions = map[string][]string{
 	"chapter-restore":          {access.LibraryManage},
 	"chapters-delete":          {access.LibraryManage},
 	"chapters-monitor":         {access.LibraryManage},
-	"queue-list":               {access.LibraryManage},
+	"queue-list":               {access.LibraryManage, access.ActivityView},
 	"queue-bulk":               {access.LibraryManage},
 	"queue-clear":              {access.LibraryManage},
 	"queue-pause":              {access.LibraryManage},

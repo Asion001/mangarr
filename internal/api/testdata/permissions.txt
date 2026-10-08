@@ -100,7 +100,7 @@ profiles-process-estimate GET /api/v1/profiles/{id}/process-estimate -> admin
 profiles-update PUT /api/v1/profiles/{id} -> admin
 queue-bulk POST /api/v1/queue/bulk -> library.manage
 queue-clear POST /api/v1/queue/clear-finished -> library.manage
-queue-list GET /api/v1/queue -> library.manage
+queue-list GET /api/v1/queue -> library.manage | activity.view
 queue-pause POST /api/v1/queue/pause -> library.manage
 queue-remove DELETE /api/v1/queue/{id} -> library.manage
 queue-resume POST /api/v1/queue/resume -> library.manage
