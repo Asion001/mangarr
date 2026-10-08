@@ -57,10 +57,12 @@ type imageOutput struct {
 	Body         []byte
 }
 
-// sourceThumbnail serves a catalog thumbnail through the shared disk cache.
+// sourceThumbnail serves a catalog thumbnail through the shared disk cache,
+// for the browser to keep (keep says for how long a good copy may be kept;
+// a stale one, served while the source fails, is kept five minutes).
 // Callers are responsible for checking that the catalog and reference are
 // allowed for the current request.
-func (s *Server) sourceThumbnail(ctx context.Context, moduleID int64, ref source.MangaRef) (*imageOutput, error) {
+func (s *Server) sourceThumbnail(ctx context.Context, moduleID int64, ref source.MangaRef, keep func(time.Duration) string) (*imageOutput, error) {
 	key := strconv.FormatInt(moduleID, 10) + "|" + ref.SourceID + "|" + ref.URL
 	data, ct, stale, err := s.app.ImageCache.Get(ctx, "thumbs", key, 7*24*time.Hour, func(ctx context.Context) (io.ReadCloser, string, error) {
 		mod, _, err := modules.GetAs[source.Thumbnails](s.app.Modules, moduleID)
@@ -72,9 +74,9 @@ func (s *Server) sourceThumbnail(ctx context.Context, moduleID int64, ref source
 	if err != nil {
 		return nil, huma.Error404NotFound(err.Error())
 	}
-	cc := cachePrivate(24 * time.Hour)
+	cc := keep(24 * time.Hour)
 	if stale {
-		cc = cachePrivate(5 * time.Minute)
+		cc = keep(5 * time.Minute)
 	}
 	return imageReply(ctx, data, ct, cc), nil
 }
@@ -253,7 +255,7 @@ func (s *Server) registerSources() {
 			if err := s.allowedCatalog(ctx, in.ModuleID, in.SourceID); err != nil {
 				return nil, err
 			}
-			return s.sourceThumbnail(ctx, in.ModuleID, source.MangaRef{SourceID: in.SourceID, URL: in.URL, EngineRef: in.EngineRef})
+			return s.sourceThumbnail(ctx, in.ModuleID, source.MangaRef{SourceID: in.SourceID, URL: in.URL, EngineRef: in.EngineRef}, cachePrivate)
 		})
 
 	huma.Register(s.api, huma.Operation{OperationID: "modules-asset", Method: http.MethodGet, Path: "/api/v1/modules/{id}/asset", Tags: tags,

@@ -361,7 +361,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** A signed thumbnail returned by the discover feed */
+        /** A signed thumbnail returned by the discover feed (the token is the permission: no login, and a CDN may cache it) */
         get: operations["discover-thumbnail"];
         put?: never;
         post?: never;

@@ -13245,7 +13245,7 @@
             "description": "Error"
           }
         },
-        "summary": "A signed thumbnail returned by the discover feed",
+        "summary": "A signed thumbnail returned by the discover feed (the token is the permission: no login, and a CDN may cache it)",
         "tags": [
           "Discover"
         ]

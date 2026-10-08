@@ -332,7 +332,7 @@ func (s *Server) discoverPopular(ctx context.Context, rootFolderID int64, lang s
 				EngineRef: manga.EngineRef, ChapterCount: manga.ChapterCount, ExistingSeriesID: existing[key]}
 			if manga.ThumbnailURL != "" {
 				item.ThumbnailURL = s.signDiscoverThumbnail(ctx, discoverThumbToken{ModuleID: catalog.ModuleID, SourceID: catalog.ID,
-					URL: manga.URL, EngineRef: manga.EngineRef, Generation: s.app.Catalogs.Generation(), Expires: time.Now().Add(24 * time.Hour).Unix()})
+					URL: manga.URL, EngineRef: manga.EngineRef, Generation: s.app.Catalogs.Generation(), Expires: discoverThumbExpiry(time.Now())})
 			}
 			out = append(out, item)
 			if len(out) == limit {
@@ -349,6 +349,14 @@ func (s *Server) discoverTokenSecret(ctx context.Context) []byte {
 		return nil
 	}
 	return []byte(general.APIKey)
+}
+
+// discoverThumbExpiry is when a thumbnail link made at now stops working:
+// the end of the next UTC day. Every feed load on the same day hands out
+// the same link, so a browser or CDN that has the image keeps using it.
+func discoverThumbExpiry(now time.Time) int64 {
+	const day = 24 * 60 * 60
+	return (now.Unix()/day + 2) * day
 }
 
 func (s *Server) signDiscoverThumbnail(ctx context.Context, payload discoverThumbToken) string {
@@ -406,7 +414,7 @@ func (s *Server) registerDiscover() {
 		})
 
 	huma.Register(s.api, huma.Operation{OperationID: "discover-thumbnail", Method: http.MethodGet, Path: "/api/v1/discover/thumbnail", Tags: tags,
-		Summary: "A signed thumbnail returned by the discover feed"},
+		Summary: "A signed thumbnail returned by the discover feed (the token is the permission: no login, and a CDN may cache it)"},
 		func(ctx context.Context, in *struct {
 			Token string `query:"token" minLength:"1"`
 		}) (*imageOutput, error) {
@@ -417,6 +425,10 @@ func (s *Server) registerDiscover() {
 			if err := s.allowedCatalog(ctx, payload.ModuleID, payload.SourceID); err != nil {
 				return nil, err
 			}
-			return s.sourceThumbnail(ctx, payload.ModuleID, source.MangaRef{SourceID: payload.SourceID, URL: payload.URL, EngineRef: payload.EngineRef})
+			// a catalog's own picture behind a link that expires: anyone may
+			// keep it, until the link does
+			left := time.Until(time.Unix(payload.Expires, 0))
+			return s.sourceThumbnail(ctx, payload.ModuleID, source.MangaRef{SourceID: payload.SourceID, URL: payload.URL, EngineRef: payload.EngineRef},
+				func(d time.Duration) string { return cachePublic(min(d, left)) })
 		})
 }

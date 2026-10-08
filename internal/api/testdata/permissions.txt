@@ -34,7 +34,7 @@ database-move-cancel POST /api/v1/system/database/cancel -> admin
 database-test POST /api/v1/system/database/test -> admin
 discover GET /api/v1/discover -> signedin
 discover-shelf GET /api/v1/discover/{shelf} -> signedin
-discover-thumbnail GET /api/v1/discover/thumbnail -> signedin
+discover-thumbnail GET /api/v1/discover/thumbnail -> public
 extensions-action POST /api/v1/modules/{id}/extensions/{pkg}/{action} -> admin
 extensions-list GET /api/v1/modules/{id}/extensions -> admin
 groups-create POST /api/v1/groups -> admin

@@ -371,7 +371,7 @@ func (s *Server) discoverPopularPage(ctx context.Context, in DiscoverShelfInput,
 				EngineRef: manga.EngineRef, ChapterCount: manga.ChapterCount, ExistingSeriesID: id}
 			if manga.ThumbnailURL != "" {
 				item.ThumbnailURL = s.signDiscoverThumbnail(ctx, discoverThumbToken{ModuleID: catalog.ModuleID, SourceID: catalog.ID,
-					URL: manga.URL, EngineRef: manga.EngineRef, Generation: s.app.Catalogs.Generation(), Expires: time.Now().Add(24 * time.Hour).Unix()})
+					URL: manga.URL, EngineRef: manga.EngineRef, Generation: s.app.Catalogs.Generation(), Expires: discoverThumbExpiry(time.Now())})
 			}
 			out.Popular = append(out.Popular, item)
 		}

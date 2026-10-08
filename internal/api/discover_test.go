@@ -107,6 +107,11 @@ func TestDiscoverAggregatesPersonalLibraryAndCachedSources(t *testing.T) {
 	if code := doJSON(t, http.MethodGet, srv.URL+first.Popular[0].ThumbnailURL+"x", "", nil); code != http.StatusNotFound {
 		t.Fatalf("tampered thumbnail token: %d", code)
 	}
+	// the token is the permission, so a CDN may fetch and keep the image
+	if resp, err := http.Get(srv.URL + first.Popular[0].ThumbnailURL); err != nil || resp.StatusCode != http.StatusOK ||
+		!strings.HasPrefix(resp.Header.Get("Cache-Control"), "public, max-age=") {
+		t.Fatalf("signed thumbnail without a login: %v %+v", err, resp)
+	}
 	for _, tc := range []struct {
 		shelf string
 		want  []string
@@ -147,6 +152,9 @@ func TestDiscoverAggregatesPersonalLibraryAndCachedSources(t *testing.T) {
 		}
 	}
 	second := get()
+	if len(second.Popular) > 0 && second.Popular[0].ThumbnailURL != first.Popular[0].ThumbnailURL {
+		t.Fatal("thumbnail links should stay the same through the day, so caches can keep them")
+	}
 	if !second.PopularCached {
 		t.Fatal("second discover request should reuse every source page")
 	}

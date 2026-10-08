@@ -32,6 +32,12 @@ const (
 	cacheStream = "private, no-store, no-transform"
 )
 
+// cachePublic lets any cache keep a response for d: only for what is the
+// same for everyone and needs no login.
+func cachePublic(d time.Duration) string {
+	return "public, max-age=" + strconv.Itoa(max(0, int(d.Seconds())))
+}
+
 // cachePrivate lets the browser keep a response for d.
 func cachePrivate(d time.Duration) string {
 	return "private, max-age=" + strconv.Itoa(int(d.Seconds()))

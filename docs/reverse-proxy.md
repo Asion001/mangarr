@@ -147,6 +147,7 @@ Every response says how it may be cached, so a CDN that honours
 | --- | --- | --- |
 | `assets/*` (hashed build files) | `public, max-age=31536000, immutable` | yes, for good |
 | `index.html` and other UI files | `no-cache` | revalidates each time |
+| Discover thumbnails (signed, `/api/v1/discover/thumbnail`) | `public, max-age=…` until the link expires | yes |
 | Covers, thumbnails, page images, previews | `private, max-age=…` with an `ETag` | never |
 | Everything else under `/api/` | `private, no-store` | never |
 | `/api/v1/events` (live updates) | `private, no-store, no-transform` | never, and must not be buffered |
