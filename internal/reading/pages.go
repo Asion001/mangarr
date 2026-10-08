@@ -139,7 +139,12 @@ func (s *Service) Page(ctx context.Context, b *BookInfo, n int) ([]byte, string,
 			if n < 1 || n > len(entries) {
 				return nil, "", ErrNotFound
 			}
-			data, err := cbz.ReadEntry(b.Path, entries[n-1].Path)
+			rc, _, err := cbz.OpenPage(b.Path, entries[n-1])
+			if err != nil {
+				return nil, "", err
+			}
+			data, err := io.ReadAll(io.LimitReader(rc, 128<<20))
+			rc.Close()
 			if err != nil {
 				return nil, "", err
 			}
@@ -201,7 +206,7 @@ func (s *Service) PageReader(ctx context.Context, b *BookInfo, n int) (*PageCont
 				return nil, ErrNotFound
 			}
 			e := entries[n-1]
-			rc, size, err := cbz.OpenEntry(b.Path, e.Path)
+			rc, size, err := cbz.OpenPage(b.Path, e)
 			if err != nil {
 				return nil, err
 			}
@@ -236,6 +241,16 @@ func (s *Service) PageReader(ctx context.Context, b *BookInfo, n int) (*PageCont
 	}
 	return &PageContent{Body: io.NopCloser(bytes.NewReader(data)), Size: int64(len(data)), ContentType: ct,
 		ETag: fmt.Sprintf("%q", fmt.Sprintf("s%d-%d-%d", b.Chapter.ID, release, n))}, nil
+}
+
+// PageETag is the ETag PageReader gives page n of a downloaded book, worked
+// out without opening the file, so a browser that already has the page gets
+// its 304 cheaply. It is "" when the book isn't downloaded.
+func (s *Service) PageETag(b *BookInfo, n int) string {
+	if b.Path == "" {
+		return ""
+	}
+	return fileETag(b, n)
 }
 
 // fileETag identifies a downloaded page: its file, when it was imported, and

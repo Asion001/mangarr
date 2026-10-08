@@ -201,6 +201,15 @@ func (s *Server) registerRead() {
 			if err != nil {
 				return nil, err
 			}
+			cc := cachePrivate(24 * time.Hour)
+			if etag := s.app.Reading.PageETag(b, in.N); etag != "" && in.IfNoneMatch != "" {
+				// the browser has the page, or the resized copy of it
+				for _, e := range []string{etag, variantETag(etag, imagedeliver.Width(in.Width))} {
+					if reading.ETagMatches(in.IfNoneMatch, e) {
+						return notModified(e, cc), nil
+					}
+				}
+			}
 			page, err := s.app.Reading.PageReader(ctx, b, in.N)
 			if err != nil {
 				return nil, readError(err)
@@ -208,7 +217,7 @@ func (s *Server) registerRead() {
 			if small := s.smallerPage(ctx, b, in.N, page, in.Width); small != nil {
 				page = small
 			}
-			return streamImage(page, in.IfNoneMatch, "private, max-age=86400"), nil
+			return streamImage(page, in.IfNoneMatch, cc), nil
 		})
 
 	huma.Register(s.api, huma.Operation{OperationID: "read-page-bounds", Method: http.MethodGet, Path: "/api/v1/read/chapters/{id}/pages/{n}/bounds", Tags: tags,
@@ -514,6 +523,24 @@ func streamImage(p *reading.PageContent, ifNoneMatch, cacheControl string) *huma
 	}}
 }
 
+// variantETag is the ETag of a page's copy at width (the page's own when
+// width is 0).
+func variantETag(etag string, width int) string {
+	if width == 0 {
+		return etag
+	}
+	return strings.TrimSuffix(etag, `"`) + fmt.Sprintf(`-w%d"`, width)
+}
+
+// notModified tells the browser its copy of an image is still good.
+func notModified(etag, cacheControl string) *huma.StreamResponse {
+	return &huma.StreamResponse{Body: func(hctx huma.Context) {
+		hctx.SetHeader("Cache-Control", cacheControl)
+		hctx.SetHeader("ETag", etag)
+		hctx.SetStatus(http.StatusNotModified)
+	}}
+}
+
 // smallerPage is a display-sized copy of a page, or nil to send the page as
 // it is (the client asked for no size, resizing is off, or the copy wouldn't
 // be smaller).
@@ -533,7 +560,7 @@ func (s *Server) smallerPage(ctx context.Context, b *reading.BookInfo, n int, pa
 		return nil
 	}
 	_ = page.Body.Close() // the copy replaces it
-	etag := strings.TrimSuffix(page.ETag, `"`) + fmt.Sprintf(`-w%d"`, width)
+	etag := variantETag(page.ETag, width)
 	return &reading.PageContent{Body: io.NopCloser(bytes.NewReader(data)), Size: int64(len(data)), ContentType: ct,
 		ETag: etag, ModTime: page.ModTime}
 }

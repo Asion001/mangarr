@@ -168,6 +168,10 @@ type Entry struct {
 	Name string
 	Path string
 	Size int64
+	// one past where a stored (uncompressed) entry's bytes start, so
+	// OpenPage can read them without parsing the archive again; 0 when
+	// compressed or unknown
+	dataAt int64
 }
 
 // List lists the page images of a CBZ (sorted like Read) without reading them.
@@ -180,7 +184,13 @@ func List(path string) ([]Entry, error) {
 	var out []Entry
 	for _, f := range zr.File {
 		if !f.FileInfo().IsDir() && isImageName(f.Name) {
-			out = append(out, Entry{Name: filepath.Base(f.Name), Path: f.Name, Size: int64(f.UncompressedSize64)})
+			e := Entry{Name: filepath.Base(f.Name), Path: f.Name, Size: int64(f.UncompressedSize64)}
+			if f.Method == zip.Store && f.CompressedSize64 == f.UncompressedSize64 {
+				if off, err := f.DataOffset(); err == nil {
+					e.dataAt = off + 1
+				}
+			}
+			out = append(out, e)
 		}
 	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].Name < out[j].Name })
@@ -219,6 +229,27 @@ func OpenEntry(path, name string) (io.ReadCloser, int64, error) {
 	zr.Close()
 	return nil, 0, fs.ErrNotExist
 }
+
+// OpenPage opens an entry from Entries or List. Page images are usually
+// stored uncompressed, and those are read straight from the file at their
+// offset, without parsing the archive's directory again.
+func OpenPage(path string, e Entry) (io.ReadCloser, int64, error) {
+	if e.dataAt == 0 {
+		return OpenEntry(path, e.Path)
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, 0, err
+	}
+	return sectionReader{io.NewSectionReader(f, e.dataAt-1, e.Size), f}, e.Size, nil
+}
+
+type sectionReader struct {
+	*io.SectionReader
+	f *os.File
+}
+
+func (r sectionReader) Close() error { return r.f.Close() }
 
 // entryReader closes the archive with the entry.
 type entryReader struct {
