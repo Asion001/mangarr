@@ -1,4 +1,4 @@
-import { t as tr, t } from "../../lib/i18n/core";
+import { getLocale, t as tr, t } from "../../lib/i18n/core";
 import { LanguageChips, useSourcesSettings } from "../../components/LanguageChooser";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
@@ -50,7 +50,8 @@ export function MetadataSearch({
   const [draft, setDraft] = useState(query);
   useEffect(() => setDraft(query), [query]);
   const { data, isLoading, error } = useQuery({
-    queryKey: ["lookup", query, language],
+    // without a language, results are titled in the interface one
+    queryKey: ["lookup", query, language || getLocale()],
     queryFn: () => unwrap(api.GET("/api/v1/series/lookup", { params: { query: { q: query, lang: language || undefined } } })),
     enabled: query.length > 0,
     staleTime: 5 * 60_000,

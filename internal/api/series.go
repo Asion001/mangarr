@@ -873,6 +873,8 @@ func (s *Server) registerSeries() {
 		func(ctx context.Context, in *struct {
 			Query string `query:"q" minLength:"1"`
 			Lang  string `query:"lang" required:"false"`
+			// without a lang, results are titled in the interface language
+			AcceptLanguage string `header:"Accept-Language"`
 		}) (*struct {
 			Body struct {
 				Results []LookupResult `json:"results"`
@@ -882,7 +884,11 @@ func (s *Server) registerSeries() {
 				Providers int `json:"providers"`
 			}
 		}, error) {
-			cands, errs := s.app.Metadata.SearchLanguage(ctx, in.Query, in.Lang, 10)
+			lang := in.Lang
+			if lang == "" {
+				lang = uiLanguage(in.AcceptLanguage)
+			}
+			cands, errs := s.app.Metadata.SearchLanguage(ctx, in.Query, lang, 10)
 			out := &struct {
 				Body struct {
 					Results   []LookupResult `json:"results"`

@@ -11922,7 +11922,9 @@ export interface operations {
                 q?: string;
                 lang?: string;
             };
-            header?: never;
+            header?: {
+                "Accept-Language"?: string;
+            };
             path?: never;
             cookie?: never;
         };
