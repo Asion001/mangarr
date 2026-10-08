@@ -1184,6 +1184,16 @@ func (s *Server) registerSeries() {
 			if err != nil {
 				return nil, err
 			}
+			if in.Size == "" {
+				// a signed link a CDN may cache; the browser keeps the redirect
+				version := in.V
+				if version == "" {
+					version = strconv.FormatInt(ser.UpdatedAt.Unix(), 10)
+				}
+				if u := s.signedCoverURL(ctx, ser.ID, version); u != "" {
+					return &imageOutput{Status: http.StatusFound, Location: s.app.Cfg.URLBase + "/" + u, CacheControl: coverCache(in.V)}, nil
+				}
+			}
 			if in.Size == "full" {
 				if p := s.app.Library.CoverPath(ctx, ser); p != "" {
 					if data, err := os.ReadFile(p); err == nil {

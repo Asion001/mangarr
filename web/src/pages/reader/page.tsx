@@ -14,9 +14,18 @@ export function displayWidth(cssWidth: number): number {
   return widths.find((w) => want <= w) ?? 0; // 0: the page as it is
 }
 
+/** Signed page links of the chapters opened, when a CDN may cache images. */
+const pageBases = new Map<number, string>();
+export function rememberPageBase(chapterId: number, base?: string) {
+  if (base) pageBases.set(chapterId, base);
+  else pageBases.delete(chapterId);
+}
+
 /** pageUrl is a page, optionally at a display size instead of the full scan. */
-export const pageUrl = (chapterId: number, n: number, width = 0) =>
-  apiUrl(`api/v1/read/chapters/${chapterId}/pages/${n}`, width > 0 ? { w: width } : undefined);
+export const pageUrl = (chapterId: number, n: number, width = 0) => {
+  const base = pageBases.get(chapterId);
+  return apiUrl(base ? `${base}/${n}` : `api/v1/read/chapters/${chapterId}/pages/${n}`, width > 0 ? { w: width } : undefined);
+};
 
 /** placeholderUrl is a small copy shown (blurred) until the page arrives. */
 export const placeholderUrl = (chapterId: number, n: number) => pageUrl(chapterId, n, 320);

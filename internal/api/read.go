@@ -39,11 +39,14 @@ type ReadChapter struct {
 	ReadingDirection string `json:"readingDirection"`
 	Downloaded       bool   `json:"downloaded"`
 	// CanDownload: the account may download the CBZ.
-	CanDownload bool         `json:"canDownload"`
-	Pages       []ReadPage   `json:"pages"`
-	Prev        *ChapterLink `json:"prev,omitempty"`
-	Next        *ChapterLink `json:"next,omitempty"`
-	Progress    ReadProgress `json:"progress"`
+	CanDownload bool `json:"canDownload"`
+	// PageBase is where the pages' signed links start when a CDN may cache
+	// images: page n is PageBase + "/" + n (empty: use the pages endpoint).
+	PageBase string       `json:"pageBase,omitempty"`
+	Pages    []ReadPage   `json:"pages"`
+	Prev     *ChapterLink `json:"prev,omitempty"`
+	Next     *ChapterLink `json:"next,omitempty"`
+	Progress ReadProgress `json:"progress"`
 }
 
 // ReadPage is one page of a chapter.
@@ -166,7 +169,7 @@ func (s *Server) registerRead() {
 			ch := b.Chapter
 			out := ReadChapter{ID: ch.ID, SeriesID: ser.ID, SeriesTitle: ser.Title, Number: ch.NumberKey, Title: ch.Title, Volume: ch.Volume,
 				ReadingDirection: ser.ReadingDirection, Downloaded: b.File != nil, CanDownload: b.File != nil && access.From(ctx).Can(access.Download),
-				Pages: make([]ReadPage, len(pages))}
+				PageBase: s.signedPagesURL(ctx, b), Pages: make([]ReadPage, len(pages))}
 			for i, p := range pages {
 				out.Pages[i] = ReadPage{Number: p.Number, MediaType: p.MediaType, Size: p.Size}
 			}

@@ -31,6 +31,15 @@ export function appAddress(publicUrl: string, listen?: string) {
 
 export function ReadingAppsPage() {
   const { value: r, patch, save, saving, isLoading, error, lock, dirty, reset } = useSettingsDoc<ReadingSettings>("reading");
+  const toast = useToast();
+  const resetLinks = async () => {
+    try {
+      await unwrap(api.POST("/api/v1/settings/reading/image-links/reset"));
+      toast.success(tr("Image links reset: links handed out before no longer work"));
+    } catch (e) {
+      toast.fromError(e);
+    }
+  };
   const status = useQuery({ queryKey: ["reading", "status"], queryFn: () => unwrap(api.GET("/api/v1/reading/status")), refetchInterval: 10_000 });
   const [app, setApp] = useState<App>("mihon");
   const st = status.data;
@@ -70,6 +79,11 @@ export function ReadingAppsPage() {
                 <div>
                   <Switch env={lock("resizePages")} checked={r.resizePages} onChange={(v) => patch({ resizePages: v })} label={t("Send phones a page at their screen size")} />
                   <p className="mt-1 text-xs text-muted">{t("A copy of each page is made once and kept in the image cache; turn it off to always send the full scan.")}</p>
+                </div>
+                <div>
+                  <Switch env={lock("cdnImages")} checked={r.cdnImages} onChange={(v) => patch({ cdnImages: v })} label={t("Let a CDN cache covers and pages")} />
+                  <p className="mt-1 text-xs text-muted">{t("Covers and downloaded pages get signed links that a CDN in front of mangarr may keep and serve. Anyone holding such a link can open that image without logging in; links stop working after about two months, or at once when reset.")}</p>
+                  {r.cdnImages && <Button size="sm" className="mt-2" onClick={resetLinks}>{t("Reset image links")}</Button>}
                 </div>
                 <p className="-mt-2 text-xs text-muted">{t("Chapters that aren't downloaded are streamed from the source meanwhile.")}</p>
                 <Switch

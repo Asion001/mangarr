@@ -159,6 +159,7 @@ Read wherever the engine runs: in the server, or on a worker with the upscale ro
 | `MANGARR_READING_PUBLIC_URL` | string | `` | Address Komga apps should use, e.g. https://manga.example.com:25600 (for the setup guides). |
 | `MANGARR_READING_DOWNLOAD_ON_OPEN` | bool | `true` | Queue a download when an app opens a chapter that isn't downloaded yet. |
 | `MANGARR_READING_RESIZE_PAGES` | bool | `true` | Serve phones and tablets a copy of the page at their screen size instead of the full scan. |
+| `MANGARR_READING_CDN_IMAGES` | bool | `false` | Give covers and downloaded pages signed links that a CDN in front of mangarr may cache. Anyone holding such a link can open that image without logging in. |
 | `MANGARR_READING_READ_AHEAD_ENABLED` | bool | `true` | Monitor and download the next chapters after the one a reader is on. |
 | `MANGARR_READING_READ_AHEAD_CHAPTERS` | int | `3` | How many chapters to keep downloaded ahead of the reader. |
 

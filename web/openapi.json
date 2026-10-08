@@ -6544,6 +6544,9 @@
           "number": {
             "type": "string"
           },
+          "pageBase": {
+            "type": "string"
+          },
           "pages": {
             "items": {
               "$ref": "#/components/schemas/ReadPage"
@@ -7008,6 +7011,9 @@
       "Reading": {
         "additionalProperties": false,
         "properties": {
+          "cdnImages": {
+            "type": "boolean"
+          },
           "downloadOnOpen": {
             "type": "boolean"
           },
@@ -7034,6 +7040,7 @@
           "publicUrl",
           "downloadOnOpen",
           "resizePages",
+          "cdnImages",
           "readAhead"
         ],
         "type": "object"
@@ -12875,6 +12882,11 @@
                 "schema": {
                   "type": "string"
                 }
+              },
+              "Location": {
+                "schema": {
+                  "type": "string"
+                }
               }
             }
           },
@@ -13753,6 +13765,11 @@
                 }
               },
               "ETag": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Location": {
                 "schema": {
                   "type": "string"
                 }
@@ -15049,6 +15066,11 @@
                 "schema": {
                   "type": "string"
                 }
+              },
+              "Location": {
+                "schema": {
+                  "type": "string"
+                }
               }
             }
           },
@@ -15686,6 +15708,11 @@
                 }
               },
               "ETag": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Location": {
                 "schema": {
                   "type": "string"
                 }
@@ -19334,6 +19361,11 @@
                 "schema": {
                   "type": "string"
                 }
+              },
+              "Location": {
+                "schema": {
+                  "type": "string"
+                }
               }
             }
           },
@@ -20599,6 +20631,30 @@
         ]
       }
     },
+    "/api/v1/settings/reading/image-links/reset": {
+      "post": {
+        "operationId": "settings-reset-image-links",
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Stop every signed image link handed out so far (new ones are made as pages are opened)",
+        "tags": [
+          "Settings"
+        ]
+      }
+    },
     "/api/v1/settings/readsync": {
       "get": {
         "operationId": "settings-get-readsync",
@@ -21521,6 +21577,11 @@
                 }
               },
               "ETag": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Location": {
                 "schema": {
                   "type": "string"
                 }

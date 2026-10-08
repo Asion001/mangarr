@@ -24,8 +24,9 @@ import (
 )
 
 type Server struct {
-	app *app.App
-	api huma.API
+	app   *app.App
+	api   huma.API
+	links imageLinks
 }
 
 func init() {
@@ -81,6 +82,7 @@ func build(a *app.App) (http.Handler, *Server) {
 		reg(s)
 	}
 
+	s.registerImageLinks(sub)
 	sub.Get("/api/v1/events", s.handleEvents)
 	sub.Get("/ping", func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte("pong")) })
 	sub.Handle("/*", s.staticHandler())
@@ -143,7 +145,7 @@ var publicPaths = map[string]bool{
 }
 
 // publicPrefixes are public path prefixes (invites).
-var publicPrefixes = []string{"/api/v1/invites/redeem/"}
+var publicPrefixes = []string{"/api/v1/invites/redeem/", imageLinksPath}
 
 func isPublic(p string) bool {
 	if publicPaths[p] || !strings.HasPrefix(p, "/api/") {

@@ -2644,6 +2644,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/settings/reading/image-links/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Stop every signed image link handed out so far (new ones are made as pages are opened) */
+        post: operations["settings-reset-image-links"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/settings/readsync": {
         parameters: {
             query?: never;
@@ -5605,6 +5622,7 @@ export interface components {
             id: number;
             next?: components["schemas"]["ChapterLink"];
             number: string;
+            pageBase?: string;
             pages: components["schemas"]["ReadPage"][];
             prev?: components["schemas"]["ChapterLink"];
             progress: components["schemas"]["ReadProgress"];
@@ -5744,6 +5762,7 @@ export interface components {
             name: string;
         };
         Reading: {
+            cdnImages: boolean;
             downloadOnOpen: boolean;
             enabled: boolean;
             publicUrl: string;
@@ -7928,6 +7947,7 @@ export interface operations {
                     "Cache-Control"?: string;
                     "Content-Type"?: string;
                     ETag?: string;
+                    Location?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -8431,6 +8451,7 @@ export interface operations {
                     "Cache-Control"?: string;
                     "Content-Type"?: string;
                     ETag?: string;
+                    Location?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -9450,6 +9471,7 @@ export interface operations {
                     "Cache-Control"?: string;
                     "Content-Type"?: string;
                     ETag?: string;
+                    Location?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -9893,6 +9915,7 @@ export interface operations {
                     "Cache-Control"?: string;
                     "Content-Type"?: string;
                     ETag?: string;
+                    Location?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -12438,6 +12461,7 @@ export interface operations {
                     "Cache-Control"?: string;
                     "Content-Type"?: string;
                     ETag?: string;
+                    Location?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -13463,6 +13487,33 @@ export interface operations {
             };
         };
     };
+    "settings-reset-image-links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "settings-get-readsync": {
         parameters: {
             query?: never;
@@ -14098,6 +14149,7 @@ export interface operations {
                     "Cache-Control"?: string;
                     "Content-Type"?: string;
                     ETag?: string;
+                    Location?: string;
                     [name: string]: unknown;
                 };
                 content: {

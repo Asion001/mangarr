@@ -195,8 +195,11 @@ type Reading struct {
 	// DownloadOnOpen queues a download when a chapter that isn't downloaded is opened.
 	DownloadOnOpen bool `json:"downloadOnOpen" desc:"Queue a download when an app opens a chapter that isn't downloaded yet."`
 	// ResizePages serves a smaller copy of a page when the reader asks for one.
-	ResizePages bool      `json:"resizePages" desc:"Serve phones and tablets a copy of the page at their screen size instead of the full scan."`
-	ReadAhead   ReadAhead `json:"readAhead"`
+	ResizePages bool `json:"resizePages" desc:"Serve phones and tablets a copy of the page at their screen size instead of the full scan."`
+	// CDNImages gives covers and downloaded pages signed links that a CDN in
+	// front of mangarr may cache.
+	CDNImages bool      `json:"cdnImages" desc:"Give covers and downloaded pages signed links that a CDN in front of mangarr may cache. Anyone holding such a link can open that image without logging in."`
+	ReadAhead ReadAhead `json:"readAhead"`
 }
 
 // ReadAhead downloads the chapters after the one being read.

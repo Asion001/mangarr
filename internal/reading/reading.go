@@ -383,6 +383,34 @@ func (s *Service) Book(ctx context.Context, readerID, chapterID int64) (*BookInf
 	return nil, ErrNotFound
 }
 
+// FileBook is a downloaded file as a book, found by the file alone (no
+// reader, no permissions): for links that carry their own permission.
+func (s *Service) FileBook(ctx context.Context, fileID int64) (*BookInfo, error) {
+	var f model.ChapterFile
+	if err := s.DB.NewSelect().Model(&f).Where("id = ?", fileID).Scan(ctx); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	var ch model.Chapter
+	if err := s.DB.NewSelect().Model(&ch).Where("id = ?", f.ChapterID).Scan(ctx); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	var ser model.Series
+	if err := s.DB.NewSelect().Model(&ser).Column("id", "root_folder_id", "path").Where("id = ?", f.SeriesID).Scan(ctx); err != nil {
+		return nil, ErrNotFound
+	}
+	dir, err := s.Library.SeriesDir(ctx, &ser)
+	if err != nil || dir == "" {
+		return nil, ErrNotFound
+	}
+	return &BookInfo{Chapter: ch, EditionID: ch.SeriesID, File: &f, Path: filepath.Join(dir, f.RelativePath)}, nil
+}
+
 // enrich adds files, states and scanlators to chapters (only: the series
 // they are of, nil for any).
 func (s *Service) enrich(ctx context.Context, readerID int64, chapters []model.Chapter, only []int64) ([]BookInfo, error) {

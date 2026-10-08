@@ -53,6 +53,7 @@ type imageOutput struct {
 	ContentType  string `header:"Content-Type"`
 	CacheControl string `header:"Cache-Control"`
 	ETag         string `header:"ETag"`
+	Location     string `header:"Location"`
 	Body         []byte
 }
 

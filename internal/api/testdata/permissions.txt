@@ -210,6 +210,7 @@ settings-put-schedule PUT /api/v1/settings/schedule -> admin
 settings-put-sources PUT /api/v1/settings/sources -> admin
 settings-put-sso PUT /api/v1/settings/sso -> admin
 settings-regenerate-apikey POST /api/v1/settings/general/apikey -> admin
+settings-reset-image-links POST /api/v1/settings/reading/image-links/reset -> admin
 source-preferences GET /api/v1/sources/{moduleId}/{sourceId}/preferences -> admin
 source-preferences-set PUT /api/v1/sources/{moduleId}/{sourceId}/preferences -> admin
 source-priorities-inherit POST /api/v1/source-priorities/inherit -> library.edit

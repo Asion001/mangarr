@@ -103,6 +103,11 @@ func (s *Server) registerSettings() {
 			g, _ = s.app.Settings.General(ctx) // effective values (env-pinned fields win)
 			return &struct{ Body GeneralSettingsResource }{generalResource(g)}, nil
 		})
+	huma.Register(s.api, huma.Operation{OperationID: "settings-reset-image-links", Method: http.MethodPost, Path: "/api/v1/settings/reading/image-links/reset", Tags: tags,
+		Summary: "Stop every signed image link handed out so far (new ones are made as pages are opened)"},
+		func(ctx context.Context, _ *struct{}) (*struct{}, error) {
+			return nil, toHTTPError(s.resetImageLinks(ctx))
+		})
 	huma.Register(s.api, huma.Operation{OperationID: "settings-regenerate-apikey", Method: http.MethodPost, Path: "/api/v1/settings/general/apikey", Tags: tags},
 		func(ctx context.Context, _ *struct{}) (*struct{ Body GeneralSettingsResource }, error) {
 			g, err := s.app.Settings.General(ctx)

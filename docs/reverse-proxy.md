@@ -155,3 +155,21 @@ Anything behind a login is `private`, so a cache in front of mangarr never
 hands one person's library to someone else. If your CDN has a "cache
 everything" mode, keep `/api/` out of it, or set it to respect the
 origin's headers.
+
+### Letting the CDN cache images
+
+Covers and pages need a login, so by default a CDN passes every one of
+them through to mangarr. To have the CDN keep them, turn on **Let a CDN
+cache covers and pages** (Settings › Reading apps). Covers and downloaded
+pages then get signed links under `/api/v1/img/`:
+
+- a page link names the file it comes from and is `public, max-age=31536000,
+  immutable`, since a new file gets a new link;
+- a cover link is `public, max-age=86400` with an `ETag`, since a cover can
+  change under the same link.
+
+The signature is the permission: mangarr only hands a link to someone who
+can see the image, but anyone holding the link can open it without logging
+in. Links stop working after about two months (the reader gets fresh ones
+as it opens chapters), or at once with **Reset image links**. Pages that
+are streamed from a source rather than downloaded keep their private links.

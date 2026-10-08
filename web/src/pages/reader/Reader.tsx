@@ -8,7 +8,7 @@ import clsx from "clsx";
 import { api, apiUrl, basePath, unwrap } from "../../api/client";
 import { ErrorBox, Spinner } from "../../components/ui";
 import { useReaderSettings } from "./settings";
-import { displayWidth, pageUrl, useDims, useViewport, type Half } from "./page";
+import { displayWidth, pageUrl, rememberPageBase, useDims, useViewport, type Half } from "./page";
 import { buildViews, indexOf, pageLayout, PagedViewer } from "./PagedViewer";
 import { WebtoonViewer } from "./WebtoonViewer";
 import { SettingsPanel } from "./SettingsPanel";
@@ -20,7 +20,10 @@ import { canFullscreen, toggleFullscreen as toggleFull, useFullscreen } from "./
 
 const chapterQuery = (id: number) => ({
   queryKey: ["read-chapter", id],
-  queryFn: () => unwrap(api.GET("/api/v1/read/chapters/{id}", { params: { path: { id } } })),
+  queryFn: () => unwrap(api.GET("/api/v1/read/chapters/{id}", { params: { path: { id } } })).then((ch) => {
+    rememberPageBase(ch.id, ch.pageBase);
+    return ch;
+  }),
   staleTime: 60_000,
 });
 

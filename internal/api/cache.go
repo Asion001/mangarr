@@ -23,6 +23,10 @@ const (
 	cacheNever = "private, no-store"
 	// cacheRecheck makes the browser revalidate every time (index.html).
 	cacheRecheck = "no-cache"
+	// cacheSignedCover is for a signed cover link: a cover can change under
+	// the same link (a new cover.jpg), so a cache keeps it a day and then
+	// asks again with its ETag.
+	cacheSignedCover = "public, max-age=86400, stale-while-revalidate=604800"
 	// cacheStream is for server-sent events: nothing may store, compress or
 	// buffer them on the way.
 	cacheStream = "private, no-store, no-transform"
