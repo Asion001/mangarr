@@ -3,14 +3,15 @@ package reading
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"image"
+	"io"
 	"runtime"
 	"sync"
 	"time"
 
 	"github.com/Asion001/mangarr/internal/apitiming"
-	"github.com/Asion001/mangarr/internal/imagecheck"
 )
 
 // Bounds is a page's size and the box inside its uniform borders (white or
@@ -61,23 +62,49 @@ func (s *Service) PageBounds(ctx context.Context, b *BookInfo, n int) (Bounds, e
 	if bd, ok := s.bounds.get(key); ok {
 		return bd, nil
 	}
+	if b.File == nil || s.ImageCache == nil {
+		bd, err := s.measure(ctx, b, n)
+		if err == nil {
+			s.bounds.put(key, bd)
+		}
+		return bd, err
+	}
+	// a downloaded file's pages don't change: keep their boxes on disk too,
+	// so a restart doesn't decode every page again
+	raw, _, _, err := s.ImageCache.Get(ctx, boundsBucket, key, 365*24*time.Hour, func(ctx context.Context) (io.ReadCloser, string, error) {
+		bd, err := s.measure(ctx, b, n)
+		if err != nil {
+			return nil, "", err
+		}
+		js, err := json.Marshal(bd)
+		return io.NopCloser(bytes.NewReader(js)), "application/json", err
+	})
+	if err != nil {
+		return Bounds{}, err
+	}
+	var bd Bounds
+	if err := json.Unmarshal(raw, &bd); err != nil {
+		return Bounds{}, err
+	}
+	s.bounds.put(key, bd)
+	return bd, nil
+}
+
+// boundsBucket is where measured boxes are kept in the image cache.
+const boundsBucket = "bounds"
+
+// measure decodes page n and finds its content box.
+func (s *Service) measure(ctx context.Context, b *BookInfo, n int) (Bounds, error) {
 	data, _, err := s.Page(ctx, b, n)
 	if err != nil {
 		return Bounds{}, err
 	}
 	defer apitiming.Span(ctx, "decode")()
-	var img image.Image
-	if info, _ := imagecheck.Detect(data); info.Format == "jxl" {
-		img, err = decodeJXL(data)
-	} else {
-		img, _, err = image.Decode(bytes.NewReader(data))
-	}
+	img, err := Decode(data)
 	if err != nil {
 		return Bounds{}, fmt.Errorf("decode page %d: %w", n, err)
 	}
-	bd := ContentBox(img)
-	s.bounds.put(key, bd)
-	return bd, nil
+	return ContentBox(img), nil
 }
 
 // ContentBox finds the box inside an image's uniform borders. A side is
@@ -94,6 +121,13 @@ func ContentBox(img image.Image) Bounds {
 	luma := func(x, y int) int {
 		cr, cg, cb, _ := img.At(r.Min.X+x, r.Min.Y+y).RGBA()
 		return int((299*cr + 587*cg + 114*cb) / 1000 >> 8)
+	}
+	// decoded pages are mostly YCbCr or grey: read their luma directly
+	switch m := img.(type) {
+	case *image.YCbCr:
+		luma = func(x, y int) int { return int(m.Y[m.YOffset(r.Min.X+x, r.Min.Y+y)]) }
+	case *image.Gray:
+		luma = func(x, y int) int { return int(m.Pix[m.PixOffset(r.Min.X+x, r.Min.Y+y)]) }
 	}
 	// Sample densely enough that a thin stroke (a speech bubble's outline)
 	// shows up on neighbouring lines at the same place.

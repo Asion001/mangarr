@@ -20,11 +20,12 @@ import (
 // everything slower.
 var bounds = []time.Duration{
 	time.Millisecond, 2 * time.Millisecond, 5 * time.Millisecond, 10 * time.Millisecond, 20 * time.Millisecond,
-	50 * time.Millisecond, 100 * time.Millisecond, 200 * time.Millisecond, 500 * time.Millisecond,
-	time.Second, 2 * time.Second, 5 * time.Second, 10 * time.Second, 30 * time.Second,
+	50 * time.Millisecond, 75 * time.Millisecond, 100 * time.Millisecond, 150 * time.Millisecond, 200 * time.Millisecond,
+	300 * time.Millisecond, 500 * time.Millisecond, 750 * time.Millisecond, time.Second, 1500 * time.Millisecond,
+	2 * time.Second, 3 * time.Second, 5 * time.Second, 10 * time.Second, 30 * time.Second,
 }
 
-const nBins = 15 // len(bounds) + 1
+const nBins = 21 // len(bounds) + 1
 
 // Stat is what a set of requests (or queries) added up to.
 type Stat struct {
