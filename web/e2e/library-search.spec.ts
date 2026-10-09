@@ -27,7 +27,7 @@ test('searches, scopes and paginates the library through the server query',async
   await page.getByRole('button',{name:'Filters'}).click();
   const panel=page.locator('#library-filters');
   await panel.getByLabel('Show').selectOption('reading');
-  await page.getByLabel('Sort').selectOption('latest');
+  await panel.getByLabel('Sort').selectOption('latest');
   await panel.getByLabel('Library').selectOption('2');
   await panel.getByLabel('Language').selectOption('uk');
   await panel.getByLabel('Genres and tags').selectOption('Romance');
@@ -41,7 +41,10 @@ test('searches, scopes and paginates the library through the server query',async
   await expect(page.getByRole('button',{name:'Remove filter Started reading'})).toBeVisible();
   await expect(page.getByRole('button',{name:'Remove filter /manga/uk'})).toBeVisible();
   await expect(page.getByRole('button',{name:'Remove filter Ukrainian'})).toBeVisible();
-  await expect(page.getByLabel('Sort')).toHaveValue('latest');
+  await page.getByRole('button',{name:'Filters'}).click();
+  await expect(page.locator('#library-filters').getByLabel('Sort')).toHaveValue('latest');
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#library-filters')).toHaveCount(0);
   await expect(page.getByRole('combobox').last()).toHaveValue('48');
   await expect.poll(()=>seen.some(value=>value.includes('filter=reading')&&value.includes('sort=latest')&&value.includes('rootFolderId=2')&&value.includes('language=uk')&&value.includes('pageSize=48')&&!value.includes('page=2'))).toBe(true);
   await page.getByRole('button',{name:'Remove filter Ukrainian'}).click();

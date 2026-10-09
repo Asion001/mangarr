@@ -1,10 +1,10 @@
 import { useUIMode, useUIPreferences } from "../../lib/uiPreferences";
 import { t } from "../../lib/i18n/core";
 import { useDocumentTitle } from "../../lib/documentTitle";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import clsx from "clsx";
 import { Link } from "react-router";
-import { Check, CheckSquare, Inbox, LayoutGrid, List, PlusCircle, RefreshCw, Search, SlidersHorizontal, X } from "lucide-react";
+import { Check, CheckSquare, Inbox, LayoutGrid, List, Plus, RefreshCw, Search, SlidersHorizontal, X } from "lucide-react";
 import { api, apiUrl, unwrap, type Series } from "../../api/client";
 import { usePushCommand, useRootFolders, useSeriesSearch } from "../../api/queries";
 import { Cover } from "../../components/Cover";
@@ -149,6 +149,23 @@ export function SeriesIndex() {
 
   useDocumentTitle(t("Series"));
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const toolsRef = useRef<HTMLDivElement>(null);
+  // the filters close on a click outside them or Escape
+  useEffect(() => {
+    if (!filtersOpen) return;
+    const outside = (e: MouseEvent) => {
+      if (!toolsRef.current?.contains(e.target as Node)) setFiltersOpen(false);
+    };
+    const escape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setFiltersOpen(false);
+    };
+    document.addEventListener("mousedown", outside);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("mousedown", outside);
+      document.removeEventListener("keydown", escape);
+    };
+  }, [filtersOpen]);
   // what narrows the list, as chips that clear one at a time
   const active = [
     filter !== "all" && { key: "filter", label: filterLabel(filter), clear: () => setFilterAndReset("all") },
@@ -172,128 +189,133 @@ export function SeriesIndex() {
 
   return (
     <>
-      <div className="mb-5 flex flex-wrap items-center gap-3">
-        <div className="mr-2 flex items-baseline gap-2.5">
+      <div className="mb-5 flex flex-wrap items-center gap-x-4 gap-y-3">
+        <div className="mr-auto flex items-baseline gap-2.5 sm:mr-0">
           <h1 className="text-2xl font-semibold">{t("Series")}</h1>
-          {data && <span className="text-sm text-muted">{`${data.total} series · ${bytes(data.totalSize)}`}</span>}
+          {data && <span className="text-sm text-muted">{data.total}</span>}
         </div>
-        <label className="relative min-w-0 flex-[1_1_20rem]">
-          <span className="sr-only">{t("Search the library")}</span>
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
-          <Input type="search" className="h-11 rounded-lg bg-panel pl-10 text-[15px]" placeholder={t("Search titles, alternative titles and genres…")} value={searchDraft} onChange={(e) => setSearchDraft(e.target.value)} />
-        </label>
-        {manage || adds ? (
-          <div className="flex items-center gap-2">
-            {manage && (
-              <Button className="h-10 w-10 px-0" icon={<RefreshCw className="size-4" />} aria-label={t("Check now")} title={t("Check sources for new chapters now")} onClick={() => push.mutate({ name: "RefreshSources", label: "Checking sources for new chapters" })} />
-            )}
-            {adds && (
-              <Link to="/add" className="inline-flex h-10 items-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-white hover:bg-primary-hover">
-                <PlusCircle className="size-4" />{t("Add series")}
-              </Link>
-            )}
-          </div>
+        {/* on a phone the search takes its own row under the title and the add button */}
+        <div ref={toolsRef} className="relative order-last min-w-0 basis-full sm:order-none sm:flex-[1_1_20rem] sm:basis-auto">
+          <label className="block">
+            <span className="sr-only">{t("Search the library")}</span>
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
+            <Input type="search" className="h-11 rounded-lg bg-panel pl-10 pr-12 text-[15px]" placeholder={t("Search titles, alternative titles and genres…")} value={searchDraft} onChange={(e) => setSearchDraft(e.target.value)} />
+          </label>
+          <button
+            type="button"
+            aria-label={t("Filters")}
+            title={t("Filters, sort and view")}
+            aria-expanded={filtersOpen}
+            aria-controls="library-filters"
+            onClick={() => setFiltersOpen(!filtersOpen)}
+            className={clsx("absolute right-1.5 top-1/2 inline-flex size-8 -translate-y-1/2 items-center justify-center rounded-md hover:bg-panel-2 hover:text-fg", filtersOpen || active.length > 0 ? "text-accent-2" : "text-muted")}
+          >
+            <SlidersHorizontal className="size-4" />
+            {active.length > 0 && <span aria-hidden className="absolute right-1 top-1 size-2 rounded-full bg-accent" />}
+          </button>
+          {filtersOpen && (
+            <div id="library-filters" className="absolute right-0 top-full z-30 mt-2 flex w-[min(22rem,calc(100vw-2rem))] flex-col gap-3 rounded-xl border border-border bg-panel-2 p-4 shadow-xl">
+              <label className="flex flex-col gap-1 text-xs text-muted">
+                {t("Show")}
+                <Select value={filter} onChange={(e) => setFilterAndReset(e.target.value)}>
+                  {filters.map((f) => <option key={f} value={f}>{filterLabel(f)}</option>)}
+                </Select>
+              </label>
+              <label className="flex flex-col gap-1 text-xs text-muted">
+                {t("Sort")}
+                <Select value={sort} onChange={(e) => setSortAndReset(e.target.value)}>
+                  <option value="title">{t("Sort: title")}</option>
+                  <option value="added">{t("Sort: recently added")}</option>
+                  <option value="latest">{t("Sort: latest chapter")}</option>
+                  <option value="missing">{t("Sort: missing")}</option>
+                  <option value="size">{t("Sort: size")}</option>
+                  <option value="read">{t("Sort: recently read")}</option>
+                </Select>
+              </label>
+              {/* a remembered filter stays visible, so it can be cleared even when it no longer applies */}
+              {((roots?.length ?? 0) > 1 || rootParam !== "") && (
+                <label className="flex flex-col gap-1 text-xs text-muted">
+                  {t("Library")}
+                  <Select value={rootParam} onChange={(e) => { setRoot(e.target.value); setPage("1"); }}>
+                    <option value="">{t("All libraries")}</option>
+                    {rootParam !== "" && !roots?.some((root) => String(root.id) === rootParam) && <option value={rootParam}>{t("Removed library")}</option>}
+                    {roots?.map((root) => <option key={root.id} value={root.id}>{root.path}</option>)}
+                  </Select>
+                </label>
+              )}
+              {((data?.languages?.length ?? 0) > 1 || language !== "") && (
+                <label className="flex flex-col gap-1 text-xs text-muted">
+                  {t("Language")}
+                  <Select value={language} onChange={(e) => { setLanguage(e.target.value); setPage("1"); }}>
+                    <option value="">{t("All languages")}</option>
+                    {language !== "" && !data?.languages?.includes(language) && <option value={language}>{languageName(language)}</option>}
+                    {data?.languages?.map((item) => <option key={item} value={item}>{languageName(item)}</option>)}
+                  </Select>
+                </label>
+              )}
+              {((data?.genres?.length ?? 0) > 0 || genre !== "") && (
+                <label className="flex flex-col gap-1 text-xs text-muted">
+                  {t("Genres and tags")}
+                  <Select value={genre} onChange={(e) => { setGenre(e.target.value); setPage("1"); }}>
+                    <option value="">{t("All genres and tags")}</option>
+                    {genre !== "" && !data?.genres?.includes(genre) && <option value={genre}>{genreName(genre)}</option>}
+                    {[...(data?.genres ?? [])].sort((a, b) => genreName(a).localeCompare(genreName(b))).map((item) => <option key={item} value={item}>{genreName(item)}</option>)}
+                  </Select>
+                </label>
+              )}
+              <div className="flex items-center justify-between gap-3 text-xs text-muted">
+                {t("View")}
+                <div className="inline-flex overflow-hidden rounded-md border border-border" role="group" aria-label={t("View")}>
+                  <button type="button" aria-pressed={view === "posters"} aria-label={t("Posters")} onClick={() => setViewPersist("posters")} className={clsx("inline-flex h-8 w-9 items-center justify-center", view === "posters" ? "bg-border text-fg" : "bg-panel text-muted hover:text-fg")}>
+                    <LayoutGrid className="size-4" />
+                  </button>
+                  <button type="button" aria-pressed={view === "table"} aria-label={t("Table")} onClick={() => setViewPersist("table")} className={clsx("inline-flex h-8 w-9 items-center justify-center", view === "table" ? "bg-border text-fg" : "bg-panel text-muted hover:text-fg")}>
+                    <List className="size-4" />
+                  </button>
+                </div>
+              </div>
+              {(manage || active.length > 0) && (
+                <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
+                  {manage && <Button size="sm" icon={<CheckSquare className="size-3.5" />} onClick={() => { setSelecting(true); setSelected(new Map()); setFiltersOpen(false); }}>{t("Select")}</Button>}
+                  {manage && <Button size="sm" icon={<RefreshCw className="size-3.5" />} title={t("Check sources for new chapters now")} onClick={() => push.mutate({ name: "RefreshSources", label: "Checking sources for new chapters" })}>{t("Check now")}</Button>}
+                  {active.length > 0 && <Button size="sm" variant="ghost" className="ml-auto" onClick={clearFilters}>{t("Clear all")}</Button>}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+        {adds ? (
+          <Link to="/add" className="inline-flex h-11 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-white hover:bg-primary-hover">
+            <Plus className="size-4" />{t("Add series")}
+          </Link>
         ) : requester ? (
-          <Link to={q ? `/requests?tab=ask&q=${encodeURIComponent(q)}` : "/requests?tab=ask"} className="inline-flex h-10 items-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-white hover:bg-primary-hover">
+          <Link to={q ? `/requests?tab=ask&q=${encodeURIComponent(q)}` : "/requests?tab=ask"} className="inline-flex h-11 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-white hover:bg-primary-hover">
             <Inbox className="size-4" />{t("Request a title")}
           </Link>
         ) : null}
       </div>
-      {!q && filter === "all" && !rootFolderId && !language && !genre && <ContinueReading />}
-      <div className="mb-4 flex flex-col gap-3 border-t border-border pt-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant={filtersOpen ? "primary" : "secondary"}
-            icon={<SlidersHorizontal className="size-4" />}
-            aria-expanded={filtersOpen}
-            aria-controls="library-filters"
-            onClick={() => setFiltersOpen(!filtersOpen)}
-          >
-            {t("Filters")}
-            {active.length > 0 && <span className="ml-0.5 inline-flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-accent px-1 text-[11px] font-semibold text-white">{active.length}</span>}
-          </Button>
+      {(active.length > 0 || selecting) && (
+        <div className="-mt-2 mb-4 flex flex-wrap items-center gap-1.5">
           {active.map((chip) => (
-            <span key={chip.key} className="inline-flex h-7 items-center gap-1 rounded-md border border-border bg-panel-2 pl-2.5 pr-1 text-xs">
+            <span key={chip.key} className="inline-flex h-7 items-center gap-1 rounded-full bg-panel-2 pl-3 pr-1 text-xs">
               {chip.label}
-              <button type="button" onClick={chip.clear} aria-label={t("Remove filter {name}", { name: chip.label })} className="inline-flex size-5 items-center justify-center rounded text-muted hover:bg-border hover:text-fg">
+              <button type="button" onClick={chip.clear} aria-label={t("Remove filter {name}", { name: chip.label })} className="inline-flex size-5 items-center justify-center rounded-full text-muted hover:bg-border hover:text-fg">
                 <X className="size-3" />
               </button>
             </span>
           ))}
           {active.length > 1 && (
-            <button type="button" onClick={clearFilters} className="px-1 text-xs font-medium text-accent-2 hover:underline">{t("Clear all")}</button>
+            <button type="button" onClick={clearFilters} className="px-1.5 text-xs text-muted hover:text-fg">{t("Clear all")}</button>
           )}
-          <div className="ml-auto flex items-center gap-2">
-            <Select aria-label={t("Sort")} className="w-auto" value={sort} onChange={(e) => setSortAndReset(e.target.value)}>
-              <option value="title">{t("Sort: title")}</option>
-              <option value="added">{t("Sort: recently added")}</option>
-              <option value="latest">{t("Sort: latest chapter")}</option>
-              <option value="missing">{t("Sort: missing")}</option>
-              <option value="size">{t("Sort: size")}</option>
-              <option value="read">{t("Sort: recently read")}</option>
-            </Select>
-            {manage && (
-              <Button
-                variant={selecting ? "primary" : "secondary"}
-                icon={<CheckSquare className="size-4" />}
-                onClick={() => (setSelecting(!selecting), setSelected(new Map()))}
-              >{t("Select")}</Button>
-            )}
-            {selecting && (
-              <Button onClick={() => setSelected((cur) => new Map([...cur, ...list.map((s) => [s.id, s.title] as [number, string])]))}>{t("All shown")}</Button>
-            )}
-            <div className="inline-flex overflow-hidden rounded-md border border-border" role="group" aria-label={t("View")}>
-              <button type="button" aria-pressed={view === "posters"} aria-label={t("Posters")} onClick={() => setViewPersist("posters")} className={clsx("inline-flex h-9 w-9 items-center justify-center", view === "posters" ? "bg-border text-fg" : "bg-panel text-muted hover:text-fg")}>
-                <LayoutGrid className="size-4" />
-              </button>
-              <button type="button" aria-pressed={view === "table"} aria-label={t("Table")} onClick={() => setViewPersist("table")} className={clsx("inline-flex h-9 w-9 items-center justify-center", view === "table" ? "bg-border text-fg" : "bg-panel text-muted hover:text-fg")}>
-                <List className="size-4" />
-              </button>
-            </div>
-          </div>
+          {selecting && (
+            <span className="ml-auto flex items-center gap-2">
+              <Button size="sm" onClick={() => setSelected((cur) => new Map([...cur, ...list.map((s) => [s.id, s.title] as [number, string])]))}>{t("All shown")}</Button>
+              <Button size="sm" variant="primary" onClick={() => { setSelecting(false); setSelected(new Map()); }}>{t("Done")}</Button>
+            </span>
+          )}
         </div>
-        {filtersOpen && (
-          <div id="library-filters" className="grid grid-cols-1 gap-3 rounded-lg border border-border bg-panel p-4 sm:grid-cols-2 lg:grid-cols-4">
-            <label className="flex flex-col gap-1 text-xs text-muted">
-              {t("Show")}
-              <Select value={filter} onChange={(e) => setFilterAndReset(e.target.value)}>
-                {filters.map((f) => <option key={f} value={f}>{filterLabel(f)}</option>)}
-              </Select>
-            </label>
-            {/* a remembered filter stays visible, so it can be cleared even when it no longer applies */}
-            {((roots?.length ?? 0) > 1 || rootParam !== "") && (
-              <label className="flex flex-col gap-1 text-xs text-muted">
-                {t("Library")}
-                <Select value={rootParam} onChange={(e) => { setRoot(e.target.value); setPage("1"); }}>
-                  <option value="">{t("All libraries")}</option>
-                  {rootParam !== "" && !roots?.some((root) => String(root.id) === rootParam) && <option value={rootParam}>{t("Removed library")}</option>}
-                  {roots?.map((root) => <option key={root.id} value={root.id}>{root.path}</option>)}
-                </Select>
-              </label>
-            )}
-            {((data?.languages?.length ?? 0) > 1 || language !== "") && (
-              <label className="flex flex-col gap-1 text-xs text-muted">
-                {t("Language")}
-                <Select value={language} onChange={(e) => { setLanguage(e.target.value); setPage("1"); }}>
-                  <option value="">{t("All languages")}</option>
-                  {language !== "" && !data?.languages?.includes(language) && <option value={language}>{languageName(language)}</option>}
-                  {data?.languages?.map((item) => <option key={item} value={item}>{languageName(item)}</option>)}
-                </Select>
-              </label>
-            )}
-            {((data?.genres?.length ?? 0) > 0 || genre !== "") && (
-              <label className="flex flex-col gap-1 text-xs text-muted">
-                {t("Genres and tags")}
-                <Select value={genre} onChange={(e) => { setGenre(e.target.value); setPage("1"); }}>
-                  <option value="">{t("All genres and tags")}</option>
-                  {genre !== "" && !data?.genres?.includes(genre) && <option value={genre}>{genreName(genre)}</option>}
-                  {[...(data?.genres ?? [])].sort((a, b) => genreName(a).localeCompare(genreName(b))).map((item) => <option key={item} value={item}>{genreName(item)}</option>)}
-                </Select>
-              </label>
-            )}
-          </div>
-        )}
-      </div>
+      )}
+      {!q && filter === "all" && !rootFolderId && !language && !genre && <ContinueReading />}
       {/* the bar's row is always there so showing it never moves the list; it only shows while a new filter or page loads, not on live refreshes */}
       <div className={clsx("mb-2 h-0.5 overflow-hidden rounded", isPlaceholderData ? "bg-panel-2" : "invisible")} aria-hidden={!isPlaceholderData}><div className="h-full w-1/3 animate-pulse rounded bg-accent" /></div>
       {isLoading && <Loading />}
