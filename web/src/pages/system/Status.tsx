@@ -6,7 +6,7 @@ import { Link } from "react-router";
 import { AlertTriangle, CheckCircle2, Info, LifeBuoy, RefreshCw, XCircle } from "lucide-react";
 import { api, apiUrl, unwrap, type S } from "../../api/client";
 import { useCommands, useHealth } from "../../api/queries";
-import { Badge, Button, Card, Loading, PageHeader, Progress, Table, Td, Th } from "../../components/ui";
+import { Badge, Button, Card, Confirm, Loading, PageHeader, Progress, Table, Td, Th } from "../../components/ui";
 import { bytes, dateTime, duration, relative } from "../../lib/format";
 import { useToast } from "../../lib/toast";
 import { describe, eta, useLiveProgress } from "../../lib/liveProgress";
@@ -212,7 +212,21 @@ function ProcessingCard() {
     queryFn: () => unwrap(api.GET("/api/v1/processing")),
     refetchInterval: (q) => ((q.state.data?.active.length ?? 0) > 0 || (q.state.data?.pending ?? 0) > 0 ? 10_000 : 60_000),
   });
+  const [clearing, setClearing] = useState<"ask" | "busy" | null>(null);
   if (!data) return null;
+  const clearBacklog = async () => {
+    setClearing("busy");
+    try {
+      const r = await unwrap(api.POST("/api/v1/processing/clear-backlog"));
+      toast.success(t("Backlog cleared: {count} chapters left as they are", { count: r.chapters }));
+      qc.invalidateQueries({ queryKey: ["processing"] });
+      qc.invalidateQueries({ queryKey: ["queue"] });
+    } catch (e) {
+      toast.fromError(e);
+    } finally {
+      setClearing(null);
+    }
+  };
   const resume = async () => {
     try {
       await unwrap(api.POST("/api/v1/processing/resume"));
@@ -223,7 +237,23 @@ function ProcessingCard() {
     }
   };
   return (
-    <Card title={t("Processing")} className="mb-6">
+    <Card
+      title={t("Processing")}
+      className="mb-6"
+      actions={data.pending > 0 && (
+        <Button size="sm" onClick={() => setClearing("ask")}>{t("Clear backlog")}</Button>
+      )}
+    >
+      <Confirm
+        open={clearing !== null}
+        title={t("Clear backlog")}
+        danger
+        confirmLabel={t("Clear backlog")}
+        loading={clearing === "busy"}
+        message={t("Stop waiting on {count} chapters? Their queued processing is removed and they stay as they are; chapters being processed now still finish. Changing the profile's processing settings, or Process downloaded chapters on a series, queues them again.", { count: data.pending })}
+        onConfirm={clearBacklog}
+        onClose={() => setClearing(null)}
+      />
       {data.state.encodeBlocked && (
         <div className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-err/40 bg-err/10 p-2 text-sm">
           <span className="flex-1">{t("Re-encoding is paused:") + " "}{data.state.reason}</span>

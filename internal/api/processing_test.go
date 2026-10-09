@@ -134,3 +134,73 @@ func TestPreviewNeedsAnUpscaler(t *testing.T) {
 		t.Fatalf("split preview image: %d %s", resp.StatusCode, resp.Header.Get("Content-Type"))
 	}
 }
+
+func TestClearProcessingBacklog(t *testing.T) {
+	srv, a := newServer(t, true)
+	ctx := context.Background()
+	now := time.Now().UTC()
+	var prof model.Profile
+	if err := a.DB.NewSelect().Model(&prof).Where("id = 1").Scan(ctx); err != nil {
+		t.Fatal(err)
+	}
+	prof.Config.Encode = model.EncodeConfig{Format: "avif", Preset: "balanced"}
+	if _, err := a.DB.NewUpdate().Model(&prof).Column("config").WherePK().Exec(ctx); err != nil {
+		t.Fatal(err)
+	}
+	params := prof.Config.ProcessParams()
+	root := &model.RootFolder{Path: t.TempDir(), CreatedAt: now}
+	if _, err := a.DB.NewInsert().Model(root).Exec(ctx); err != nil {
+		t.Fatal(err)
+	}
+	ser := &model.Series{Title: "Backlog", SortTitle: "backlog", RootFolderID: root.ID, ProfileID: 1, Path: "Backlog", Tags: []int64{}, AddedAt: now, UpdatedAt: now}
+	if _, err := a.DB.NewInsert().Model(ser).Exec(ctx); err != nil {
+		t.Fatal(err)
+	}
+	// 0: waiting, 1: waiting with a queued job, 2: being processed, 3: already done
+	var files []*model.ChapterFile
+	for i := range 4 {
+		ch := &model.Chapter{SeriesID: ser.ID, NumberKey: fmt.Sprint(i), NumberSort: float64(i), FirstSeenAt: now, UpdatedAt: now}
+		if _, err := a.DB.NewInsert().Model(ch).Exec(ctx); err != nil {
+			t.Fatal(err)
+		}
+		f := &model.ChapterFile{ChapterID: ch.ID, SeriesID: ser.ID, RelativePath: fmt.Sprintf("%d.cbz", i), ImportedAt: now}
+		if i == 3 {
+			f.ProcessParams, f.ProcessState = params, model.ProcessDone
+		}
+		if _, err := a.DB.NewInsert().Model(f).Exec(ctx); err != nil {
+			t.Fatal(err)
+		}
+		files = append(files, f)
+		status := map[int]string{1: model.JobQueued, 2: model.JobProcessing}[i]
+		if status == "" {
+			continue
+		}
+		job := &model.DownloadJob{Kind: model.JobKindReprocess, SeriesID: ser.ID, ChapterID: ch.ID, Status: status, IsUpgrade: true, NotBefore: now, CreatedAt: now, UpdatedAt: now}
+		if _, err := a.DB.NewInsert().Model(job).Exec(ctx); err != nil {
+			t.Fatal(err)
+		}
+	}
+	c := caller{t, http.DefaultClient, srv.URL}
+	var before api.ProcessingStatus
+	if code := c.do("GET", "/api/v1/processing", "", &before); code != 200 || before.Pending != 3 {
+		t.Fatalf("before: %d %+v", code, before.Pending)
+	}
+	var got api.ClearBacklogResult
+	if code := c.do("POST", "/api/v1/processing/clear-backlog", "", &got); code != 200 {
+		t.Fatalf("clear: %d", code)
+	}
+	if got.Jobs != 1 || got.Chapters != 2 {
+		t.Fatalf("cleared: %+v", got)
+	}
+	var jobs []model.DownloadJob
+	if err := a.DB.NewSelect().Model(&jobs).Scan(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if len(jobs) != 1 || jobs[0].Status != model.JobProcessing {
+		t.Fatalf("the running job should be the only one left: %+v", jobs)
+	}
+	var after api.ProcessingStatus
+	if code := c.do("GET", "/api/v1/processing", "", &after); code != 200 || after.Pending != 1 {
+		t.Fatalf("after: only the running chapter still waits, got %d", after.Pending)
+	}
+}

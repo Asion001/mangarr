@@ -1675,6 +1675,26 @@
         ],
         "type": "object"
       },
+      "ClearBacklogResult": {
+        "additionalProperties": false,
+        "properties": {
+          "chapters": {
+            "description": "Waiting chapters the backlog no longer picks up",
+            "format": "int64",
+            "type": "integer"
+          },
+          "jobs": {
+            "description": "Queued or paused re-process jobs removed",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "jobs",
+          "chapters"
+        ],
+        "type": "object"
+      },
       "Command": {
         "additionalProperties": false,
         "properties": {
@@ -16013,6 +16033,38 @@
           }
         },
         "summary": "Encoders, background backlog and space saved",
+        "tags": [
+          "Processing"
+        ]
+      }
+    },
+    "/api/v1/processing/clear-backlog": {
+      "post": {
+        "description": "Running jobs finish. Changing a profile's processing settings, or running Process existing, queues the chapters again.",
+        "operationId": "processing-clear-backlog",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClearBacklogResult"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Drop the processing backlog: remove queued re-process jobs and leave waiting chapters as they are",
         "tags": [
           "Processing"
         ]

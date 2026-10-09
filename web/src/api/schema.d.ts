@@ -1133,6 +1133,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/processing/clear-backlog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Drop the processing backlog: remove queued re-process jobs and leave waiting chapters as they are
+         * @description Running jobs finish. Changing a profile's processing settings, or running Process existing, queues the chapters again.
+         */
+        post: operations["processing-clear-backlog"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/processing/history": {
         parameters: {
             query?: never;
@@ -4212,6 +4232,18 @@ export interface components {
             /** Format: int64 */
             seriesId: number;
             seriesTitle: string;
+        };
+        ClearBacklogResult: {
+            /**
+             * Format: int64
+             * @description Waiting chapters the backlog no longer picks up
+             */
+            chapters: number;
+            /**
+             * Format: int64
+             * @description Queued or paused re-process jobs removed
+             */
+            jobs: number;
         };
         Command: {
             body: {
@@ -10001,6 +10033,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProcessingStatus"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "processing-clear-backlog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClearBacklogResult"];
                 };
             };
             /** @description Error */

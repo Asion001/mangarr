@@ -9338,5 +9338,17 @@
   "Genres and tags": {
     "ru": "Жанры и теги",
     "uk": "Жанри й теги"
+  },
+  "Clear backlog": {
+    "ru": "Очистить очередь",
+    "uk": "Очистити чергу"
+  },
+  "Backlog cleared: {count} chapters left as they are": {
+    "ru": "Очередь очищена: глав оставлено как есть: {count}",
+    "uk": "Чергу очищено: розділів залишено як є: {count}"
+  },
+  "Stop waiting on {count} chapters? Their queued processing is removed and they stay as they are; chapters being processed now still finish. Changing the profile's processing settings, or Process downloaded chapters on a series, queues them again.": {
+    "ru": "Больше не ждать обработки {count} глав? Их обработка удаляется из очереди, а главы остаются как есть; главы, которые обрабатываются сейчас, будут завершены. Изменение настроек обработки в профиле или «Обработать скачанные главы» у серии снова поставят их в очередь.",
+    "uk": "Більше не чекати на обробку {count} розділів? Їхню обробку прибрано з черги, а розділи залишаються як є; розділи, що обробляються зараз, буде завершено. Зміна налаштувань обробки в профілі або «Обробити завантажені розділи» у серії знову поставлять їх у чергу."
   }
 }

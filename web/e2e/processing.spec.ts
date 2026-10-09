@@ -50,3 +50,26 @@ test('processing queue pages through the complete materialized backlog',async({p
  await expect(page.getByText('Page 2 of 2')).toBeVisible();
  await expect.poll(()=>seen.some(value=>value.includes('page=2'))).toBe(true);
 });
+
+test('clear backlog asks first, then drops the waiting chapters',async({page})=>{
+ let cleared=false;
+ await page.route('**/api/v1/**',async route=>{
+  const p=new URL(route.request().url()).pathname;
+  let body:unknown;
+  if(p.endsWith('/auth/status'))body={authenticated:true,authDisabled:true,account:{kind:'anonymous',id:0,permissions:['admin']}};
+  else if(p.endsWith('/processing/clear-backlog')){cleared=true;body={jobs:120,chapters:3000};}
+  else if(p.endsWith('/processing'))body={engines:[],state:{},pending:cleared?0:3000,pendingPages:cleared?0:60000,failed:0,processed:1,spaceSaved:0,spaceAdded:0,netSpaceSaved:0,pagesPerMinute:0,etaSeconds:0,active:[],recent:[]};
+  else if(p.endsWith('/processing/history'))body=[];
+  else {await route.fulfill({status:503,json:{detail:'Not part of this fixture'}});return;}
+  await route.fulfill({json:body});
+ });
+ await page.goto('/system/status');
+ await page.getByRole('button',{name:'Clear backlog'}).click();
+ const dialog=page.getByRole('dialog');
+ await expect(dialog).toContainText('3000 chapters');
+ expect(cleared).toBe(false);
+ await dialog.getByRole('button',{name:'Clear backlog'}).click();
+ await expect(page.getByText('Backlog cleared: 3000 chapters left as they are')).toBeVisible();
+ expect(cleared).toBe(true);
+ await expect(page.getByRole('button',{name:'Clear backlog'})).toHaveCount(0);
+});

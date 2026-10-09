@@ -212,6 +212,12 @@ func (s *Server) processingHistory(ctx context.Context, days int) ([]ProcessingD
 	return out, nil
 }
 
+// ClearBacklogResult counts what clearing the processing backlog dropped.
+type ClearBacklogResult struct {
+	Jobs     int `json:"jobs" doc:"Queued or paused re-process jobs removed"`
+	Chapters int `json:"chapters" doc:"Waiting chapters the backlog no longer picks up"`
+}
+
 func (s *Server) registerProcessing() {
 	tags := []string{"Processing"}
 	huma.Register(s.api, huma.Operation{OperationID: "processing-status", Method: http.MethodGet, Path: "/api/v1/processing", Tags: tags,
@@ -278,6 +284,17 @@ func (s *Server) registerProcessing() {
 			}
 			s.app.PushProcessBacklog("resumed")
 			return nil, nil
+		})
+
+	huma.Register(s.api, huma.Operation{OperationID: "processing-clear-backlog", Method: http.MethodPost, Path: "/api/v1/processing/clear-backlog", Tags: tags,
+		Summary:     "Drop the processing backlog: remove queued re-process jobs and leave waiting chapters as they are",
+		Description: "Running jobs finish. Changing a profile's processing settings, or running Process existing, queues the chapters again."},
+		func(ctx context.Context, _ *struct{}) (*struct{ Body ClearBacklogResult }, error) {
+			jobs, chapters, err := s.app.ClearProcessBacklog(ctx)
+			if err != nil {
+				return nil, toHTTPError(err)
+			}
+			return &struct{ Body ClearBacklogResult }{ClearBacklogResult{Jobs: jobs, Chapters: chapters}}, nil
 		})
 
 	huma.Register(s.api, huma.Operation{OperationID: "processing-preview", Method: http.MethodPost, Path: "/api/v1/processing/preview", Tags: tags,
