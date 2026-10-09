@@ -77,11 +77,11 @@ export function MetadataSearch({
       ))}
       <div className="flex flex-col gap-2">
         {data?.results?.map((r) => (
-          <div key={r.provider + r.id} className={clsx("flex gap-3 rounded-lg border border-border bg-panel p-3", isNovel(r.format) && "opacity-60")}>
+          <div key={r.provider + r.id} className={clsx("flex flex-wrap gap-3 rounded-lg border border-border bg-panel p-3 sm:flex-nowrap", isNovel(r.format) && "opacity-60")}>
             <Cover src={r.coverUrl} alt={r.title} className="aspect-[2/3] w-16 shrink-0" />
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="font-medium">{r.title}</span>
+                <span className="line-clamp-2 font-medium [overflow-wrap:anywhere]" title={r.title}>{r.title}</span>
                 {r.year ? <Badge>{r.year}</Badge> : null}
                 {r.format && <Badge tone={isNovel(r.format) ? "warn" : "default"} title={isNovel(r.format) ? tr("Manga sources have no chapters of novels") : undefined}>{r.format}</Badge>}
                 {r.status && <Badge tone="info">{r.status}</Badge>}
@@ -93,7 +93,8 @@ export function MetadataSearch({
               {r.altTitles && <p className="mt-0.5 line-clamp-1 text-xs text-muted">{r.altTitles.slice(0, 3).join(" · ")}</p>}
               {r.description && <p className="mt-1 line-clamp-2 text-sm text-fg/80">{r.description}</p>}
             </div>
-            <div className="shrink-0 self-center">
+            {/* on phones the buttons go under the text, lined up with it */}
+            <div className="ml-[4.75rem] basis-full sm:ml-0 sm:basis-auto sm:shrink-0 sm:self-center">
               {action ? (
                 action(r)
               ) : r.existingSeriesId ? (

@@ -39,6 +39,20 @@ func TestMatchesSeriesQueryScopesTitlesAndReading(t *testing.T) {
 	}
 }
 
+func TestMatchesSeriesQueryIgnoresPunctuation(t *testing.T) {
+	item := searchSeries(1, "Einz: The Laid-Off Cheat-Granting Mage")
+	for _, q := range []string{"@Einz:The Laid-Off Cheat-Granting Mage", "einz the laid off", "laid-off"} {
+		if !matchesSeriesQuery(item, SeriesSearchQuery{Query: q}) {
+			t.Fatalf("%q should match", q)
+		}
+	}
+	for _, q := range []string{"@@", "einz mage"} {
+		if matchesSeriesQuery(item, SeriesSearchQuery{Query: q}) {
+			t.Fatalf("%q should not match", q)
+		}
+	}
+}
+
 func TestSortSeriesSearch(t *testing.T) {
 	a, b, c := searchSeries(1, "A"), searchSeries(2, "B"), searchSeries(3, "C")
 	a.Stats.SizeOnDisk, b.Stats.SizeOnDisk, c.Stats.SizeOnDisk = 10, 30, 20

@@ -6,6 +6,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"unicode"
 
 	"github.com/Asion001/mangarr/internal/access"
 	"github.com/Asion001/mangarr/internal/genres"
@@ -50,16 +51,38 @@ func hasGenre(md model.SeriesMetadata, genre string) bool {
 	return false
 }
 
+// titleMatches says whether a title contains the lowercased needle, also
+// with punctuation and spacing ignored on both sides, so a pasted
+// "@Einz:The Laid-Off Mage" still finds "Einz: The Laid-Off Mage".
+func titleMatches(title, needle string) bool {
+	title = strings.ToLower(title)
+	if strings.Contains(title, needle) {
+		return true
+	}
+	compactNeedle := compactTitle(needle)
+	return compactNeedle != "" && strings.Contains(compactTitle(title), compactNeedle)
+}
+
+// compactTitle keeps only a title's letters and digits.
+func compactTitle(s string) string {
+	return strings.Map(func(r rune) rune {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			return r
+		}
+		return -1
+	}, s)
+}
+
 func matchesSeriesQuery(item SeriesResource, query SeriesSearchQuery) bool {
 	needle := strings.ToLower(strings.TrimSpace(query.Query))
 	if needle != "" {
 		// a genre's name, in any language, finds the series with it
-		matched := strings.Contains(strings.ToLower(item.Title), needle) || hasGenre(item.Metadata, needle)
+		matched := titleMatches(item.Title, needle) || hasGenre(item.Metadata, needle)
 		for _, title := range item.Metadata.AltTitles {
-			matched = matched || strings.Contains(strings.ToLower(title), needle)
+			matched = matched || titleMatches(title, needle)
 		}
 		for _, edition := range item.Editions {
-			matched = matched || strings.Contains(strings.ToLower(edition.Title), needle)
+			matched = matched || titleMatches(edition.Title, needle)
 		}
 		if !matched {
 			return false
@@ -157,9 +180,9 @@ func (s *Server) registerSeriesSearch() {
 			needle := strings.ToLower(strings.TrimSpace(in.Query))
 			rawMatches := map[int64]bool{}
 			for _, series := range visible {
-				matched := strings.Contains(strings.ToLower(series.Title), needle)
+				matched := titleMatches(series.Title, needle)
 				for _, title := range series.Metadata.AltTitles {
-					matched = matched || strings.Contains(strings.ToLower(title), needle)
+					matched = matched || titleMatches(title, needle)
 				}
 				if matched && needle != "" {
 					key := series.WorkID
