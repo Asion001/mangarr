@@ -1,10 +1,31 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, unwrap } from "./client";
+import { accountKey, readCopy, saveCopy } from "./persist";
 import { useToast } from "../lib/toast";
 
 export const useAuthStatus = () => useQuery({ queryKey: ["auth"], queryFn: () => unwrap(api.GET("/api/v1/auth/status")), staleTime: 60_000 });
 
-export const useSeriesList = () => useQuery({ queryKey: ["series"], queryFn: () => unwrap(api.GET("/api/v1/series")) });
+const fetchSeriesList = () => unwrap(api.GET("/api/v1/series"));
+
+/**
+ * useSeriesList is the library. The last copy this browser saw shows at once
+ * while the current one loads, so the library opens without waiting on the
+ * server; the answer replaces it as soon as it comes.
+ */
+export const useSeriesList = () => {
+  const { data: auth } = useAuthStatus();
+  const name = auth ? `series:${accountKey(auth.account)}` : "";
+  return useQuery({
+    queryKey: ["series"],
+    queryFn: async () => {
+      const list = await fetchSeriesList();
+      if (name) saveCopy(name, "", list);
+      return list;
+    },
+    initialData: () => (name ? readCopy<Awaited<ReturnType<typeof fetchSeriesList>>>(name, "") : undefined),
+    initialDataUpdatedAt: 0, // always stale: the real list is fetched right away
+  });
+};
 
 export type SeriesSearchQuery = {
   q?: string;
@@ -17,12 +38,25 @@ export type SeriesSearchQuery = {
   pageSize?: number;
 };
 
-export const useSeriesSearch = (query: SeriesSearchQuery) =>
-  useQuery({
+const fetchSeriesPage = (query: SeriesSearchQuery) => unwrap(api.GET("/api/v1/series/search", { params: { query } }));
+
+/** useSeriesSearch is a page of the library; the last page this browser saw for the same filters shows first. */
+export const useSeriesSearch = (query: SeriesSearchQuery) => {
+  const { data: auth } = useAuthStatus();
+  const name = auth ? `series-search:${accountKey(auth.account)}` : "";
+  const match = JSON.stringify(query);
+  return useQuery({
     queryKey: ["series", "search", query],
-    queryFn: () => unwrap(api.GET("/api/v1/series/search", { params: { query } })),
+    queryFn: async () => {
+      const page = await fetchSeriesPage(query);
+      if (name) saveCopy(name, match, page);
+      return page;
+    },
+    initialData: () => (name ? readCopy<Awaited<ReturnType<typeof fetchSeriesPage>>>(name, match) : undefined),
+    initialDataUpdatedAt: 0,
     placeholderData: (previous) => previous,
   });
+};
 
 export const useSeries = (id: number) =>
   useQuery({ queryKey: ["series", id], queryFn: () => unwrap(api.GET("/api/v1/series/{id}", { params: { path: { id } } })), enabled: id > 0 });

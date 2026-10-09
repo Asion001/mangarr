@@ -1,6 +1,6 @@
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useIsFetching, useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
 import { Check, PlusCircle } from "lucide-react";
 import { api, apiUrl, unwrap, type S } from "../../api/client";
@@ -42,17 +42,31 @@ function why(item: Item) {
  * whether it's in the library or offers the add or request flow.
  */
 export function Recommendations({ seriesId }: { seriesId: number }) {
+  // Recommendations wait for the title and its chapters, and for the reader
+  // to scroll near them, so they never hold up what the page opens with.
+  const near = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const el = near.current;
+    if (!el || visible) return;
+    if (typeof IntersectionObserver === "undefined") return setVisible(true);
+    const io = new IntersectionObserver((entries) => entries.some((e) => e.isIntersecting) && setVisible(true), { rootMargin: "800px 0px" });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [visible]);
+  const pageLoading = useIsFetching({ predicate: (q) => q.queryKey[0] === "series" && q.queryKey[1] === seriesId && q.queryKey[2] !== "recommendations" }) > 0;
   const { data, refetch } = useQuery({
     queryKey: ["series", seriesId, "recommendations"],
     queryFn: () => unwrap(api.GET("/api/v1/series/{id}/recommendations", { params: { path: { id: seriesId } } })),
     staleTime: 10 * 60_000,
+    enabled: visible && !pageLoading,
   });
   const [filter, setFilter] = useState<"all" | "library" | "new">("all");
   const [asking, setAsking] = useState<Item | null>(null);
   const relatedId = useId();
   const similarId = useId();
   // an answer without both lists (an older server, a stubbed one) shows nothing
-  if (!Array.isArray(data?.related) || !Array.isArray(data?.similar) || (data.related.length === 0 && data.similar.length === 0)) return null;
+  if (!Array.isArray(data?.related) || !Array.isArray(data?.similar) || (data.related.length === 0 && data.similar.length === 0)) return <div ref={near} aria-hidden />;
   const inLibrary = data.similar.filter((i) => i.existingSeriesId).length;
   const notAdded = data.similar.length - inLibrary;
   const similar = data.similar.filter((i) => filter === "all" || (filter === "library") === !!i.existingSeriesId);
