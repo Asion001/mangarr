@@ -20,7 +20,7 @@ var Tables = []string{
 	"groups", "readers", "users", "user_ui_preferences", "source_priority_lists", "sessions", "invites",
 	"messenger_links", "messenger_link_tokens",
 	"settings", "tags", "root_folders", "profiles", "provider_definitions", "catalog_prefs",
-	"works", "series", "series_sources", "chapters", "chapter_releases", "chapter_files",
+	"works", "series", "series_sources", "chapters", "chapter_releases", "chapter_files", "page_bounds",
 	"notification_deliveries", "notification_dispatches",
 	"recycled_files", "download_queue_order", "download_jobs", "history", "blocklist", "commands", "scheduled_tasks",
 	"reader_accounts", "title_read_states", "koreader_documents",

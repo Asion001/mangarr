@@ -73,7 +73,7 @@ func TestDecodeAVIF(t *testing.T) {
 		t.Fatalf("avifenc: %v %s", err, msg)
 	}
 	data, _ := os.ReadFile(out)
-	img, err := decodeAVIF(data)
+	img, err := decodeAVIF(data, false)
 	if err != nil {
 		t.Fatal(err)
 	}

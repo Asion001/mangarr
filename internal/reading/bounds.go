@@ -1,17 +1,16 @@
 package reading
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"image"
-	"io"
+	"path/filepath"
 	"runtime"
 	"sync"
 	"time"
 
 	"github.com/Asion001/mangarr/internal/apitiming"
+	"github.com/Asion001/mangarr/internal/model"
 )
 
 // Bounds is a page's size and the box inside its uniform borders (white or
@@ -62,36 +61,83 @@ func (s *Service) PageBounds(ctx context.Context, b *BookInfo, n int) (Bounds, e
 	if bd, ok := s.bounds.get(key); ok {
 		return bd, nil
 	}
-	if b.File == nil || s.ImageCache == nil {
-		bd, err := s.measure(ctx, b, n)
-		if err == nil {
-			s.bounds.put(key, bd)
-		}
-		return bd, err
+	if stored, ok := s.storedBounds(ctx, b)[n]; ok {
+		s.bounds.put(key, stored)
+		return stored, nil
 	}
-	// a downloaded file's pages don't change: keep their boxes on disk too,
-	// so a restart doesn't decode every page again
-	raw, _, _, err := s.ImageCache.Get(ctx, boundsBucket, key, 365*24*time.Hour, func(ctx context.Context) (io.ReadCloser, string, error) {
-		bd, err := s.measure(ctx, b, n)
-		if err != nil {
-			return nil, "", err
-		}
-		js, err := json.Marshal(bd)
-		return io.NopCloser(bytes.NewReader(js)), "application/json", err
-	})
+	bd, err := s.measure(ctx, b, n)
 	if err != nil {
 		return Bounds{}, err
 	}
-	var bd Bounds
-	if err := json.Unmarshal(raw, &bd); err != nil {
-		return Bounds{}, err
-	}
 	s.bounds.put(key, bd)
+	s.saveBounds(ctx, b, n, bd)
 	return bd, nil
 }
 
-// boundsBucket is where measured boxes are kept in the image cache.
-const boundsBucket = "bounds"
+// storedBounds are the boxes measured before for a downloaded file, by
+// page (none for a chapter that isn't downloaded, or a file rewritten since).
+func (s *Service) storedBounds(ctx context.Context, b *BookInfo) map[int]Bounds {
+	if b.File == nil || b.File.SHA256 == "" {
+		return nil
+	}
+	var rows []model.PageBounds
+	if err := s.DB.NewSelect().Model(&rows).Where("file_id = ? AND sha256 = ?", b.File.ID, b.File.SHA256).Scan(ctx); err != nil {
+		return nil
+	}
+	out := make(map[int]Bounds, len(rows))
+	for _, r := range rows {
+		out[r.Page] = Bounds{Width: r.Width, Height: r.Height, X: r.X, Y: r.Y, W: r.W, H: r.H}
+	}
+	return out
+}
+
+// saveBounds keeps a downloaded page's box with the file, so it is never
+// measured again (not after a restart either).
+func (s *Service) saveBounds(ctx context.Context, b *BookInfo, n int, bd Bounds) {
+	if b.File == nil || b.File.SHA256 == "" {
+		return
+	}
+	row := &model.PageBounds{FileID: b.File.ID, Page: n, SHA256: b.File.SHA256, Width: bd.Width, Height: bd.Height, X: bd.X, Y: bd.Y, W: bd.W, H: bd.H}
+	_, _ = s.DB.NewInsert().Model(row).On("CONFLICT (file_id, page) DO UPDATE").
+		Set("sha256 = EXCLUDED.sha256").Set("width = EXCLUDED.width").Set("height = EXCLUDED.height").
+		Set("x = EXCLUDED.x").Set("y = EXCLUDED.y").Set("w = EXCLUDED.w").Set("h = EXCLUDED.h").Exec(ctx)
+}
+
+// MeasureFile measures every page of a downloaded file that isn't stored
+// yet, one page at a time and gently (avifdec on one thread), for the
+// background: the reader then finds every box ready.
+func (s *Service) MeasureFile(ctx context.Context, fileID int64) (int, error) {
+	b, err := s.FileBook(ctx, fileID)
+	if err != nil {
+		return 0, err
+	}
+	pages, err := s.Pages(ctx, b)
+	if err != nil {
+		return 0, err
+	}
+	have := s.storedBounds(ctx, b)
+	ctx = context.WithValue(ctx, gentleKey{}, true)
+	measured := 0
+	for _, p := range pages {
+		if _, ok := have[p.Number]; ok {
+			continue
+		}
+		if ctx.Err() != nil {
+			return measured, ctx.Err()
+		}
+		bd, err := s.measure(ctx, b, p.Number)
+		if err != nil {
+			continue // a page that can't be decoded is measured if a reader asks
+		}
+		s.bounds.put(boundsKey(b, p.Number), bd)
+		s.saveBounds(ctx, b, p.Number, bd)
+		measured++
+	}
+	return measured, nil
+}
+
+// gentleKey marks background work: decoders keep to one thread.
+type gentleKey struct{}
 
 // measure decodes page n and finds its content box.
 func (s *Service) measure(ctx context.Context, b *BookInfo, n int) (Bounds, error) {
@@ -100,7 +146,7 @@ func (s *Service) measure(ctx context.Context, b *BookInfo, n int) (Bounds, erro
 		return Bounds{}, err
 	}
 	defer apitiming.Span(ctx, "decode")()
-	img, err := Decode(data)
+	img, err := decodePage(data, ctx.Value(gentleKey{}) != nil)
 	if err != nil {
 		return Bounds{}, fmt.Errorf("decode page %d: %w", n, err)
 	}
@@ -257,8 +303,20 @@ func ContentBox(img image.Image) Bounds {
 func (s *Service) PageBoundsMany(ctx context.Context, b *BookInfo, pages []int, budget time.Duration) map[int]Bounds {
 	out := make(map[int]Bounds, len(pages))
 	var todo []int
+	var stored map[int]Bounds
 	for _, n := range pages {
 		if bd, ok := s.bounds.get(boundsKey(b, n)); ok {
+			out[n] = bd
+			continue
+		}
+		if stored == nil {
+			stored = s.storedBounds(ctx, b) // one query for the whole file
+			if stored == nil {
+				stored = map[int]Bounds{}
+			}
+		}
+		if bd, ok := stored[n]; ok {
+			s.bounds.put(boundsKey(b, n), bd)
 			out[n] = bd
 		} else {
 			todo = append(todo, n)
@@ -300,4 +358,32 @@ func (s *Service) PageBoundsMany(ctx context.Context, b *BookInfo, pages []int, 
 	close(work)
 	wg.Wait()
 	return out
+}
+
+// FileAt finds the downloaded file of seriesID at path (0 when none is).
+func (s *Service) FileAt(ctx context.Context, seriesID int64, path string) int64 {
+	var ser model.Series
+	if err := s.DB.NewSelect().Model(&ser).Column("id", "root_folder_id", "path").Where("id = ?", seriesID).Scan(ctx); err != nil {
+		return 0
+	}
+	dir, err := s.Library.SeriesDir(ctx, &ser)
+	if err != nil || dir == "" {
+		return 0
+	}
+	rel, err := filepath.Rel(dir, path)
+	if err != nil {
+		return 0
+	}
+	var f model.ChapterFile
+	if err := s.DB.NewSelect().Model(&f).Column("id").Where("series_id = ? AND relative_path = ?", seriesID, filepath.ToSlash(rel)).Limit(1).Scan(ctx); err != nil {
+		return 0
+	}
+	return f.ID
+}
+
+// ForgetBounds empties the in-memory boxes (the stored ones stay).
+func (s *Service) ForgetBounds() {
+	s.bounds.mu.Lock()
+	s.bounds.m = nil
+	s.bounds.mu.Unlock()
 }

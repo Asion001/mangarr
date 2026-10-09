@@ -457,14 +457,18 @@ func Convert(data []byte, to string) ([]byte, string, error) {
 }
 
 // Decode decodes a page in any format a chapter can hold.
-func Decode(data []byte) (image.Image, error) {
+func Decode(data []byte) (image.Image, error) { return decodePage(data, false) }
+
+// decodePage is Decode; gentle keeps external decoders to one thread (for
+// background work).
+func decodePage(data []byte, gentle bool) (image.Image, error) {
 	switch info, _ := imagecheck.Detect(data); info.Format {
 	case "jxl":
 		return decodeJXL(data)
 	case "avif":
 		// the built-in AVIF decoder runs as WebAssembly, seconds a page;
 		// libavif's avifdec takes a fraction of that
-		if img, err := decodeAVIF(data); err == nil {
+		if img, err := decodeAVIF(data, gentle); err == nil {
 			return img, nil
 		}
 	}

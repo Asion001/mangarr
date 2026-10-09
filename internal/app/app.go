@@ -171,6 +171,7 @@ func (a *App) Start(ctx context.Context) error {
 		return err
 	}
 	go a.sampleMetrics(ctx)
+	go a.measureNewFiles(ctx)
 	if err := a.Queue.Start(ctx); err != nil {
 		return err
 	}

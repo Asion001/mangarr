@@ -676,6 +676,21 @@ type ChapterRelease struct {
 	CreatedAt      time.Time  `bun:"created_at,notnull" json:"createdAt"`
 }
 
+// PageBounds is one downloaded page's size and content box (see
+// reading.Bounds), for the file whose SHA256 it was measured on.
+type PageBounds struct {
+	bun.BaseModel `bun:"table:page_bounds"`
+	FileID        int64  `bun:"file_id,pk"`
+	Page          int    `bun:"page,pk"`
+	SHA256        string `bun:"sha256,notnull"`
+	Width         int    `bun:"width,notnull"`
+	Height        int    `bun:"height,notnull"`
+	X             int    `bun:"x,notnull"`
+	Y             int    `bun:"y,notnull"`
+	W             int    `bun:"w,notnull"`
+	H             int    `bun:"h,notnull"`
+}
+
 type ChapterFile struct {
 	SourcePages   []int `bun:"source_pages" json:"sourcePages,omitempty"`
 	bun.BaseModel `bun:"table:chapter_files"`

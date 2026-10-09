@@ -23,7 +23,7 @@ var avifdec = sync.OnceValue(func() string {
 // decodeAVIF decodes an AVIF page through libavif's avifdec, when it is
 // installed, by way of a raw YUV (y4m) file: no PNG to write and read back.
 // Alpha is dropped; pages don't have any worth keeping.
-func decodeAVIF(data []byte) (image.Image, error) {
+func decodeAVIF(data []byte, gentle bool) (image.Image, error) {
 	bin := avifdec()
 	if bin == "" {
 		return nil, errors.New("avifdec is not installed")
@@ -37,7 +37,11 @@ func decodeAVIF(data []byte) (image.Image, error) {
 	if err := os.WriteFile(in, data, 0o600); err != nil {
 		return nil, err
 	}
-	if msg, err := exec.Command(bin, "--ignore-icc", in, out).CombinedOutput(); err != nil {
+	jobs := "all"
+	if gentle {
+		jobs = "1"
+	}
+	if msg, err := exec.Command(bin, "--jobs", jobs, "--ignore-icc", in, out).CombinedOutput(); err != nil {
 		return nil, fmt.Errorf("avifdec: %v: %s", err, strings.TrimSpace(string(msg)))
 	}
 	f, err := os.Open(out)
