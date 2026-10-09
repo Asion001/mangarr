@@ -51,7 +51,8 @@ export function Recommendations({ seriesId }: { seriesId: number }) {
   const [asking, setAsking] = useState<Item | null>(null);
   const relatedId = useId();
   const similarId = useId();
-  if (!data || (data.related.length === 0 && data.similar.length === 0)) return null;
+  // an answer without both lists (an older server, a stubbed one) shows nothing
+  if (!Array.isArray(data?.related) || !Array.isArray(data?.similar) || (data.related.length === 0 && data.similar.length === 0)) return null;
   const inLibrary = data.similar.filter((i) => i.existingSeriesId).length;
   const notAdded = data.similar.length - inLibrary;
   const similar = data.similar.filter((i) => filter === "all" || (filter === "library") === !!i.existingSeriesId);
