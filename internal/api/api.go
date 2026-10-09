@@ -261,6 +261,12 @@ func requestLogger(log *slog.Logger, m *metrics.Collector, base string) func(htt
 			}
 			var phases []metrics.Phase
 			apitiming.From(r.Context()).Each(func(name string, d time.Duration) { phases = append(phases, metrics.Phase{Name: name, Dur: d}) })
+			if strings.HasPrefix(path, workerPathPrefix) {
+				// workers long-poll and upload in the background: not what
+				// people wait for, so neither the page nor the slow log
+				m.WorkerRequest(routeName(r, base), status, took, int64(ww.BytesWritten()))
+				return
+			}
 			m.Request(routeName(r, base), status, took, int64(ww.BytesWritten()), phases)
 			if !strings.HasPrefix(path, "/api/") {
 				return

@@ -39,6 +39,7 @@ func TestReport(t *testing.T) {
 	c.Request("GET /api/v1/discover", 502, 2*time.Second, 50, []Phase{{"source", 1900 * time.Millisecond}})
 	c.Query(time.Millisecond)
 	c.Query(time.Second)
+	c.WorkerRequest("GET /api/v1/worker/tasks", 200, 25*time.Second, 10) // a long poll
 
 	// an hour later the minute buckets of the last hour are empty, the day still has them
 	r := c.Report("1h")

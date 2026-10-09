@@ -35,6 +35,7 @@ func TestSystemMetrics(t *testing.T) {
 	}
 	get("/api/v1/series/12345", true)
 	get("/", false)
+	get("/api/v1/worker/tasks", false) // workers' requests stay off the page
 
 	if resp, _ := get("/api/v1/system/metrics", false); resp.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("metrics without a login: %d", resp.StatusCode)
@@ -51,7 +52,12 @@ func TestSystemMetrics(t *testing.T) {
 	for _, e := range rep.Endpoints {
 		routes[e.Route] = e.Calls
 	}
-	if routes["GET /api/v1/series"] != 3 || routes["GET /api/v1/series/{id}"] != 1 || routes["GET (web interface files)"] != 1 {
+	for route := range routes {
+		if strings.Contains(route, "/worker/") {
+			t.Errorf("worker request on the page: %s", route)
+		}
+	}
+	if routes["GET /api/v1/series"] != 3 || routes["GET /api/v1/series/{id}"] != 1 || routes["GET (web interface files)"] != 1 || routes["GET (API, refused or unknown)"] != 1 {
 		t.Fatalf("routes: %v", routes)
 	}
 	if rep.Range != "1h" || len(rep.Points) != 60 || len(rep.Caches) != 4 || rep.GoVersion == "" || rep.Profiling {

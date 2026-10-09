@@ -183,6 +183,24 @@ func (c *Collector) Request(route string, status int, d time.Duration, bytes int
 	st.add(d, status, bytes)
 }
 
+// WorkerRequest records a request from a processing worker. Workers poll
+// and stream pages in the background, which says nothing about how fast
+// people are served, so it only counts towards the Prometheus totals, not
+// the performance page.
+func (c *Collector) WorkerRequest(route string, status int, d time.Duration, bytes int64) {
+	if c == nil {
+		return
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	st := c.routes[route]
+	if st == nil {
+		st = &Stat{}
+		c.routes[route] = st
+	}
+	st.add(d, status, bytes)
+}
+
 // Query records one database query.
 func (c *Collector) Query(d time.Duration) {
 	if c == nil {
