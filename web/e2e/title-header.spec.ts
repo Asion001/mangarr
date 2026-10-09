@@ -36,33 +36,44 @@ async function mock(page: Page) {
   });
 }
 
-test("the title header shows facts, merged tags and stat cards", async ({ page }) => {
+test("the title header keeps to the title, Continue and Follow, with the rest under Details", async ({ page }) => {
   await mock(page);
   await page.goto("/series/4");
   await expect(page.getByRole("heading", { name: "Steel Lantern" })).toBeVisible();
-  // genres and tags in one row, without the repeated one
-  const tags = page.getByRole("link", { name: /^(Action|Supernatural|Swords|Revenge)$/ });
-  await expect(tags).toHaveCount(4);
-  const facts = page.locator("dl:visible");
-  await expect(facts).toContainText("Ongoing");
-  await expect(facts).toContainText("Manga · 2023");
+  await expect(page.getByText("Ongoing", { exact: true })).toBeVisible();
+  await expect(page.getByText("Manga, 2023")).toBeVisible();
+  await expect(page.getByText("7 of 12 read")).toBeVisible();
+  await expect(page.getByText("2 not downloaded")).toBeVisible();
+  await expect(page.getByRole("button", { name: /Updated .* next in 4 days/ })).toBeVisible();
+  // facts and tags stay folded until asked for
+  await expect(page.locator("dl")).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Swords" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Details, tags and links" }).click();
+  const facts = page.locator("dl");
   await expect(facts).toContainText("Right to left");
   await expect(facts).toContainText("Story & art");
-  await expect(page.getByText("10 / 12")).toBeVisible();
-  await expect(page.getByText("2 missing")).toBeVisible();
-  await expect(page.getByRole("button", { name: /^Next chapter/ })).toContainText("in 4 days");
-  await expect(page.getByRole("switch", { name: "Monitored" })).toBeVisible();
-  await expect(page.getByRole("navigation", { name: "Language editions" }).getByRole("link")).toHaveCount(2);
+  await expect(facts).toContainText("Stahllaterne");
+  await expect(facts).toContainText("10 / 12");
+  // genres and tags in one row, without the repeated one
+  await expect(page.getByRole("link", { name: /^(Action|Supernatural|Swords|Revenge)$/ })).toHaveCount(4);
+  // language editions sit behind the language button
+  await page.getByRole("button", { name: "English", expanded: false }).click();
+  await expect(page.getByRole("menuitem", { name: /Ukrainian/ })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Add language" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  // monitoring and the rest of the admin actions are in one menu
   await page.getByRole("button", { name: "Manage", expanded: false }).click();
+  await expect(page.getByRole("menuitem", { name: "Stop monitoring" })).toBeVisible();
   await expect(page.getByRole("menuitem", { name: "Refresh sources" })).toBeVisible();
 });
 
-test("on a phone the facts move under the description", async ({ page }) => {
+test("on a phone the cover sits beside the title and the actions run full width", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await mock(page);
   await page.goto("/series/4");
   const heading = await page.getByRole("heading", { name: "Steel Lantern" }).boundingBox();
-  const facts = await page.locator("dl:visible").boundingBox();
-  expect(heading && facts && facts.y > heading.y).toBe(true);
-  await expect(page.locator("dl:visible")).toHaveCount(1);
+  const manage = await page.getByRole("button", { name: "Manage" }).boundingBox();
+  // the title is indented by the cover beside it; the actions start at the left edge, under the cover
+  expect(heading && manage && heading.x > manage.x + 100).toBe(true);
+  expect(heading && manage && manage.y > heading.y + heading.height).toBe(true);
 });

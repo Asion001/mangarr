@@ -281,7 +281,7 @@ export type MenuItem = { label: string; onSelect: () => void; icon?: ReactNode; 
  * nudged sideways when it would run past the edge of the screen, which is
  * what happens on a phone when the button sits near the right edge.
  */
-export function Menu({ label, icon, items, align = "left", up = false }: { label: ReactNode; icon?: ReactNode; items: MenuItem[]; align?: "left" | "right"; /** up opens above the button (for bars at the bottom) */ up?: boolean }) {
+export function Menu({ label, icon, items, align = "left", up = false, size, className }: { label: ReactNode; icon?: ReactNode; items: MenuItem[]; align?: "left" | "right"; /** up opens above the button (for bars at the bottom) */ up?: boolean; size?: "sm" | "md"; className?: string }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const list = useRef<HTMLDivElement>(null);
@@ -326,7 +326,7 @@ export function Menu({ label, icon, items, align = "left", up = false }: { label
   const shown = items.filter((it) => !("hidden" in it && it.hidden));
   return (
     <div ref={ref} className="relative inline-block">
-      <Button icon={icon} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}>
+      <Button icon={icon} size={size} className={className} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}>
         {label}
         <ChevronDown className="size-3.5" />
       </Button>

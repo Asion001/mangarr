@@ -4,11 +4,11 @@ import { label, t as tr, t } from "../../lib/i18n/core";
 import { useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { Bell, BellOff, Plus, BookOpen, ExternalLink, Eye, FilePen, HardDrive, MoreHorizontal, Pencil, RefreshCw, Search, Sparkles, Trash2, FileSearch, BookText, Link2, Unlink } from "lucide-react";
+import { Bell, BellOff, Plus, BookOpen, ChevronDown, ExternalLink, Eye, EyeOff, FilePen, Languages, HardDrive, MoreHorizontal, Pencil, RefreshCw, Search, Sparkles, Trash2, FileSearch, BookText, Link2, Unlink } from "lucide-react";
 import { api, apiUrl, unwrap, type Chapter, type S, type Series } from "../../api/client";
 import { useChapters, usePushCommand, useSeries, useSeriesList } from "../../api/queries";
 import { Cover } from "../../components/Cover";
-import { Badge, Button, Confirm, ErrorBox, Loading, Menu, Modal, Select, Switch } from "../../components/ui";
+import { Badge, Button, Confirm, ErrorBox, Loading, Menu, Modal, Select, Switch, type MenuItem } from "../../components/ui";
 import { bytes, languageName, relative } from "../../lib/format";
 import { genreName } from "../../lib/genres";
 import { useToast } from "../../lib/toast";
@@ -20,7 +20,7 @@ import { useAccount } from "../../lib/account";
 import { AddLanguageModal, RequestLanguageModal } from "./AddLanguage";
 import { PreviewBanner } from "./Preview";
 import { AdaptationsChip } from "./Adaptations";
-import { ReleaseCard } from "./ReleaseSchedule";
+import { ReleaseLine } from "./ReleaseSchedule";
 import { RequestDownloadButton, waitingChapters } from "./RequestDownload";
 import { Recommendations } from "./Recommendations";
 
@@ -46,7 +46,7 @@ export function SeriesDetail() {
   const [deleteFiles, setDeleteFiles] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showDesc, setShowDesc] = useState(false);
-  const [allTags, setAllTags] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
   const [grouping, setGrouping] = useState(false);
   const [groupTarget, setGroupTarget] = useState("");
   const [groupBusy, setGroupBusy] = useState(false);
@@ -111,148 +111,130 @@ export function SeriesDetail() {
   const md = s.metadata;
   const tags = titleTags(md);
   const follows = account?.kind === "user" && !s.preview;
+  const manageItems: MenuItem[] = [
+    { label: t("Edit…"), icon: <Pencil className="size-4" />, onSelect: () => setEdit(true) },
+    s.monitored
+      ? { label: t("Stop monitoring"), icon: <EyeOff className="size-4" />, onSelect: () => void setMonitored(false) }
+      : { label: t("Monitor"), icon: <Eye className="size-4" />, onSelect: () => void setMonitored(true) },
+    { section: t("Find") },
+    { label: t("Refresh sources"), icon: <RefreshCw className="size-4" />, onSelect: () => push.mutate({ name: "RefreshSeries", body: { seriesId: id }, label: "Refreshing sources" }) },
+    { label: t("Search missing chapters"), icon: <Search className="size-4" />, onSelect: () => push.mutate({ name: "SearchMissing", body: { seriesId: id }, label: "Searching missing chapters" }) },
+    { label: t("Refresh metadata"), icon: <BookText className="size-4" />, onSelect: () => push.mutate({ name: "RefreshMetadata", body: { seriesId: id }, label: "Refreshing metadata" }) },
+    { section: t("Files") },
+    { label: t("Rescan disk"), icon: <FileSearch className="size-4" />, onSelect: () => push.mutate({ name: "DiskScan", body: { seriesId: id }, label: "Scanning files" }) },
+    { label: t("Rename files…"), icon: <FilePen className="size-4" />, onSelect: () => setRenaming(true) },
+    { label: t("Process downloaded chapters"), icon: <Sparkles className="size-4" />, onSelect: () => push.mutate({ name: "ProcessExisting", body: { seriesId: id }, label: "Downloaded chapters will be processed in the background" }) },
+    { label: t("Copy folder path"), icon: <HardDrive className="size-4" />, onSelect: () => void navigator.clipboard.writeText(s.fullPath ?? "").then(() => toast.success(t("Folder path copied"), s.fullPath), () => toast.info(s.fullPath ?? "")), hidden: !s.fullPath },
+    { section: t("Editions") },
+    { label: t("Group with another language…"), icon: <Link2 className="size-4" />, onSelect: () => setGrouping(true) },
+    { label: t("Separate edition"), icon: <Unlink className="size-4" />, onSelect: () => void setWork(0), hidden: (s.editions?.length ?? 0) <= 1 },
+    { section: "" },
+    { label: t("Delete series…"), icon: <Trash2 className="size-4" />, onSelect: () => setDel(true), danger: true, hidden: !deletes },
+  ];
+  const editions = s.editions ?? [];
+  const current = editions.find((edition) => edition.id === id);
+  const langName = current?.language ? languageName(current.language) : s.language ? languageName(s.language) : "";
+  const credits = [...new Set([...(md.authors ?? []), ...(md.artists ?? [])])];
+  const showsRead = account?.kind === "user" || s.stats.readCount > 0;
   return (
     <>
       {s.preview && <PreviewBanner series={s} />}
-      <div className="mb-6 flex flex-col gap-5 md:flex-row md:items-start md:gap-8">
-        <aside className="grid grid-cols-[7rem_minmax(0,1fr)] items-start gap-3 sm:grid-cols-[9rem_minmax(0,1fr)] md:flex md:w-60 md:flex-none md:flex-col">
-          <Cover src={apiUrl(s.coverUrl)} alt={s.title} className="aspect-[2/3] w-full rounded-lg" />
-          <div className="flex min-w-0 flex-col gap-2 md:w-full">
-            {readTarget && (
-              <Link to={`/read/${readTarget.id}`} className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-white hover:bg-primary-hover">
-                <BookOpen className="size-4" /> {readTarget.label}
-              </Link>
-            )}
-            {waiting > 0 && <RequestDownloadButton seriesId={id} waiting={waiting} />}
-            {(follows || manage) && (
-              <div className="flex flex-wrap gap-2">
-                {follows && <FollowButton seriesId={id} following={s.following} />}
-                {manage && <Button icon={<Pencil className="size-4" />} onClick={() => setEdit(true)} aria-label={t("Edit")} title={t("Edit")} />}
-                {manage && (
-                  <Menu
-                    label={<span className="sr-only">{t("Manage")}</span>}
-                    icon={<MoreHorizontal className="size-4" />}
-                    align="right"
-                    items={[
-                      { section: t("Find") },
-                      { label: t("Refresh sources"), icon: <RefreshCw className="size-4" />, onSelect: () => push.mutate({ name: "RefreshSeries", body: { seriesId: id }, label: "Refreshing sources" }) },
-                      { label: t("Search missing chapters"), icon: <Search className="size-4" />, onSelect: () => push.mutate({ name: "SearchMissing", body: { seriesId: id }, label: "Searching missing chapters" }) },
-                      { label: t("Refresh metadata"), icon: <BookText className="size-4" />, onSelect: () => push.mutate({ name: "RefreshMetadata", body: { seriesId: id }, label: "Refreshing metadata" }) },
-                      { section: t("Files") },
-                      { label: t("Rescan disk"), icon: <FileSearch className="size-4" />, onSelect: () => push.mutate({ name: "DiskScan", body: { seriesId: id }, label: "Scanning files" }) },
-                      { label: t("Rename files…"), icon: <FilePen className="size-4" />, onSelect: () => setRenaming(true) },
-                      { label: t("Process downloaded chapters"), icon: <Sparkles className="size-4" />, onSelect: () => push.mutate({ name: "ProcessExisting", body: { seriesId: id }, label: "Downloaded chapters will be processed in the background" }) },
-                      { label: t("Copy folder path"), icon: <HardDrive className="size-4" />, onSelect: () => void navigator.clipboard.writeText(s.fullPath ?? "").then(() => toast.success(t("Folder path copied"), s.fullPath), () => toast.info(s.fullPath ?? "")), hidden: !s.fullPath },
-                      { section: t("Editions") },
-                      { label: t("Group with another language…"), icon: <Link2 className="size-4" />, onSelect: () => setGrouping(true) },
-                      { label: t("Separate edition"), icon: <Unlink className="size-4" />, onSelect: () => void setWork(0), hidden: (s.editions?.length ?? 0) <= 1 },
-                      { section: "" },
-                      { label: t("Delete series…"), icon: <Trash2 className="size-4" />, onSelect: () => setDel(true), danger: true, hidden: !deletes },
-                    ]}
-                  />
-                )}
-              </div>
-            )}
-            {manage && (
-              <div className="flex h-10 items-center rounded-md border border-border px-3">
-                <Switch checked={s.monitored} onChange={setMonitored} label={s.monitored ? tr("Monitored") : tr("Unmonitored")} />
-              </div>
-            )}
-            <Facts series={s} className="mt-2 hidden md:grid" />
-          </div>
-        </aside>
-        <div className="flex min-w-0 flex-1 flex-col gap-4">
-          <div>
-            <h1 className="text-2xl font-semibold leading-tight md:text-3xl">{s.title}</h1>
-            {s.workTitle && s.workTitle !== s.title && <p className="mt-1 text-sm text-muted">{s.workTitle}</p>}
-            {md.altTitles && md.altTitles.length > 0 && <p className="mt-1 line-clamp-1 text-sm text-muted">{md.altTitles.slice(0, 4).join(" · ")}</p>}
-          </div>
-          {((s.editions?.length ?? 0) > 1 || adds || asksLang) && (
-            <nav className="flex flex-wrap gap-x-5 border-b border-border" aria-label={t("Language editions")}>
-              {(s.editions ?? []).map((edition) => (
-                <Link
-                  key={edition.id}
-                  to={`/series/${edition.id}`}
-                  aria-current={edition.id === id ? "page" : undefined}
-                  className={`-mb-px border-b-2 py-2 text-sm ${edition.id === id ? "border-accent font-semibold text-fg" : "border-transparent text-muted hover:text-fg"}`}
-                >
-                  {edition.language ? languageName(edition.language) : "?"}
-                  {edition.title !== s.title && <span className="ml-2 font-normal text-muted">{edition.title}</span>}
-                </Link>
-              ))}
-              {(adds || asksLang) && (
-                <button
-                  type="button"
-                  onClick={() => setAddingLang(true)}
-                  title={adds ? undefined : t("Ask for this title in another language")}
-                  className="-mb-px inline-flex items-center gap-1 border-b-2 border-transparent py-2 text-sm text-accent-2 hover:text-fg"
-                >
-                  <Plus className="size-4" />{t("Add language")}
-                </button>
+      {/* on a phone the cover sits beside the title and everything else runs full width under them */}
+      <div className="mb-6 grid grid-cols-[6.5rem_minmax(0,1fr)] gap-4 sm:flex sm:items-start sm:gap-9">
+        <Cover src={apiUrl(s.coverUrl)} alt={s.title} className="aspect-[2/3] w-full rounded-lg sm:w-50 sm:flex-none" />
+        <div className="contents sm:flex sm:min-w-0 sm:flex-1 sm:flex-col sm:gap-4 sm:pt-1">
+          <div className="flex min-w-0 flex-col gap-2 self-end sm:self-auto">
+            <h1 className="text-xl font-bold leading-tight sm:text-3xl">{s.title}</h1>
+            {s.workTitle && s.workTitle !== s.title && <p className="text-sm text-muted">{s.workTitle}</p>}
+            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-sm text-muted">
+              {s.status && (
+                <span className={`inline-flex items-center gap-1.5 ${statusClass[s.status] ?? ""}`}>
+                  <span className="size-1.5 rounded-full bg-current" aria-hidden="true" />{label(capital(s.status))}
+                </span>
               )}
-            </nav>
-          )}
-          {tags.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {(allTags ? tags : tags.slice(0, 12)).map((g) => (
-                <Link key={g} to={{ pathname: "/", search: `?genre=${encodeURIComponent(g)}` }} title={t("Series with this genre")} className="inline-flex h-7 items-center rounded-full border border-border bg-panel-2 px-2.5 text-xs font-medium text-fg/85 hover:border-accent/60 hover:text-fg">
-                  {genreName(g)}
-                </Link>
-              ))}
-              {tags.length > 12 && (
-                <button type="button" onClick={() => setAllTags(!allTags)} className="inline-flex h-7 items-center rounded-full border border-border px-2.5 text-xs font-medium text-muted hover:text-fg">
-                  {allTags ? t("Show fewer") : `+${tags.length - 12}`}
-                </button>
+              {(md.format || md.year) && <Dot>{[md.format ? label(capital(md.format)) : "", md.year ? String(md.year) : ""].filter(Boolean).join(", ")}</Dot>}
+              {credits.length > 0 && <Dot>{credits.slice(0, 2).join(", ")}</Dot>}
+              {editions.length > 1 || adds || asksLang ? (
+                <Menu
+                  size="sm"
+                  label={langName || t("Language")}
+                  icon={<Languages className="size-3.5" />}
+                  items={[
+                    { section: t("Language editions") },
+                    ...editions.map((edition) => ({
+                      label: (edition.language ? languageName(edition.language) : "?") + (edition.title !== s.title ? ` · ${edition.title}` : "") + (edition.id === id ? " ✓" : ""),
+                      onSelect: () => nav(`/series/${edition.id}`),
+                    })),
+                    { label: adds ? t("Add language") : t("Ask for a language"), icon: <Plus className="size-4" />, onSelect: () => setAddingLang(true), hidden: !(adds || asksLang) },
+                  ]}
+                />
+              ) : (
+                langName && <Dot>{langName}</Dot>
               )}
+              {manage && !s.monitored && <Badge tone="warn">{tr("Unmonitored")}</Badge>}
+              <AdaptationsChip adaptations={s.adaptations ?? []} />
+            </div>
+          </div>
+          {(readTarget || waiting > 0 || follows || manage) && (
+            <div className="col-span-2 flex flex-wrap items-center gap-2">
+              {readTarget && (
+                <Link to={`/read/${readTarget.id}`} className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-md bg-primary px-5 text-sm font-semibold text-white hover:bg-primary-hover sm:flex-none">
+                  <BookOpen className="size-4" /> {readTarget.label}
+                </Link>
+              )}
+              {waiting > 0 && <RequestDownloadButton seriesId={id} waiting={waiting} />}
+              {follows && <FollowButton seriesId={id} following={s.following} />}
+              {manage && <Menu className="h-11 px-3" label={<span className="sr-only">{t("Manage")}</span>} icon={<MoreHorizontal className="size-4" />} align="right" items={manageItems} />}
             </div>
           )}
           {md.description && (
-            <p className={`whitespace-pre-line text-sm leading-relaxed text-fg/85 ${showDesc ? "" : "line-clamp-4"} cursor-pointer`} onClick={() => setShowDesc(!showDesc)}>
+            <p className={`col-span-2 max-w-[70ch] cursor-pointer whitespace-pre-line text-sm leading-relaxed text-fg/85 ${showDesc ? "" : "line-clamp-3"}`} onClick={() => setShowDesc(!showDesc)}>
               {md.description}
             </p>
           )}
-          <Facts series={s} className="grid md:hidden" />
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            {(account?.kind === "user" || s.stats.readCount > 0) && (
-              <StatCard label={t("Chapters read")} value={`${s.stats.readCount} / ${s.stats.chapterCount}`}>
-                <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-border">
-                  <div className="h-full rounded-full bg-accent" style={{ width: `${s.stats.chapterCount ? Math.min(100, (100 * s.stats.readCount) / s.stats.chapterCount) : 0}%` }} />
-                </div>
-              </StatCard>
+          <div className="col-span-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm text-muted">
+            {showsRead && (
+              <>
+                <span className="block h-1 w-28 overflow-hidden rounded-full bg-border" aria-hidden="true">
+                  <span className="block h-full rounded-full bg-accent" style={{ width: `${s.stats.chapterCount ? Math.min(100, (100 * s.stats.readCount) / s.stats.chapterCount) : 0}%` }} />
+                </span>
+                <span className="text-fg/85">{t("{read} of {total} read", { read: s.stats.readCount, total: s.stats.chapterCount })}</span>
+              </>
             )}
-            <StatCard
-              label={t("Downloaded")}
-              value={`${s.stats.fileCount} / ${s.stats.chapterCount}`}
-              note={s.stats.missingCount > 0 ? t("{count} missing", { count: s.stats.missingCount }) : manage && s.stats.cleanedCount > 0 ? t("{count} cleaned", { count: s.stats.cleanedCount }) : undefined}
-              warn={s.stats.missingCount > 0}
-            />
-            {manage && <StatCard label={t("On disk")} value={bytes(s.stats.sizeOnDisk)} note={s.stats.spaceSaved > 0 ? t("saved {size}", { size: bytes(s.stats.spaceSaved) }) : undefined} />}
-            <ReleaseCard chapters={chapters} status={s.status} />
+            {s.stats.missingCount > 0 && <Dot className="text-warn">{t("{count} not downloaded", { count: s.stats.missingCount })}</Dot>}
+            {s.reading?.nextUnread && !readTarget && (
+              <Dot>
+                {t("Continue: ch.") + " " + s.reading.nextUnread.number}
+                {!s.reading.nextUnread.available && <span className="ml-1.5"><Badge tone="warn">{t("not downloaded")}</Badge></span>}
+              </Dot>
+            )}
+            <ReleaseLine chapters={chapters} status={s.status} />
           </div>
-          {s.reading && ((account?.kind !== "user" && s.reading.readers.length > 0) || s.reading.webUrl || (s.reading.nextUnread && !readTarget)) && (
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-              {s.reading.nextUnread && !readTarget && (
-                <span className="flex items-center gap-1">
-                  <BookOpen className="size-4 text-info" />{t("Continue: ch.") + " "}{s.reading.nextUnread.number}
-                  {s.reading.nextUnread.title && s.reading.nextUnread.title !== s.reading.nextUnread.number && (
-                    <span className="text-muted">{s.reading.nextUnread.title}</span>
-                  )}
-                  {!s.reading.nextUnread.available && <Badge tone="warn">{t("not downloaded")}</Badge>}
-                </span>
-              )}
-              {account?.kind !== "user" && s.reading.readers.map((r) => (
-                <span key={r.readerId} className="text-muted" title={r.lastReadAt ? `last read ${relative(r.lastReadAt)}` : undefined}>
-                  <Eye className="mr-1 inline size-3.5" />
-                  {`${r.reader}: `}{r.read}/{s.stats.chapterCount}{" " + t("read")}{r.inProgress > 0 && `, ${r.inProgress} started`}
-                </span>
-              ))}
-              {s.reading.webUrl && (
-                <a href={s.reading.webUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-accent-2 hover:underline">
-                  <ExternalLink className="size-3.5" />{" " + t("Open in") + " "}{s.reading.webName || tr("library")}
-                </a>
-              )}
-            </div>
-          )}
+          <div className="col-span-2">
+            <button
+              type="button"
+              aria-expanded={showDetails}
+              onClick={() => setShowDetails(!showDetails)}
+              className="inline-flex items-center gap-1 text-sm font-medium text-muted hover:text-fg"
+            >
+              {showDetails ? t("Hide details") : t("Details, tags and links")}
+              <ChevronDown className={`size-3.5 transition-transform ${showDetails ? "rotate-180" : ""}`} />
+            </button>
+            {showDetails && (
+              <div className="mt-3 grid gap-x-10 gap-y-5 border-t border-border pt-4 md:grid-cols-2">
+                <Facts series={s} manage={manage} />
+                {tags.length > 0 && (
+                  <div className="flex flex-wrap content-start gap-1.5">
+                    {tags.map((g) => (
+                      <Link key={g} to={{ pathname: "/", search: `?genre=${encodeURIComponent(g)}` }} title={t("Series with this genre")} className="inline-flex h-7 items-center rounded-full bg-panel-2 px-2.5 text-xs font-medium text-fg/80 hover:text-fg">
+                        {genreName(g)}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -320,8 +302,20 @@ const statusClass: Record<string, string> = { ongoing: "text-ok", completed: "te
 const directionNames: Record<string, string> = { rtl: "Right to left", ltr: "Left to right", vertical: "Vertical" };
 const capital = (v: string) => v.charAt(0).toUpperCase() + v.slice(1);
 
-/** Facts is the short list beside the cover: status, format, credits and links. */
-function Facts({ series: s, className }: { series: Series; className?: string }) {
+/** Dot is one item of a quiet "a · b · c" line. */
+function Dot({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <span className={`inline-flex items-center gap-2.5 ${className ?? ""}`}>
+      <span className="text-muted/60" aria-hidden="true">·</span>
+      <span className="inline-flex items-center">{children}</span>
+    </span>
+  );
+}
+
+/** Facts is what the title page keeps behind "Details": the other names,
+ * reading direction, credits, files, who reads it and links. */
+function Facts({ series: s, manage }: { series: Series; manage: boolean }) {
+  const { account } = useAccount();
   const md = s.metadata;
   const links = Object.entries(md.links ?? {});
   const authors = md.authors ?? [];
@@ -333,10 +327,10 @@ function Facts({ series: s, className }: { series: Series; className?: string })
       <dd className={cls ?? "text-fg"}>{value}</dd>
     </>
   );
+  const readers = account?.kind !== "user" ? (s.reading?.readers ?? []) : [];
   return (
-    <dl className={`grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-sm ${className ?? ""}`}>
-      {s.status && row(t("Status"), label(capital(s.status)), statusClass[s.status])}
-      {(md.format || md.year) && row(t("Format"), [md.format ? label(capital(md.format)) : "", md.year ? String(md.year) : ""].filter(Boolean).join(" · "))}
+    <dl className="grid grid-cols-[auto_minmax(0,1fr)] content-start gap-x-4 gap-y-1.5 text-sm">
+      {md.altTitles && md.altTitles.length > 0 && row(t("Also known as"), md.altTitles.slice(0, 6).join(" · "))}
       {s.readingDirection && row(t("Direction"), label(directionNames[s.readingDirection] ?? s.readingDirection))}
       {md.ageRating && row(t("Age rating"), md.ageRating, "text-warn")}
       {sameCredits ? row(t("Story & art"), authors.join(", ")) : (
@@ -346,28 +340,32 @@ function Facts({ series: s, className }: { series: Series; className?: string })
         </>
       )}
       {md.publisher && row(t("Publisher"), md.publisher)}
-      {(links.length > 0 || (s.adaptations?.length ?? 0) > 0) && row(t("Links"), (
+      {row(t("Downloaded"), `${s.stats.fileCount} / ${s.stats.chapterCount}` + (manage && s.stats.cleanedCount > 0 ? ` · ${t("{count} cleaned", { count: s.stats.cleanedCount })}` : ""))}
+      {manage && row(t("On disk"), bytes(s.stats.sizeOnDisk) + (s.stats.spaceSaved > 0 ? ` · ${t("saved {size}", { size: bytes(s.stats.spaceSaved) })}` : ""))}
+      {readers.length > 0 && row(t("Readers"), (
+        <span className="flex flex-col gap-0.5">
+          {readers.map((r) => (
+            <span key={r.readerId} title={r.lastReadAt ? `last read ${relative(r.lastReadAt)}` : undefined}>
+              {`${r.reader}: `}{r.read}/{s.stats.chapterCount}{" " + t("read")}{r.inProgress > 0 && `, ${r.inProgress} started`}
+            </span>
+          ))}
+        </span>
+      ))}
+      {(links.length > 0 || s.reading?.webUrl) && row(t("Links"), (
         <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
           {links.map(([k, v]) => (
             <a key={k} href={v} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-accent-2 hover:underline">
               {k}<ExternalLink className="size-3" />
             </a>
           ))}
-          <AdaptationsChip adaptations={s.adaptations ?? []} />
+          {s.reading?.webUrl && (
+            <a href={s.reading.webUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-accent-2 hover:underline">
+              {t("Open in") + " "}{s.reading.webName || tr("library")}<ExternalLink className="size-3" />
+            </a>
+          )}
         </span>
       ))}
     </dl>
-  );
-}
-
-function StatCard({ label, value, note, warn, children }: { label: string; value: string; note?: string; warn?: boolean; children?: ReactNode }) {
-  return (
-    <div className="flex flex-col gap-0.5 rounded-lg border border-border bg-panel px-4 py-3">
-      <div className="text-xs text-muted">{label}</div>
-      <div className="text-lg font-semibold">{value}</div>
-      {note && <div className={warn ? "text-xs text-warn" : "text-xs text-muted"}>{note}</div>}
-      {children}
-    </div>
   );
 }
 
@@ -407,7 +405,7 @@ function FollowButton({ seriesId, following }: { seriesId: number; following: bo
   };
   return (
     <Button
-      className="flex-1"
+      className="h-11 px-4"
       variant={following ? "secondary" : undefined}
       loading={busy}
       icon={following ? <BellOff className="size-4" /> : <Bell className="size-4" />}

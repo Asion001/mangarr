@@ -21,7 +21,7 @@ export function ReleaseLine({ chapters, status }: { chapters?: Chapter[]; status
         type="button"
         onClick={() => setOpen(true)}
         title={t("Release schedule")}
-        className="mt-2 inline-flex flex-wrap items-center gap-x-1.5 text-xs text-muted hover:text-fg"
+        className="inline-flex flex-wrap items-center gap-x-1.5 text-sm text-muted hover:text-fg"
       >
         <Clock className="size-3.5" />
         <span>{t("Updated {when}", { when: relative(new Date(schedule.last.at).toISOString()) })}</span>
@@ -35,48 +35,6 @@ export function ReleaseLine({ chapters, status }: { chapters?: Chapter[]; status
       {open && <ReleaseModal schedule={schedule} now={now} onClose={() => setOpen(false)} />}
     </>
   );
-}
-
-/** ReleaseCard: the same as ReleaseLine, as a stat card on the title page. */
-export function ReleaseCard({ chapters, status }: { chapters?: Chapter[]; status: string }) {
-  const now = useNow(60_000);
-  const schedule = useMemo(() => releaseSchedule(chapters, status, now), [chapters, status, now]);
-  const [open, setOpen] = useState(false);
-  if (!schedule) return null;
-  const warn = schedule.state === "late" || schedule.state === "break";
-  return (
-    <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        title={t("Release schedule")}
-        className="flex flex-col gap-0.5 rounded-lg border border-border bg-panel px-4 py-3 text-left hover:border-accent/60"
-      >
-        <span className="flex items-center gap-1.5 text-xs text-muted"><Clock className="size-3.5" />{t("Next chapter")}</span>
-        <span className={warn ? "text-lg font-semibold text-warn" : "text-lg font-semibold"}>{nextHeadline(schedule)}</span>
-        <span className="text-xs text-muted">{t("Updated {when}", { when: relative(new Date(schedule.last.at).toISOString()) })}</span>
-      </button>
-      {open && <ReleaseModal schedule={schedule} now={now} onClose={() => setOpen(false)} />}
-    </>
-  );
-}
-
-function nextHeadline(s: ReleaseSchedule): string {
-  const when = s.next === undefined ? "" : relative(new Date(s.next).toISOString());
-  switch (s.state) {
-    case "regular":
-      return when;
-    case "irregular":
-      return `~${when}`;
-    case "late":
-      return t("next was due {when}", { when });
-    case "break":
-      return t("may be on a break");
-    case "finished":
-      return t("none");
-    default:
-      return t("not sure yet");
-  }
 }
 
 function nextLabel(s: ReleaseSchedule): string | null {
