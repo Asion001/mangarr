@@ -2,8 +2,9 @@ import { useCallback } from "react";
 import { useSearchParams, type SetURLSearchParams } from "react-router";
 
 // Updates made in the same tick (e.g. a filter plus "back to page 1") are
-// applied together: setSearchParams computes from the URL of the last render,
-// so two separate calls would make the second undo the first.
+// applied together, on top of the URL as it is now: setSearchParams's
+// "prev" is the URL of the setter's last render, so a change made before
+// the page re-rendered (two quick picks) would be undone by the next one.
 let pending: { updates: Map<string, string | null>; replace: boolean; set: SetURLSearchParams } | null = null;
 
 function queueParam(set: SetURLSearchParams, name: string, value: string | null, replace: boolean) {
@@ -14,7 +15,7 @@ function queueParam(set: SetURLSearchParams, name: string, value: string | null,
       pending = null;
       p.set(
         (prev) => {
-          const n = new URLSearchParams(prev);
+          const n = new URLSearchParams(typeof window === "undefined" ? prev : window.location.search);
           for (const [k, v] of p.updates) {
             if (v === null) n.delete(k);
             else n.set(k, v);
