@@ -1,13 +1,14 @@
 import { useUIMode, useUIPreferences } from "../../lib/uiPreferences";
 import { t } from "../../lib/i18n/core";
+import { useDocumentTitle } from "../../lib/documentTitle";
 import { useEffect, useState } from "react";
 import clsx from "clsx";
 import { Link } from "react-router";
-import { Check, CheckSquare, Inbox, LayoutGrid, List, PlusCircle, RefreshCw, Search } from "lucide-react";
+import { Check, CheckSquare, Inbox, LayoutGrid, List, PlusCircle, RefreshCw, Search, SlidersHorizontal, X } from "lucide-react";
 import { api, apiUrl, unwrap, type Series } from "../../api/client";
 import { usePushCommand, useRootFolders, useSeriesSearch } from "../../api/queries";
 import { Cover } from "../../components/Cover";
-import { Badge, Button, EmptyState, ErrorBox, Input, Loading, PageHeader, Progress, Select, Table, Td, Th } from "../../components/ui";
+import { Badge, Button, EmptyState, ErrorBox, Input, Loading, Progress, Select, Table, Td, Th } from "../../components/ui";
 import { bytes, date, languageName } from "../../lib/format";
 import { genreName } from "../../lib/genres";
 import { useListParam, useQueryParam, useStoredListParam } from "../../lib/urlState";
@@ -24,6 +25,18 @@ const filters: readonly Filter[] = ["all", "following", "monitored", "missing", 
 const sorts: readonly Sort[] = ["title", "added", "latest", "missing", "size", "read"];
 const pageSizes = ["24", "36", "48", "72"] as const;
 const libraryStateKey = (name: string) => `mangarr:library:${name}`;
+
+const filterLabels: Record<Filter, string> = {
+  all: "All",
+  following: "Following",
+  monitored: "Monitored",
+  missing: "Missing chapters",
+  ongoing: "Ongoing",
+  completed: "Completed",
+  unread: "With unread chapters",
+  reading: "Started reading",
+};
+const filterLabel = (f: Filter) => t(filterLabels[f] as Parameters<typeof t>[0]);
 
 export function statusTone(s: string) {
   return s === "ongoing" ? "ok" : s === "completed" ? "info" : s === "hiatus" ? "warn" : s === "cancelled" ? "err" : "default";
@@ -134,6 +147,23 @@ export function SeriesIndex() {
   const setFilterAndReset = (value: string) => { setFilter(value); setPage("1"); };
   const setSortAndReset = (value: string) => { setSort(value); setPage("1"); };
 
+  useDocumentTitle(t("Series"));
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  // what narrows the list, as chips that clear one at a time
+  const active = [
+    filter !== "all" && { key: "filter", label: filterLabel(filter), clear: () => setFilterAndReset("all") },
+    rootFolderId && { key: "root", label: roots?.find((root) => root.id === rootFolderId)?.path ?? t("Removed library"), clear: () => { setRoot(""); setPage("1"); } },
+    language && { key: "language", label: languageName(language), clear: () => { setLanguage(""); setPage("1"); } },
+    genre && { key: "genre", label: genreName(genre), clear: () => { setGenre(""); setPage("1"); } },
+  ].filter((chip): chip is { key: string; label: string; clear: () => void } => !!chip);
+  const clearFilters = () => {
+    setFilter("all");
+    setRoot("");
+    setLanguage("");
+    setGenre("");
+    setPage("1");
+  };
+
   const setViewPersist = (v: "posters" | "table") => {
     setView(v);
     localStorage.setItem("seriesView", v);
@@ -142,87 +172,127 @@ export function SeriesIndex() {
 
   return (
     <>
-      <PageHeader
-        title={t("Series")}
-        subtitle={data ? `${data.total} series · ${bytes(data.totalSize)}` : undefined}
-        actions={
-          manage || adds ? (
-            <>
-              {manage && <Button icon={<RefreshCw className="size-4" />} onClick={() => push.mutate({ name: "RefreshSources", label: "Checking sources for new chapters" })}>{t("Check now")}</Button>}
-              {adds && (
-                <Link to="/add">
-                  <Button variant="primary" icon={<PlusCircle className="size-4" />}>{t("Add series")}</Button>
-                </Link>
-              )}
-            </>
-          ) : requester ? (
-            <Link to={q ? `/requests?tab=ask&q=${encodeURIComponent(q)}` : "/requests?tab=ask"}>
-              <Button variant="primary" icon={<Inbox className="size-4" />}>{t("Request a title")}</Button>
-            </Link>
-          ) : null
-        }
-      />
+      <div className="mb-5 flex flex-wrap items-center gap-3">
+        <div className="mr-2 flex items-baseline gap-2.5">
+          <h1 className="text-2xl font-semibold">{t("Series")}</h1>
+          {data && <span className="text-sm text-muted">{`${data.total} series · ${bytes(data.totalSize)}`}</span>}
+        </div>
+        <label className="relative min-w-0 flex-[1_1_20rem]">
+          <span className="sr-only">{t("Search the library")}</span>
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
+          <Input type="search" className="h-11 rounded-lg bg-panel pl-10 text-[15px]" placeholder={t("Search titles, alternative titles and genres…")} value={searchDraft} onChange={(e) => setSearchDraft(e.target.value)} />
+        </label>
+        {manage || adds ? (
+          <div className="flex items-center gap-2">
+            {manage && (
+              <Button className="h-10 w-10 px-0" icon={<RefreshCw className="size-4" />} aria-label={t("Check now")} title={t("Check sources for new chapters now")} onClick={() => push.mutate({ name: "RefreshSources", label: "Checking sources for new chapters" })} />
+            )}
+            {adds && (
+              <Link to="/add" className="inline-flex h-10 items-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-white hover:bg-primary-hover">
+                <PlusCircle className="size-4" />{t("Add series")}
+              </Link>
+            )}
+          </div>
+        ) : requester ? (
+          <Link to={q ? `/requests?tab=ask&q=${encodeURIComponent(q)}` : "/requests?tab=ask"} className="inline-flex h-10 items-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-white hover:bg-primary-hover">
+            <Inbox className="size-4" />{t("Request a title")}
+          </Link>
+        ) : null}
+      </div>
       {!q && filter === "all" && !rootFolderId && !language && !genre && <ContinueReading />}
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <div className="relative w-full max-w-xs">
-          <Search className="absolute left-2.5 top-2.5 size-4 text-muted" />
-          <Input className="pl-8" placeholder={t("Search titles, alternative titles and genres…")} value={searchDraft} onChange={(e) => setSearchDraft(e.target.value)} />
-        </div>
-        <Select className="w-auto" value={filter} onChange={(e) => setFilterAndReset(e.target.value)}>
-          <option value="all">{t("All")}</option>
-          <option value="following">{t("Following")}</option>
-          <option value="monitored">{t("Monitored")}</option>
-          <option value="missing">{t("Missing chapters")}</option>
-          <option value="ongoing">{t("Ongoing")}</option>
-          <option value="completed">{t("Completed")}</option>
-          <option value="unread">{t("With unread chapters")}</option>
-          <option value="reading">{t("Started reading")}</option>
-        </Select>
-        <Select className="w-auto" value={sort} onChange={(e) => setSortAndReset(e.target.value)}>
-          <option value="title">{t("Sort: title")}</option>
-          <option value="added">{t("Sort: recently added")}</option>
-          <option value="latest">{t("Sort: latest chapter")}</option>
-          <option value="missing">{t("Sort: missing")}</option>
-          <option value="size">{t("Sort: size")}</option>
-          <option value="read">{t("Sort: recently read")}</option>
-        </Select>
-        {/* a remembered filter stays visible, so it can be cleared even when it no longer applies */}
-        {((roots?.length ?? 0) > 1 || rootParam !== "") && (
-          <Select className="w-auto max-w-xs" value={rootParam} onChange={(e) => { setRoot(e.target.value); setPage("1"); }}>
-            <option value="">{t("All libraries")}</option>
-            {rootParam !== "" && !roots?.some((root) => String(root.id) === rootParam) && <option value={rootParam}>{t("Removed library")}</option>}
-            {roots?.map((root) => <option key={root.id} value={root.id}>{root.path}</option>)}
-          </Select>
-        )}
-        {((data?.languages?.length ?? 0) > 1 || language !== "") && (
-          <Select className="w-auto" value={language} onChange={(e) => { setLanguage(e.target.value); setPage("1"); }}>
-            <option value="">{t("All languages")}</option>
-            {language !== "" && !data?.languages?.includes(language) && <option value={language}>{languageName(language)}</option>}
-            {data?.languages?.map((item) => <option key={item} value={item}>{languageName(item)}</option>)}
-          </Select>
-        )}
-        {((data?.genres?.length ?? 0) > 0 || genre !== "") && (
-          <Select className="w-auto max-w-xs" value={genre} onChange={(e) => { setGenre(e.target.value); setPage("1"); }}>
-            <option value="">{t("All genres and tags")}</option>
-            {genre !== "" && !data?.genres?.includes(genre) && <option value={genre}>{genreName(genre)}</option>}
-            {[...(data?.genres ?? [])].sort((a, b) => genreName(a).localeCompare(genreName(b))).map((item) => <option key={item} value={item}>{genreName(item)}</option>)}
-          </Select>
-        )}
-        <div className="ml-auto flex gap-1">
-          {manage && (
-            <Button
-              size="sm"
-              variant={selecting ? "primary" : "secondary"}
-              icon={<CheckSquare className="size-3.5" />}
-              onClick={() => (setSelecting(!selecting), setSelected(new Map()))}
-            >{t("Select")}</Button>
+      <div className="mb-4 flex flex-col gap-3 border-t border-border pt-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant={filtersOpen ? "primary" : "secondary"}
+            icon={<SlidersHorizontal className="size-4" />}
+            aria-expanded={filtersOpen}
+            aria-controls="library-filters"
+            onClick={() => setFiltersOpen(!filtersOpen)}
+          >
+            {t("Filters")}
+            {active.length > 0 && <span className="ml-0.5 inline-flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-accent px-1 text-[11px] font-semibold text-white">{active.length}</span>}
+          </Button>
+          {active.map((chip) => (
+            <span key={chip.key} className="inline-flex h-7 items-center gap-1 rounded-md border border-border bg-panel-2 pl-2.5 pr-1 text-xs">
+              {chip.label}
+              <button type="button" onClick={chip.clear} aria-label={t("Remove filter {name}", { name: chip.label })} className="inline-flex size-5 items-center justify-center rounded text-muted hover:bg-border hover:text-fg">
+                <X className="size-3" />
+              </button>
+            </span>
+          ))}
+          {active.length > 1 && (
+            <button type="button" onClick={clearFilters} className="px-1 text-xs font-medium text-accent-2 hover:underline">{t("Clear all")}</button>
           )}
-          {selecting && (
-            <Button size="sm" onClick={() => setSelected((cur) => new Map([...cur, ...list.map((s) => [s.id, s.title] as [number, string])]))}>{t("All shown")}</Button>
-          )}
-          <Button variant={view === "posters" ? "primary" : "secondary"} size="sm" onClick={() => setViewPersist("posters")} icon={<LayoutGrid className="size-3.5" />} />
-          <Button variant={view === "table" ? "primary" : "secondary"} size="sm" onClick={() => setViewPersist("table")} icon={<List className="size-3.5" />} />
+          <div className="ml-auto flex items-center gap-2">
+            <Select aria-label={t("Sort")} className="w-auto" value={sort} onChange={(e) => setSortAndReset(e.target.value)}>
+              <option value="title">{t("Sort: title")}</option>
+              <option value="added">{t("Sort: recently added")}</option>
+              <option value="latest">{t("Sort: latest chapter")}</option>
+              <option value="missing">{t("Sort: missing")}</option>
+              <option value="size">{t("Sort: size")}</option>
+              <option value="read">{t("Sort: recently read")}</option>
+            </Select>
+            {manage && (
+              <Button
+                variant={selecting ? "primary" : "secondary"}
+                icon={<CheckSquare className="size-4" />}
+                onClick={() => (setSelecting(!selecting), setSelected(new Map()))}
+              >{t("Select")}</Button>
+            )}
+            {selecting && (
+              <Button onClick={() => setSelected((cur) => new Map([...cur, ...list.map((s) => [s.id, s.title] as [number, string])]))}>{t("All shown")}</Button>
+            )}
+            <div className="inline-flex overflow-hidden rounded-md border border-border" role="group" aria-label={t("View")}>
+              <button type="button" aria-pressed={view === "posters"} aria-label={t("Posters")} onClick={() => setViewPersist("posters")} className={clsx("inline-flex h-9 w-9 items-center justify-center", view === "posters" ? "bg-border text-fg" : "bg-panel text-muted hover:text-fg")}>
+                <LayoutGrid className="size-4" />
+              </button>
+              <button type="button" aria-pressed={view === "table"} aria-label={t("Table")} onClick={() => setViewPersist("table")} className={clsx("inline-flex h-9 w-9 items-center justify-center", view === "table" ? "bg-border text-fg" : "bg-panel text-muted hover:text-fg")}>
+                <List className="size-4" />
+              </button>
+            </div>
+          </div>
         </div>
+        {filtersOpen && (
+          <div id="library-filters" className="grid grid-cols-1 gap-3 rounded-lg border border-border bg-panel p-4 sm:grid-cols-2 lg:grid-cols-4">
+            <label className="flex flex-col gap-1 text-xs text-muted">
+              {t("Show")}
+              <Select value={filter} onChange={(e) => setFilterAndReset(e.target.value)}>
+                {filters.map((f) => <option key={f} value={f}>{filterLabel(f)}</option>)}
+              </Select>
+            </label>
+            {/* a remembered filter stays visible, so it can be cleared even when it no longer applies */}
+            {((roots?.length ?? 0) > 1 || rootParam !== "") && (
+              <label className="flex flex-col gap-1 text-xs text-muted">
+                {t("Library")}
+                <Select value={rootParam} onChange={(e) => { setRoot(e.target.value); setPage("1"); }}>
+                  <option value="">{t("All libraries")}</option>
+                  {rootParam !== "" && !roots?.some((root) => String(root.id) === rootParam) && <option value={rootParam}>{t("Removed library")}</option>}
+                  {roots?.map((root) => <option key={root.id} value={root.id}>{root.path}</option>)}
+                </Select>
+              </label>
+            )}
+            {((data?.languages?.length ?? 0) > 1 || language !== "") && (
+              <label className="flex flex-col gap-1 text-xs text-muted">
+                {t("Language")}
+                <Select value={language} onChange={(e) => { setLanguage(e.target.value); setPage("1"); }}>
+                  <option value="">{t("All languages")}</option>
+                  {language !== "" && !data?.languages?.includes(language) && <option value={language}>{languageName(language)}</option>}
+                  {data?.languages?.map((item) => <option key={item} value={item}>{languageName(item)}</option>)}
+                </Select>
+              </label>
+            )}
+            {((data?.genres?.length ?? 0) > 0 || genre !== "") && (
+              <label className="flex flex-col gap-1 text-xs text-muted">
+                {t("Genres and tags")}
+                <Select value={genre} onChange={(e) => { setGenre(e.target.value); setPage("1"); }}>
+                  <option value="">{t("All genres and tags")}</option>
+                  {genre !== "" && !data?.genres?.includes(genre) && <option value={genre}>{genreName(genre)}</option>}
+                  {[...(data?.genres ?? [])].sort((a, b) => genreName(a).localeCompare(genreName(b))).map((item) => <option key={item} value={item}>{genreName(item)}</option>)}
+                </Select>
+              </label>
+            )}
+          </div>
+        )}
       </div>
       {/* the bar's row is always there so showing it never moves the list; it only shows while a new filter or page loads, not on live refreshes */}
       <div className={clsx("mb-2 h-0.5 overflow-hidden rounded", isPlaceholderData ? "bg-panel-2" : "invisible")} aria-hidden={!isPlaceholderData}><div className="h-full w-1/3 animate-pulse rounded bg-accent" /></div>
