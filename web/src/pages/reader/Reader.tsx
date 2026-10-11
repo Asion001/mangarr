@@ -323,7 +323,7 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
           <button
             type="button"
             className="rounded p-2 hover:bg-panel-2"
-            onClick={() => toast.info(t("Safari can't go full screen here"), t("Tap Share, then Add to Home Screen, and open mangarr from there to read without the browser bars."))}
+            onClick={() => toast.info(t("iPhone browsers can't go full screen"), t("Tap Share, then Add to Home Screen, and open mangarr from there to read without the browser bars."))}
             aria-label={t("Full screen")}
           >
             <Maximize className="size-5" />

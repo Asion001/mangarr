@@ -9,6 +9,7 @@ const chapter = {
 };
 
 const iPhone = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1";
+const iPhoneChrome = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/141.0.0.0 Mobile/15E148 Safari/604.1";
 
 async function mock(page: Page, standalone: boolean) {
   // iPhone Safari: no Fullscreen API for pages, and navigator.standalone when opened from the Home Screen
@@ -26,7 +27,7 @@ async function mock(page: Page, standalone: boolean) {
   });
 }
 
-test.describe("on iPhone Safari", () => {
+test.describe("in an iPhone browser", () => {
   test.use({ userAgent: iPhone, viewport: { width: 390, height: 844 } });
 
   test("the full screen button explains Add to Home Screen", async ({ page }) => {
@@ -34,7 +35,7 @@ test.describe("on iPhone Safari", () => {
     await page.goto("/read/1");
     await expect(page.getByText("1 / 3")).toBeVisible();
     await page.getByRole("button", { name: "Full screen" }).click();
-    await expect(page.getByText("Safari can't go full screen here")).toBeVisible();
+    await expect(page.getByText("iPhone browsers can't go full screen")).toBeVisible();
     await expect(page.getByText(/Add to Home Screen/)).toBeVisible();
   });
 
@@ -43,5 +44,17 @@ test.describe("on iPhone Safari", () => {
     await page.goto("/read/1");
     await expect(page.getByText("1 / 3")).toBeVisible();
     await expect(page.getByRole("button", { name: "Full screen" })).toHaveCount(0);
+  });
+});
+
+test.describe("in Chrome on iPhone", () => {
+  test.use({ userAgent: iPhoneChrome, viewport: { width: 390, height: 844 } });
+
+  test("the full screen button explains Add to Home Screen too", async ({ page }) => {
+    await mock(page, false);
+    await page.goto("/read/1");
+    await expect(page.getByText("1 / 3")).toBeVisible();
+    await page.getByRole("button", { name: "Full screen" }).click();
+    await expect(page.getByText("iPhone browsers can't go full screen")).toBeVisible();
   });
 });

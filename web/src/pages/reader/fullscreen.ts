@@ -6,14 +6,14 @@ type WebkitElement = HTMLElement & { webkitRequestFullscreen?: () => void };
 
 const doc = () => document as WebkitDocument;
 
-/** canFullscreen says whether the browser lets a page go full screen (iPhone Safari doesn't). */
+/** canFullscreen says whether the browser lets a page go full screen (no iPhone browser does: they all run on Safari's engine). */
 export function canFullscreen() {
   return !!(document.fullscreenEnabled || doc().webkitFullscreenEnabled);
 }
 
 /**
- * needsHomeScreen says full screen is missing only because this is iPhone Safari
- * in a tab: opened from the Home Screen the app has no browser bars at all.
+ * needsHomeScreen says full screen is missing only because this is a browser tab on iPhone
+ * (Safari, Chrome, any of them): opened from the Home Screen the app has no browser bars at all.
  */
 export function needsHomeScreen() {
   if (canFullscreen()) return false;
