@@ -209,7 +209,7 @@ export function Layout() {
 
   const sidebar = (mobile = false) => {
     const compact = collapsed && !mobile;
-    return <div className="flex h-full min-h-0 flex-col p-3 text-sm" style={mobile ? {paddingTop:"max(0.75rem, env(safe-area-inset-top))",paddingBottom:"max(0.75rem, env(safe-area-inset-bottom))"} : undefined}>
+    return <div className="flex h-full min-h-0 flex-col p-3 text-sm" style={mobile ? {paddingTop:"max(0.75rem, var(--safe-top))",paddingBottom:"max(0.75rem, env(safe-area-inset-bottom))"} : undefined}>
       <div className="mb-3 flex shrink-0 items-center gap-2 px-1">
         {!compact && <><img src="./favicon.svg" className="size-7" alt="" /><span className="flex-1 truncate text-lg font-semibold">{siteName}</span></>}
         <button className="rounded p-2 text-muted hover:bg-panel-2 hover:text-fg" aria-label={mobile?t("Close navigation"):compact?t("Expand navigation"):t("Collapse navigation")} title={mobile?t("Close navigation"):compact?t("Expand navigation"):t("Collapse navigation")} onClick={()=>{
@@ -258,7 +258,7 @@ export function Layout() {
   };
 
   // --nav-width lets fixed bars in pages line up with the content column
-  return <div className="flex h-dvh overflow-hidden" style={{"--nav-width":collapsed?"4rem":"15rem",padding:"env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)"} as CSSProperties}>
+  return <div className="flex h-dvh overflow-hidden" style={{"--nav-width":collapsed?"4rem":"15rem",padding:"var(--safe-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)"} as CSSProperties}>
     <aside data-testid="desktop-navigation" className={clsx("hidden shrink-0 border-r border-border bg-panel md:block",collapsed?"w-16":"w-60")}>{sidebar()}</aside>
     {open&&<div className="fixed inset-0 z-40 bg-black/60 md:hidden" onClick={()=>setOpen(false)}>
       <aside ref={drawer} role="dialog" aria-modal="true" aria-label={t("Navigation")} className="h-dvh w-72 max-w-[85vw] border-r border-border bg-panel" onClick={e=>e.stopPropagation()}>{sidebar(true)}</aside>

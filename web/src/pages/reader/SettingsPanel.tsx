@@ -63,7 +63,7 @@ export function SettingsPanel({
   return (
     <div
       className="absolute inset-y-0 right-0 z-30 flex w-full max-w-sm flex-col overflow-y-auto border-l border-border bg-bg/95 p-4 text-fg backdrop-blur"
-      style={{ paddingTop: "max(1rem, env(safe-area-inset-top))", paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
+      style={{ paddingTop: "max(1rem, var(--safe-top))", paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
       onClick={(e) => e.stopPropagation()}
       onPointerUp={(e) => e.stopPropagation()}
     >

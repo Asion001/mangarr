@@ -27,8 +27,20 @@ html, body, #root { height: 100%; }
 /* An iOS 26 home screen app sizes a page no taller than the screen to the
    small viewport, which stops short of the screen's bottom edge, and leaves
    the strip below it unpainted (a bar in the body color under the reader).
-   A root as tall as the large viewport makes it use the whole screen. */
-@media (display-mode: standalone) { html { height: 100lvh; } }
+   A root as tall as the large viewport makes it use the whole screen. Newer
+   iOS then lets that taller page sit scrolled a status bar down, so the page
+   itself doesn't scroll there: #root does. */
+@media (display-mode: standalone) {
+  html { height: 100lvh; overflow: hidden; }
+  #root { overflow-y: auto; }
+}
+/* The same app blurs the screen's top edge down to about 2.5rem below the
+   status bar, over the page itself, so top bars start below that strip
+   there. Use var(--safe-top) for the top inset everywhere. */
+:root { --safe-top: env(safe-area-inset-top); }
+@media (display-mode: standalone) and (orientation: portrait) {
+  :root { --safe-top: calc(env(safe-area-inset-top) + 2.5rem); }
+}
 body { font-family: var(--font-sans); }
 ::selection { background: color-mix(in oklab, var(--color-accent) 40%, transparent); }
 * { scrollbar-color: var(--color-border) transparent; }
