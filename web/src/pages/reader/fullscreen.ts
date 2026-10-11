@@ -11,6 +11,16 @@ export function canFullscreen() {
   return !!(document.fullscreenEnabled || doc().webkitFullscreenEnabled);
 }
 
+/**
+ * needsHomeScreen says full screen is missing only because this is iPhone Safari
+ * in a tab: opened from the Home Screen the app has no browser bars at all.
+ */
+export function needsHomeScreen() {
+  if (canFullscreen()) return false;
+  const standalone = matchMedia("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
+  return !standalone && /iPhone|iPod/.test(navigator.userAgent);
+}
+
 function isFullscreen() {
   return !!(document.fullscreenElement || doc().webkitFullscreenElement);
 }

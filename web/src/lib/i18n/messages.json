@@ -9386,5 +9386,13 @@
   "Also known as": {
     "ru": "Другие названия",
     "uk": "Інші назви"
+  },
+  "Safari can't go full screen here": {
+    "ru": "Safari не умеет полноэкранный режим здесь",
+    "uk": "Safari не вміє повноекранний режим тут"
+  },
+  "Tap Share, then Add to Home Screen, and open mangarr from there to read without the browser bars.": {
+    "ru": "Нажмите «Поделиться», затем «На экран „Домой“» и откройте mangarr оттуда, чтобы читать без панелей браузера.",
+    "uk": "Натисніть «Поширити», потім «На початковий екран» і відкрийте mangarr звідти, щоб читати без панелей браузера."
   }
 }

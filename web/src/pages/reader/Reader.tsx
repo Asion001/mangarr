@@ -16,7 +16,8 @@ import { ChapterPicker } from "./ChapterPicker";
 import { ImagePreloader, useImagePreload } from "./preload";
 import { useReadingTime } from "./time";
 import { TapZones } from "./TapZones";
-import { canFullscreen, toggleFullscreen as toggleFull, useFullscreen } from "./fullscreen";
+import { canFullscreen, needsHomeScreen, toggleFullscreen as toggleFull, useFullscreen } from "./fullscreen";
+import { useToast } from "../../lib/toast";
 
 const chapterQuery = (id: number) => ({
   queryKey: ["read-chapter", id],
@@ -52,6 +53,7 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
   const [panel, setPanel] = useState(false);
   const [pickingChapter, setPickingChapter] = useState(false);
   const full = useFullscreen();
+  const toast = useToast();
 
   // where to start: ?page=, else where you left off
   useEffect(() => {
@@ -317,6 +319,16 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
         <button type="button" className="rounded p-2 hover:bg-panel-2" onClick={() => setPickingChapter(true)} aria-label={t("Choose chapter")}>
           <List className="size-5" />
         </button>
+        {needsHomeScreen() && (
+          <button
+            type="button"
+            className="rounded p-2 hover:bg-panel-2"
+            onClick={() => toast.info(t("Safari can't go full screen here"), t("Tap Share, then Add to Home Screen, and open mangarr from there to read without the browser bars."))}
+            aria-label={t("Full screen")}
+          >
+            <Maximize className="size-5" />
+          </button>
+        )}
         {canFullscreen() && (
           <button type="button" className="rounded p-2 hover:bg-panel-2" onClick={toggleFull} aria-label={t("Full screen")}>
             {full ? <Minimize className="size-5" /> : <Maximize className="size-5" />}
