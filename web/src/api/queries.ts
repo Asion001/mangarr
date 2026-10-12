@@ -33,7 +33,8 @@ export type SeriesSearchQuery = {
   sort?: "title" | "added" | "latest" | "missing" | "size" | "read";
   rootFolderId?: number;
   language?: string;
-  genre?: string;
+  genre?: string[];
+  genreMatch?: "all" | "any";
   page?: number;
   pageSize?: number;
 };

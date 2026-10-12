@@ -25,17 +25,20 @@ type SeriesSearchResponse struct {
 	Languages []string         `json:"languages"`
 	// Genres are the genres and tags of the visible series, most common first.
 	Genres []string `json:"genres"`
+	// GenreCounts says how many visible series have each of Genres.
+	GenreCounts map[string]int `json:"genreCounts"`
 }
 
 type SeriesSearchQuery struct {
-	Query        string `query:"q" maxLength:"200"`
-	Filter       string `query:"filter" enum:"all,following,monitored,missing,ongoing,completed,unread,reading" default:"all"`
-	Sort         string `query:"sort" enum:"title,added,latest,missing,size,read" default:"title"`
-	RootFolderID int64  `query:"rootFolderId,omitempty"`
-	Language     string `query:"language,omitempty" maxLength:"20"`
-	Genre        string `query:"genre,omitempty" maxLength:"100" doc:"Only series with this genre or tag"`
-	Page         int    `query:"page" minimum:"1" default:"1"`
-	PageSize     int    `query:"pageSize" minimum:"12" maximum:"100" default:"36"`
+	Query        string   `query:"q" maxLength:"200"`
+	Filter       string   `query:"filter" enum:"all,following,monitored,missing,ongoing,completed,unread,reading" default:"all"`
+	Sort         string   `query:"sort" enum:"title,added,latest,missing,size,read" default:"title"`
+	RootFolderID int64    `query:"rootFolderId,omitempty"`
+	Language     string   `query:"language,omitempty" maxLength:"20"`
+	Genres       []string `query:"genre,omitempty,explode" maxItems:"50" doc:"Only series with these genres or tags; repeat the parameter for each"`
+	GenreMatch   string   `query:"genreMatch" enum:"all,any" default:"all" doc:"Whether a series needs all the genres or any one of them"`
+	Page         int      `query:"page" minimum:"1" default:"1"`
+	PageSize     int      `query:"pageSize" minimum:"12" maximum:"100" default:"36"`
 	// AcceptLanguage picks which edition's name and cover a title shows.
 	AcceptLanguage string `header:"Accept-Language"`
 }
@@ -49,6 +52,26 @@ func hasGenre(md model.SeriesMetadata, genre string) bool {
 		}
 	}
 	return false
+}
+
+// hasGenres says whether a series has all the genres, or with any set at
+// least one of them; no genres match every series.
+func hasGenres(md model.SeriesMetadata, list []string, any bool) bool {
+	asked := false
+	for _, genre := range list {
+		if strings.TrimSpace(genre) == "" {
+			continue
+		}
+		asked = true
+		has := hasGenre(md, genre)
+		if any && has {
+			return true
+		}
+		if !any && !has {
+			return false
+		}
+	}
+	return !any || !asked
 }
 
 // titleMatches says whether a title contains the lowercased needle, also
@@ -94,7 +117,7 @@ func matchesSeriesQuery(item SeriesResource, query SeriesSearchQuery) bool {
 	if query.Language != "" && item.Language != query.Language {
 		return false
 	}
-	if query.Genre != "" && !hasGenre(item.Metadata, query.Genre) {
+	if !hasGenres(item.Metadata, query.Genres, query.GenreMatch == "any") {
 		return false
 	}
 	switch query.Filter {
@@ -234,7 +257,7 @@ func (s *Server) registerSeriesSearch() {
 				return genreCount[a] > genreCount[b] || genreCount[a] == genreCount[b] && a < b
 			})
 			return &struct{ Body SeriesSearchResponse }{SeriesSearchResponse{
-				Items: items[start:end], Page: page, PageSize: pageSize, Total: total, TotalSize: totalSize, Languages: langs, Genres: genreList,
+				Items: items[start:end], Page: page, PageSize: pageSize, Total: total, TotalSize: totalSize, Languages: langs, Genres: genreList, GenreCounts: genreCount,
 			}}, nil
 		})
 }

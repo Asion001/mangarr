@@ -6554,6 +6554,9 @@ export interface components {
             workTitle?: string;
         };
         SeriesSearchResponse: {
+            genreCounts: {
+                [key: string]: number;
+            };
             genres: string[];
             items: components["schemas"]["SeriesResource"][];
             languages: string[];
@@ -12424,8 +12427,10 @@ export interface operations {
                 sort?: "title" | "added" | "latest" | "missing" | "size" | "read";
                 rootFolderId?: number;
                 language?: string;
-                /** @description Only series with this genre or tag */
-                genre?: string;
+                /** @description Only series with these genres or tags; repeat the parameter for each */
+                genre?: string[];
+                /** @description Whether a series needs all the genres or any one of them */
+                genreMatch?: "all" | "any";
                 page?: number;
                 pageSize?: number;
             };

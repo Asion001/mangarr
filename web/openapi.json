@@ -9433,6 +9433,13 @@
       "SeriesSearchResponse": {
         "additionalProperties": false,
         "properties": {
+          "genreCounts": {
+            "additionalProperties": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "type": "object"
+          },
           "genres": {
             "items": {
               "type": "string"
@@ -9475,7 +9482,8 @@
           "total",
           "totalSize",
           "languages",
-          "genres"
+          "genres",
+          "genreCounts"
         ],
         "type": "object"
       },
@@ -19442,13 +19450,31 @@
             }
           },
           {
-            "description": "Only series with this genre or tag",
-            "explode": false,
+            "description": "Only series with these genres or tags; repeat the parameter for each",
+            "explode": true,
             "in": "query",
             "name": "genre",
             "schema": {
-              "description": "Only series with this genre or tag",
-              "maxLength": 100,
+              "description": "Only series with these genres or tags; repeat the parameter for each",
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 50,
+              "type": "array"
+            }
+          },
+          {
+            "description": "Whether a series needs all the genres or any one of them",
+            "explode": false,
+            "in": "query",
+            "name": "genreMatch",
+            "schema": {
+              "default": "all",
+              "description": "Whether a series needs all the genres or any one of them",
+              "enum": [
+                "all",
+                "any"
+              ],
               "type": "string"
             }
           },

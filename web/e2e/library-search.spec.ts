@@ -11,7 +11,7 @@ test('searches, scopes and paginates the library through the server query',async
     if(p.endsWith('/series/search')) {
       seen.push(url.search);
       const title=url.searchParams.get('q')?'Moonlight Alternative':'Moonlight';
-      return route.fulfill({json:{page:Number(url.searchParams.get('page')||1),pageSize:36,total:80,totalSize:1234,languages:['en','uk'],genres:['Romance','Action'],items:[{
+      return route.fulfill({json:{page:Number(url.searchParams.get('page')||1),pageSize:36,total:80,totalSize:1234,languages:['en','uk'],genres:['Romance','Action','Horror'],genreCounts:{Romance:4,Action:3,Horror:1},items:[{
         id:1,title,sortTitle:'moonlight',status:'ongoing',monitored:true,monitorNew:'all',rootFolderId:1,path:'Moonlight',profileId:1,language:'en',sourcePriorityMode:'inherit',readingDirection:'rtl',tags:[],metadata:{altTitles:['Luna']},addOptions:{pending:false},addedAt:'2026-09-17T00:00:00Z',updatedAt:'2026-09-17T00:00:00Z',coverUrl:'',following:false,
         stats:{chapterCount:10,monitoredCount:10,fileCount:8,missingCount:2,cleanedCount:0,sizeOnDisk:1234,spaceSaved:0,lastChapter:10,readCount:2,inProgressCount:1}
       }]}});
@@ -30,7 +30,25 @@ test('searches, scopes and paginates the library through the server query',async
   await panel.getByLabel('Sort').selectOption('latest');
   await panel.getByLabel('Library').selectOption('2');
   await panel.getByLabel('Language').selectOption('uk');
-  await panel.getByLabel('Genres and tags').selectOption('Romance');
+  // genres: type to narrow the list, tick several, they must all match unless switched to any
+  const genres=panel.getByRole('combobox',{name:'Genres and tags'});
+  await genres.fill('rom');
+  const list=panel.getByRole('listbox',{name:'Genres and tags'});
+  await expect(list.getByRole('option')).toHaveCount(1);
+  await list.getByRole('option',{name:/Romance/}).click();
+  await genres.fill('');
+  await expect(list.getByRole('option',{name:/Romance/})).toHaveAttribute('aria-selected','true');
+  await genres.press('ArrowDown');
+  await genres.press('Enter');
+  await expect(panel.getByRole('button',{name:'Remove Action'})).toBeVisible();
+  await expect.poll(()=>seen.some(value=>value.includes('genre=Romance&genre=Action')&&!value.includes('genreMatch'))).toBe(true);
+  await panel.getByRole('radio',{name:'Any of them'}).click();
+  await expect.poll(()=>seen.some(value=>value.includes('genreMatch=any'))).toBe(true);
+  await genres.press('Escape');
+  await expect(list).toHaveCount(0);
+  await expect(panel).toBeVisible();
+  await expect(page.getByRole('button',{name:'Remove filter Romance'})).toBeVisible();
+  await expect(page.getByText('has any of these')).toBeVisible();
   await page.getByRole('combobox').last().selectOption('48');
   await expect.poll(()=>seen.some(value=>value.includes('filter=reading')&&value.includes('sort=latest')&&value.includes('rootFolderId=2')&&value.includes('language=uk')&&value.includes('genre=Romance')&&value.includes('pageSize=48'))).toBe(true);
   await page.getByRole('button',{name:'Next',exact:true}).click();

@@ -9,6 +9,7 @@ import { api, apiUrl, unwrap, type Series } from "../../api/client";
 import { usePushCommand, useRootFolders, useSeriesSearch } from "../../api/queries";
 import { Cover } from "../../components/Cover";
 import { Badge, Button, EmptyState, ErrorBox, Input, Loading, Progress, Select, Table, Td, Th } from "../../components/ui";
+import { GenrePicker, type GenreMatch } from "./GenrePicker";
 import { bytes, date, languageName } from "../../lib/format";
 import { genreName } from "../../lib/genres";
 import { useListParam, useQueryParam, useStoredListParam } from "../../lib/urlState";
@@ -79,7 +80,13 @@ export function SeriesIndex() {
   const setSort = (v: string) => { setSortOnly(v); void saveUI({ options: { librarySort: v } }).catch(() => undefined); };
   const [rootParam, setRoot] = useStoredListParam("root", "", libraryStateKey("root"));
   const [language, setLanguage] = useStoredListParam("language", "", libraryStateKey("language"));
-  const [genre, setGenre] = useListParam("genre");
+  // the picked genres share one parameter in the page address, comma-separated
+  const [genreParam, setGenreParam] = useListParam("genre");
+  const [matchParam, setMatch] = useListParam("genreMatch", "all");
+  const genres = genreParam ? genreParam.split(",").filter(Boolean) : [];
+  const genreMatch: GenreMatch = matchParam === "any" ? "any" : "all";
+  const setGenres = (list: string[]) => { setGenreParam(list.join(",")); setPage("1"); };
+  const genreQuery = { genre: genres.length ? genres : undefined, genreMatch: genres.length > 1 && genreMatch === "any" ? ("any" as const) : undefined };
   const [pageParam, setPage] = useListParam("page", "1");
   const [pageSizeParam, setPageSizeOnly] = useStoredListParam("pageSize", ui.libraryPageSize && (pageSizes as readonly string[]).includes(ui.libraryPageSize) ? ui.libraryPageSize : "36", libraryStateKey("pageSize"), pageSizes);
   const setPageSize = (v: string) => { setPageSizeOnly(v); void saveUI({ options: { libraryPageSize: v } }).catch(() => undefined); };
@@ -98,7 +105,7 @@ export function SeriesIndex() {
     }, 250);
     return () => window.clearTimeout(timeout);
   }, [searchDraft, q]);
-  const { data, isLoading, isPlaceholderData, error } = useSeriesSearch({ q: q || undefined, filter, sort, rootFolderId, language: language || undefined, genre: genre || undefined, page, pageSize });
+  const { data, isLoading, isPlaceholderData, error } = useSeriesSearch({ q: q || undefined, filter, sort, rootFolderId, language: language || undefined, ...genreQuery, page, pageSize });
   useEffect(() => {
     if (!data?.total) return;
     const last = Math.max(1, Math.ceil(data.total / pageSize));
@@ -111,7 +118,7 @@ export function SeriesIndex() {
   const [selectingAll, setSelectingAll] = useState(false);
   useEffect(()=>{if(!manage){setSelecting(false);setSelected(new Map());}},[manage]);
   // a shift-click range starts on this page, not where the last one was clicked
-  useEffect(() => setLastClicked(null), [q, filter, sort, rootFolderId, language, genre, page, pageSize]);
+  useEffect(() => setLastClicked(null), [q, filter, sort, rootFolderId, language, genreParam, genreMatch, page, pageSize]);
   /** toggle flips one series; shift+click sets the whole range from the last click the same way. */
   const toggle = (idx: number, shift = false) => {
     const s = list[idx];
@@ -130,7 +137,7 @@ export function SeriesIndex() {
     try {
       const all = new Map<number, string>();
       for (let p = 1; ; p++) {
-        const r = await unwrap(api.GET("/api/v1/series/search", { params: { query: { q: q || undefined, filter, sort, rootFolderId, language: language || undefined, genre: genre || undefined, page: p, pageSize: 100 } } }));
+        const r = await unwrap(api.GET("/api/v1/series/search", { params: { query: { q: q || undefined, filter, sort, rootFolderId, language: language || undefined, ...genreQuery, page: p, pageSize: 100 } } }));
         r.items.forEach((s) => all.set(s.id, s.title));
         if (r.items.length < 100 || all.size >= r.total) break;
       }
@@ -171,13 +178,14 @@ export function SeriesIndex() {
     filter !== "all" && { key: "filter", label: filterLabel(filter), clear: () => setFilterAndReset("all") },
     rootFolderId && { key: "root", label: roots?.find((root) => root.id === rootFolderId)?.path ?? t("Removed library"), clear: () => { setRoot(""); setPage("1"); } },
     language && { key: "language", label: languageName(language), clear: () => { setLanguage(""); setPage("1"); } },
-    genre && { key: "genre", label: genreName(genre), clear: () => { setGenre(""); setPage("1"); } },
+    ...genres.map((g) => ({ key: `genre:${g}`, label: genreName(g), clear: () => setGenres(genres.filter((x) => x !== g)) })),
   ].filter((chip): chip is { key: string; label: string; clear: () => void } => !!chip);
   const clearFilters = () => {
     setFilter("all");
     setRoot("");
     setLanguage("");
-    setGenre("");
+    setGenreParam("");
+    setMatch("all");
     setPage("1");
   };
 
@@ -253,15 +261,8 @@ export function SeriesIndex() {
                   </Select>
                 </label>
               )}
-              {((data?.genres?.length ?? 0) > 0 || genre !== "") && (
-                <label className="flex flex-col gap-1 text-xs text-muted">
-                  {t("Genres and tags")}
-                  <Select value={genre} onChange={(e) => { setGenre(e.target.value); setPage("1"); }}>
-                    <option value="">{t("All genres and tags")}</option>
-                    {genre !== "" && !data?.genres?.includes(genre) && <option value={genre}>{genreName(genre)}</option>}
-                    {[...(data?.genres ?? [])].sort((a, b) => genreName(a).localeCompare(genreName(b))).map((item) => <option key={item} value={item}>{genreName(item)}</option>)}
-                  </Select>
-                </label>
+              {((data?.genres?.length ?? 0) > 0 || genres.length > 0) && (
+                <GenrePicker genres={data?.genres ?? []} counts={data?.genreCounts} value={genres} onChange={setGenres} match={genreMatch} onMatch={(m) => { setMatch(m); setPage("1"); }} />
               )}
               <div className="flex items-center justify-between gap-3 text-xs text-muted">
                 {t("View")}
@@ -304,6 +305,7 @@ export function SeriesIndex() {
               </button>
             </span>
           ))}
+          {genres.length > 1 && <span className="px-1 text-xs text-muted">{genreMatch === "all" ? t("has all of these") : t("has any of these")}</span>}
           {active.length > 1 && (
             <button type="button" onClick={clearFilters} className="px-1.5 text-xs text-muted hover:text-fg">{t("Clear all")}</button>
           )}
@@ -315,7 +317,7 @@ export function SeriesIndex() {
           )}
         </div>
       )}
-      {!q && filter === "all" && !rootFolderId && !language && !genre && <ContinueReading />}
+      {!q && filter === "all" && !rootFolderId && !language && !genres.length && <ContinueReading />}
       {/* the bar's row is always there so showing it never moves the list; it only shows while a new filter or page loads, not on live refreshes */}
       <div className={clsx("mb-2 h-0.5 overflow-hidden rounded", isPlaceholderData ? "bg-panel-2" : "invisible")} aria-hidden={!isPlaceholderData}><div className="h-full w-1/3 animate-pulse rounded bg-accent" /></div>
       {isLoading && <Loading />}
@@ -326,7 +328,7 @@ export function SeriesIndex() {
           <Button size="sm" variant="ghost" loading={selectingAll} onClick={() => void selectAllMatching()}>{t("Select all {count} matching", { count: data.total })}</Button>
         </div>
       )}
-      {data && data.total === 0 && !q && filter === "all" && !rootFolderId && !language && !genre && (
+      {data && data.total === 0 && !q && filter === "all" && !rootFolderId && !language && !genres.length && (
         account.isAdmin ? (
           <SetupChecklist />
         ) : (
@@ -341,7 +343,7 @@ export function SeriesIndex() {
           </EmptyState>
         )
       )}
-      {data && data.total === 0 && (q || filter !== "all" || rootFolderId || language || genre) && (
+      {data && data.total === 0 && (q || filter !== "all" || rootFolderId || language || genres.length > 0) && (
         <EmptyState title={t("No series match these filters")}>{t("Try a shorter title or clear one of the filters.")}</EmptyState>
       )}
       {view === "posters" ? (

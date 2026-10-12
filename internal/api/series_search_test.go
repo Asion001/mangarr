@@ -83,12 +83,17 @@ func TestLocalEditionFollowsInterfaceLanguage(t *testing.T) {
 func TestMatchesSeriesQueryByGenre(t *testing.T) {
 	item := searchSeries(1, "Moonlit Journey")
 	item.Metadata.Genres, item.Metadata.Tags = []string{"Romance"}, []string{"Комедия"}
-	for _, query := range []SeriesSearchQuery{{Genre: "Romance"}, {Genre: "романтика"}, {Genre: "Comedy"}, {Query: "Романтика"}, {Query: "comedy"}} {
+	for _, query := range []SeriesSearchQuery{
+		{Genres: []string{"Romance"}}, {Genres: []string{"романтика"}}, {Genres: []string{"Comedy"}}, {Query: "Романтика"}, {Query: "comedy"},
+		{Genres: []string{"Romance", "Comedy"}}, {Genres: []string{"Romance", "Horror"}, GenreMatch: "any"}, {Genres: []string{""}, GenreMatch: "any"},
+	} {
 		if !matchesSeriesQuery(item, query) {
 			t.Fatalf("query should match: %+v", query)
 		}
 	}
-	for _, query := range []SeriesSearchQuery{{Genre: "Horror"}, {Query: "rom"}} {
+	for _, query := range []SeriesSearchQuery{
+		{Genres: []string{"Horror"}}, {Query: "rom"}, {Genres: []string{"Romance", "Horror"}}, {Genres: []string{"Horror", "Drama"}, GenreMatch: "any"},
+	} {
 		if matchesSeriesQuery(item, query) {
 			t.Fatalf("query should not match: %+v", query)
 		}
