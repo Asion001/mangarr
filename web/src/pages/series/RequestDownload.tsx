@@ -34,8 +34,10 @@ export function RequestDownloadButton({ seriesId, waiting }: { seriesId: number;
     }
   };
   return (
-    <Button icon={<Download className="size-4" />} loading={busy} onClick={() => void send()} title={t("These chapters are listed but not downloaded; ask for them to be downloaded.")}>
-      {t("Request download ({count} chapters)", { count: waiting })}
+    <Button className="h-11 flex-1 whitespace-nowrap px-4 sm:flex-none" icon={<Download className="size-4" />} loading={busy} onClick={() => void send()} title={t("These chapters are listed but not downloaded; ask for them to be downloaded.")}>
+      {/* the count doesn't fit next to Follow on a phone */}
+      <span className="sm:hidden">{t("Request download")}</span>
+      <span className="hidden sm:inline">{t("Request download ({count} chapters)", { count: waiting })}</span>
     </Button>
   );
 }

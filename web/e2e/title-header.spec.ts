@@ -77,3 +77,31 @@ test("on a phone the cover sits beside the title and the actions run full width"
   expect(heading && manage && heading.x > manage.x + 100).toBe(true);
   expect(heading && manage && manage.y > heading.y + heading.height).toBe(true);
 });
+
+test("on a narrow phone the read, request and follow buttons each keep to one line", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  // one chapter downloaded, 300 more listed but not asked for
+  const listed = Array.from({ length: 301 }, (_, i) => ({ ...chapters[0], id: i + 1, number: String(i + 1), numberSort: i + 1, monitored: i === 0, state: i === 0 ? "downloaded" : "missing", file: i === 0 ? { path: "1.cbz", size: 1 } : undefined }));
+  await page.route("**/api/v1/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path.endsWith("/auth/status")) return route.fulfill({ json: { authenticated: true, account: { kind: "user", id: 3, username: "reader", permissions: ["requests.create"] } } });
+    if (path.endsWith("/series/4/chapters")) return route.fulfill({ json: listed });
+    if (path.endsWith("/series/4")) return route.fulfill({ json: series });
+    if (path.endsWith("/reading/shelf")) return route.fulfill({ json: { items: [] } });
+    if (path.endsWith("/health")) return route.fulfill({ json: { checks: [] } });
+    return route.fulfill({ json: [] });
+  });
+  await page.goto("/series/4");
+  const read = page.getByRole("link", { name: "Start reading ch. 1" });
+  const request = page.getByRole("button", { name: "Request download", exact: true });
+  const follow = page.getByRole("button", { name: "Follow", exact: true });
+  await expect(follow).toBeVisible();
+  const [r, q, f] = await Promise.all([read.boundingBox(), request.boundingBox(), follow.boundingBox()]);
+  for (const b of [r, q, f]) {
+    expect(b!.height).toBeLessThanOrEqual(44);
+    expect(b!.x + b!.width).toBeLessThanOrEqual(375);
+  }
+  // read gets its own row; request and follow share the next one
+  expect(q!.y).toBeGreaterThan(r!.y + r!.height - 1);
+  expect(Math.abs(q!.y - f!.y)).toBeLessThan(1);
+});

@@ -178,7 +178,7 @@ export function SeriesDetail() {
           {(readTarget || waiting > 0 || follows || manage) && (
             <div className="col-span-2 flex flex-wrap items-center gap-2">
               {readTarget && (
-                <Link to={`/read/${readTarget.id}`} className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-md bg-primary px-5 text-sm font-semibold text-white hover:bg-primary-hover sm:flex-none">
+                <Link to={`/read/${readTarget.id}`} className="inline-flex h-11 basis-full items-center justify-center gap-2 whitespace-nowrap rounded-md bg-primary px-5 text-sm font-semibold text-white hover:bg-primary-hover sm:basis-auto">
                   <BookOpen className="size-4" /> {readTarget.label}
                 </Link>
               )}
@@ -405,7 +405,7 @@ function FollowButton({ seriesId, following }: { seriesId: number; following: bo
   };
   return (
     <Button
-      className="h-11 px-4"
+      className="h-11 whitespace-nowrap px-4"
       variant={following ? "secondary" : undefined}
       loading={busy}
       icon={following ? <BellOff className="size-4" /> : <Bell className="size-4" />}
