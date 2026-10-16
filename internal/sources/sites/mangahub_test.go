@@ -2,6 +2,9 @@ package sites
 
 import (
 	"context"
+	"crypto/aes"
+	"crypto/cipher"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -59,6 +62,9 @@ func (s *mhubServer) handler() http.Handler {
 		http.SetCookie(w, &http.Cookie{Name: "mhub_access", Value: s.key, Path: "/"})
 		w.WriteHeader(http.StatusNotFound) // the page's status doesn't matter
 	}
+	mux.HandleFunc("/api/chapter-crypto", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"keys":{"` + mhubTestKeyID + `":"` + base64.RawURLEncoding.EncodeToString(mhubTestKey) + `"},"key":"wrong","keyId":"other"}`))
+	})
 	mux.HandleFunc("/chapter/", page)
 	mux.HandleFunc("/manga/", page)
 	mux.HandleFunc("/graphql", func(w http.ResponseWriter, r *http.Request) {
@@ -84,12 +90,49 @@ func (s *mhubServer) handler() http.Handler {
 			_, _ = w.Write([]byte(mhubMangaJSON))
 		case strings.Contains(body.Query, `chapter(x: m01, slug: "solo-leveling", number: 2.0)`):
 			_, _ = w.Write([]byte(mhubChapterJSON))
+		case strings.Contains(body.Query, `chapter(x: m01, slug: "solo-leveling", number: 1.0)`):
+			out, _ := json.Marshal(map[string]any{"data": map[string]any{"chapter": map[string]any{
+				"pages": mhubEncrypt(s.t, `["solo-leveling/1/1.jpg","https://other.example/2.jpg"]`), "mangaID": 123, "number": 1}}})
+			_, _ = w.Write(out)
 		default:
 			s.t.Errorf("unexpected query %s", body.Query)
 			_, _ = w.Write([]byte(`{"data":null}`))
 		}
 	})
 	return mux
+}
+
+var (
+	mhubTestKey   = []byte("0123456789abcdef0123456789abcdef")
+	mhubTestKeyID = "e3e9478a9d64c71c"
+)
+
+// mhubEncrypt seals a page list the way the site does:
+// "enc:v1:<key id>:<iv>:<tag>:<data>", AES-GCM, base64url.
+func mhubEncrypt(t *testing.T, plain string) string {
+	block, err := aes.NewCipher(mhubTestKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gcm, _ := cipher.NewGCM(block)
+	iv := []byte("123456789012")
+	sealed := gcm.Seal(nil, iv, []byte(plain), nil)
+	data, tag := sealed[:len(sealed)-16], sealed[len(sealed)-16:]
+	enc := base64.RawURLEncoding.EncodeToString
+	return "enc:v1:" + mhubTestKeyID + ":" + enc(iv) + ":" + enc(tag) + ":" + enc(data)
+}
+
+// TestMangaHubEncryptedPages: the site can send a chapter's page list
+// encrypted, with the key on its own endpoint.
+func TestMangaHubEncryptedPages(t *testing.T) {
+	m, _ := newMangaHub(t)
+	pages, err := m.Pages(context.Background(), sourcekit.PageRef{URL: "/solo-leveling/chapter-1.0"})
+	if err != nil || len(pages) != 2 {
+		t.Fatalf("pages: %v %+v", err, pages)
+	}
+	if pages[0].URL != "https://imgx.example/solo-leveling/1/1.jpg" || pages[1].URL != "https://other.example/2.jpg" {
+		t.Fatalf("pages %+v", pages)
+	}
 }
 
 func newMangaHub(t *testing.T) (*mhubSite, *mhubServer) {

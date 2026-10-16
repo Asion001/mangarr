@@ -92,7 +92,7 @@ const (
 		"div.comic-list > .list-comic-item-wrap:has(a[data-id])"
 	mboxListNext     = "div.group_page, div.group-page a:not([href]) + a:not(:contains(Last))"
 	mboxSearchSel    = ".panel_story_list .story_item, div.list-truyen-item-wrap, div.list-comic-item-wrap"
-	mboxSearchNext   = "a.page_select + a:not(.page_last), a.page-select + a:not(.page-last)"
+	mboxSearchNext   = "a.page_select + a:not(.page_last), a.page-select + a:not(.page-last), .page_select ~ a.page_blue:not(.page_disabled)"
 	mboxDetailsMain  = "div.manga-info-top, div.panel-story-info"
 	mboxThumbnailSel = "div.manga-info-pic img, span.info-image img"
 	mboxDescSel      = "div#noidungm, div#panel-story-info-description, div#contentBox"

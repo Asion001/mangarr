@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -92,5 +93,42 @@ func TestComXRegistration(t *testing.T) {
 	}
 	if _, err := url.Parse(comxSite); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// TestComXGuard: a visitor without the trust cookie is sent to the check
+// page; answering its proof of work gets the cookie and the real page.
+func TestComXGuard(t *testing.T) {
+	answered := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/_c":
+			w.WriteHeader(http.StatusNotFound)
+			io.WriteString(w, `<script>var p = { token: "dG9r%3D%3D", mode: "modern" }; x.open("POST", "/_v", true);</script>`)
+		case "/_v":
+			_ = r.ParseForm()
+			nonce, hash := comxProof("dG9r%3D%3D")
+			if r.PostForm.Get("token") != "dG9r%3D%3D" || r.PostForm.Get("pow_nonce") != strconv.Itoa(nonce) ||
+				r.PostForm.Get("pow_hash") != hash || !strings.HasPrefix(hash, "00") {
+				t.Errorf("answer %v", r.PostForm)
+			}
+			answered++
+			http.SetCookie(w, &http.Cookie{Name: "__guard_trust", Value: "ok", Path: "/"})
+		default:
+			if c, err := r.Cookie("__guard_trust"); err != nil || c.Value != "ok" {
+				http.Redirect(w, r, "/_c?t=x&u="+url.QueryEscape(r.URL.String()), http.StatusFound)
+				return
+			}
+			io.WriteString(w, comxListHTML(false))
+		}
+	}))
+	t.Cleanup(srv.Close)
+	c := &comx{c: sourcekit.NewClient(srv.Client()), base: srv.URL}
+	res, err := c.Search(context.Background(), "Берсерк", 1)
+	if err != nil || len(res.Mangas) != 1 || answered != 1 {
+		t.Fatalf("search through the guard: %v %+v (answered %d)", err, res, answered)
+	}
+	if _, err := c.Search(context.Background(), "Берсерк", 1); err != nil || answered != 1 {
+		t.Fatalf("the cookie should be kept: %v (answered %d)", err, answered)
 	}
 }

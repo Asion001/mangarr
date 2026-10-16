@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
+	"golang.org/x/net/html"
 
 	"github.com/Asion001/mangarr/internal/sources/sourcekit"
 )
@@ -299,7 +300,7 @@ func (o *onisaga) results(s *goquery.Selection) sourcekit.Results {
 func onisDropAdultCover(s *goquery.Selection) bool {
 	found := false
 	s.Find("span").EachWithBreak(func(_ int, span *goquery.Selection) bool {
-		if !strings.Contains(mballOwnText(span), "18+") {
+		if !strings.Contains(ownText(span), "18+") {
 			return true
 		}
 		found = true
@@ -429,7 +430,7 @@ func onisStatus(doc *goquery.Document) string {
 	})
 	if status == "" {
 		doc.Find("span.inline-flex").EachWithBreak(func(_ int, s *goquery.Selection) bool {
-			own := mballOwnText(s)
+			own := ownText(s)
 			for _, w := range []string{"Completed", "Ongoing", "Hiatus", "Cancelled"} {
 				if strings.Contains(own, w) {
 					status = own
@@ -791,4 +792,17 @@ func (o *onisaga) raw(ctx context.Context, u string, headers map[string]string) 
 	defer resp.Body.Close()
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	return resp.StatusCode, resp.Header, body, err
+}
+
+// ownText is an element's own text, without its children's.
+func ownText(s *goquery.Selection) string {
+	var b strings.Builder
+	for _, n := range s.Nodes {
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			if c.Type == html.TextNode {
+				b.WriteString(c.Data)
+			}
+		}
+	}
+	return strings.Join(strings.Fields(b.String()), " ")
 }

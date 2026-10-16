@@ -3,12 +3,16 @@ package sites
 import (
 	"bytes"
 	"context"
+	"crypto/aes"
+	"crypto/cipher"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"math/rand/v2"
 	"net/http"
 	"net/url"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -98,7 +102,7 @@ func (m *mhubSite) pageHeaders(referer string) map[string]string {
 
 // ---- the API ----------------------------------------------------------------
 
-var mhubRetryRe = regexp.MustCompile(`rate\s*limit|api\s*key`)
+var mhubRetryRe = regexp.MustCompile(`rate\s*limit|api\s*key|encryption`)
 
 // errMhubNoKey: the site hasn't handed out an API key yet.
 var errMhubNoKey = fmt.Errorf("mangahub: mhub_access cookie not found")
@@ -456,23 +460,125 @@ func (m *mhubSite) Pages(ctx context.Context, ch sourcekit.PageRef) ([]sourcekit
 	if out.Chapter == nil {
 		return nil, fmt.Errorf("%w: chapter %s of %s", sourcekit.ErrNotFound, mhubFloat(number), slug)
 	}
-	var list struct {
-		Page   string   `json:"p"`
-		Images []string `json:"i"`
+	raw := out.Chapter.Pages
+	if strings.HasPrefix(raw, "enc:v1:") {
+		plain, err := m.decryptPages(ctx, raw)
+		if err != nil {
+			return nil, err
+		}
+		raw = plain
 	}
-	if err := json.Unmarshal([]byte(out.Chapter.Pages), &list); err != nil {
-		return nil, fmt.Errorf("mangahub: chapter pages: %w", err)
+	paths, err := mhubPagePaths(raw)
+	if err != nil {
+		return nil, err
 	}
 	m.markRecent(out.Chapter.MangaID, out.Chapter.Number)
-	pages := make([]sourcekit.PageImage, 0, len(list.Images))
-	for _, img := range list.Images {
-		pages = append(pages, sourcekit.PageImage{Index: len(pages), URL: m.cdn + "/" + list.Page + img,
+	pages := make([]sourcekit.PageImage, 0, len(paths))
+	for _, p := range paths {
+		u := p
+		if !strings.HasPrefix(p, "http://") && !strings.HasPrefix(p, "https://") {
+			u = m.cdn + "/" + strings.TrimPrefix(p, "/")
+		}
+		pages = append(pages, sourcekit.PageImage{Index: len(pages), URL: u,
 			Headers: map[string]string{"Referer": m.base + "/"}})
 	}
 	if len(pages) == 0 {
 		return nil, fmt.Errorf("%w: the chapter has no pages", sourcekit.ErrNotFound)
 	}
 	return pages, nil
+}
+
+// mhubPagePaths reads the chapter's page list, which comes as {"p": prefix,
+// "i": [names]}, a plain array, or an object of paths.
+func mhubPagePaths(raw string) ([]string, error) {
+	var list struct {
+		Page   string   `json:"p"`
+		Images []string `json:"i"`
+	}
+	if err := json.Unmarshal([]byte(raw), &list); err == nil && list.Images != nil {
+		out := make([]string, 0, len(list.Images))
+		for _, img := range list.Images {
+			out = append(out, list.Page+img)
+		}
+		return out, nil
+	}
+	var arr []string
+	if err := json.Unmarshal([]byte(raw), &arr); err == nil {
+		return arr, nil
+	}
+	var obj map[string]string
+	if err := json.Unmarshal([]byte(raw), &obj); err != nil {
+		return nil, fmt.Errorf("mangahub: chapter pages: %w", err)
+	}
+	keys := make([]string, 0, len(obj))
+	for k := range obj {
+		keys = append(keys, k)
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		a, errA := strconv.Atoi(keys[i])
+		b, errB := strconv.Atoi(keys[j])
+		if errA == nil && errB == nil {
+			return a < b
+		}
+		return keys[i] < keys[j]
+	})
+	out := make([]string, 0, len(keys))
+	for _, k := range keys {
+		out = append(out, obj[k])
+	}
+	return out, nil
+}
+
+// decryptPages opens an "enc:v1:<key id>:<iv>:<tag>:<data>" page list: AES-GCM
+// with a key the site serves from /api/chapter-crypto.
+func (m *mhubSite) decryptPages(ctx context.Context, raw string) (string, error) {
+	parts := strings.Split(raw, ":")
+	if len(parts) != 6 {
+		return "", fmt.Errorf("mangahub: unexpected encrypted page list")
+	}
+	h := m.pageHeaders("")
+	delete(h, "Upgrade-Insecure-Requests")
+	h["Accept"] = "application/json"
+	h["Sec-Fetch-Dest"], h["Sec-Fetch-Mode"], h["Sec-Fetch-Site"] = "empty", "cors", "same-origin"
+	var params struct {
+		Keys  map[string]string `json:"keys"`
+		Key   string            `json:"key"`
+		KeyID string            `json:"keyId"`
+	}
+	if err := m.c.JSON(ctx, sourcekit.Request{URL: m.base + "/api/chapter-crypto", Headers: h}, &params); err != nil {
+		return "", fmt.Errorf("mangahub: page key: %w", err)
+	}
+	keyID := parts[2]
+	key := params.Keys[keyID]
+	if key == "" && (params.KeyID == "" || params.KeyID == keyID) {
+		key = params.Key
+	}
+	if key == "" {
+		return "", fmt.Errorf("mangahub: no page key %s", keyID)
+	}
+	dec := func(s string) ([]byte, error) { return base64.RawURLEncoding.DecodeString(strings.TrimRight(s, "=")) }
+	keyBytes, err1 := dec(key)
+	iv, err2 := dec(parts[3])
+	tag, err3 := dec(parts[4])
+	data, err4 := dec(parts[5])
+	for _, err := range []error{err1, err2, err3, err4} {
+		if err != nil {
+			return "", fmt.Errorf("mangahub: encrypted page list: %w", err)
+		}
+	}
+	block, err := aes.NewCipher(keyBytes)
+	if err != nil {
+		return "", fmt.Errorf("mangahub: page key: %w", err)
+	}
+	gcm, err := cipher.NewGCMWithNonceSize(block, len(iv))
+	if err != nil {
+		return "", err
+	}
+	plain, err := gcm.Open(nil, iv, append(data, tag...), nil)
+	if err != nil {
+		return "", fmt.Errorf("mangahub: decrypt page list: %w", err)
+	}
+	return string(plain), nil
 }
 
 // markRecent sets the "recently read" cookie a browser would have after

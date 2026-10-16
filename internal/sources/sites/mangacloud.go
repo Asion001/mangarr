@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"net/url"
 	"sort"
 	"strconv"
@@ -67,6 +68,18 @@ type mangacloudBrowse struct {
 	Cover mangacloudImage `json:"cover"`
 }
 
+// json calls the API. Every call answers 409 until the browser has passed a
+// Turnstile check and posted its token to /auth/handshake, which mangarr
+// can't do; say so instead of a bare status.
+func (m *mangacloud) json(ctx context.Context, req sourcekit.Request, out any) error {
+	err := m.c.JSON(ctx, req, out)
+	var se *sourcekit.StatusError
+	if err != nil && errorsAs(err, &se) && se.Code == http.StatusConflict {
+		return fmt.Errorf("MangaCloud only answers a browser that passed its Turnstile check: %w", err)
+	}
+	return err
+}
+
 func (m *mangacloud) cover(id string, img mangacloudImage) string {
 	if img.ID == "" {
 		return ""
@@ -106,7 +119,7 @@ func (m *mangacloud) library(ctx context.Context, title string, page int) (sourc
 		Data []mangacloudBrowse `json:"data"`
 	}
 	req := sourcekit.Request{Method: "POST", URL: m.api + "/comic/library", Body: body, Headers: m.headers(true)}
-	if err := m.c.JSON(ctx, req, &out); err != nil {
+	if err := m.json(ctx, req, &out); err != nil {
 		return sourcekit.Results{}, err
 	}
 	return sourcekit.Results{Mangas: m.results(out.Data), HasNext: len(out.Data) == mangacloudSearchSize}, nil
@@ -127,7 +140,7 @@ func (m *mangacloud) Popular(ctx context.Context, page int) (sourcekit.Results, 
 			List []mangacloudBrowse `json:"list"`
 		} `json:"data"`
 	}
-	if err := m.c.JSON(ctx, sourcekit.Request{URL: m.api + "/comic-popular-view/" + span, Headers: m.headers(false)}, &out); err != nil {
+	if err := m.json(ctx, sourcekit.Request{URL: m.api + "/comic-popular-view/" + span, Headers: m.headers(false)}, &out); err != nil {
 		return sourcekit.Results{}, err
 	}
 	return sourcekit.Results{Mangas: m.results(out.Data.List), HasNext: true}, nil
@@ -146,7 +159,7 @@ func (m *mangacloud) Latest(ctx context.Context, page int) (sourcekit.Results, e
 		} `json:"data"`
 	}
 	req := sourcekit.Request{Method: "POST", URL: m.api + "/comic-updates", Body: body, Headers: m.headers(true)}
-	if err := m.c.JSON(ctx, req, &out); err != nil {
+	if err := m.json(ctx, req, &out); err != nil {
 		return sourcekit.Results{}, err
 	}
 	return sourcekit.Results{Mangas: m.results(out.Data.List), HasNext: len(out.Data.List) == mangacloudLatestSize}, nil
@@ -188,7 +201,7 @@ func (m *mangacloud) comic(ctx context.Context, ref sourcekit.Ref) (*mangacloudM
 	var out struct {
 		Data *mangacloudManga `json:"data"`
 	}
-	if err := m.c.JSON(ctx, sourcekit.Request{URL: m.api + "/comic/" + url.PathEscape(id), Headers: m.headers(false)}, &out); err != nil {
+	if err := m.json(ctx, sourcekit.Request{URL: m.api + "/comic/" + url.PathEscape(id), Headers: m.headers(false)}, &out); err != nil {
 		var se *sourcekit.StatusError
 		if errorsAs(err, &se) && se.Code == 404 {
 			return nil, fmt.Errorf("%w: manga %s", sourcekit.ErrNotFound, id)
@@ -333,7 +346,7 @@ func (m *mangacloud) Pages(ctx context.Context, ch sourcekit.PageRef) ([]sourcek
 			Images  []mangacloudImage `json:"images"`
 		} `json:"data"`
 	}
-	if err := m.c.JSON(ctx, sourcekit.Request{URL: m.api + "/chapters/" + url.PathEscape(id), Headers: m.headers(false)}, &out); err != nil {
+	if err := m.json(ctx, sourcekit.Request{URL: m.api + "/chapters/" + url.PathEscape(id), Headers: m.headers(false)}, &out); err != nil {
 		return nil, err
 	}
 	var pages []sourcekit.PageImage

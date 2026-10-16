@@ -1,13 +1,19 @@
 package sites
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
@@ -31,6 +37,8 @@ func init() {
 type comx struct {
 	c    *sourcekit.Client
 	base string
+	// guard keeps concurrent requests from all answering the site's check
+	guard sync.Mutex
 }
 
 func (c *comx) Info() sourcekit.Info {
@@ -85,7 +93,7 @@ func (c *comx) browse(ctx context.Context, page int, sort string) (sourcekit.Res
 }
 
 func (c *comx) list(ctx context.Context, req sourcekit.Request) (sourcekit.Results, error) {
-	doc, err := c.c.Document(ctx, req)
+	doc, err := c.document(ctx, req)
 	if err != nil {
 		return sourcekit.Results{}, err
 	}
@@ -172,7 +180,7 @@ func (c *comx) Pages(ctx context.Context, ch sourcekit.PageRef) ([]sourcekit.Pag
 	if path == "" || !strings.HasPrefix(path, "/reader/") {
 		return nil, fmt.Errorf("%q is not a Com-X chapter url", ch.URL)
 	}
-	doc, err := c.c.Document(ctx, sourcekit.Request{URL: c.base + path, Headers: c.headers(c.base + sourcekit.Path(ch.Manga.URL))})
+	doc, err := c.document(ctx, sourcekit.Request{URL: c.base + path, Headers: c.headers(c.base + sourcekit.Path(ch.Manga.URL))})
 	if err != nil {
 		return nil, err
 	}
@@ -199,7 +207,7 @@ func (c *comx) titlePage(ctx context.Context, ref sourcekit.Ref) (*goquery.Docum
 	if path == "" || path == "/" {
 		return nil, "", fmt.Errorf("%q is not a Com-X title url", ref.URL)
 	}
-	doc, err := c.c.Document(ctx, sourcekit.Request{URL: c.base + path, Headers: c.headers(c.base + "/")})
+	doc, err := c.document(ctx, sourcekit.Request{URL: c.base + path, Headers: c.headers(c.base + "/")})
 	if err != nil {
 		var se *sourcekit.StatusError
 		if errorsAs(err, &se) && se.Code == http.StatusNotFound {
@@ -208,6 +216,99 @@ func (c *comx) titlePage(ctx context.Context, ref sourcekit.Ref) (*goquery.Docum
 		return nil, "", err
 	}
 	return doc, path, nil
+}
+
+// ---- the site's guard ---------------------------------------------------
+
+// The site sends visitors without its trust cookie to a check page (/_c)
+// that runs a small proof of work in the browser and posts the answer to
+// /_v, which hands out the cookie. document answers it and retries once.
+
+var comxGuardToken = regexp.MustCompile(`token:\s*"([^"]+)"`)
+
+func (c *comx) document(ctx context.Context, req sourcekit.Request) (*goquery.Document, error) {
+	for attempt := 0; ; attempt++ {
+		body, err := c.c.Do(ctx, req)
+		guard := ""
+		var se *sourcekit.StatusError
+		switch {
+		case err == nil && comxGuarded(body):
+			guard = string(body)
+		case err != nil && errorsAs(err, &se) && strings.Contains(se.URL, "/_c?"):
+			// the check page can come with an error status; fetch it whole
+			page, gerr := c.guardPage(ctx, se.URL)
+			if gerr != nil {
+				return nil, err
+			}
+			guard = page
+		case err != nil:
+			return nil, err
+		default:
+			return goquery.NewDocumentFromReader(bytes.NewReader(body))
+		}
+		if attempt > 0 {
+			return nil, fmt.Errorf("com-x: the site's check still refuses after answering it")
+		}
+		if err := c.passGuard(ctx, guard); err != nil {
+			return nil, err
+		}
+	}
+}
+
+func comxGuarded(body []byte) bool {
+	return bytes.Contains(body, []byte(`"/_v"`)) && comxGuardToken.Match(body)
+}
+
+func (c *comx) guardPage(ctx context.Context, raw string) (string, error) {
+	r, err := http.NewRequestWithContext(ctx, http.MethodGet, raw, nil)
+	if err != nil {
+		return "", err
+	}
+	r.Header.Set("User-Agent", c.c.UserAgent)
+	resp, err := c.c.HTTP.Do(r)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	b, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil || !comxGuarded(b) {
+		return "", fmt.Errorf("com-x: no check on %s", raw)
+	}
+	return string(b), nil
+}
+
+// passGuard solves the check: the first sha256("<token>:<n>") that starts
+// with a zero byte, posted with what a plain desktop browser would report.
+func (c *comx) passGuard(ctx context.Context, page string) error {
+	c.guard.Lock()
+	defer c.guard.Unlock()
+	m := comxGuardToken.FindStringSubmatch(page)
+	if m == nil {
+		return fmt.Errorf("com-x: no token on the site's check page")
+	}
+	token := m[1]
+	nonce, hash := comxProof(token)
+	form := url.Values{
+		"token": {token}, "mode": {"modern"}, "workTime": {"150"}, "iterations": {strconv.Itoa(nonce + 1)},
+		"hasCrypto": {"1"}, "pow_nonce": {strconv.Itoa(nonce)}, "pow_hash": {hash},
+		"webdriver": {"0"}, "touch": {"0"}, "screen_w": {"1920"}, "screen_h": {"1080"}, "screen_cd": {"24"},
+		"tz": {"-180"}, "dpr": {"1"}, "cdp": {"0"}, "cdpf": {""},
+	}
+	h := c.formHeaders(c.base + "/_c")
+	h["Origin"] = c.base
+	if _, err := c.c.Do(ctx, sourcekit.Request{Method: http.MethodPost, URL: c.base + "/_v", Body: []byte(form.Encode()), Headers: h}); err != nil {
+		return fmt.Errorf("com-x: answer the site's check: %w", err)
+	}
+	return nil
+}
+
+func comxProof(token string) (int, string) {
+	for n := 0; ; n++ {
+		sum := sha256.Sum256([]byte(token + ":" + strconv.Itoa(n)))
+		if sum[0] == 0 {
+			return n, hex.EncodeToString(sum[:])
+		}
+	}
 }
 
 func (c *comx) headers(referer string) map[string]string {
