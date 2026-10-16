@@ -244,9 +244,33 @@ new ones back the same way.
 - **Web**: React, Vite, TypeScript, TanStack Query, Tailwind; embedded in the
   binary with `//go:embed`. UI strings live in
   `web/src/lib/i18n/messages.json` (English, Russian, Ukrainian), checked by
-  `npm run check:i18n`.
+  `npm run check:i18n`. Pages load lazily, and CI keeps the first load
+  under 220 kB gzipped (`npm run check:bundle`).
 - **Images**: `docker/Dockerfile` builds the full image (Vulkan, ncnn
   upscalers, `avifenc`, `cjxl`) and the distroless slim one.
+
+### Phone-profile load times
+
+`npm run perf:phone` in `web/` opens the production build as a Pixel 7
+with a 4× slower CPU and slow 4G (150 ms round trips, 1.6 Mbit/s down),
+with the API mocked so only the web app's own cost counts. Set `PERF_URL`
+to a running mangarr to measure the files as the server sends them
+(gzipped, cached for a year). Measured on 2026-10-16 against mangarr
+serving `main`, median of 5 runs:
+
+| Step | Time |
+|---|---|
+| Cold load, first contentful paint | 1.1 s |
+| Cold load, a 60-series library shown | 1.9 s (177 kB of JS and CSS) |
+| Library → series page (120 chapters) | 1.0 s |
+| → Updates | 0.26 s |
+| → Activity | 0.31 s |
+| → Settings | 0.46 s |
+| → back to the library | 0.12 s |
+
+The series page is the slowest step: its code is the largest page chunk
+(79 kB before gzip). The script doesn't measure a warm reload, because
+Playwright turns the HTTP cache off while it intercepts requests.
 
 ## Where things live
 
