@@ -264,8 +264,10 @@ Russian and Ukrainian translation), `npm test` (Vitest) and `npm run test:e2e`
 regenerate [docs/configuration.md](docs/configuration.md) with
 `go run ./cmd/mangarr env --markdown > docs/configuration.md`.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request, and
-[SECURITY.md](SECURITY.md) to report a vulnerability.
+See [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request (it
+also explains how versions are numbered), the
+[code of conduct](CODE_OF_CONDUCT.md), and [SECURITY.md](SECURITY.md) to
+report a vulnerability.
 
 ## License
 

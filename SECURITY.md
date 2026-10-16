@@ -12,7 +12,15 @@ possible, and a fix and advisory will be published once it's patched.
 
 ## Supported versions
 
-mangarr is pre-1.0: only the latest release and `main` get security fixes.
+Security fixes go into `main` first and are released as a patch of the
+newest minor version (for example `1.4.2` after `1.4.1`). Older minor and
+major versions don't get fixes; upgrade to the newest release to get them.
+
+| Version | Security fixes |
+|---|---|
+| Newest `1.x` release | Yes |
+| Older `1.x` releases | No, upgrade |
+| `0.x` and development builds before 1.0 | No |
 
 ## Scope
 
