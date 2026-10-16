@@ -13,7 +13,8 @@
     "check:i18n": "node scripts/check-i18n.mjs",
     "lint": "node scripts/check-colors.mjs",
     "check:bundle": "node scripts/check-bundle.mjs",
-    "perf:phone": "playwright test -c playwright.perf.config.ts"
+    "perf:phone": "playwright test -c playwright.perf.config.ts",
+    "screenshots": "playwright test -c playwright.screenshots.config.ts"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.104.1",

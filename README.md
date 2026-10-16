@@ -23,6 +23,17 @@ which mangarr tells to rescan after every change.
     └──► Komga-compatible API (:25600) ◄── Mihon, KMReader, Paperback
 ```
 
+<p>
+  <img src="docs/screenshots/library.png" alt="The library: a grid of series covers with download and read counts" width="100%">
+</p>
+<p>
+  <img src="docs/screenshots/title.png" alt="A title page: cover, description, sources in order and the chapter list" width="74%">
+  <img src="docs/screenshots/title-phone.png" alt="The same title page on a phone" width="24%">
+</p>
+
+The titles and covers above are made up (`npm run screenshots` in `web/`
+draws them).
+
 ## Features
 
 - **Sonarr semantics** — monitored series and chapters, monitor options
@@ -189,8 +200,7 @@ services, and the [setup guide](docs/setup.md) explains each one:
 
 Tags: `X.Y.Z` (and `X.Y.Z-slim`, e.g. `1.2.0-slim`) pin a release, `latest` and `slim` follow
 the newest release, and `main` and `main-slim` are built from every commit
-to `main` (the newest features, and the newest bugs). Until the first
-release is tagged, only `main` and `main-slim` exist. See
+to `main` (the newest features, and the newest bugs). See
 [upgrading](docs/setup.md#upgrading-mangarr) before moving between versions.
 
 A second machine that downloads, upscales or re-encodes is the same image
