@@ -85,12 +85,14 @@ mangarr worker
    (http://127.0.0.1:8790): enter the server address and the key there.
 
 The upscalers folder holds waifu2x, Real-CUGAN and Real-ESRGAN (ncnn/Vulkan
-builds by nihui and xinntao, MIT licensed); the encoders folder holds
-avifenc (libavif), cwebp (libwebp) and on Linux cjxl (libjxl), all
-BSD licensed. Keep both folders next to the program.
+builds by nihui and xinntao); the encoders folder holds avifenc (libavif),
+cwebp (libwebp) and on Linux cjxl (libjxl). Keep both folders next to the
+program. Their licences are in THIRD_PARTY_NOTICES.md.
 macOS: run `xattr -dr com.apple.quarantine` on this folder once first.
 More: docs/setup.md, "A worker on a desktop", in the mangarr repository.
 EOF
+
+cp LICENSE THIRD_PARTY_NOTICES.md "$dir/"
 
 rm -f "$out/$name.zip"
 (cd "$work" && zip -qr -9 "$out/$name.zip" "$name")

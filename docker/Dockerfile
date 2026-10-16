@@ -81,6 +81,7 @@ RUN set -eux; mkdir -p /opt/upscalers; \
 FROM gcr.io/distroless/static-debian12:nonroot AS slim
 COPY --from=build /out/mangarr /mangarr
 COPY --from=build --chown=65532:65532 /out/config /config
+COPY LICENSE THIRD_PARTY_NOTICES.md /licenses/
 ENV MANGARR_DATA_DIR=/config \
     MANGARR_LISTEN=:8787 \
     MANGARR_MODE=server
@@ -100,6 +101,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=tools /opt/upscalers /opt/upscalers
 COPY --from=build /out/mangarr /usr/local/bin/mangarr
 COPY --from=avif /out/avifenc /usr/local/bin/avifenc
+COPY LICENSE THIRD_PARTY_NOTICES.md /usr/share/doc/mangarr/
 RUN ln -s mangarr /usr/local/bin/mangarr-worker
 ENV MANGARR_DATA_DIR=/config \
     MANGARR_LISTEN=:8787 \
