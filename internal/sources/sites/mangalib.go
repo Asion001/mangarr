@@ -314,6 +314,11 @@ type mangalibBranch struct {
 	Teams     []struct {
 		Name string `json:"name"`
 	} `json:"teams"`
+	// RestrictedView is set on a paid chapter; it stays closed to a reader
+	// who has not bought it, and the API then serves it with no pages.
+	RestrictedView *struct {
+		IsOpen bool `json:"is_open"`
+	} `json:"restricted_view"`
 }
 
 func (m *mangalib) Chapters(ctx context.Context, ref sourcekit.Ref) ([]sourcekit.Chapter, error) {
@@ -348,6 +353,9 @@ func (m *mangalib) Chapters(ctx context.Context, ref sourcekit.Ref) ([]sourcekit
 			branches = []mangalibBranch{{ID: c.ID}}
 		}
 		for _, b := range branches {
+			if b.RestrictedView != nil && !b.RestrictedView.IsOpen {
+				continue // paid: listing it would only queue a download that cannot work
+			}
 			q := url.Values{"number": {c.Number}, "volume": {c.Volume}}
 			webQuery := url.Values{}
 			if b.BranchID != nil {
@@ -374,7 +382,7 @@ func (m *mangalib) Chapters(ctx context.Context, ref sourcekit.Ref) ([]sourcekit
 			chapters = append(chapters, ch)
 		}
 	}
-	if len(chapters) == 0 {
+	if len(out.Data) == 0 {
 		return nil, fmt.Errorf("%w: no chapters listed", sourcekit.ErrNotFound)
 	}
 	return chapters, nil

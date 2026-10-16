@@ -32,7 +32,10 @@ const (
 	    {"id":2290,"branch_id":null,"created_at":"2016-05-31T23:01:01.000000Z","teams":[{"name":"Неизвестный"}]},
 	    {"id":9001,"branch_id":7,"created_at":"2020-01-02T03:04:05.000000Z","teams":[{"name":"Vesperum"}]}]},
 	  {"id":2291,"volume":"1","number":"2","name":"","branches":[
-	    {"id":2291,"branch_id":null,"created_at":"2016-06-01T23:01:01.000000Z","teams":[]}]}]}`
+	    {"id":2291,"branch_id":null,"created_at":"2016-06-01T23:01:01.000000Z","teams":[]}]},
+	  {"id":2292,"volume":"1","number":"3","name":"","branches":[
+	    {"id":2292,"branch_id":null,"created_at":"2016-06-02T23:01:01.000000Z","teams":[],
+	     "expired_type":2,"restricted_view":{"is_open":false,"expired_at":null,"price":null}}]}]}`
 
 	mlPagesJSON = `{"data":{"id":2290,"pages":[
 	  {"slug":2,"url":"//manga/kuroshitsuji/chapters/1-1/02.png"},
@@ -99,7 +102,7 @@ func TestMangaLib(t *testing.T) {
 	}
 
 	chs, err := m.Chapters(ctx, sourcekit.Ref{URL: d.URL})
-	if err != nil || len(chs) != 3 { // chapter 1 is translated twice
+	if err != nil || len(chs) != 3 { // chapter 1 is translated twice; chapter 3 is paid
 		t.Fatalf("chapters: %v %+v", err, chs)
 	}
 	if chs[0].Number != 1 || chs[0].Scanlator != "Неизвестный" || chs[0].URL != "/41--kuroshitsuji/chapter?number=1&volume=1" {
