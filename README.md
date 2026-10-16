@@ -27,7 +27,7 @@ which mangarr tells to rescan after every change.
 
 - **Sonarr semantics** — monitored series and chapters, monitor options
   (all / future / latest N / from chapter N / none), wanted/missing, queue,
-  history, blocklist, upgrades, calendar, health checks, backups.
+  history, blocklist, upgrades, health checks, backups.
 - **Multiple sources per series** with priorities: if a release fails it is
   blocklisted and the next source is tried; with upgrades on, a better
   source or preferred scanlator replaces the file **in place** (read
@@ -50,6 +50,8 @@ which mangarr tells to rescan after every change.
     locks.
   - `library` — **Komga**, **Kavita** (rescans, path mappings, per-user
     read progress).
+  - `mediaserver` — **Jellyfin** and **Silo**: anime and film adaptations
+    of a series, with a link to watch them where your server has them.
   - `notify` — **Telegram, Discord, ntfy, Gotify, Apprise, Webhook**, with
     per-series digests ("One Piece: 3 new chapters (1120–1122)").
   - `upscale` — waifu2x / Real-CUGAN / Real-ESRGAN via ncnn + Vulkan, built
@@ -102,7 +104,8 @@ which mangarr tells to rescan after every change.
   everything else.
 - **Read from mangarr in Komga apps** (off by default) — Mihon's Komga
   extension, KMReader and Paperback connect to mangarr's Komga-compatible
-  API and see the whole library. Chapters that aren't downloaded are
+  API and see the whole library; KOReader uses its OPDS catalog and sync
+  server. Chapters that aren't downloaded are
   streamed from the source and queued for download, and the next chapters
   are downloaded while you read. Each device gets its own API key, and Mihon
   can be set up in one step from a backup mangarr writes for you.
@@ -127,28 +130,55 @@ which mangarr tells to rescan after every change.
 
 ## Quick start (Docker)
 
-See [docker/compose.example.yml](docker/compose.example.yml) and the full
-[setup guide](docs/setup.md). In short:
+### The first 10 minutes
 
-1. Start `mangarr` and, if you want them, `komga` (library mounted
-   read-only), `flaresolverr` and `suwayomi` (pinned version, no published
-   port).
-2. Open `http://<host>:8787`, create the admin account.
-3. **Settings → Media management**: add a root folder (e.g. `/data/manga/en`).
-4. **Settings → Source modules**: *mangarr sources* (MangaDex, MANGA Plus,
-   Weeb Central, MangaFire and 19 more sites) is there already. For other sites add
-   *Suwayomi* (`http://suwayomi:4567`, FlareSolverr
-   `http://flaresolverr:8191`) and install extensions under **Sources → Add
-   catalogs**.
-5. **Sources → My catalogs**: put the catalogs you want searched first on top.
-6. **Settings → Metadata**: add *AniList* (and *Shikimori* for Russian
-   titles).
-7. **Settings → Library servers**: add *Komga* with an admin API key and a
-   path mapping if Komga mounts the library elsewhere.
-8. **Settings → Notifications**: set up the Telegram or Discord bot that
-   messages people, and broadcast targets (ntfy, webhooks, …) for yourself.
-9. **Add series**: pick metadata, pick one or more sources, choose what to
-   monitor.
+mangarr needs nothing else to run. Save this as `compose.yml`, with your
+manga folder on the left of the second volume:
+
+```yaml
+services:
+  mangarr:
+    image: ghcr.io/asion001/mangarr:latest
+    user: "1000:1000"   # who owns the manga folder
+    volumes:
+      - ./config:/config
+      - /path/to/manga:/data/manga
+    ports:
+      - "8787:8787"
+    restart: unless-stopped
+```
+
+1. `docker compose up -d`, open `http://<host>:8787` and create the admin
+   account.
+2. The **Series** page shows a setup checklist. Press *Add mangarr sources*
+   (MangaDex, MANGA Plus, Weeb Central, MangaFire and 19 more sites), pick the
+   languages you read, add a root folder such as `/data/manga/en`, and add
+   *AniList* for titles, covers and synopses.
+3. **Add series**: search for a title, pick one or more sources and what to
+   monitor. Chapters land in `/data/manga/en/<Series>/` as CBZ files.
+4. Read them in the browser right away, or turn on **Settings → Reading
+   apps** and connect Mihon, KMReader, Paperback or KOReader
+   ([docs/mihon.md](docs/mihon.md)).
+
+### When you want more
+
+[docker/compose.example.yml](docker/compose.example.yml) adds the optional
+services, and the [setup guide](docs/setup.md) explains each one:
+
+- **Komga or Kavita** to serve the library to more apps: mount it read-only
+  there and add it under **Settings → Library servers** (an admin API key,
+  and a path mapping if it sees the folder at another path).
+- **Suwayomi** (pinned version, no published port) for sites mangarr doesn't
+  speak itself, through Keiyoushi extensions, and **FlareSolverr** for sites
+  behind a browser check. Add Suwayomi under **Settings → Source modules**
+  and install extensions under **Sources → Add catalogs**.
+- **PostgreSQL** instead of SQLite: System → Database moves the data over
+  while mangarr runs.
+- **Notifications**: a Telegram or Discord bot that messages each person,
+  and broadcast targets (ntfy, webhooks, …) under **Settings →
+  Notifications**.
+- **Workers** on other machines for downloading, upscaling and re-encoding
+  (below).
 
 ## Images
 
@@ -245,4 +275,5 @@ modified version for other people over a network, you have to offer them its
 source code.
 
 `internal/chapternum` is a port of Mihon's chapter recognition, which is
-under the Apache License 2.0.
+under the Apache License 2.0. The licences of the libraries and tools that
+mangarr bundles are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

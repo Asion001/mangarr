@@ -1,8 +1,8 @@
-# Homelab setup
+# Setup guide
 
-This guide assumes Docker Compose on one host (e.g. an Intel N100 box) with
-the library on a shared dataset, Traefik in front, and an existing
-FlareSolverr.
+This guide assumes Docker Compose on one host, with the library on a folder
+that mangarr writes and a reader server such as Komga reads, and optionally a
+reverse proxy in front ([reverse-proxy.md](reverse-proxy.md)).
 
 ## 1. Folders and permissions
 
@@ -27,13 +27,13 @@ Start from [docker/compose.example.yml](../docker/compose.example.yml):
   `JAVA_TOOL_OPTIONS=-Xmx512m` + `mem_limit: 1g` keeps it around 400–700 MB.
   Only enable `KCEF_ENABLED` (Chromium WebView) if a source you need requires
   it (+ a few hundred MB RAM).
-- **flaresolverr** (optional) — reuse your existing one (or Byparr). Only
-  sites behind a browser check need it.
+- **flaresolverr** (optional) — or reuse one you already run (or Byparr).
+  Only sites behind a browser check need it.
 - **komga** (or kavita) — library mounted read-only.
 - **workers** (optional) — other machines that download, upscale or
   re-encode; see §12.
 
-Behind Traefik, route only mangarr (and Komga) publicly; mangarr has its own
+Behind a reverse proxy, route only mangarr (and Komga) publicly; mangarr has its own
 login and API key. With an auth proxy in front you may set
 `MANGARR_AUTH_DISABLED=true`.
 
@@ -45,11 +45,13 @@ when it loads pages. mangarr itself speaks HTTP/1.1 and cleartext HTTP/2
 
 ## 3. First run
 
-1. Create the admin account in the UI.
+1. Create the admin account in the UI. The Series page then shows a setup
+   checklist that does steps 2, 3 and 5 in place; the settings pages below
+   do the same with every option.
 2. Settings → Media management → add the root folder(s). Keep the default
    naming `{Series Title} Ch.{Chapter:0000}`; don't put scanlator, source or
    volume in file names.
-3. Settings → Source modules → *mangarr sources* is there by default: the
+3. Settings → Source modules → add *mangarr sources*: the
    23 sites mangarr talks to itself (MangaDex, MANGA Plus, Weeb Central,
    MangaFire, MangaLib, … see §4). Set *FlareSolverr URL* only if a site you use is behind a
    browser check. For anything else, add *Suwayomi*: URL
@@ -443,7 +445,7 @@ Small pages look soft on an iPad. Profiles can upscale pages narrower than a
 threshold (default 1400 px) with waifu2x / Real-CUGAN / Real-ESRGAN.
 
 1. Give it a GPU. The full image (`:latest`, amd64) contains the upscalers:
-   - **On the server itself** (e.g. the N100's iGPU): pass `/dev/dri` and the
+   - **On the server itself** (e.g. an Intel or AMD iGPU): pass `/dev/dri` and the
      render group (`group_add`, see the compose example). mangarr then turns
      on the *Upscale* role of **This server** automatically (when a real GPU
      is visible).

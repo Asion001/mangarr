@@ -22,7 +22,7 @@ services:
     # group_add:
     #   - "993" # the host's render group id: getent group render
     environment:
-      TZ: Europe/Madrid
+      TZ: Etc/UTC
       # Optional: keep upscaling and re-encoding out of this container and
       # let the mangarr-processing worker below do them (docs/setup.md,
       # "Processing in a separate container"):
@@ -66,7 +66,7 @@ services:
   #     POSTGRES_USER: mangarr
   #     POSTGRES_PASSWORD: secret
   #     POSTGRES_DB: mangarr
-  #     TZ: Europe/Madrid
+  #     TZ: Etc/UTC
   #   volumes:
   #     - ./postgres:/var/lib/postgresql/data
   #   healthcheck:
@@ -80,7 +80,7 @@ services:
     image: ghcr.io/suwayomi/suwayomi-server:v2.3.2243 # tested version; mangarr warns on others
     container_name: suwayomi
     environment:
-      TZ: Europe/Madrid
+      TZ: Etc/UTC
       WEB_UI_ENABLED: "false"
       KCEF_ENABLED: "false" # enable only if a source you need requires WebView
       JAVA_TOOL_OPTIONS: "-Xmx512m"
@@ -93,7 +93,7 @@ services:
     image: ghcr.io/flaresolverr/flaresolverr:latest
     container_name: flaresolverr
     environment:
-      TZ: Europe/Madrid
+      TZ: Etc/UTC
     restart: unless-stopped
 
   komga:
@@ -101,7 +101,7 @@ services:
     container_name: komga
     user: "1000:1000"
     environment:
-      TZ: Europe/Madrid
+      TZ: Etc/UTC
     volumes:
       - ./komga:/config
       - /data/storage/manga:/data/manga:ro
@@ -133,7 +133,7 @@ services:
   #   image: ghcr.io/asion001/mangarr:latest
   #   user: "1000:1000"                   # the same user as mangarr
   #   environment:
-  #     TZ: Europe/Madrid
+  #     TZ: Etc/UTC
   #     MANGARR_MODE: worker
   #     MANGARR_SERVER_URL: http://mangarr:8787
   #     MANGARR_WORKER_KEY: ${MANGARR_PROCESSING_KEY}   # System → Workers
