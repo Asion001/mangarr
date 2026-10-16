@@ -89,6 +89,10 @@ func openPostgres(ctx context.Context, dsn string) (*DB, error) {
 	return &DB{DB: bun.NewDB(sqldb, pgdialect.New()), Kind: Postgres}, nil
 }
 
+// BaselineVersion is the schema version of migrations/*/00040_baseline.sql,
+// which holds every migration up to 0.9.0.
+const BaselineVersion = 40
+
 // Migrate applies all pending migrations for the active dialect.
 func (d *DB) Migrate(ctx context.Context) error {
 	sub, err := fs.Sub(migrationsFS, "migrations/"+string(d.Kind))
@@ -102,6 +106,12 @@ func (d *DB) Migrate(ctx context.Context) error {
 	p, err := goose.NewProvider(gd, d.DB.DB, sub)
 	if err != nil {
 		return err
+	}
+	// The migrations before 1.0 were squashed into one baseline numbered
+	// like the last of them, so a database they made skips it. One that
+	// stopped partway through can't be upgraded from here.
+	if v, err := p.GetDBVersion(ctx); err == nil && v > 0 && v < BaselineVersion {
+		return fmt.Errorf("the database is at schema version %d, from a development build before 0.9.0: start mangarr 0.9.0 on it once to bring it to version %d, then this version", v, BaselineVersion)
 	}
 	res, err := p.Up(ctx)
 	for _, r := range res {

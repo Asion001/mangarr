@@ -143,8 +143,8 @@ source, schedule and retry limits. The queue API pins importing, processing
 and downloading jobs ahead of the pending order; queued and paused jobs share
 that order. Series chapter resources expose the active job and the same rank.
 `priority` remains an enqueue/reader-boost hint for compatibility; it does not
-sort existing jobs after a manual move. Migration 27 backfills both databases
-from `priority DESC, id`.
+sort existing jobs after a manual move. Migration 27 (before 1.0) backfilled
+both databases from `priority DESC, id`.
 
 `POST /api/v1/queue/bulk` keeps its existing `ids` or `filter` selection and
 `top`/`bottom` actions, and adds `before`/`after` with `anchorId`. Moves affect
@@ -237,6 +237,10 @@ new ones back the same way.
   through `openapi-typescript` and `openapi-fetch`.
 - **Database**: `uptrace/bun` on `modernc.org/sqlite` (no cgo) or Postgres,
   with embedded goose migrations in `internal/db/migrations/{sqlite,postgres}`.
+  The migrations before 1.0 are squashed into `00040_baseline.sql`, numbered
+  like the last of them so databases they made skip it; the old steps stay in
+  `internal/db/testdata/premigrations`, where tests check that a database they
+  made matches the baseline exactly.
 - **Web**: React, Vite, TypeScript, TanStack Query, Tailwind; embedded in the
   binary with `//go:embed`. UI strings live in
   `web/src/lib/i18n/messages.json` (English, Russian, Ukrainian), checked by

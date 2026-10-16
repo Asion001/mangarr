@@ -7,7 +7,9 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -51,11 +53,15 @@ func TestMigrationsForward(t *testing.T) {
 	}
 }
 
+// TestMigrationsPreserveDataFromEarlierVersions upgrades through the
+// migrations before the 1.0 baseline with data at several steps, then
+// migrates with the baseline: a database the old migrations made skips it
+// and ends up with exactly the schema of a fresh one.
 func TestMigrationsPreserveDataFromEarlierVersions(t *testing.T) {
 	for _, dialect := range []Dialect{SQLite, Postgres} {
 		t.Run(string(dialect), func(t *testing.T) {
 			d := migrationTestDB(t, dialect)
-			p := migrationProvider(t, d)
+			p := premigrationProvider(t, d)
 			ctx := context.Background()
 			migrateTo := func(version int64) {
 				t.Helper()
@@ -86,7 +92,14 @@ func TestMigrationsPreserveDataFromEarlierVersions(t *testing.T) {
 			}
 			migrateTo(24)
 			if _, err := p.Up(ctx); err != nil {
-				t.Fatalf("migrate to latest: %v", err)
+				t.Fatalf("migrate to the last pre-release version: %v", err)
+			}
+			res, err := migrationProvider(t, d).Up(ctx)
+			if err != nil || len(res) != 0 {
+				t.Fatalf("baseline on a pre-release database: applied %d, %v; want none", len(res), err)
+			}
+			if err := d.Migrate(ctx); err != nil {
+				t.Fatal(err)
 			}
 
 			var title, workTitle, username string
@@ -115,6 +128,23 @@ func TestMigrationsPreserveDataFromEarlierVersions(t *testing.T) {
 			if got, want := migrationSchema(t, d), migrationSchema(t, fresh); fmt.Sprint(got) != fmt.Sprint(want) {
 				t.Fatalf("stepwise schema differs from fresh schema\nstepwise: %v\nfresh: %v", got, want)
 			}
+			got, want := schemaDefinition(t, d), schemaDefinition(t, fresh)
+			for i := 0; i < len(got) || i < len(want); i++ {
+				var g, w string
+				if i < len(got) {
+					g = got[i]
+				}
+				if i < len(want) {
+					w = want[i]
+				}
+				if g != w {
+					t.Fatalf("pre-release schema differs from the baseline at item %d\npre-release: %s\nbaseline:    %s", i, g, w)
+				}
+			}
+			var queueOrder int
+			if err := fresh.QueryRowContext(ctx, `SELECT COUNT(*) FROM download_queue_order`).Scan(&queueOrder); err != nil || queueOrder != 1 {
+				t.Fatalf("baseline queue order rows = %d, %v; want 1", queueOrder, err)
+			}
 		})
 	}
 }
@@ -126,7 +156,7 @@ func TestTitleReadStatesMigration(t *testing.T) {
 	for _, dialect := range []Dialect{SQLite, Postgres} {
 		t.Run(string(dialect), func(t *testing.T) {
 			d := migrationTestDB(t, dialect)
-			p := migrationProvider(t, d)
+			p := premigrationProvider(t, d)
 			ctx := context.Background()
 			if _, err := p.UpTo(ctx, 31); err != nil {
 				t.Fatal(err)
@@ -252,12 +282,43 @@ func migrationTestDB(t *testing.T, dialect Dialect) *DB {
 	return d
 }
 
+// TestMigrateRefusesPartlyUpgradedDevelopmentDatabases: a database a
+// development build left before the last pre-release migration can't take
+// the baseline, so Migrate says which version to run first.
+func TestMigrateRefusesPartlyUpgradedDevelopmentDatabases(t *testing.T) {
+	for _, dialect := range []Dialect{SQLite, Postgres} {
+		t.Run(string(dialect), func(t *testing.T) {
+			d := migrationTestDB(t, dialect)
+			ctx := context.Background()
+			if _, err := premigrationProvider(t, d).UpTo(ctx, 30); err != nil {
+				t.Fatal(err)
+			}
+			err := d.Migrate(ctx)
+			if err == nil || !strings.Contains(err.Error(), "schema version 30") || !strings.Contains(err.Error(), "0.9.0") {
+				t.Fatalf("Migrate on a version 30 database: %v", err)
+			}
+		})
+	}
+}
+
 func migrationProvider(t *testing.T, d *DB) *goose.Provider {
 	t.Helper()
 	sub, err := migrationsFSSub(d.Kind)
 	if err != nil {
 		t.Fatal(err)
 	}
+	return gooseProvider(t, d, sub)
+}
+
+// premigrationProvider runs the migrations from before the 1.0 baseline,
+// kept in testdata, the way pre-release builds ran them.
+func premigrationProvider(t *testing.T, d *DB) *goose.Provider {
+	t.Helper()
+	return gooseProvider(t, d, os.DirFS(filepath.Join("testdata", "premigrations", string(d.Kind))))
+}
+
+func gooseProvider(t *testing.T, d *DB, sub fs.FS) *goose.Provider {
+	t.Helper()
 	dialect := goose.DialectSQLite3
 	if d.Kind == Postgres {
 		dialect = goose.DialectPostgres
@@ -356,7 +417,7 @@ func TestQueueRankBackfill(t *testing.T) {
 	for _, dialect := range []Dialect{SQLite, Postgres} {
 		t.Run(string(dialect), func(t *testing.T) {
 			d := migrationTestDB(t, dialect)
-			p := migrationProvider(t, d)
+			p := premigrationProvider(t, d)
 			ctx := t.Context()
 			if _, err := p.UpTo(ctx, 26); err != nil {
 				t.Fatal(err)
@@ -418,4 +479,50 @@ func TestQueueRankBackfill(t *testing.T) {
 			}
 		})
 	}
+}
+
+// schemaDefinition lists everything that makes up the schema, in a form
+// that doesn't depend on how it was reached: SQLite's stored definitions
+// without comments, quotes or white space (ALTER TABLE appends columns to
+// them), and PostgreSQL's columns, constraints, indexes, sequences and views
+// from its catalogs.
+func schemaDefinition(t *testing.T, d *DB) []string {
+	t.Helper()
+	ctx := context.Background()
+	query := `SELECT type || ' ' || name || ' ' || sql FROM sqlite_master
+		WHERE sql IS NOT NULL AND name NOT LIKE 'sqlite_%' AND name <> 'goose_db_version'`
+	if d.Kind == Postgres {
+		query = `SELECT 'column ' || table_name || '.' || column_name || ' ' || data_type || ' ' || is_nullable || ' ' || COALESCE(column_default, '') || ' ' || is_identity || ' ' || COALESCE(identity_generation, '')
+				FROM information_schema.columns WHERE table_schema = current_schema() AND table_name NOT LIKE 'goose_db_version%'
+			UNION ALL SELECT 'constraint ' || conrelid::regclass::text || ' ' || conname || ' ' || pg_get_constraintdef(oid)
+				FROM pg_constraint WHERE connamespace = current_schema()::regnamespace AND conrelid::regclass::text NOT LIKE 'goose_db_version%'
+			UNION ALL SELECT 'index ' || indexname || ' ' || indexdef
+				FROM pg_indexes WHERE schemaname = current_schema() AND tablename NOT LIKE 'goose_db_version%'
+			UNION ALL SELECT 'sequence ' || sequencename || ' ' || data_type::text || ' ' || increment_by
+				FROM pg_sequences WHERE schemaname = current_schema() AND sequencename NOT LIKE 'goose_db_version%'
+			UNION ALL SELECT 'view ' || viewname || ' ' || definition
+				FROM pg_views WHERE schemaname = current_schema()`
+	}
+	rows, err := d.QueryContext(ctx, query)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	comment := regexp.MustCompile(`--[^\n]*`)
+	var out []string
+	for rows.Next() {
+		var item string
+		if err := rows.Scan(&item); err != nil {
+			t.Fatal(err)
+		}
+		if d.Kind == SQLite {
+			item = strings.Join(strings.Fields(strings.ReplaceAll(comment.ReplaceAllString(item, ""), `"`, "")), "")
+		}
+		out = append(out, item)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	sort.Strings(out)
+	return out
 }

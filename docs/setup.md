@@ -849,6 +849,12 @@ the version differs from the tested one.
    Workers follow the server's version on their own (§12, "Keeping workers
    up to date").
 
+**From a development build.** 1.0 creates its database from one baseline
+that holds every change made before it. A database that 0.9.0 or a later
+`main` build opened upgrades as usual. An older one, or a backup it made,
+has to be opened by 0.9.0 first: start `ghcr.io/asion001/mangarr:0.9.0`
+once, then the new version. mangarr says so on start if it finds one.
+
 **Rolling back.** A database that a newer version has migrated isn't meant
 for an older one. Go back by starting the old image and restoring the backup
 from step 1 (System → Backups → **Add a backup file**, then **Restore**).
