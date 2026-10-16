@@ -154,7 +154,6 @@ export function SettingsPanel({
           />
         </Row>
         <div className="flex flex-col gap-2.5">
-          <Toggle checked={s.autoNext} onChange={(autoNext) => set({ autoNext })} label={t("Go on to the next chapter")} />
           <Toggle checked={s.keepAwake} onChange={(keepAwake) => set({ keepAwake })} label={t("Keep the screen on")} />
           <Toggle checked={s.showPageNumber} onChange={(showPageNumber) => set({ showPageNumber })} label={t("Show the page number")} />
           {canFullscreen() && <Toggle checked={s.quickFullscreen} onChange={(quickFullscreen) => set({ quickFullscreen })} label={t("Quick full screen button")} />}

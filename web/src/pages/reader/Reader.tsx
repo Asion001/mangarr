@@ -1,14 +1,15 @@
 import { t as tr, t } from "../../lib/i18n/core";
 import { useDocumentTitle } from "../../lib/documentTitle";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router";
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ChevronLeft, ChevronRight, Download, List, Maximize, Minimize, Settings2 } from "lucide-react";
 import clsx from "clsx";
-import { api, apiUrl, basePath, unwrap } from "../../api/client";
+import { apiUrl, basePath } from "../../api/client";
 import { ErrorBox, Spinner } from "../../components/ui";
 import { useReaderSettings } from "./settings";
-import { displayWidth, pageUrl, rememberPageBase, useDims, useViewport, type Half } from "./page";
+import { displayWidth, pageUrl, useDims, useViewport, type Half } from "./page";
+import { chapterQuery } from "./query";
 import { buildViews, indexOf, pageLayout, PagedViewer } from "./PagedViewer";
 import { WebtoonViewer } from "./WebtoonViewer";
 import { SettingsPanel } from "./SettingsPanel";
@@ -19,21 +20,15 @@ import { TapZones } from "./TapZones";
 import { canFullscreen, needsHomeScreen, toggleFullscreen as toggleFull, useFullscreen } from "./fullscreen";
 import { useToast } from "../../lib/toast";
 
-const chapterQuery = (id: number) => ({
-  queryKey: ["read-chapter", id],
-  queryFn: () => unwrap(api.GET("/api/v1/read/chapters/{id}", { params: { path: { id } } })).then((ch) => {
-    rememberPageBase(ch.id, ch.pageBase);
-    return ch;
-  }),
-  staleTime: 60_000,
-});
-
 /** ReaderPage is the full-screen web reader (/read/:id). */
 export function ReaderPage() {
   const { id } = useParams();
+  // every navigation opens afresh: the webtoon strip moves the address on
+  // by itself, so the same id can mean a different chapter than it shows
+  const { key } = useLocation();
   const preloader = useMemo(() => new ImagePreloader(), []);
   useEffect(() => () => preloader.clear(), [preloader]);
-  return <Reader key={id} chapterId={Number(id)} preloader={preloader} />;
+  return <Reader key={`${id}-${key}`} chapterId={Number(id)} preloader={preloader} />;
 }
 
 type Pos = { page: number; half?: Half; edge?: "start" | "end" };
@@ -42,10 +37,13 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [search] = useSearchParams();
-  const { data: ch, error } = useQuery(chapterQuery(chapterId));
+  // the chapter on screen: the one opened, until the webtoon strip scrolls
+  // on into the next
+  const [activeId, setActiveId] = useState(chapterId);
+  const { data: ch, error } = useQuery(chapterQuery(activeId));
   useReadingTime(ch?.id ?? 0);
   const { settings: s, set, saveAsDefault, reset, hasOwn, loading: settingsLoading } = useReaderSettings(ch?.seriesId ?? 0, ch?.readingDirection ?? "");
-  const { dims, need, natural } = useDims(chapterId, s.crop || s.splitWide || (s.mode === "paged" && s.spread !== "single"));
+  const { dims, need, natural } = useDims(activeId, s.crop || s.splitWide || (s.mode === "paged" && s.spread !== "single"));
   const vp = useViewport();
   const views = useMemo(() => (ch ? buildViews(ch.pages.length, dims, s, vp.w > vp.h) : []), [ch, dims, s, vp.w, vp.h]);
   const [pos, setPos] = useState<Pos | null>(null);
@@ -171,6 +169,25 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
     };
   }, [flush]);
 
+  // The webtoon strip runs on into the next chapter: once its divider
+  // scrolls past, the chapter before is read and the next one takes over
+  // the bars, progress and address.
+  const onWebPage = useCallback(
+    (id: number, n: number) => {
+      if (ch && id !== ch.id) {
+        if (ch.next?.id === id) pending.current = ch.pages.length;
+        flush();
+        pending.current = 0;
+        saved.current = 0;
+        setActiveId(id);
+        setPos({ page: n });
+        window.history.replaceState(window.history.state, "", `${basePath}/read/${id}`);
+      }
+      setWebPage(n);
+    },
+    [ch, flush],
+  );
+
   // keep the screen on
   useEffect(() => {
     if (!s.keepAwake || !("wakeLock" in navigator)) return;
@@ -267,13 +284,11 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
     <div className={clsx("fixed inset-0 select-none overflow-hidden", bg)}>
       {s.mode === "webtoon" ? (
         <WebtoonViewer
-          chapter={ch}
+          chapterId={chapterId}
           settings={s}
           startPage={pos.page}
-          onPage={setWebPage}
-          dims={dims}
-          need={need}
-          natural={natural}
+          onPage={onWebPage}
+          wantBounds={s.crop || s.splitWide}
           onChapter={goChapter}
           onMenu={() => setBars((b) => !b)}
         />

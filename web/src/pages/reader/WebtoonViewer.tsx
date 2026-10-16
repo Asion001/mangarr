@@ -1,62 +1,64 @@
-import { t } from "../../lib/i18n/core";
+import { t as tr, t } from "../../lib/i18n/core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { S } from "../../api/client";
 import type { ReaderSettings } from "./settings";
 import { tapAction } from "./zones";
-import { displayWidth, PageImage, pageUrl, placeholderUrl, useViewport, type Dims } from "./page";
-import { Transition } from "./Transition";
+import { displayWidth, PageImage, pageUrl, placeholderUrl, useDims, useViewport } from "./page";
 import { widen } from "./preload";
+import { chapterQuery } from "./query";
 
 type Chapter = S["ReadChapter"];
+type ChapterLink = NonNullable<Chapter["next"]>;
+
+const label = (c: { number: string; title?: string }) => `${t("Ch.")} ${c.number}${c.title && c.title !== c.number && !c.title.endsWith(c.number) ? ` · ${c.title}` : ""}`;
 
 /**
- * WebtoonViewer is one long vertical strip. Pages load well ahead of the
- * screen, the page at the top third is the current one, and reaching the end moves
- * on to the next chapter (with autoNext).
+ * WebtoonViewer is one long vertical strip that runs on from chapter to
+ * chapter, with a divider between them. Pages load well ahead of the
+ * screen, and the page at the top third is the current one.
+ *
+ * Positions on the strip count pages across all its chapters from 1, so
+ * they stay put as later chapters are added at the end.
  */
 export function WebtoonViewer({
-  chapter,
+  chapterId,
   settings: s,
   startPage,
   onPage,
-  dims,
-  need,
-  natural,
+  wantBounds,
   onChapter,
   onMenu,
 }: {
-  chapter: Chapter;
+  chapterId: number;
   settings: ReaderSettings;
   startPage: number;
-  onPage: (n: number) => void;
-  dims: Record<number, Dims>;
-  need: (pages: number[]) => void;
-  natural: (n: number, w: number, h: number) => void;
+  onPage: (chapterId: number, page: number) => void;
+  wantBounds: boolean;
   onChapter: (dir: "prev" | "next") => void;
   onMenu: () => void;
 }) {
   const vp = useViewport();
+  const qc = useQueryClient();
+  const first = useQuery(chapterQuery(chapterId)).data;
   const scroller = useRef<HTMLDivElement>(null);
   const items = useRef<(HTMLDivElement | null)[]>([]);
-  const count = chapter.pages.length;
+  const observer = useRef<IntersectionObserver | null>(null);
+  // the chapters after the first, added as the reader gets near them
+  const [more, setMore] = useState<Chapter[]>([]);
+  const [nextFailed, setNextFailed] = useState(false);
+  const chapters = useMemo(() => (first ? [first, ...more] : []), [first, more]);
+  const strip = useMemo(() => chapters.flatMap((c) => c.pages.map((p) => ({ chapter: c.id, page: p.number }))), [chapters]);
+  const stripRef = useRef(strip);
+  stripRef.current = strip;
+  const total = strip.length;
   // pages ahead of the current one to have loaded before they scroll in
   const ahead = Math.max(s.preload, 3);
-  const [near, setNear] = useState<Set<number>>(() => widen(new Set(), startPage - 1, startPage + ahead, count));
-  const [previewAspects, setPreviewAspects] = useState<Record<number, number>>({});
+  const [near, setNear] = useState<Set<number>>(() => widen(new Set(), startPage - 1, startPage + ahead, first?.pages.length ?? 0));
   const current = useRef(startPage);
   // a readable column on wide screens; side padding narrows it further
   const width = Math.min(vp.w, 900) * (1 - (2 * s.padding) / 100);
-  // pages not loaded yet borrow the shape of one that is (webtoon pages
-  // share a width), so the strip doesn't jump as they arrive
-  const guess = useMemo(() => {
-    const d = Object.values(dims)[0];
-    return d ? (s.crop ? d.w : d.width) / d.height : 0.7;
-  }, [dims, s.crop]);
-  const previewNatural = useCallback((page: number, w: number, h: number) => {
-    if (!w || !h) return;
-    const aspect = w / h;
-    setPreviewAspects((current) => current[page] === aspect ? current : { ...current, [page]: aspect });
-  }, []);
 
   // Any page within a few screens pulls in the pages after it, so the
   // window keeps sliding ahead of the reader even across pages already
@@ -69,79 +71,87 @@ export function WebtoonViewer({
         setNear((prev) => {
           let next = prev;
           for (const e of entries) {
-            const n = Number((e.target as HTMLElement).dataset.page);
-            if (e.isIntersecting) next = widen(next, n, n + ahead, count);
+            const k = Number((e.target as HTMLElement).dataset.pos);
+            if (e.isIntersecting) next = widen(next, k, k + ahead, stripRef.current.length);
           }
           return next;
         });
       },
       { root, rootMargin: "300% 0px" },
     );
+    observer.current = io;
     items.current.forEach((el) => el && io.observe(el));
-    return () => io.disconnect();
-  }, [chapter.id, count, ahead]);
+    return () => {
+      io.disconnect();
+      observer.current = null;
+    };
+  }, [ahead, first]);
+  const register = useCallback((k: number, el: HTMLDivElement | null) => {
+    items.current[k - 1] = el;
+    if (el) observer.current?.observe(el);
+  }, []);
 
-  useEffect(() => need([...near]), [near, need]);
+  // a chapter added at the end joins the window if it's close enough
+  useEffect(() => setNear((prev) => widen(prev, current.current, current.current + ahead, total)), [total, ahead]);
+
+  // Once the last chapter's pages are about to load, fetch the one after it
+  // so its first pages are there by the time the reader scrolls past the
+  // divider.
+  const last = chapters[chapters.length - 1];
+  const lastStart = total - (last?.pages.length ?? 0) + 1;
+  const wantNext = !!last?.next && (last.pages.length === 0 || [...near].some((k) => k >= lastStart));
+  const nextId = last?.next?.id;
+  useEffect(() => {
+    if (!wantNext || !nextId) return;
+    let live = true;
+    setNextFailed(false);
+    qc.fetchQuery(chapterQuery(nextId))
+      .then((c) => live && setMore((cs) => (cs.some((x) => x.id === c.id) ? cs : [...cs, c])))
+      .catch(() => live && setNextFailed(true));
+    return () => {
+      live = false;
+    };
+  }, [wantNext, nextId, qc]);
 
   // open at the saved page
   useEffect(() => {
+    if (!first) return;
     const el = items.current[startPage - 1];
     if (el && startPage > 1) el.scrollIntoView({ block: "start" });
     current.current = startPage;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chapter.id]);
+  }, [!!first]);
 
   // the page at the top third of the screen is the current one
   useEffect(() => {
     const root = scroller.current;
     if (!root) return;
     let raf = 0;
+    const set = (k: number) => {
+      const at = stripRef.current[k - 1];
+      if (!at || current.current === k) return;
+      current.current = k;
+      onPage(at.chapter, at.page);
+      setNear((prev) => widen(prev, k - 1, k + ahead, stripRef.current.length));
+    };
     const on = () => {
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
         const line = root.getBoundingClientRect().top + root.clientHeight / 3;
-        for (let i = 0; i < items.current.length; i++) {
+        for (let i = 0; i < stripRef.current.length; i++) {
           const r = items.current[i]?.getBoundingClientRect();
           if (r && r.top <= line && r.bottom > line) {
-            if (current.current !== i + 1) {
-              current.current = i + 1;
-              onPage(i + 1);
-              setNear((prev) => widen(prev, i, i + 1 + ahead, count));
-            }
+            set(i + 1);
             break;
           }
         }
         // at the very end, the last page counts as read
-        if (root.scrollTop + root.clientHeight >= root.scrollHeight - 2 && current.current !== count) {
-          current.current = count;
-          onPage(count);
-        }
+        if (root.scrollTop + root.clientHeight >= root.scrollHeight - 2) set(stripRef.current.length);
       });
     };
     root.addEventListener("scroll", on, { passive: true });
     return () => root.removeEventListener("scroll", on);
-  }, [count, onPage, ahead]);
-
-  // the end: move on after a moment
-  const end = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const root = scroller.current;
-    const el = end.current;
-    if (!root || !el || !s.autoNext || !chapter.next) return;
-    let timer = 0;
-    const io = new IntersectionObserver(
-      ([e]) => {
-        window.clearTimeout(timer);
-        if (e.intersectionRatio > 0.6) timer = window.setTimeout(() => onChapter("next"), 1200);
-      },
-      { root, threshold: [0, 0.6, 1] },
-    );
-    io.observe(el);
-    return () => {
-      io.disconnect();
-      window.clearTimeout(timer);
-    };
-  }, [chapter.id, chapter.next, s.autoNext, onChapter]);
+  }, [onPage, ahead, first]);
 
   // keys scroll by most of a screen
   useEffect(() => {
@@ -165,60 +175,154 @@ export function WebtoonViewer({
     const a = tapAction(e.clientX / vp.w, e.clientY / vp.h, s);
     const root = scroller.current;
     if (a === "menu" || !root) onMenu();
-    // at the very end, a page turn moves on like the paged reader does
+    // at the very end of the last chapter, a page turn leaves like the paged reader does
     else if (a === "next" && root.scrollTop + root.clientHeight >= root.scrollHeight - 2) onChapter("next");
     else root.scrollBy({ top: (a === "next" ? 1 : -1) * root.clientHeight * 0.85, behavior: "smooth" });
   };
 
+  if (!first) return null;
+  let offset = 0;
   return (
     <div ref={scroller} className="h-full w-full overflow-y-auto overflow-x-hidden" onClick={onClick} style={{ touchAction: "pan-y pinch-zoom" }}>
       <div className="mx-auto flex flex-col items-center" style={{ width }}>
-        {chapter.prev && (
+        {first.prev && (
           <div className="w-full py-6 text-center text-sm text-muted">
-            <button type="button" className="rounded-md border border-muted/40 px-3 py-1.5" onClick={(e) => (e.stopPropagation(), onChapter("prev"))}>{t("Previous chapter: ch.") + " "}{chapter.prev.number}
+            <button type="button" className="rounded-md border border-muted/40 px-3 py-1.5" onClick={(e) => (e.stopPropagation(), onChapter("prev"))}>{t("Previous chapter: ch.") + " "}{first.prev.number}
             </button>
           </div>
         )}
-        {chapter.pages.map((p, i) => {
-          const d = dims[p.number];
-          const w = d ? (s.crop ? d.w : d.width) : 0;
-          const aspect = d ? w / d.height : previewAspects[p.number] ?? guess;
-          const h = width / aspect;
+        {chapters.map((c, i) => {
+          const start = offset;
+          offset += c.pages.length;
+          const following = i === chapters.length - 1;
           return (
-            <div
-              key={`${chapter.id}-${p.number}`}
-              ref={(el) => {
-                items.current[i] = el;
-              }}
-              data-page={p.number}
-              style={{ width, minHeight: d ? undefined : h, marginBottom: s.gap ? 12 : 0 }}
-            >
-              {/* eager: the window above already decides what loads, and a
-                  browser's lazy loading (Safari's especially) would wait
-                  until the page is almost on screen */}
-              {near.has(p.number) ? (
-                <PageImage
-                  src={pageUrl(chapter.id, p.number, displayWidth(width))}
-                  placeholder={placeholderUrl(chapter.id, p.number)}
-                  dims={d}
-                  crop={s.crop}
-                  sidesOnly
-                  eager
-                  width={width}
-                  height={h}
-                  onNatural={(nw, nh) => natural(p.number, nw, nh)}
-                  onPlaceholderNatural={(nw, nh) => previewNatural(p.number, nw, nh)}
-                />
-              ) : (
-                <div style={{ width, height: h }} />
-              )}
-            </div>
+            <Segment
+              key={c.id}
+              chapter={c}
+              offset={start}
+              near={near}
+              width={width}
+              settings={s}
+              wantBounds={wantBounds}
+              register={register}
+              divider={<Divider chapter={c} next={c.next} failed={following && nextFailed} onNext={() => onChapter("next")} />}
+            />
           );
         })}
-        <div ref={end} className="w-full" style={{ height: vp.h * 0.8 }}>
-          <Transition edge="end" chapter={chapter} onGo={() => onChapter("next")} onBack={() => scroller.current?.scrollBy({ top: -vp.h })} />
-        </div>
       </div>
+    </div>
+  );
+}
+
+/** Segment is one chapter's pages on the strip, then its divider. */
+function Segment({
+  chapter,
+  offset,
+  near,
+  width,
+  settings: s,
+  wantBounds,
+  register,
+  divider,
+}: {
+  chapter: Chapter;
+  offset: number;
+  near: Set<number>;
+  width: number;
+  settings: ReaderSettings;
+  wantBounds: boolean;
+  register: (k: number, el: HTMLDivElement | null) => void;
+  divider: React.ReactNode;
+}) {
+  const { dims, need, natural } = useDims(chapter.id, wantBounds);
+  const [previewAspects, setPreviewAspects] = useState<Record<number, number>>({});
+  // pages not loaded yet borrow the shape of one that is (webtoon pages
+  // share a width), so the strip doesn't jump as they arrive
+  const guess = useMemo(() => {
+    const d = Object.values(dims)[0];
+    return d ? (s.crop ? d.w : d.width) / d.height : 0.7;
+  }, [dims, s.crop]);
+  const previewNatural = useCallback((page: number, w: number, h: number) => {
+    if (!w || !h) return;
+    const aspect = w / h;
+    setPreviewAspects((current) => current[page] === aspect ? current : { ...current, [page]: aspect });
+  }, []);
+  const wanted = useMemo(() => chapter.pages.filter((_, i) => near.has(offset + i + 1)).map((p) => p.number), [chapter, near, offset]);
+  useEffect(() => need(wanted), [wanted, need]);
+
+  return (
+    <>
+      {chapter.pages.map((p, i) => {
+        const k = offset + i + 1;
+        const d = dims[p.number];
+        const w = d ? (s.crop ? d.w : d.width) : 0;
+        const aspect = d ? w / d.height : previewAspects[p.number] ?? guess;
+        const h = width / aspect;
+        return (
+          <div
+            key={p.number}
+            ref={(el) => register(k, el)}
+            data-pos={k}
+            data-chapter={chapter.id}
+            data-page={p.number}
+            style={{ width, minHeight: d ? undefined : h, marginBottom: s.gap ? 12 : 0 }}
+          >
+            {/* eager: the window above already decides what loads, and a
+                browser's lazy loading (Safari's especially) would wait
+                until the page is almost on screen */}
+            {near.has(k) ? (
+              <PageImage
+                src={pageUrl(chapter.id, p.number, displayWidth(width))}
+                placeholder={placeholderUrl(chapter.id, p.number)}
+                dims={d}
+                crop={s.crop}
+                sidesOnly
+                eager
+                width={width}
+                height={h}
+                onNatural={(nw, nh) => natural(p.number, nw, nh)}
+                onPlaceholderNatural={(nw, nh) => previewNatural(p.number, nw, nh)}
+              />
+            ) : (
+              <div style={{ width, height: h }} />
+            )}
+          </div>
+        );
+      })}
+      {divider}
+    </>
+  );
+}
+
+/** Divider sits between two chapters on the strip, or after the last one. */
+function Divider({ chapter, next, failed, onNext }: { chapter: Chapter; next?: ChapterLink; failed: boolean; onNext: () => void }) {
+  const line = <div className="h-px flex-1 bg-muted/30" />;
+  return (
+    // after the last chapter, room for its link to clear the reader's bottom bar
+    <div className="flex w-full items-center gap-3 px-4 py-8 text-fg" data-divider={chapter.id} style={next ? undefined : { paddingBottom: "calc(6rem + env(safe-area-inset-bottom))" }}>
+      {line}
+      <div className="flex max-w-[75%] flex-col items-center gap-1 text-center">
+        {next ? (
+          <>
+            <div className="text-xs uppercase tracking-wide text-muted">{tr("End of ch.") + " "}{chapter.number}</div>
+            <div className="text-sm font-semibold">{label(next)}</div>
+            {failed && (
+              <button type="button" className="mt-2 rounded-md border border-muted/40 px-3 py-1.5 text-sm" onClick={(e) => (e.stopPropagation(), onNext())}>{t("Open the next chapter")}</button>
+            )}
+          </>
+        ) : (
+          <>
+            <div className="text-xs uppercase tracking-wide text-muted">{tr("Finished") + " · "}{label(chapter)}</div>
+            <div className="text-sm text-muted">{tr("There's no next chapter yet.")}</div>
+            <Link
+              to={`/series/${chapter.seriesId}`}
+              className="mt-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-white"
+              onClick={(e) => e.stopPropagation()}
+            >{t("Back to the series")}</Link>
+          </>
+        )}
+      </div>
+      {line}
     </div>
   );
 }

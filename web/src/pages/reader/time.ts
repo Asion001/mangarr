@@ -1,15 +1,16 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { basePath } from "../../api/client";
 
 const heartbeatMs = 15_000;
 const idleAfterMs = 2 * 60_000;
 
-/** useReadingTime reports active, visible web-reader time as an idempotent cumulative session. */
+/** useReadingTime reports active, visible web-reader time as an idempotent
+ * cumulative session, one per chapter (the webtoon strip changes chapter
+ * without reopening the reader). */
 export function useReadingTime(chapterId: number) {
-  const session = useRef("");
-  if (!session.current) session.current = crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}-reader`;
   useEffect(() => {
     if (!chapterId) return;
+    const session = crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}-reader`;
     let activeSeconds = 0;
     let sentSeconds = 0;
     let lastTick = performance.now();
@@ -29,7 +30,7 @@ export function useReadingTime(chapterId: number) {
       void fetch(`${basePath}/api/v1/read/chapters/${chapterId}/time`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: session.current, activeSeconds: seconds }),
+        body: JSON.stringify({ sessionId: session, activeSeconds: seconds }),
         keepalive: true,
       });
     };
