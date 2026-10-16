@@ -12,7 +12,7 @@ import { languageName, relative } from "../../lib/format";
 import { LanguageSelect, useOfferedLanguages } from "../../components/LanguageSelect";
 import { useToast } from "../../lib/toast";
 import { useQueryParam } from "../../lib/urlState";
-import { MetadataSearch } from "../series/AddSeries";
+import { MetadataSearch } from "../series/MetadataSearch";
 import { ReadButton } from "../series/Preview";
 
 type Request = S["Request"];

@@ -245,7 +245,7 @@ new ones back the same way.
   binary with `//go:embed`. UI strings live in
   `web/src/lib/i18n/messages.json` (English, Russian, Ukrainian), checked by
   `npm run check:i18n`. Pages load lazily, and CI keeps the first load
-  under 220 kB gzipped (`npm run check:bundle`).
+  under 140 kB gzipped (`npm run check:bundle`).
 - **Images**: `docker/Dockerfile` builds the full image (Vulkan, ncnn
   upscalers, `avifenc`, `cjxl`) and the distroless slim one.
 

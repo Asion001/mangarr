@@ -10,7 +10,7 @@ import { Badge, Button, Card, Confirm, ErrorBox, Field, Input, Loading, Modal, P
 import { date, languageName } from "../../lib/format";
 import { useListParam, useQueryParam } from "../../lib/urlState";
 import { useToast } from "../../lib/toast";
-import { MetadataSearch } from "../series/AddSeries";
+import { MetadataSearch } from "../series/MetadataSearch";
 import { SourceSearchModal } from "../series/SourceSearch";
 import { formatLabel, statusLabel, statusTone } from "./Imports";
 

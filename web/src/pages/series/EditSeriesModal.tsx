@@ -6,7 +6,7 @@ import { api, unwrap, type Series, type UpdateRequest } from "../../api/client";
 import { useProfiles, useRootFolders, useTags } from "../../api/queries";
 import { Button, Field, Input, Modal, Select, Switch, TagInput, Textarea } from "../../components/ui";
 import { useToast } from "../../lib/toast";
-import { MetadataSearch } from "./AddSeries";
+import { MetadataSearch } from "./MetadataSearch";
 
 export function EditSeriesModal({ series, onClose }: { series: Series; onClose: () => void }) {
   const qc = useQueryClient();
