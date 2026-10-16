@@ -1,0 +1,862 @@
+### library, English UI
+GET /api/v1/series -> 200 OK
+[
+  {
+    "id": 1,
+    "workId": 1,
+    "title": "Abyss",
+    "sortTitle": "abyss",
+    "status": "unknown",
+    "monitored": true,
+    "monitorNew": "all",
+    "rootFolderId": 1,
+    "path": "Abyss",
+    "profileId": 1,
+    "language": "en",
+    "sourcePriorityMode": "inherit",
+    "readingDirection": "rtl",
+    "tags": [],
+    "metadata": {},
+    "addOptions": {
+      "pending": true,
+      "monitor": "all"
+    },
+    "addedAt": "<now>",
+    "updatedAt": "<now>",
+    "adaptations": [],
+    "stats": {
+      "chapterCount": 3,
+      "monitoredCount": 2,
+      "fileCount": 0,
+      "missingCount": 2,
+      "cleanedCount": 0,
+      "sizeOnDisk": 0,
+      "spaceSaved": 0,
+      "lastChapter": 3,
+      "readCount": 0,
+      "inProgressCount": 0
+    },
+    "coverUrl": "api/v1/series/1/cover?v=<now>",
+    "following": false,
+    "workTitle": "Abyss",
+    "editions": [
+      {
+        "id": 1,
+        "title": "Abyss",
+        "language": "en",
+        "coverUrl": "api/v1/series/1/cover?v=<now>"
+      },
+      {
+        "id": 2,
+        "title": "Бездна",
+        "language": "ru",
+        "coverUrl": "api/v1/series/2/cover?v=<now>"
+      }
+    ]
+  },
+  {
+    "id": 3,
+    "workId": 2,
+    "title": "Solo",
+    "sortTitle": "solo",
+    "status": "unknown",
+    "monitored": true,
+    "monitorNew": "all",
+    "rootFolderId": 1,
+    "path": "Solo",
+    "profileId": 1,
+    "language": "en",
+    "sourcePriorityMode": "inherit",
+    "readingDirection": "rtl",
+    "tags": [],
+    "metadata": {},
+    "addOptions": {
+      "pending": true,
+      "monitor": "all"
+    },
+    "addedAt": "<now>",
+    "updatedAt": "<now>",
+    "adaptations": [],
+    "stats": {
+      "chapterCount": 0,
+      "monitoredCount": 0,
+      "fileCount": 0,
+      "missingCount": 0,
+      "cleanedCount": 0,
+      "sizeOnDisk": 0,
+      "spaceSaved": 0,
+      "lastChapter": 0,
+      "readCount": 0,
+      "inProgressCount": 0
+    },
+    "coverUrl": "api/v1/series/3/cover?v=<now>",
+    "following": false,
+    "workTitle": "Solo",
+    "editions": [
+      {
+        "id": 3,
+        "title": "Solo",
+        "language": "en",
+        "coverUrl": "api/v1/series/3/cover?v=<now>"
+      }
+    ]
+  }
+]
+
+
+### library, Russian UI
+GET /api/v1/series -> 200 OK
+[
+  {
+    "id": 2,
+    "workId": 1,
+    "title": "Бездна",
+    "sortTitle": "бездна",
+    "status": "unknown",
+    "monitored": true,
+    "monitorNew": "all",
+    "rootFolderId": 2,
+    "path": "Бездна",
+    "profileId": 1,
+    "language": "ru",
+    "sourcePriorityMode": "inherit",
+    "readingDirection": "rtl",
+    "tags": [],
+    "metadata": {},
+    "addOptions": {
+      "pending": true,
+      "monitor": "all"
+    },
+    "addedAt": "<now>",
+    "updatedAt": "<now>",
+    "adaptations": [],
+    "stats": {
+      "chapterCount": 3,
+      "monitoredCount": 2,
+      "fileCount": 0,
+      "missingCount": 2,
+      "cleanedCount": 0,
+      "sizeOnDisk": 0,
+      "spaceSaved": 0,
+      "lastChapter": 3,
+      "readCount": 0,
+      "inProgressCount": 0
+    },
+    "coverUrl": "api/v1/series/2/cover?v=<now>",
+    "following": false,
+    "workTitle": "Abyss",
+    "editions": [
+      {
+        "id": 1,
+        "title": "Abyss",
+        "language": "en",
+        "coverUrl": "api/v1/series/1/cover?v=<now>"
+      },
+      {
+        "id": 2,
+        "title": "Бездна",
+        "language": "ru",
+        "coverUrl": "api/v1/series/2/cover?v=<now>"
+      }
+    ]
+  },
+  {
+    "id": 3,
+    "workId": 2,
+    "title": "Solo",
+    "sortTitle": "solo",
+    "status": "unknown",
+    "monitored": true,
+    "monitorNew": "all",
+    "rootFolderId": 1,
+    "path": "Solo",
+    "profileId": 1,
+    "language": "en",
+    "sourcePriorityMode": "inherit",
+    "readingDirection": "rtl",
+    "tags": [],
+    "metadata": {},
+    "addOptions": {
+      "pending": true,
+      "monitor": "all"
+    },
+    "addedAt": "<now>",
+    "updatedAt": "<now>",
+    "adaptations": [],
+    "stats": {
+      "chapterCount": 0,
+      "monitoredCount": 0,
+      "fileCount": 0,
+      "missingCount": 0,
+      "cleanedCount": 0,
+      "sizeOnDisk": 0,
+      "spaceSaved": 0,
+      "lastChapter": 0,
+      "readCount": 0,
+      "inProgressCount": 0
+    },
+    "coverUrl": "api/v1/series/3/cover?v=<now>",
+    "following": false,
+    "workTitle": "Solo",
+    "editions": [
+      {
+        "id": 3,
+        "title": "Solo",
+        "language": "en",
+        "coverUrl": "api/v1/series/3/cover?v=<now>"
+      }
+    ]
+  }
+]
+
+
+### English edition
+GET /api/v1/series/1 -> 200 OK
+{
+  "id": 1,
+  "workId": 1,
+  "title": "Abyss",
+  "sortTitle": "abyss",
+  "status": "unknown",
+  "monitored": true,
+  "monitorNew": "all",
+  "rootFolderId": 1,
+  "path": "Abyss",
+  "profileId": 1,
+  "language": "en",
+  "sourcePriorityMode": "inherit",
+  "readingDirection": "rtl",
+  "tags": [],
+  "metadata": {},
+  "addOptions": {
+    "pending": true,
+    "monitor": "all"
+  },
+  "addedAt": "<now>",
+  "updatedAt": "<now>",
+  "adaptations": [],
+  "stats": {
+    "chapterCount": 3,
+    "monitoredCount": 2,
+    "fileCount": 0,
+    "missingCount": 2,
+    "cleanedCount": 0,
+    "sizeOnDisk": 0,
+    "spaceSaved": 0,
+    "lastChapter": 3,
+    "readCount": 0,
+    "inProgressCount": 0
+  },
+  "sources": [
+    {
+      "id": 1,
+      "seriesId": 1,
+      "moduleId": 1,
+      "sourceId": "A",
+      "sourceName": "Source A",
+      "lang": "en",
+      "mangaUrl": "/abyss",
+      "title": "",
+      "webUrl": "",
+      "priority": 0,
+      "enabled": true,
+      "checkIntervalMinutes": 0,
+      "nextCheckAt": "<now>",
+      "consecutiveFailures": 0,
+      "lastError": "",
+      "createdAt": "<now>",
+      "effectivePriority": 0,
+      "chapters": 3,
+      "files": 0
+    },
+    {
+      "id": 2,
+      "seriesId": 1,
+      "moduleId": 1,
+      "sourceId": "B",
+      "sourceName": "Source B",
+      "lang": "en",
+      "mangaUrl": "/abyss-b",
+      "title": "",
+      "webUrl": "",
+      "priority": 1,
+      "enabled": true,
+      "checkIntervalMinutes": 0,
+      "nextCheckAt": "<now>",
+      "consecutiveFailures": 0,
+      "lastError": "",
+      "createdAt": "<now>",
+      "effectivePriority": 1,
+      "chapters": 1,
+      "files": 0
+    }
+  ],
+  "coverUrl": "api/v1/series/1/cover?v=<now>",
+  "fullPath": "<en>/Abyss",
+  "reading": {
+    "readers": []
+  },
+  "following": false,
+  "workTitle": "Abyss",
+  "editions": [
+    {
+      "id": 1,
+      "title": "Abyss",
+      "language": "en",
+      "coverUrl": "api/v1/series/1/cover?v=<now>"
+    },
+    {
+      "id": 2,
+      "title": "Бездна",
+      "language": "ru",
+      "coverUrl": "api/v1/series/2/cover?v=<now>"
+    }
+  ]
+}
+
+
+### Russian edition
+GET /api/v1/series/2 -> 200 OK
+{
+  "id": 2,
+  "workId": 1,
+  "title": "Бездна",
+  "sortTitle": "бездна",
+  "status": "unknown",
+  "monitored": true,
+  "monitorNew": "all",
+  "rootFolderId": 2,
+  "path": "Бездна",
+  "profileId": 1,
+  "language": "ru",
+  "sourcePriorityMode": "inherit",
+  "readingDirection": "rtl",
+  "tags": [],
+  "metadata": {},
+  "addOptions": {
+    "pending": true,
+    "monitor": "all"
+  },
+  "addedAt": "<now>",
+  "updatedAt": "<now>",
+  "adaptations": [],
+  "stats": {
+    "chapterCount": 0,
+    "monitoredCount": 0,
+    "fileCount": 0,
+    "missingCount": 0,
+    "cleanedCount": 0,
+    "sizeOnDisk": 0,
+    "spaceSaved": 0,
+    "lastChapter": 0,
+    "readCount": 0,
+    "inProgressCount": 0
+  },
+  "sources": [
+    {
+      "id": 3,
+      "seriesId": 2,
+      "moduleId": 1,
+      "sourceId": "R",
+      "sourceName": "Source R",
+      "lang": "ru",
+      "mangaUrl": "/bezdna",
+      "title": "",
+      "webUrl": "",
+      "priority": 0,
+      "enabled": true,
+      "checkIntervalMinutes": 0,
+      "nextCheckAt": "<now>",
+      "consecutiveFailures": 0,
+      "lastError": "",
+      "createdAt": "<now>",
+      "effectivePriority": 0,
+      "chapters": 0,
+      "files": 0
+    }
+  ],
+  "coverUrl": "api/v1/series/2/cover?v=<now>",
+  "fullPath": "<ru>/Бездна",
+  "reading": {
+    "readers": []
+  },
+  "following": false,
+  "workTitle": "Abyss",
+  "editions": [
+    {
+      "id": 1,
+      "title": "Abyss",
+      "language": "en",
+      "coverUrl": "api/v1/series/1/cover?v=<now>"
+    },
+    {
+      "id": 2,
+      "title": "Бездна",
+      "language": "ru",
+      "coverUrl": "api/v1/series/2/cover?v=<now>"
+    }
+  ]
+}
+
+
+### missing series
+GET /api/v1/series/999 -> 404 Not Found
+{
+  "title": "Not Found",
+  "status": 404,
+  "detail": "series not found"
+}
+
+
+### chapters
+GET /api/v1/series/1/chapters -> 200 OK
+[
+  {
+    "id": 3,
+    "seriesId": 1,
+    "number": "3",
+    "numberSort": 3,
+    "volume": "",
+    "title": "Chapter 3",
+    "monitored": false,
+    "state": "missing",
+    "releaseDate": "2026-09-01T00:00:00Z",
+    "firstSeenAt": "2026-09-01T00:00:00Z",
+    "updatedAt": "2026-09-01T00:00:00Z",
+    "releases": [
+      {
+        "id": 4,
+        "seriesId": 1,
+        "chapterId": 3,
+        "seriesSourceId": 1,
+        "chapterUrl": "/abyss/3/A",
+        "webUrl": "",
+        "name": "Ch. 3",
+        "scanlator": "Team One",
+        "rawNumber": 3,
+        "uploadDate": "2026-09-01T00:00:00Z",
+        "removed": false,
+        "createdAt": "2026-09-01T00:00:00Z",
+        "sourceName": "Source A",
+        "priority": 0,
+        "blocklisted": false
+      }
+    ],
+    "readBy": []
+  },
+  {
+    "id": 2,
+    "seriesId": 1,
+    "number": "2",
+    "numberSort": 2,
+    "volume": "",
+    "title": "Chapter 2",
+    "monitored": true,
+    "state": "missing",
+    "releaseDate": "2026-09-01T00:00:00Z",
+    "firstSeenAt": "2026-09-01T00:00:00Z",
+    "updatedAt": "2026-09-01T00:00:00Z",
+    "releases": [
+      {
+        "id": 2,
+        "seriesId": 1,
+        "chapterId": 2,
+        "seriesSourceId": 1,
+        "chapterUrl": "/abyss/2/A",
+        "webUrl": "",
+        "name": "Ch. 2",
+        "scanlator": "Team One",
+        "rawNumber": 2,
+        "uploadDate": "2026-09-01T00:00:00Z",
+        "removed": false,
+        "createdAt": "2026-09-01T00:00:00Z",
+        "sourceName": "Source A",
+        "priority": 0,
+        "blocklisted": false
+      },
+      {
+        "id": 3,
+        "seriesId": 1,
+        "chapterId": 2,
+        "seriesSourceId": 2,
+        "chapterUrl": "/abyss/2/B",
+        "webUrl": "",
+        "name": "Ch. 2",
+        "scanlator": "Team Two",
+        "rawNumber": 2,
+        "uploadDate": "2026-09-01T00:00:00Z",
+        "removed": false,
+        "createdAt": "2026-09-01T00:00:00Z",
+        "sourceName": "Source B",
+        "priority": 1,
+        "blocklisted": false
+      }
+    ],
+    "readBy": []
+  },
+  {
+    "id": 1,
+    "seriesId": 1,
+    "number": "1",
+    "numberSort": 1,
+    "volume": "",
+    "title": "Chapter 1",
+    "monitored": true,
+    "state": "downloaded",
+    "releaseDate": "2026-09-01T00:00:00Z",
+    "firstSeenAt": "2026-09-01T00:00:00Z",
+    "updatedAt": "2026-09-01T00:00:00Z",
+    "releases": [
+      {
+        "id": 1,
+        "seriesId": 1,
+        "chapterId": 1,
+        "seriesSourceId": 1,
+        "chapterUrl": "/abyss/1/A",
+        "webUrl": "",
+        "name": "Ch. 1",
+        "scanlator": "Team One",
+        "rawNumber": 1,
+        "uploadDate": "2026-09-01T00:00:00Z",
+        "removed": false,
+        "createdAt": "2026-09-01T00:00:00Z",
+        "sourceName": "Source A",
+        "priority": 0,
+        "blocklisted": false
+      }
+    ],
+    "readBy": []
+  }
+]
+
+
+### decision
+GET /api/v1/series/1/chapters/2/decision -> 200 OK
+{
+  "decision": {
+    "chapterId": 2,
+    "isUpgrade": false,
+    "rejections": []
+  },
+  "approved": {
+    "id": 2,
+    "seriesId": 1,
+    "chapterId": 2,
+    "seriesSourceId": 1,
+    "chapterUrl": "/abyss/2/A",
+    "webUrl": "",
+    "name": "Ch. 2",
+    "scanlator": "Team One",
+    "rawNumber": 2,
+    "uploadDate": "2026-09-01T00:00:00Z",
+    "removed": false,
+    "createdAt": "2026-09-01T00:00:00Z",
+    "sourceName": "Source A",
+    "priority": 0,
+    "blocklisted": false
+  }
+}
+
+
+### unmonitor a chapter
+PUT /api/v1/chapters/monitor -> 204 No Content
+
+
+### chapters after unmonitoring
+GET /api/v1/series/1/chapters -> 200 OK
+[
+  {
+    "id": 3,
+    "seriesId": 1,
+    "number": "3",
+    "numberSort": 3,
+    "volume": "",
+    "title": "Chapter 3",
+    "monitored": false,
+    "state": "missing",
+    "releaseDate": "2026-09-01T00:00:00Z",
+    "firstSeenAt": "2026-09-01T00:00:00Z",
+    "updatedAt": "2026-09-01T00:00:00Z",
+    "releases": [
+      {
+        "id": 4,
+        "seriesId": 1,
+        "chapterId": 3,
+        "seriesSourceId": 1,
+        "chapterUrl": "/abyss/3/A",
+        "webUrl": "",
+        "name": "Ch. 3",
+        "scanlator": "Team One",
+        "rawNumber": 3,
+        "uploadDate": "2026-09-01T00:00:00Z",
+        "removed": false,
+        "createdAt": "2026-09-01T00:00:00Z",
+        "sourceName": "Source A",
+        "priority": 0,
+        "blocklisted": false
+      }
+    ],
+    "readBy": []
+  },
+  {
+    "id": 2,
+    "seriesId": 1,
+    "number": "2",
+    "numberSort": 2,
+    "volume": "",
+    "title": "Chapter 2",
+    "monitored": true,
+    "state": "missing",
+    "releaseDate": "2026-09-01T00:00:00Z",
+    "firstSeenAt": "2026-09-01T00:00:00Z",
+    "updatedAt": "2026-09-01T00:00:00Z",
+    "releases": [
+      {
+        "id": 2,
+        "seriesId": 1,
+        "chapterId": 2,
+        "seriesSourceId": 1,
+        "chapterUrl": "/abyss/2/A",
+        "webUrl": "",
+        "name": "Ch. 2",
+        "scanlator": "Team One",
+        "rawNumber": 2,
+        "uploadDate": "2026-09-01T00:00:00Z",
+        "removed": false,
+        "createdAt": "2026-09-01T00:00:00Z",
+        "sourceName": "Source A",
+        "priority": 0,
+        "blocklisted": false
+      },
+      {
+        "id": 3,
+        "seriesId": 1,
+        "chapterId": 2,
+        "seriesSourceId": 2,
+        "chapterUrl": "/abyss/2/B",
+        "webUrl": "",
+        "name": "Ch. 2",
+        "scanlator": "Team Two",
+        "rawNumber": 2,
+        "uploadDate": "2026-09-01T00:00:00Z",
+        "removed": false,
+        "createdAt": "2026-09-01T00:00:00Z",
+        "sourceName": "Source B",
+        "priority": 1,
+        "blocklisted": false
+      }
+    ],
+    "readBy": []
+  },
+  {
+    "id": 1,
+    "seriesId": 1,
+    "number": "1",
+    "numberSort": 1,
+    "volume": "",
+    "title": "Chapter 1",
+    "monitored": false,
+    "state": "downloaded",
+    "releaseDate": "2026-09-01T00:00:00Z",
+    "firstSeenAt": "2026-09-01T00:00:00Z",
+    "updatedAt": "<now>",
+    "releases": [
+      {
+        "id": 1,
+        "seriesId": 1,
+        "chapterId": 1,
+        "seriesSourceId": 1,
+        "chapterUrl": "/abyss/1/A",
+        "webUrl": "",
+        "name": "Ch. 1",
+        "scanlator": "Team One",
+        "rawNumber": 1,
+        "uploadDate": "2026-09-01T00:00:00Z",
+        "removed": false,
+        "createdAt": "2026-09-01T00:00:00Z",
+        "sourceName": "Source A",
+        "priority": 0,
+        "blocklisted": false
+      }
+    ],
+    "readBy": []
+  }
+]
+
+
+### group Solo with Abyss
+PUT /api/v1/series/3/work -> 204 No Content
+
+
+### library after grouping
+GET /api/v1/series -> 200 OK
+[
+  {
+    "id": 1,
+    "workId": 1,
+    "title": "Abyss",
+    "sortTitle": "abyss",
+    "status": "unknown",
+    "monitored": true,
+    "monitorNew": "all",
+    "rootFolderId": 1,
+    "path": "Abyss",
+    "profileId": 1,
+    "language": "en",
+    "sourcePriorityMode": "inherit",
+    "readingDirection": "rtl",
+    "tags": [],
+    "metadata": {},
+    "addOptions": {
+      "pending": true,
+      "monitor": "all"
+    },
+    "addedAt": "<now>",
+    "updatedAt": "<now>",
+    "adaptations": [],
+    "stats": {
+      "chapterCount": 3,
+      "monitoredCount": 1,
+      "fileCount": 0,
+      "missingCount": 1,
+      "cleanedCount": 0,
+      "sizeOnDisk": 0,
+      "spaceSaved": 0,
+      "lastChapter": 3,
+      "readCount": 0,
+      "inProgressCount": 0
+    },
+    "coverUrl": "api/v1/series/1/cover?v=<now>",
+    "following": false,
+    "workTitle": "Abyss",
+    "editions": [
+      {
+        "id": 1,
+        "title": "Abyss",
+        "language": "en",
+        "coverUrl": "api/v1/series/1/cover?v=<now>"
+      },
+      {
+        "id": 3,
+        "title": "Solo",
+        "language": "en",
+        "coverUrl": "api/v1/series/3/cover?v=<now>"
+      },
+      {
+        "id": 2,
+        "title": "Бездна",
+        "language": "ru",
+        "coverUrl": "api/v1/series/2/cover?v=<now>"
+      }
+    ]
+  }
+]
+
+
+### separate Solo again
+PUT /api/v1/series/3/work -> 204 No Content
+
+
+### lookup without metadata modules
+GET /api/v1/series/lookup?term=abyss -> 200 OK
+{
+  "results": [],
+  "errors": [],
+  "providers": 0
+}
+
+
+### link a source
+POST /api/v1/series/3/sources -> 200 OK
+{
+  "id": 5,
+  "seriesId": 3,
+  "moduleId": 1,
+  "sourceId": "B",
+  "sourceName": "Source B",
+  "lang": "en",
+  "mangaUrl": "/solo-b",
+  "title": "",
+  "webUrl": "",
+  "priority": 1,
+  "enabled": true,
+  "checkIntervalMinutes": 0,
+  "nextCheckAt": "<now>",
+  "consecutiveFailures": 0,
+  "lastError": "",
+  "createdAt": "<now>"
+}
+
+
+### unlink a missing source
+DELETE /api/v1/series/3/sources/999 -> 404 Not Found
+{
+  "title": "Not Found",
+  "status": 404,
+  "detail": "series not found"
+}
+
+
+### delete Solo
+DELETE /api/v1/series/3 -> 204 No Content
+
+
+### library after deleting
+GET /api/v1/series -> 200 OK
+[
+  {
+    "id": 1,
+    "workId": 1,
+    "title": "Abyss",
+    "sortTitle": "abyss",
+    "status": "unknown",
+    "monitored": true,
+    "monitorNew": "all",
+    "rootFolderId": 1,
+    "path": "Abyss",
+    "profileId": 1,
+    "language": "en",
+    "sourcePriorityMode": "inherit",
+    "readingDirection": "rtl",
+    "tags": [],
+    "metadata": {},
+    "addOptions": {
+      "pending": true,
+      "monitor": "all"
+    },
+    "addedAt": "<now>",
+    "updatedAt": "<now>",
+    "adaptations": [],
+    "stats": {
+      "chapterCount": 3,
+      "monitoredCount": 1,
+      "fileCount": 0,
+      "missingCount": 1,
+      "cleanedCount": 0,
+      "sizeOnDisk": 0,
+      "spaceSaved": 0,
+      "lastChapter": 3,
+      "readCount": 0,
+      "inProgressCount": 0
+    },
+    "coverUrl": "api/v1/series/1/cover?v=<now>",
+    "following": false,
+    "workTitle": "Abyss",
+    "editions": [
+      {
+        "id": 1,
+        "title": "Abyss",
+        "language": "en",
+        "coverUrl": "api/v1/series/1/cover?v=<now>"
+      },
+      {
+        "id": 2,
+        "title": "Бездна",
+        "language": "ru",
+        "coverUrl": "api/v1/series/2/cover?v=<now>"
+      }
+    ]
+  }
+]
+
+

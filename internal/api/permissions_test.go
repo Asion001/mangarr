@@ -14,7 +14,7 @@ import (
 	"github.com/Asion001/mangarr/internal/auth"
 )
 
-var update = flag.Bool("update", false, "rewrite testdata/permissions.txt")
+var update = flag.Bool("update", false, "rewrite the golden files in testdata")
 
 // TestPermissionTable: the list of what each operation needs is reviewed
 // (go test ./internal/api -run TestPermissionTable -update after adding
