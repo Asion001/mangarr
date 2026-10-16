@@ -277,7 +277,7 @@ func TestQueueRankGapRecoveryAndPriority(t *testing.T) {
 		jobs := enqueueRankJobs(t, q, chapters[:3])
 		ctx := t.Context()
 		// Repeated insertion in one gap must survive rank compaction.
-		for i := 0; i < 50; i++ {
+		for i := 0; i < 1100; i++ { // enough to run out of the gap and renumber
 			if _, err := q.Move(ctx, []int64{jobs[2].ID}, "after", jobs[0].ID); err != nil {
 				t.Fatal(err)
 			}
@@ -456,6 +456,35 @@ func TestQueuePageCountsOldFailures(t *testing.T) {
 		}
 		if page.Total != 3 || page.Counts[model.JobFailed] != 2 || page.Counts[model.JobQueued] != 1 {
 			t.Fatalf("total=%d counts=%v", page.Total, page.Counts)
+		}
+	})
+}
+
+func TestQueueRankManyInsertsBeforeBacklog(t *testing.T) {
+	dbtest.ForEachDialect(t, func(t *testing.T, d *db.DB) {
+		q, chapters := rankFixture(t, d, 301)
+		ctx := t.Context()
+		// one background job, then a search that queues 300 chapters in
+		// front of it, one at a time, into the same gap
+		backlog := chapters[300]
+		if n, err := q.EnqueueReprocessFiles(ctx, []model.ChapterFile{{SeriesID: backlog.SeriesID, ChapterID: backlog.ID}}, -100); err != nil || n != 1 {
+			t.Fatalf("backlog: %d %v", n, err)
+		}
+		var want []int64
+		for _, ch := range chapters[:300] {
+			job, created, err := q.EnqueuePriority(ctx, ch.SeriesID, ch.ID, nil, model.JobKindDownload, false, 0)
+			if err != nil || !created {
+				t.Fatalf("enqueue chapter %s: %v %v", ch.NumberKey, created, err)
+			}
+			want = append(want, job.ID)
+		}
+		got := rankOrder(t, q, ListFilter{}, 50)
+		if len(got) != 301 || !slices.Equal(got[:300], want) {
+			t.Fatalf("searched chapters out of order: %v", got)
+		}
+		var backlogJob model.DownloadJob
+		if err := d.NewSelect().Model(&backlogJob).Where("chapter_id = ?", backlog.ID).Scan(ctx); err != nil || got[300] != backlogJob.ID {
+			t.Fatalf("backlog should stay last: %v", err)
 		}
 	})
 }

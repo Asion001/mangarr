@@ -17,6 +17,9 @@ import (
 
 const rankStep int64 = 1 << 20
 
+// insertStep is the most a before/after insert takes from its gap.
+const insertStep = rankStep >> 10
+
 // Keep ranks exactly representable by JSON clients as well as SQL BIGINT.
 const rankLimit int64 = 1 << 52
 
@@ -89,6 +92,12 @@ func ranks(ctx context.Context, tx bun.Tx, action string, anchorID int64, n int)
 			return nil, fmt.Errorf("unknown move %q", action)
 		}
 		step := (high - low) / int64(n+1)
+		if action == "before" || action == "after" {
+			// Take a small slice of the gap rather than its middle: chapters
+			// queued one at a time land in the same gap, and halving it each
+			// time would run out after about twenty of them.
+			step = min(step, insertStep)
+		}
 		if low > -rankLimit && high < rankLimit && step > 0 {
 			out := make([]int64, n)
 			for i := range out {
@@ -96,9 +105,12 @@ func ranks(ctx context.Context, tx bun.Tx, action string, anchorID int64, n int)
 			}
 			return out, nil
 		}
-		if _, err := tx.ExecContext(ctx, `WITH ordered AS (
+		// A join, not a correlated subquery: Postgres reran the window over the
+		// whole table for every row, which took longer than the read timeout
+		// once the queue held a few thousand jobs.
+		if _, err := tx.ExecContext(ctx, `UPDATE download_jobs SET rank = ordered.new_rank FROM (
    SELECT id, ROW_NUMBER() OVER (ORDER BY rank, id) * ? AS new_rank FROM download_jobs
-  ) UPDATE download_jobs SET rank = (SELECT new_rank FROM ordered WHERE ordered.id = download_jobs.id)`, rankStep); err != nil {
+  ) AS ordered WHERE ordered.id = download_jobs.id`, rankStep); err != nil {
 			return nil, err
 		}
 	}
