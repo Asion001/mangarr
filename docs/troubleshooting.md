@@ -12,7 +12,10 @@ under System → Logs.
 - **Behind a browser check.** Some sites answer with a Cloudflare or similar
   challenge. Set the FlareSolverr address on Settings → Source modules →
   *mangarr sources* (and turn on *Use FlareSolverr* on a Suwayomi module).
-  Only sites that need it go through it.
+  Only sites that need it go through it. A site that refuses the solved
+  cookies to anything but a browser has its checked pages opened in
+  FlareSolverr's browser instead, which is slower; sites that need a check
+  passed inside the page itself (a Turnstile widget) can't be read this way.
 - **Paused after errors.** A site that answers with 429 or Cloudflare errors
   is paused on its own, from 5 minutes doubling up to 2 hours. Sources → My
   catalogs shows the pause with *Resume now*.

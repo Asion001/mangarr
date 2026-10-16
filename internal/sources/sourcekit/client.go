@@ -95,17 +95,47 @@ type Request struct {
 }
 
 // Do performs a request, retrying once through the challenge solver when the
-// site turns it away.
+// site turns it away. Some sites refuse the solver's cookies to anything
+// that isn't a browser; their challenged pages (GET requests only) are then
+// fetched through the solver itself, without solving again each time.
 func (c *Client) Do(ctx context.Context, r Request) ([]byte, error) {
 	data, err := c.do(ctx, r)
 	var se *StatusError
-	if err != nil && c.Solver != nil && asStatus(err, &se) && se.Challenged() {
-		if solveErr := c.Solver.Solve(ctx, c, r.URL); solveErr != nil {
-			return nil, fmt.Errorf("%w (the challenge solver said: %v)", err, solveErr)
-		}
-		return c.do(ctx, r)
+	if err == nil || c.Solver == nil || !asStatus(err, &se) || !se.Challenged() {
+		return data, err
 	}
-	return data, err
+	if isGet(r) && c.Solver.Proxied(r.fullURL()) {
+		return c.Solver.Fetch(ctx, r.fullURL())
+	}
+	solveErr := c.Solver.Solve(ctx, c, r.URL)
+	if solveErr == nil {
+		data, err = c.do(ctx, r)
+		if err == nil || !asStatus(err, &se) || !se.Challenged() {
+			return data, err
+		}
+	}
+	if isGet(r) {
+		c.Solver.proxy(r.fullURL())
+		return c.Solver.Fetch(ctx, r.fullURL())
+	}
+	if solveErr != nil {
+		return nil, fmt.Errorf("%w (the challenge solver said: %v)", err, solveErr)
+	}
+	return nil, err
+}
+
+func isGet(r Request) bool { return r.Method == "" || r.Method == http.MethodGet }
+
+// fullURL is the request's address with its query.
+func (r Request) fullURL() string {
+	if len(r.Query) == 0 {
+		return r.URL
+	}
+	sep := "?"
+	if strings.Contains(r.URL, "?") {
+		sep = "&"
+	}
+	return r.URL + sep + r.Query.Encode()
 }
 
 func asStatus(err error, out **StatusError) bool {
@@ -128,14 +158,7 @@ func (c *Client) do(ctx context.Context, r Request) ([]byte, error) {
 	if method == "" {
 		method = http.MethodGet
 	}
-	u := r.URL
-	if len(r.Query) > 0 {
-		sep := "?"
-		if strings.Contains(u, "?") {
-			sep = "&"
-		}
-		u += sep + r.Query.Encode()
-	}
+	u := r.fullURL()
 	var send io.Reader
 	if len(r.Body) > 0 {
 		send = bytes.NewReader(r.Body)

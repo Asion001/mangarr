@@ -5,8 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"html"
 	"net/http"
 	"net/url"
+	"regexp"
+	"strings"
 	"sync"
 	"time"
 )
@@ -24,6 +27,9 @@ type Solver struct {
 
 	mu     sync.Mutex
 	solved map[string]time.Time // host -> when it was last solved
+	// proxied are hosts whose pages only open in the solver's browser: they
+	// turn the solved cookies away from anything else.
+	proxied map[string]time.Time
 }
 
 // NewSolver returns a solver, or nil when no address is configured.
@@ -32,7 +38,7 @@ func NewSolver(address string) *Solver {
 		return nil
 	}
 	return &Solver{URL: address, HTTP: &http.Client{Timeout: 3 * time.Minute}, Timeout: 60 * time.Second,
-		solved: map[string]time.Time{}}
+		solved: map[string]time.Time{}, proxied: map[string]time.Time{}}
 }
 
 // coolOff keeps one host's challenges from being solved over and over when a
@@ -51,6 +57,7 @@ type flareResponse struct {
 	Solution struct {
 		URL       string `json:"url"`
 		Status    int    `json:"status"`
+		Response  string `json:"response"`
 		UserAgent string `json:"userAgent"`
 		Cookies   []struct {
 			Name   string  `json:"name"`
@@ -60,6 +67,84 @@ type flareResponse struct {
 			Expiry float64 `json:"expires"`
 		} `json:"cookies"`
 	} `json:"solution"`
+}
+
+// proxyFor is how long a host's challenged pages go through the solver
+// before mangarr tries solving it again.
+const proxyFor = 6 * time.Hour
+
+// Proxied reports whether target's host refused the solved cookies lately,
+// so its challenged pages go straight through the solver.
+func (s *Solver) Proxied(target string) bool {
+	if s == nil {
+		return false
+	}
+	u, err := url.Parse(target)
+	if err != nil {
+		return false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	at, ok := s.proxied[u.Host]
+	return ok && time.Since(at) < proxyFor
+}
+
+func (s *Solver) proxy(target string) {
+	if u, err := url.Parse(target); err == nil {
+		s.mu.Lock()
+		if s.proxied == nil {
+			s.proxied = map[string]time.Time{}
+		}
+		s.proxied[u.Host] = time.Now()
+		s.mu.Unlock()
+	}
+}
+
+func (s *Solver) ask(ctx context.Context, target string) (*flareResponse, error) {
+	body, _ := json.Marshal(flareRequest{Cmd: "request.get", URL: target, MaxTimeout: int(s.Timeout / time.Millisecond)})
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.URL+"/v1", bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := s.HTTP.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	var out flareResponse
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return nil, err
+	}
+	if out.Status != "ok" {
+		return nil, fmt.Errorf("%s", out.Message)
+	}
+	return &out, nil
+}
+
+// browserJSON is how the browser shows a JSON answer: inside a <pre>.
+var browserJSON = regexp.MustCompile(`(?s)^\s*<html><head><meta name="color-scheme"[^>]*>.*?<pre[^>]*>(.*?)</pre>`)
+
+// Fetch has the solver's browser open target and returns the page it got:
+// the HTML, or a JSON answer as it came.
+func (s *Solver) Fetch(ctx context.Context, target string) ([]byte, error) {
+	if s == nil || s.URL == "" {
+		return nil, fmt.Errorf("no challenge solver is configured")
+	}
+	out, err := s.ask(ctx, target)
+	if err != nil {
+		return nil, fmt.Errorf("%s through the challenge solver: %w", target, err)
+	}
+	if st := out.Solution.Status; st != 0 && (st < 200 || st >= 300) {
+		return nil, &StatusError{Code: st, URL: target, Body: snippet([]byte(out.Solution.Response))}
+	}
+	if looksChallenged(out.Solution.Response) && strings.Contains(strings.ToLower(out.Solution.Response), "just a moment") {
+		return nil, &StatusError{Code: http.StatusForbidden, URL: target, Body: "the challenge solver could not get past the check"}
+	}
+	if m := browserJSON.FindStringSubmatch(out.Solution.Response); m != nil {
+		return []byte(html.UnescapeString(m[1])), nil
+	}
+	return []byte(out.Solution.Response), nil
 }
 
 // Solve asks FlareSolverr for target and stores the cookies (and the user
@@ -79,23 +164,9 @@ func (s *Solver) Solve(ctx context.Context, c *Client, target string) error {
 	}
 	s.mu.Unlock()
 
-	body, _ := json.Marshal(flareRequest{Cmd: "request.get", URL: target, MaxTimeout: int(s.Timeout / time.Millisecond)})
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.URL+"/v1", bytes.NewReader(body))
+	out, err := s.ask(ctx, target)
 	if err != nil {
 		return err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := s.HTTP.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	var out flareResponse
-	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
-		return err
-	}
-	if out.Status != "ok" {
-		return fmt.Errorf("%s", out.Message)
 	}
 
 	jar := c.HTTP.Jar
