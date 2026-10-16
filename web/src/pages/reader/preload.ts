@@ -41,3 +41,17 @@ export function useImagePreload(load: readonly string[], retain: readonly string
     return () => preloader.clear();
   }, [preloader, shared]);
 }
+
+/**
+ * widen adds pages from..to (clamped to 1..count) to a set of pages to load,
+ * returning the same set when nothing is new so React can skip a render.
+ */
+export function widen(pages: Set<number>, from: number, to: number, count: number): Set<number> {
+  let next: Set<number> | null = null;
+  for (let k = Math.max(1, from); k <= Math.min(count, to); k++) {
+    if (pages.has(k)) continue;
+    next ??= new Set(pages);
+    next.add(k);
+  }
+  return next ?? pages;
+}

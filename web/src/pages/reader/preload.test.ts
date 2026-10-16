@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { ImagePreloader } from "./preload";
+import { ImagePreloader, widen } from "./preload";
 
 class FakeImage {
   src = "";
@@ -33,5 +33,14 @@ describe("reader image preloading", () => {
 
     preloader.clear();
     expect(made.slice(1).every((image) => image.cancelled)).toBe(true);
+  });
+});
+
+describe("webtoon load window", () => {
+  test("adds the pages ahead and keeps the same set when nothing changes", () => {
+    const start = new Set([1, 2]);
+    const wider = widen(start, 1, 5, 4);
+    expect([...wider].sort()).toEqual([1, 2, 3, 4]);
+    expect(widen(wider, 0, 3, 4)).toBe(wider);
   });
 });

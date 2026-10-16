@@ -5,12 +5,13 @@ import type { ReaderSettings } from "./settings";
 import { tapAction } from "./zones";
 import { displayWidth, PageImage, pageUrl, placeholderUrl, useViewport, type Dims } from "./page";
 import { Transition } from "./Transition";
+import { widen } from "./preload";
 
 type Chapter = S["ReadChapter"];
 
 /**
- * WebtoonViewer is one long vertical strip. Pages near the screen load,
- * the page at the top third is the current one, and reaching the end moves
+ * WebtoonViewer is one long vertical strip. Pages load well ahead of the
+ * screen, the page at the top third is the current one, and reaching the end moves
  * on to the next chapter (with autoNext).
  */
 export function WebtoonViewer({
@@ -37,10 +38,12 @@ export function WebtoonViewer({
   const vp = useViewport();
   const scroller = useRef<HTMLDivElement>(null);
   const items = useRef<(HTMLDivElement | null)[]>([]);
-  const [near, setNear] = useState<Set<number>>(() => new Set([startPage, startPage + 1, startPage + 2]));
+  const count = chapter.pages.length;
+  // pages ahead of the current one to have loaded before they scroll in
+  const ahead = Math.max(s.preload, 3);
+  const [near, setNear] = useState<Set<number>>(() => widen(new Set(), startPage - 1, startPage + ahead, count));
   const [previewAspects, setPreviewAspects] = useState<Record<number, number>>({});
   const current = useRef(startPage);
-  const count = chapter.pages.length;
   // a readable column on wide screens; side padding narrows it further
   const width = Math.min(vp.w, 900) * (1 - (2 * s.padding) / 100);
   // pages not loaded yet borrow the shape of one that is (webtoon pages
@@ -55,29 +58,28 @@ export function WebtoonViewer({
     setPreviewAspects((current) => current[page] === aspect ? current : { ...current, [page]: aspect });
   }, []);
 
-  // load pages within a couple of screens
+  // Any page within a few screens pulls in the pages after it, so the
+  // window keeps sliding ahead of the reader even across pages already
+  // loading (a fast fling skips the current-page check below).
   useEffect(() => {
     const root = scroller.current;
     if (!root) return;
     const io = new IntersectionObserver(
       (entries) => {
         setNear((prev) => {
-          let next: Set<number> | null = null;
+          let next = prev;
           for (const e of entries) {
             const n = Number((e.target as HTMLElement).dataset.page);
-            if (e.isIntersecting && !prev.has(n)) {
-              next ??= new Set(prev);
-              for (let k = n; k <= Math.min(count, n + s.preload); k++) next.add(k);
-            }
+            if (e.isIntersecting) next = widen(next, n, n + ahead, count);
           }
-          return next ?? prev;
+          return next;
         });
       },
-      { root, rootMargin: "200% 0px" },
+      { root, rootMargin: "300% 0px" },
     );
     items.current.forEach((el) => el && io.observe(el));
     return () => io.disconnect();
-  }, [chapter.id, count, s.preload]);
+  }, [chapter.id, count, ahead]);
 
   useEffect(() => need([...near]), [near, need]);
 
@@ -104,6 +106,7 @@ export function WebtoonViewer({
             if (current.current !== i + 1) {
               current.current = i + 1;
               onPage(i + 1);
+              setNear((prev) => widen(prev, i, i + 1 + ahead, count));
             }
             break;
           }
@@ -117,7 +120,7 @@ export function WebtoonViewer({
     };
     root.addEventListener("scroll", on, { passive: true });
     return () => root.removeEventListener("scroll", on);
-  }, [count, onPage]);
+  }, [count, onPage, ahead]);
 
   // the end: move on after a moment
   const end = useRef<HTMLDivElement>(null);
@@ -190,6 +193,9 @@ export function WebtoonViewer({
               data-page={p.number}
               style={{ width, minHeight: d ? undefined : h, marginBottom: s.gap ? 12 : 0 }}
             >
+              {/* eager: the window above already decides what loads, and a
+                  browser's lazy loading (Safari's especially) would wait
+                  until the page is almost on screen */}
               {near.has(p.number) ? (
                 <PageImage
                   src={pageUrl(chapter.id, p.number, displayWidth(width))}
@@ -197,6 +203,7 @@ export function WebtoonViewer({
                   dims={d}
                   crop={s.crop}
                   sidesOnly
+                  eager
                   width={width}
                   height={h}
                   onNatural={(nw, nh) => natural(p.number, nw, nh)}
