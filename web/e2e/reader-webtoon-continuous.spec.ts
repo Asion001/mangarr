@@ -43,3 +43,44 @@ test("webtoon scrolls on past a divider into the next chapter", async ({ page })
   // the last chapter ends with a way back instead of a next chapter
   await expect(page.locator('[data-divider="2"]').getByRole("link", { name: "Back to the series" })).toBeVisible();
 });
+
+test("webtoon stays put when it moves into a chapter after reading a while", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 800 });
+  await page.clock.install();
+  let asked = 0;
+  const chapter = (id: number) => ({
+    id, seriesId: 7, seriesTitle: "Strip", number: String(id), readingDirection: "webtoon", downloaded: true, canDownload: false,
+    pages: [1, 2, 3].map((number) => ({ number, mediaType: "image/svg+xml" })),
+    progress: { page: 0, completed: false },
+    ...(id === 1 ? { next: { id: 2, number: "2" } } : { prev: { id: 1, number: "1" } }),
+  });
+  await page.route("**/api/v1/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (/\/read\/chapters\/\d+\/pages\/\d+$/.test(path)) return route.fulfill({ contentType: "image/svg+xml", body: image });
+    if (path.endsWith("/auth/status")) return route.fulfill({ json: { authenticated: true, authDisabled: true, account: { kind: "anonymous", id: 0, permissions: [] } } });
+    if (path.endsWith("/read/settings")) return route.fulfill({ json: { defaults: { mode: "webtoon", preload: 2, showTapZones: false }, series: null } });
+    const ch = path.match(/\/read\/chapters\/(\d+)$/);
+    if (ch && route.request().method() === "GET") {
+      // asking for the next chapter again is slow, the way a real server can be
+      if (ch[1] === "2" && asked++ > 0) await new Promise((r) => setTimeout(r, 1500));
+      return route.fulfill({ json: chapter(Number(ch[1])) });
+    }
+    return route.fulfill({ json: [] });
+  });
+
+  await page.goto("/read/1");
+  const nextFirst = page.locator('[data-chapter="2"][data-page="1"]');
+  await expect(nextFirst).toBeAttached();
+  // ten minutes on the first chapter
+  await page.clock.fastForward("10:00");
+  await page.clock.resume();
+
+  await page.locator('[data-divider="1"]').evaluate((el) => el.scrollIntoView({ block: "start" }));
+  await page.mouse.wheel(0, 200);
+  await expect(page).toHaveURL(/\/read\/2$/);
+  await page.waitForTimeout(2500);
+  // still reading the start of chapter 2, with chapter 1 above it
+  const top = await nextFirst.evaluate((el) => el.getBoundingClientRect().top);
+  expect(Math.abs(top)).toBeLessThan(800);
+  await expect(page.locator('[data-chapter="1"][data-page="1"]')).toBeAttached();
+});

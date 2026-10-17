@@ -5,7 +5,7 @@ import { Link, useLocation, useNavigate, useParams, useSearchParams } from "reac
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ChevronLeft, ChevronRight, Download, List, Maximize, Minimize, Settings2 } from "lucide-react";
 import clsx from "clsx";
-import { apiUrl, basePath } from "../../api/client";
+import { apiUrl, basePath, type S } from "../../api/client";
 import { ErrorBox, Spinner } from "../../components/ui";
 import { useReaderSettings } from "./settings";
 import { displayWidth, pageUrl, useDims, useViewport, type Half } from "./page";
@@ -32,18 +32,22 @@ export function ReaderPage() {
 }
 
 type Pos = { page: number; half?: Half; edge?: "start" | "end" };
+type Chapter = S["ReadChapter"];
 
 function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImagePreloader }) {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [search] = useSearchParams();
   // the chapter on screen: the one opened, until the webtoon strip scrolls
-  // on into the next
-  const [activeId, setActiveId] = useState(chapterId);
-  const { data: ch, error } = useQuery(chapterQuery(activeId));
+  // on into another. The strip hands that chapter over itself: asking the
+  // cache again could find it gone after a while, and the reader would show
+  // a spinner and reopen the strip at its top.
+  const [active, setActive] = useState<Chapter | null>(null);
+  const { data: opened, error } = useQuery(chapterQuery(chapterId));
+  const ch = active ?? opened;
   useReadingTime(ch?.id ?? 0);
   const { settings: s, set, saveAsDefault, reset, hasOwn, loading: settingsLoading } = useReaderSettings(ch?.seriesId ?? 0, ch?.readingDirection ?? "");
-  const { dims, need, natural } = useDims(activeId, s.crop || s.splitWide || (s.mode === "paged" && s.spread !== "single"));
+  const { dims, need, natural } = useDims(ch?.id ?? chapterId, s.crop || s.splitWide || (s.mode === "paged" && s.spread !== "single"));
   const vp = useViewport();
   const views = useMemo(() => (ch ? buildViews(ch.pages.length, dims, s, vp.w > vp.h) : []), [ch, dims, s, vp.w, vp.h]);
   const [pos, setPos] = useState<Pos | null>(null);
@@ -173,15 +177,15 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
   // scrolls past, the chapter before is read and the next one takes over
   // the bars, progress and address.
   const onWebPage = useCallback(
-    (id: number, n: number) => {
-      if (ch && id !== ch.id) {
-        if (ch.next?.id === id) pending.current = ch.pages.length;
+    (to: Chapter, n: number) => {
+      if (ch && to.id !== ch.id) {
+        if (ch.next?.id === to.id) pending.current = ch.pages.length;
         flush();
         pending.current = 0;
         saved.current = 0;
-        setActiveId(id);
+        setActive(to);
         setPos({ page: n });
-        window.history.replaceState(window.history.state, "", `${basePath}/read/${id}`);
+        window.history.replaceState(window.history.state, "", `${basePath}/read/${to.id}`);
       }
       setWebPage(n);
     },
@@ -284,7 +288,7 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
     <div className={clsx("fixed inset-0 select-none overflow-hidden", bg)}>
       {s.mode === "webtoon" ? (
         <WebtoonViewer
-          chapterId={chapterId}
+          chapterId={ch.id}
           settings={s}
           startPage={pos.page}
           onPage={onWebPage}

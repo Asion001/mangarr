@@ -34,14 +34,18 @@ export function WebtoonViewer({
   chapterId: number;
   settings: ReaderSettings;
   startPage: number;
-  onPage: (chapterId: number, page: number) => void;
+  onPage: (chapter: Chapter, page: number) => void;
   wantBounds: boolean;
   onChapter: (dir: "prev" | "next") => void;
   onMenu: () => void;
 }) {
   const vp = useViewport();
   const qc = useQueryClient();
-  const first = useQuery(chapterQuery(chapterId)).data;
+  // the strip starts where it opened and keeps that; the chapter it has
+  // moved on to comes back as chapterId, which matters only when the strip
+  // opens again (after a switch to paged and back)
+  const [startId] = useState(chapterId);
+  const first = useQuery(chapterQuery(startId)).data;
   const scroller = useRef<HTMLDivElement>(null);
   const items = useRef<(HTMLDivElement | null)[]>([]);
   const observer = useRef<IntersectionObserver | null>(null);
@@ -49,7 +53,7 @@ export function WebtoonViewer({
   const [more, setMore] = useState<Chapter[]>([]);
   const [nextFailed, setNextFailed] = useState(false);
   const chapters = useMemo(() => (first ? [first, ...more] : []), [first, more]);
-  const strip = useMemo(() => chapters.flatMap((c) => c.pages.map((p) => ({ chapter: c.id, page: p.number }))), [chapters]);
+  const strip = useMemo(() => chapters.flatMap((c) => c.pages.map((p) => ({ chapter: c, page: p.number }))), [chapters]);
   const stripRef = useRef(strip);
   stripRef.current = strip;
   const total = strip.length;
