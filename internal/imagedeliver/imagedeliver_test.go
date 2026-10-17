@@ -58,6 +58,13 @@ func TestVariant(t *testing.T) {
 	if _, _, ok := d.Variant(ctx, `"page-2"`, 1080, func(context.Context) ([]byte, error) { return small, nil }); ok {
 		t.Fatal("a small page was copied for no reason")
 	}
+
+	// nor is one only a little wider: shrinking it costs more time than the
+	// bytes it would save
+	near := page(t, 1300, 400)
+	if _, _, ok := d.Variant(ctx, `"page-3"`, 1080, func(context.Context) ([]byte, error) { return near, nil }); ok {
+		t.Fatal("a page only a little wider than the screen was copied")
+	}
 }
 
 // TestWidth rounds up to a size we keep, and asks for nothing when the client

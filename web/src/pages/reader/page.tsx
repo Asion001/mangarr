@@ -185,18 +185,31 @@ export function PageImage({
 }) {
   const [failed, setFailed] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  // after a retry the page fades in over its placeholder instead of popping in
+  const [retried, setRetried] = useState(false);
   const box = boxOf(dims, crop, sidesOnly, half);
   const load = (e: React.SyntheticEvent<HTMLImageElement>) => {
     setLoaded(true);
     onNatural?.(e.currentTarget.naturalWidth, e.currentTarget.naturalHeight);
   };
   if (failed) {
+    // the page's own space, so the strip doesn't move when it arrives
     return (
-      <div style={{ width, height }} className="flex items-center justify-center text-sm text-muted">
-        <button type="button" className="rounded border border-muted/40 px-3 py-1.5" onClick={() => setFailed(false)}>{t("Couldn't load this page — retry")}</button>
+      <div style={{ width, height, position: "relative", transition: "height 0.3s ease" }} className="flex items-center justify-center text-sm text-muted">
+        {placeholder && <img src={placeholder} alt="" aria-hidden draggable={false} className="pointer-events-none absolute inset-0 size-full select-none object-contain opacity-40 blur-sm" onLoad={(e) => onPlaceholderNatural?.(e.currentTarget.naturalWidth, e.currentTarget.naturalHeight)} />}
+        <button
+          type="button"
+          className="relative rounded border border-muted/40 bg-black/60 px-3 py-1.5 text-fg"
+          onClick={(e) => {
+            e.stopPropagation();
+            setRetried(true);
+            setFailed(false);
+          }}
+        >{t("Couldn't load this page — retry")}</button>
       </div>
     );
   }
+  const fade = retried ? { opacity: loaded ? 1 : 0, transition: "opacity 0.3s ease" } : undefined;
   const common = { src, alt: "", draggable: false, decoding: "async" as const, loading: eager ? ("eager" as const) : ("lazy" as const), onLoad: load, onError: () => setFailed(true) };
   // Load the image so its natural size is available as an error fallback, but
   // do not show an uncropped frame while the server is still measuring it.
@@ -215,7 +228,8 @@ export function PageImage({
     left: `${(-box.x / box.w) * 100}%`,
     top: `${(-box.y / box.h) * 100}%`,
   } : undefined;
-  const blur = placeholder && !loaded && (
+  // kept under a page fading in, so nothing flashes between them
+  const blur = placeholder && (!loaded || retried) && (
     <img
       src={placeholder}
       alt=""
@@ -227,21 +241,21 @@ export function PageImage({
     />
   );
   if (!box || !dims || (!crop && !half)) {
-    if (!blur) return <img {...common} style={{ width, height, maxWidth: "none", objectFit: "contain" }} className="select-none" />;
+    if (!blur) return <img {...common} style={{ width, height, maxWidth: "none", objectFit: "contain", ...fade }} className="select-none" />;
     return (
-      <div style={{ width, height, position: "relative" }}>
+      <div style={{ width, height, position: "relative", transition: "height 0.3s ease" }}>
         {blur}
-        <img {...common} style={{ width, height, maxWidth: "none", objectFit: "contain", position: "relative" }} className="select-none" />
+        <img {...common} style={{ width, height, maxWidth: "none", objectFit: "contain", position: "relative", ...fade }} className="select-none" />
       </div>
     );
   }
   return (
-    <div style={{ width, height, overflow: "hidden", position: "relative" }}>
+    <div style={{ width, height, overflow: "hidden", position: "relative", transition: "height 0.3s ease" }}>
       {blur}
       <img
         {...common}
         className="select-none"
-        style={transformed}
+        style={{ ...transformed, ...fade }}
       />
     </div>
   );

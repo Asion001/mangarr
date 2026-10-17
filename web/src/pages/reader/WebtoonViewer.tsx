@@ -64,7 +64,7 @@ export function WebtoonViewer({
   // a readable column on wide screens; side padding narrows it further
   const width = Math.min(vp.w, 900) * (1 - (2 * s.padding) / 100);
 
-  // Any page within a few screens pulls in the pages after it, so the
+  // Any page within five screens pulls in the pages after it, so the
   // window keeps sliding ahead of the reader even across pages already
   // loading (a fast fling skips the current-page check below).
   useEffect(() => {
@@ -81,7 +81,7 @@ export function WebtoonViewer({
           return next;
         });
       },
-      { root, rootMargin: "300% 0px" },
+      { root, rootMargin: "500% 0px" },
     );
     observer.current = io;
     items.current.forEach((el) => el && io.observe(el));

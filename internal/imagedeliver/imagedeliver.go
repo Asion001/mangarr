@@ -33,6 +33,13 @@ var keepFormats = map[string]bool{"avif": true, "jxl": true}
 
 const variantTTL = 30 * 24 * time.Hour
 
+// keepWithin is how much wider than asked (in percent) a page may be and
+// still go out as it is. Shrinking a tall webtoon page takes the server a
+// second or more, which a reader sees as a page loading, to save a few
+// hundred pixels the screen hardly shows (a 1600px upscale for a 1440px
+// column, say).
+const keepWithin = 135
+
 type Deliverer struct {
 	Cache *diskcache.Store
 	Log   *slog.Logger
@@ -105,7 +112,7 @@ func (d *Deliverer) resize(ctx context.Context, src []byte, width int) ([]byte, 
 	if err != nil {
 		return nil, "", err
 	}
-	if keepFormats[info.Format] || (info.Width > 0 && info.Width <= width) {
+	if keepFormats[info.Format] || (info.Width > 0 && info.Width*100 <= width*keepWithin) {
 		return nil, "", errKeepOriginal
 	}
 	out, ct, changed := thumbs.Normalize(src, width, d.Quality)
