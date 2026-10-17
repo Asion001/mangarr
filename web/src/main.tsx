@@ -19,7 +19,14 @@ const queryClient = new QueryClient({
 // them (only them: refetching the preferences mid-save would undo the switch)
 subscribeLocale(() => void queryClient.invalidateQueries({ queryKey: ["series"] }));
 
-createRoot(document.getElementById("root")!).render(
+// In a home screen app #root takes the page's scrolling (index.css) but has
+// nothing of its own to scroll: pages scroll inside the layout. When iOS
+// moves it anyway the whole layout slides up under the status bar, header
+// and all, so put it straight back.
+const root = document.getElementById("root")!;
+root.addEventListener("scroll", () => { if (root.scrollTop) root.scrollTop = 0; }, { passive: true });
+
+createRoot(root).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <ToastProvider>

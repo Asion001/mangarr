@@ -9,6 +9,7 @@ import { useChapters, useQueue } from "../../api/queries";
 import { Button, Card, Confirm, ErrorBox, Loading, Table, Th } from "../../components/ui";
 import { useListParam, useStoredListParam } from "../../lib/urlState";
 import { useAccount } from "../../lib/account";
+import { scrollToTop } from "../../lib/scroll";
 import { RecycledDrawer, ReprocessModal, VersionsModal } from "../system/RecycleDialogs";
 import type { Recycled } from "../system/recycle";
 import { ChapterMobileRow, ChapterRow, deletableFile } from "./ChapterRows";
@@ -97,7 +98,7 @@ export function ChaptersTable({ seriesId, manage = true, nextChapterId, editions
   const searchOne = useCallback((id: number) => search([id]), [search]);
   const goToPage = useCallback((next: number) => {
     setPage(next);
-    requestAnimationFrame(() => tableTop.current?.scrollIntoView({ block: "start" }));
+    requestAnimationFrame(() => tableTop.current && scrollToTop(tableTop.current));
   }, [setPage]);
 
   const sel = [...selected];

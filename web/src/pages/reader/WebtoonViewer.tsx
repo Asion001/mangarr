@@ -8,6 +8,7 @@ import { tapAction } from "./zones";
 import { displayWidth, PageImage, pageUrl, placeholderUrl, useDims, useViewport } from "./page";
 import { widen } from "./preload";
 import { chapterQuery } from "./query";
+import { scrollToTop } from "../../lib/scroll";
 
 type Chapter = S["ReadChapter"];
 type ChapterLink = NonNullable<Chapter["next"]>;
@@ -121,7 +122,7 @@ export function WebtoonViewer({
   useEffect(() => {
     if (!first) return;
     const el = items.current[startPage - 1];
-    if (el && startPage > 1) el.scrollIntoView({ block: "start" });
+    if (el && startPage > 1) scrollToTop(el);
     current.current = startPage;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [!!first]);

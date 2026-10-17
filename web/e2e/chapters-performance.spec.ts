@@ -122,3 +122,25 @@ test("compact reading mode keeps processing labels inside chapter details", asyn
   await row.getByRole("button", { expanded: false }).click();
   await expect(row.getByText("processing", { exact: true })).toBeVisible();
 });
+
+test("paging chapters on a phone moves only the page, never the app frame", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.addInitScript(() => localStorage.setItem("mangarr:ui:anonymous:0", JSON.stringify({ locale: "en", mode: "editing" })));
+  const chapters = Array.from({ length: 60 }, (_, index) => ({
+    id: index + 1, seriesId: 1, number: String(index + 1), numberSort: index + 1, title: `Chapter ${index + 1}`,
+    monitored: true, releaseDate: "2026-09-01T00:00:00Z", state: "missing", releases: [], readBy: [],
+  }));
+  await mockSeriesPage(page, chapters);
+  await page.goto("/series/1");
+  await expect(page.getByText("Chapters (60)")).toBeVisible();
+  // a home screen app on iOS: #root takes the page's scrolling and can move
+  // a little past the layout
+  await page.addStyleTag({ content: 'html{overflow:hidden} #root{overflow-y:auto} #root::after{content:"";display:block;height:200px}' });
+
+  await page.locator("main").evaluate((main) => { main.scrollTop = main.scrollHeight; });
+  await page.getByRole("button", { name: "Next", exact: true }).click();
+  await expect(page.getByText("26–50 / 60")).toBeVisible();
+  await page.waitForTimeout(100);
+  expect(await page.locator("#root").evaluate((root) => root.scrollTop)).toBe(0);
+  expect((await page.getByRole("button", { name: "Open navigation" }).boundingBox())!.y).toBeLessThan(48);
+});
