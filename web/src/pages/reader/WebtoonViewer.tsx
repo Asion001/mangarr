@@ -58,13 +58,13 @@ export function WebtoonViewer({
   stripRef.current = strip;
   const total = strip.length;
   // pages ahead of the current one to have loaded before they scroll in
-  const ahead = Math.max(s.preload, 3);
+  const ahead = 2;
   const [near, setNear] = useState<Set<number>>(() => widen(new Set(), startPage - 1, startPage + ahead, first?.pages.length ?? 0));
   const current = useRef(startPage);
   // a readable column on wide screens; side padding narrows it further
   const width = Math.min(vp.w, 900) * (1 - (2 * s.padding) / 100);
 
-  // Any page within five screens pulls in the pages after it, so the
+  // Any page within the screens set to load ahead pulls in the pages after it, so the
   // window keeps sliding ahead of the reader even across pages already
   // loading (a fast fling skips the current-page check below).
   useEffect(() => {
@@ -81,7 +81,7 @@ export function WebtoonViewer({
           return next;
         });
       },
-      { root, rootMargin: "500% 0px" },
+      { root, rootMargin: `${s.aheadScreens * 100}% 0px` },
     );
     observer.current = io;
     items.current.forEach((el) => el && io.observe(el));
@@ -89,7 +89,7 @@ export function WebtoonViewer({
       io.disconnect();
       observer.current = null;
     };
-  }, [ahead, first]);
+  }, [ahead, first, s.aheadScreens]);
   const register = useCallback((k: number, el: HTMLDivElement | null) => {
     items.current[k - 1] = el;
     if (el) observer.current?.observe(el);
@@ -162,8 +162,9 @@ export function WebtoonViewer({
     const on = (e: KeyboardEvent) => {
       const root = scroller.current;
       if (!root || e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
-      const step = root.clientHeight * 0.85;
-      const by: Record<string, number> = { ArrowDown: step / 3, ArrowUp: -step / 3, PageDown: step, PageUp: -step, " ": e.shiftKey ? -step : step };
+      const step = root.clientHeight * s.tapScroll;
+      const nudge = root.clientHeight * 0.3;
+      const by: Record<string, number> = { ArrowDown: nudge, ArrowUp: -nudge, PageDown: step, PageUp: -step, " ": e.shiftKey ? -step : step };
       if (e.key === "Home") root.scrollTo({ top: 0 });
       else if (e.key === "End") root.scrollTo({ top: root.scrollHeight });
       else if (by[e.key] !== undefined) root.scrollBy({ top: by[e.key], behavior: "smooth" });
@@ -172,7 +173,7 @@ export function WebtoonViewer({
     };
     window.addEventListener("keydown", on);
     return () => window.removeEventListener("keydown", on);
-  }, []);
+  }, [s.tapScroll]);
 
   const onClick = (e: React.MouseEvent) => {
     if ((window.visualViewport?.scale ?? 1) > 1.05) return;
@@ -181,7 +182,7 @@ export function WebtoonViewer({
     if (a === "menu" || !root) onMenu();
     // at the very end of the last chapter, a page turn leaves like the paged reader does
     else if (a === "next" && root.scrollTop + root.clientHeight >= root.scrollHeight - 2) onChapter("next");
-    else root.scrollBy({ top: (a === "next" ? 1 : -1) * root.clientHeight * 0.85, behavior: "smooth" });
+    else root.scrollBy({ top: (a === "next" ? 1 : -1) * root.clientHeight * s.tapScroll, behavior: "smooth" });
   };
 
   if (!first) return null;

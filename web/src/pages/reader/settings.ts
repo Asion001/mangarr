@@ -23,8 +23,12 @@ export type ReaderSettings = {
   tapZones: "auto" | "lshape" | "kindle" | "edge" | "leftright" | "off";
   invertTaps: boolean;
   background: "black" | "white" | "gray";
-  /** Pages loaded ahead. */
+  /** Paged: pages loaded ahead. */
   preload: number;
+  /** Webtoon: screens ahead of the one you're on that pages load from. */
+  aheadScreens: number;
+  /** Webtoon: how far a page-turn tap or Page Down scrolls, in screens. */
+  tapScroll: number;
   keepAwake: boolean;
   /** Go on to the next chapter at the end. */
   autoNext: boolean;
@@ -49,6 +53,8 @@ export const DEFAULTS: ReaderSettings = {
   invertTaps: false,
   background: "black",
   preload: 4,
+  aheadScreens: 5,
+  tapScroll: 0.85,
   keepAwake: true,
   autoNext: true,
   showPageNumber: true,

@@ -125,6 +125,38 @@ export function SettingsPanel({
             <Toggle checked={s.gap} onChange={(gap) => set({ gap })} label={t("Gap between pages")} />
           </Row>
         )}
+        {!paged && (
+          <Row label={t("Load ahead")}>
+            <Choice
+              value={String(s.aheadScreens)}
+              options={[2, 5, 10].map((n) => ({ value: String(n), label: t("{count} screens", { count: n }) }))}
+              onChange={(v) => set({ aheadScreens: Number(v) })}
+            />
+            <p className="text-xs text-muted">{t("Further ahead uses more data but keeps up with fast scrolling.")}</p>
+          </Row>
+        )}
+        {!paged && (
+          <Row label={t("A tap or Page Down scrolls")}>
+            <Choice
+              value={String(s.tapScroll)}
+              options={[
+                { value: "0.5", label: t("Half a screen") },
+                { value: "0.85", label: t("Most of a screen") },
+                { value: "1", label: t("A full screen") },
+              ]}
+              onChange={(v) => set({ tapScroll: Number(v) })}
+            />
+          </Row>
+        )}
+        {paged && (
+          <Row label={t("Preload")}>
+            <Choice
+              value={String(s.preload)}
+              options={[2, 4, 8].map((n) => ({ value: String(n), label: t("{count} pages", { count: n }) }))}
+              onChange={(v) => set({ preload: Number(v) })}
+            />
+          </Row>
+        )}
         <Toggle checked={s.crop} onChange={(crop) => set({ crop })} label={paged ? tr("Crop borders") : tr("Crop side borders")} />
         <Row label={t("Tap zones")}>
           <Choice
