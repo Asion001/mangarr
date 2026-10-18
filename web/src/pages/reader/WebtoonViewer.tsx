@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { S } from "../../api/client";
-import type { ReaderSettings } from "./settings";
+import { autoScrollPxPerSecond, type ReaderSettings } from "./settings";
 import { tapAction } from "./zones";
 import { displayWidth, PageImage, pageUrl, placeholderUrl, useDims, useViewport } from "./page";
 import { widen } from "./preload";
@@ -31,6 +31,8 @@ export function WebtoonViewer({
   wantBounds,
   onChapter,
   onMenu,
+  autoScroll = false,
+  onAutoScrollEnd,
 }: {
   chapterId: number;
   settings: ReaderSettings;
@@ -39,6 +41,10 @@ export function WebtoonViewer({
   wantBounds: boolean;
   onChapter: (dir: "prev" | "next") => void;
   onMenu: () => void;
+  /** Scroll down on its own at the speed in the settings. */
+  autoScroll?: boolean;
+  /** Auto scroll reached the end of the last chapter. */
+  onAutoScrollEnd?: () => void;
 }) {
   const vp = useViewport();
   const qc = useQueryClient();
@@ -157,6 +163,57 @@ export function WebtoonViewer({
     root.addEventListener("scroll", on, { passive: true });
     return () => root.removeEventListener("scroll", on);
   }, [onPage, ahead, first]);
+
+  // Auto scroll moves the strip a little every frame. A finger or the
+  // wheel on the strip holds it while you scroll by hand, and it carries
+  // on from wherever you left it a moment after you let go.
+  const speed = autoScrollPxPerSecond(s.autoScrollSpeed);
+  const lastChapterDone = !last?.next;
+  const autoEnd = useRef(onAutoScrollEnd);
+  autoEnd.current = onAutoScrollEnd;
+  useEffect(() => {
+    const root = scroller.current;
+    if (!autoScroll || !root) return;
+    let raf = 0;
+    let prev = 0;
+    let at = root.scrollTop;
+    let heldUntil = 0;
+    let touching = false;
+    const hold = () => (heldUntil = performance.now() + 1000);
+    const down = () => (touching = true);
+    const up = () => {
+      touching = false;
+      hold();
+    };
+    const frame = (now: number) => {
+      raf = requestAnimationFrame(frame);
+      const dt = prev ? Math.min(now - prev, 100) / 1000 : 0;
+      prev = now;
+      // scrolled by hand (or by a tap): carry on from there
+      if (Math.abs(root.scrollTop - at) > 2) at = root.scrollTop;
+      if (touching || now < heldUntil) return;
+      const end = root.scrollHeight - root.clientHeight;
+      if (at >= end - 2) {
+        // the end of the last chapter; otherwise the next one is on its way
+        if (lastChapterDone) autoEnd.current?.();
+        return;
+      }
+      at = Math.min(end, at + speed * dt);
+      root.scrollTop = at;
+    };
+    raf = requestAnimationFrame(frame);
+    root.addEventListener("pointerdown", down);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
+    root.addEventListener("wheel", hold, { passive: true });
+    return () => {
+      cancelAnimationFrame(raf);
+      root.removeEventListener("pointerdown", down);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
+      root.removeEventListener("wheel", hold);
+    };
+  }, [autoScroll, speed, lastChapterDone, first]);
 
   // keys scroll by most of a screen
   useEffect(() => {

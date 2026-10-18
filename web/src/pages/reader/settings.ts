@@ -29,6 +29,10 @@ export type ReaderSettings = {
   aheadScreens: number;
   /** Webtoon: how far a page-turn tap or Page Down scrolls, in screens. */
   tapScroll: number;
+  /** Webtoon: auto scroll speed, 1 (slow) to 10 (fast). */
+  autoScrollSpeed: number;
+  /** Webtoon: start auto scrolling when a chapter opens. */
+  autoScrollOnOpen: boolean;
   keepAwake: boolean;
   /** Go on to the next chapter at the end. */
   autoNext: boolean;
@@ -55,12 +59,23 @@ export const DEFAULTS: ReaderSettings = {
   preload: 4,
   aheadScreens: 5,
   tapScroll: 0.85,
+  autoScrollSpeed: 4,
+  autoScrollOnOpen: false,
   keepAwake: true,
   autoNext: true,
   showPageNumber: true,
   quickFullscreen: true,
   showTapZones: true,
 };
+
+export const AUTO_SCROLL_MIN = 1;
+export const AUTO_SCROLL_MAX = 10;
+
+/** autoScrollPxPerSecond turns an auto scroll speed (1-10) into CSS pixels a second: 20 at 1, about 50 at 4, about 300 at 10. */
+export function autoScrollPxPerSecond(speed: number): number {
+  const level = Math.min(AUTO_SCROLL_MAX, Math.max(AUTO_SCROLL_MIN, Math.round(speed)));
+  return 20 * 1.35 ** (level - 1);
+}
 
 /** fromSeries turns a series' reading direction into reader settings. */
 export function fromSeries(dir: string): Partial<ReaderSettings> {

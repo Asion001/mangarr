@@ -3,11 +3,11 @@ import { useDocumentTitle } from "../../lib/documentTitle";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, ChevronLeft, ChevronRight, Download, List, Maximize, Minimize, Settings2 } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Download, List, Maximize, Minimize, Minus, Pause, Play, Plus, Settings2 } from "lucide-react";
 import clsx from "clsx";
 import { apiUrl, basePath, type S } from "../../api/client";
 import { ErrorBox, Spinner } from "../../components/ui";
-import { useReaderSettings } from "./settings";
+import { AUTO_SCROLL_MAX, AUTO_SCROLL_MIN, useReaderSettings } from "./settings";
 import { displayWidth, pageUrl, useDims, useViewport, type Half } from "./page";
 import { chapterQuery } from "./query";
 import { buildViews, indexOf, pageLayout, PagedViewer } from "./PagedViewer";
@@ -56,6 +56,25 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
   const [pickingChapter, setPickingChapter] = useState(false);
   const full = useFullscreen();
   const toast = useToast();
+  // webtoon auto scroll: on until paused or the strip runs out; it holds
+  // while the settings or the chapter list are open
+  const [auto, setAuto] = useState(false);
+  const webtoon = s.mode === "webtoon";
+  const autoOn = auto && webtoon;
+  const autoStarted = useRef(false);
+  useEffect(() => {
+    if (settingsLoading || !ch || autoStarted.current) return;
+    autoStarted.current = true;
+    if (s.autoScrollOnOpen && webtoon) setAuto(true);
+  }, [settingsLoading, ch, s.autoScrollOnOpen, webtoon]);
+  const speedBy = useCallback(
+    (d: number) => set({ autoScrollSpeed: Math.min(AUTO_SCROLL_MAX, Math.max(AUTO_SCROLL_MIN, s.autoScrollSpeed + d)) }),
+    [set, s.autoScrollSpeed],
+  );
+  const startAuto = useCallback(() => {
+    setAuto((a) => !a);
+    setBars(false);
+  }, []);
 
   // where to start: ?page=, else where you left off
   useEffect(() => {
@@ -260,10 +279,13 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
       else if (e.key === "f") toggleFull();
       else if (e.key === "n" && ch?.next) goChapter("next");
       else if (e.key === "p" && ch?.prev) goChapter("prev");
+      else if (webtoon && e.key === "a") setAuto((a) => !a);
+      else if (webtoon && (e.key === "+" || e.key === "=")) speedBy(1);
+      else if (webtoon && e.key === "-") speedBy(-1);
     };
     window.addEventListener("keydown", on);
     return () => window.removeEventListener("keydown", on);
-  }, [panel, ch, navigate, goChapter]);
+  }, [panel, ch, navigate, goChapter, webtoon, speedBy]);
 
   const bg = s.background === "white" ? "bg-white" : s.background === "gray" ? "bg-reader-gray" : "bg-black";
   if (error) {
@@ -295,6 +317,8 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
           wantBounds={s.crop || s.splitWide}
           onChapter={goChapter}
           onMenu={() => setBars((b) => !b)}
+          autoScroll={autoOn && !panel && !pickingChapter}
+          onAutoScrollEnd={() => setAuto(false)}
         />
       ) : (
         <PagedViewer
@@ -387,7 +411,19 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
             aria-label={t("Page")}
           />
         ) : (
-          <div className="flex-1" />
+          <>
+            <button
+              type="button"
+              className={clsx("flex h-9 items-center gap-1.5 rounded-full pl-2.5 pr-3 text-sm font-medium", autoOn ? "border border-accent text-accent-2" : "bg-primary text-white hover:bg-primary-hover")}
+              onClick={startAuto}
+              aria-label={autoOn ? t("Pause auto scroll") : t("Start auto scroll")}
+            >
+              {autoOn ? <Pause className="size-4" fill="currentColor" /> : <Play className="size-4" fill="currentColor" />}
+              {t("Auto")}
+            </button>
+            <AutoSpeed speed={s.autoScrollSpeed} by={speedBy} className="h-9 rounded-full border border-border" />
+            <div className="flex-1" />
+          </>
         )}
         <span className="w-16 text-center text-xs tabular-nums text-fg/80">
           {page} / {count}
@@ -403,7 +439,31 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
         </button>
       </div>
 
-      {!bars && s.showPageNumber && (
+      {!bars && autoOn && (
+        <div
+          className="absolute bottom-2 left-1/2 z-10 flex h-11 -translate-x-1/2 items-center gap-0.5 whitespace-nowrap rounded-full bg-black/70 pl-1 pr-3 text-fg"
+          style={{ marginBottom: "env(safe-area-inset-bottom)" }}
+          role="group"
+          aria-label={t("Auto scroll")}
+          onClick={(e) => e.stopPropagation()}
+          onPointerUp={(e) => e.stopPropagation()}
+        >
+          <button type="button" className="flex size-10 items-center justify-center rounded-full text-accent-2 hover:bg-white/10" onClick={() => setAuto(false)} aria-label={t("Pause auto scroll")}>
+            <Pause className="size-[18px]" fill="currentColor" />
+          </button>
+          <AutoSpeed speed={s.autoScrollSpeed} by={speedBy} />
+          {s.showPageNumber && (
+            <>
+              <span className="mx-2 h-[18px] w-px bg-fg/25" />
+              <span className="text-xs tabular-nums">
+                {page} / {count}
+              </span>
+            </>
+          )}
+        </div>
+      )}
+
+      {!bars && !autoOn && s.showPageNumber && (
         <div className="pointer-events-none absolute bottom-2 left-1/2 z-10 -translate-x-1/2 rounded-full bg-black/60 px-2.5 py-0.5 text-xs tabular-nums text-fg" style={{ marginBottom: "env(safe-area-inset-bottom)" }}>
           {page} / {count}
         </div>
@@ -438,6 +498,21 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
           }}
         />
       )}
+    </div>
+  );
+}
+
+/** AutoSpeed is the auto scroll speed with a button either side. */
+function AutoSpeed({ speed, by, className }: { speed: number; by: (d: number) => void; className?: string }) {
+  return (
+    <div className={clsx("flex items-center", className)}>
+      <button type="button" className="flex h-full min-h-9 w-9 items-center justify-center rounded-full hover:bg-white/10 disabled:opacity-30" disabled={speed <= AUTO_SCROLL_MIN} onClick={() => by(-1)} aria-label={t("Slower")}>
+        <Minus className="size-4" />
+      </button>
+      <span className="min-w-4 text-center text-sm tabular-nums" aria-label={t("Auto scroll speed")}>{speed}</span>
+      <button type="button" className="flex h-full min-h-9 w-9 items-center justify-center rounded-full hover:bg-white/10 disabled:opacity-30" disabled={speed >= AUTO_SCROLL_MAX} onClick={() => by(1)} aria-label={t("Faster")}>
+        <Plus className="size-4" />
+      </button>
     </div>
   );
 }

@@ -2,7 +2,7 @@ import { t as tr, t } from "../../lib/i18n/core";
 import type { ReactNode } from "react";
 import { X } from "lucide-react";
 import clsx from "clsx";
-import type { ReaderSettings } from "./settings";
+import { AUTO_SCROLL_MAX, AUTO_SCROLL_MIN, type ReaderSettings } from "./settings";
 import { canFullscreen } from "./fullscreen";
 
 function Choice<T extends string>({ value, options, onChange }: { value: T; options: { value: T; label: string }[]; onChange: (v: T) => void }) {
@@ -146,6 +146,27 @@ export function SettingsPanel({
               ]}
               onChange={(v) => set({ tapScroll: Number(v) })}
             />
+          </Row>
+        )}
+        {!paged && (
+          <Row label={t("Auto scroll speed")}>
+            <div className="flex items-center gap-3 text-sm text-fg">
+              <span className="text-xs text-muted">{t("Slow")}</span>
+              <input
+                type="range"
+                min={AUTO_SCROLL_MIN}
+                max={AUTO_SCROLL_MAX}
+                step={1}
+                value={s.autoScrollSpeed}
+                onChange={(e) => set({ autoScrollSpeed: Number(e.target.value) })}
+                className="flex-1 accent-accent"
+                aria-label={t("Auto scroll speed")}
+              />
+              <span className="text-xs text-muted">{t("Fast")}</span>
+              <span className="w-5 text-right text-xs tabular-nums text-muted">{s.autoScrollSpeed}</span>
+            </div>
+            <Toggle checked={s.autoScrollOnOpen} onChange={(autoScrollOnOpen) => set({ autoScrollOnOpen })} label={t("Start scrolling when a chapter opens")} />
+            <p className="text-xs text-muted">{t("Start and pause it from the bottom bar, or with the A key. Touching the page holds it while you scroll by hand.")}</p>
           </Row>
         )}
         {paged && (
