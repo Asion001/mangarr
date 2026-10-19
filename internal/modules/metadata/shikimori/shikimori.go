@@ -63,6 +63,8 @@ type Module struct {
 
 	mu      sync.Mutex
 	lastReq time.Time
+	// backoff pauses calls while Shikimori is down.
+	backoff metadata.Backoff
 }
 
 type image struct {
@@ -95,8 +97,13 @@ type manga struct {
 	} `json:"publishers"`
 }
 
+// Test always asks Shikimori, even while calls are paused, so a health check
+// or the settings test sees the real state (and a success ends the pause).
 func (m *Module) Test(ctx context.Context) error {
-	_, err := m.Search(ctx, "Атака титанов", 1)
+	values := url.Values{"search": {"Атака титанов"}, "limit": {"1"}}
+	var list []manga
+	err := m.fetch(ctx, "/api/mangas?"+values.Encode(), &list)
+	m.backoff.Record(err)
 	return err
 }
 
@@ -147,6 +154,15 @@ func (m *Module) LookupExternal(ctx context.Context, provider, id string) (*meta
 }
 
 func (m *Module) get(ctx context.Context, path string, out any) error {
+	if err := m.backoff.Check(); err != nil {
+		return err
+	}
+	err := m.fetch(ctx, path, out)
+	m.backoff.Record(err)
+	return err
+}
+
+func (m *Module) fetch(ctx context.Context, path string, out any) error {
 	m.mu.Lock()
 	wait := 700*time.Millisecond - time.Since(m.lastReq)
 	m.mu.Unlock()
@@ -178,8 +194,7 @@ func (m *Module) get(ctx context.Context, path string, out any) error {
 		return metadata.ErrNotFound
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
-		return fmt.Errorf("shikimori: HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+		return metadata.StatusError("shikimori", resp)
 	}
 	if err := json.NewDecoder(io.LimitReader(resp.Body, 8<<20)).Decode(out); err != nil {
 		return fmt.Errorf("shikimori: %w", err)

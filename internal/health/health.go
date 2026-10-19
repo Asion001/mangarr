@@ -16,6 +16,7 @@ import (
 	"github.com/Asion001/mangarr/internal/fsutil"
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/modules"
+	"github.com/Asion001/mangarr/internal/modules/metadata"
 	"github.com/Asion001/mangarr/internal/settings"
 )
 
@@ -35,6 +36,10 @@ type Check struct {
 	// Key (optional) identifies the check across runs when its message
 	// changes (e.g. carries a count), so a new count is not a new issue.
 	Key string `json:"-"`
+	// Grace (optional) holds back a failure that may pass by itself: until
+	// the check has failed for this long it shows as a notice and notifies
+	// nobody.
+	Grace time.Duration `json:"-"`
 }
 
 // CheckItem is one thing a check is about.
@@ -108,10 +113,21 @@ type Checker struct {
 	results []Check
 	last    map[string]Check
 	at      time.Time
+	// since is when each current check first appeared; alerted holds those
+	// that published an issue (and so will publish a restore).
+	since   map[string]time.Time
+	alerted map[string]bool
+	// now is replaced in tests.
+	now func() time.Time
 }
 
+// outageGrace is how long a provider may stay unreachable before it is a
+// health issue anyone hears about.
+const outageGrace = 30 * time.Minute
+
 func New(d *db.DB, bus *events.Bus, mods *modules.Manager, st *settings.Store, log *slog.Logger) *Checker {
-	return &Checker{db: d, bus: bus, mods: mods, settings: st, log: log, statuses: map[string]func() map[int64]string{}, last: map[string]Check{}}
+	return &Checker{db: d, bus: bus, mods: mods, settings: st, log: log, statuses: map[string]func() map[int64]string{}, last: map[string]Check{},
+		since: map[string]time.Time{}, alerted: map[string]bool{}, now: time.Now}
 }
 
 // AddCheck registers an extra check.
@@ -152,26 +168,55 @@ func (c *Checker) Run(ctx context.Context) []Check {
 			add(Check{Source: label, Type: Warning, Message: name + ": " + msg, Link: link})
 		}
 	}
-	sort.SliceStable(out, func(i, j int) bool { return rank(out[i].Type) > rank(out[j].Type) })
+	return c.record(out)
+}
 
+// record stores a run's results and publishes what changed.
+func (c *Checker) record(out []Check) []Check {
+	now := c.now()
 	c.mu.Lock()
-	prev := c.last
+	since := map[string]time.Time{}
+	for i, ch := range out {
+		k := ch.key()
+		at, ok := c.since[k]
+		if !ok {
+			at = now
+		}
+		since[k] = at
+		if ch.Grace > 0 && now.Sub(at) < ch.Grace {
+			out[i].Type = Notice
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool { return rank(out[i].Type) > rank(out[j].Type) })
 	next := map[string]Check{}
 	for _, ch := range out {
 		next[ch.key()] = ch
 	}
-	c.results, c.last, c.at = out, next, time.Now().UTC()
-	c.mu.Unlock()
-
+	prev, wasAlerted := c.last, c.alerted
+	alerted := map[string]bool{}
+	var issues, restored []Check
 	for k, ch := range next {
-		if _, ok := prev[k]; !ok && ch.Type != Notice {
-			c.bus.Publish(events.Event{Type: events.HealthIssue, Payload: events.MessagePayload{Title: "Health issue: " + ch.Source, Message: ch.Text()}})
+		switch {
+		case wasAlerted[k]:
+			alerted[k] = true // still failing: said once is enough
+		case ch.Type != Notice:
+			alerted[k] = true
+			issues = append(issues, ch)
 		}
 	}
 	for k, ch := range prev {
-		if _, ok := next[k]; !ok && ch.Type != Notice {
-			c.bus.Publish(events.Event{Type: events.HealthRestored, Payload: events.MessagePayload{Title: "Health restored: " + ch.Source, Message: ch.Text()}})
+		if _, ok := next[k]; !ok && wasAlerted[k] {
+			restored = append(restored, ch)
 		}
+	}
+	c.results, c.last, c.at, c.since, c.alerted = out, next, now.UTC(), since, alerted
+	c.mu.Unlock()
+
+	for _, ch := range issues {
+		c.bus.Publish(events.Event{Type: events.HealthIssue, Payload: events.MessagePayload{Title: "Health issue: " + ch.Source, Message: ch.Text()}})
+	}
+	for _, ch := range restored {
+		c.bus.Publish(events.Event{Type: events.HealthRestored, Payload: events.MessagePayload{Title: "Health restored: " + ch.Source, Message: ch.Text()}})
 	}
 	c.bus.Changed("health", "sync", 0)
 	return out
@@ -216,8 +261,14 @@ func (c *Checker) checkModules(ctx context.Context, add func(Check)) {
 		}
 		cancel()
 		switch {
+		case err != nil && metadata.Retryable(err):
+			// down on its side (an outage, a timeout): calls back off, and
+			// it is an issue only when it doesn't come back
+			add(Check{Source: label, Type: Error, Message: fmt.Sprintf("%s is unavailable: %v", l.Def.Name, err), Link: moduleLink(l.Def.Kind),
+				Key: fmt.Sprintf("unavailable-%d", l.Def.ID), Grace: outageGrace})
 		case err != nil:
-			add(Check{Source: label, Type: Error, Message: fmt.Sprintf("%s is unavailable: %v", l.Def.Name, err), Link: moduleLink(l.Def.Kind)})
+			add(Check{Source: label, Type: Error, Message: fmt.Sprintf("%s is unavailable: %v", l.Def.Name, err), Link: moduleLink(l.Def.Kind),
+				Key: fmt.Sprintf("unavailable-%d", l.Def.ID)})
 		case warn != "":
 			add(Check{Source: label, Type: Warning, Message: fmt.Sprintf("%s: %s", l.Def.Name, warn), Link: moduleLink(l.Def.Kind)})
 		}

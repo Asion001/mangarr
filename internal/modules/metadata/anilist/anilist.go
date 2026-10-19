@@ -60,6 +60,8 @@ type Module struct {
 
 	mu      sync.Mutex
 	lastReq time.Time
+	// backoff pauses calls while AniList is down.
+	backoff metadata.Backoff
 }
 
 // searchFields is what a search asks for; lookups by id add the relations,
@@ -136,6 +138,15 @@ type media struct {
 }
 
 func (m *Module) query(ctx context.Context, q string, vars map[string]any, out any) error {
+	if err := m.backoff.Check(); err != nil {
+		return err
+	}
+	err := m.send(ctx, q, vars, out)
+	m.backoff.Record(err)
+	return err
+}
+
+func (m *Module) send(ctx context.Context, q string, vars map[string]any, out any) error {
 	// AniList allows ~30-90 requests/minute; keep a small gap between calls.
 	m.mu.Lock()
 	if wait := 700*time.Millisecond - time.Since(m.lastReq); wait > 0 {
@@ -170,6 +181,10 @@ func (m *Module) query(ctx context.Context, q string, vars map[string]any, out a
 			}
 			continue
 		}
+		if resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500 {
+			resp.Body = io.NopCloser(bytes.NewReader(raw))
+			return metadata.StatusError("anilist", resp)
+		}
 		var env struct {
 			Data   json.RawMessage `json:"data"`
 			Errors []struct {
@@ -190,8 +205,12 @@ func (m *Module) query(ctx context.Context, q string, vars map[string]any, out a
 	}
 }
 
+// Test always asks AniList, even while calls are paused, so a health check
+// or the settings test sees the real state (and a success ends the pause).
 func (m *Module) Test(ctx context.Context) error {
-	_, err := m.Search(ctx, "One Piece", 1)
+	var out json.RawMessage
+	err := m.send(ctx, `query ($s: String) { Page(perPage: 1) { media(search: $s, type: MANGA) { id } } }`, map[string]any{"s": "One Piece"}, &out)
+	m.backoff.Record(err)
 	return err
 }
 

@@ -2,9 +2,12 @@ package shikimori
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/Asion001/mangarr/internal/modules/metadata"
 )
 
 func TestSearchLanguageReturnsRussianTitles(t *testing.T) {
@@ -51,5 +54,30 @@ func TestGetMapsDetailedMetadata(t *testing.T) {
 	}
 	if len(got.AltTitles) != 4 {
 		t.Fatalf("expected all localized aliases, got %#v", got.AltTitles)
+	}
+}
+
+func TestOutagePausesCallsButNotTest(t *testing.T) {
+	hits := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(522)
+		_, _ = w.Write([]byte(`{"title":"Error 522","status":522,"retry_after":120,"ray_id":"abc"}`))
+	}))
+	defer server.Close()
+
+	m := &Module{s: &Settings{Endpoint: server.URL, UserAgent: "mangarr-test"}, http: server.Client()}
+	_, err := m.Search(context.Background(), "x", 1)
+	if err == nil || err.Error() != "shikimori: HTTP 522 (connection timed out)" {
+		t.Fatalf("first call: %v", err)
+	}
+	_, err = m.Search(context.Background(), "x", 1)
+	var paused *metadata.PausedError
+	if !errors.As(err, &paused) || hits != 1 {
+		t.Fatalf("second call should fail fast: %v, %d requests", err, hits)
+	}
+	if err := m.Test(context.Background()); err == nil || hits != 2 {
+		t.Fatalf("test should ask the server: %v, %d requests", err, hits)
 	}
 }
