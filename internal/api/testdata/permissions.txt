@@ -239,6 +239,7 @@ system-metrics GET /api/v1/system/metrics -> admin
 system-metrics-prometheus GET /api/v1/system/metrics/prometheus -> admin
 system-restart POST /api/v1/system/restart -> admin
 system-status GET /api/v1/system/status -> admin
+system-storage GET /api/v1/system/storage -> admin
 system-tasks GET /api/v1/system/tasks -> admin
 system-tasks-pause POST /api/v1/system/tasks/{name}/pause -> admin
 system-tasks-pause-all POST /api/v1/system/tasks/pause-all -> admin

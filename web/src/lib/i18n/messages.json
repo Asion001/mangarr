@@ -9506,5 +9506,133 @@
   "Auto scroll": {
     "ru": "Автопрокрутка",
     "uk": "Автопрокрутка"
+  },
+  "Already read": {
+    "ru": "Уже прочитано",
+    "uk": "Вже прочитано"
+  },
+  "Average chapter": {
+    "ru": "Средняя глава",
+    "uk": "Середній розділ"
+  },
+  "By status": {
+    "ru": "По статусу",
+    "uk": "За статусом"
+  },
+  "Cleanup rules": {
+    "ru": "Правила очистки",
+    "uk": "Правила очищення"
+  },
+  "Drive": {
+    "ru": "Диск",
+    "uk": "Диск"
+  },
+  "Free": {
+    "ru": "Свободно",
+    "uk": "Вільно"
+  },
+  "How much space the library takes, where it lives, and what takes the most.": {
+    "ru": "Сколько места занимает библиотека, где она лежит и что занимает больше всего.",
+    "uk": "Скільки місця займає бібліотека, де вона лежить і що займає найбільше."
+  },
+  "Image cache": {
+    "ru": "Кэш изображений",
+    "uk": "Кеш зображень"
+  },
+  "Largest series": {
+    "ru": "Самые большие серии",
+    "uk": "Найбільші серії"
+  },
+  "Library size": {
+    "ru": "Размер библиотеки",
+    "uk": "Розмір бібліотеки"
+  },
+  "No root folders yet. Add one in Settings › Media.": {
+    "ru": "Корневых папок пока нет. Добавьте их в Настройки › Медиа.",
+    "uk": "Кореневих тек поки немає. Додайте їх у Налаштування › Медіа."
+  },
+  "Nothing downloaded yet.": {
+    "ru": "Пока ничего не скачано.",
+    "uk": "Поки нічого не завантажено."
+  },
+  "Other files on the drive": {
+    "ru": "Другие файлы на диске",
+    "uk": "Інші файли на диску"
+  },
+  "Saved by processing": {
+    "ru": "Сэкономлено обработкой",
+    "uk": "Заощаджено обробкою"
+  },
+  "See all, sorted by size": {
+    "ru": "Все, по размеру",
+    "uk": "Усі, за розміром"
+  },
+  "Storage": {
+    "ru": "Хранилище",
+    "uk": "Сховище"
+  },
+  "The top {count} take {size}, {percent}% of the library.": {
+    "ru": "Первые {count} занимают {size}, {percent}% библиотеки.",
+    "uk": "Перші {count} займають {size}, {percent}% бібліотеки."
+  },
+  "can remove read chapters for you.": {
+    "ru": "могут удалять прочитанные главы за вас.",
+    "uk": "можуть видаляти прочитані розділи за вас."
+  },
+  "low space": {
+    "ru": "мало места",
+    "uk": "мало місця"
+  },
+  "of {size} limit": {
+    "ru": "из {size} лимита",
+    "uk": "з {size} ліміту"
+  },
+  "same drive as {path}": {
+    "ru": "тот же диск, что {path}",
+    "uk": "той самий диск, що {path}"
+  },
+  "{count} ch.": {
+    "ru": "{count} гл.",
+    "uk": "{count} розд."
+  },
+  "{count} files, emptied after {days} days": {
+    "ru": "{count} файлов, очищается через {days} дн.",
+    "uk": "{count} файлів, очищується через {days} дн."
+  },
+  "{count} files, kept until emptied": {
+    "ru": "{count} файлов, хранятся до очистки",
+    "uk": "{count} файлів, зберігаються до очищення"
+  },
+  "{count} matching series · {size} on disk": {
+    "ru": "{count} подходящих серий · {size} на диске",
+    "uk": "{count} відповідних серій · {size} на диску"
+  },
+  "{count} series · {size} on disk": {
+    "ru": "{count} серий · {size} на диске",
+    "uk": "{count} серій · {size} на диску"
+  },
+  "{count} · {size}": {
+    "ru": "{count} · {size}",
+    "uk": "{count} · {size}"
+  },
+  "{free} free of {total}": {
+    "ru": "{free} свободно из {total}",
+    "uk": "{free} вільно з {total}"
+  },
+  "{pages} pages on average": {
+    "ru": "в среднем {pages} стр.",
+    "uk": "у середньому {pages} стор."
+  },
+  "{percent}% smaller than downloaded": {
+    "ru": "на {percent}% меньше скачанного",
+    "uk": "на {percent}% менше завантаженого"
+  },
+  "{series} series · {files} chapters": {
+    "ru": "{series} серий · {files} глав",
+    "uk": "{series} серій · {files} розділів"
+  },
+  "{size} · {count} series": {
+    "ru": "{size} · {count} серий",
+    "uk": "{size} · {count} серій"
   }
 }

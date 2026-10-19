@@ -48,6 +48,7 @@ const StatusPage = lazy(() => import("./pages/system/Status").then((m) => ({ def
 const TasksPage = lazy(() => import("./pages/system/Tasks").then((m) => ({ default: m.TasksPage })));
 const BackupsPage = lazy(() => import("./pages/system/Backups").then((m) => ({ default: m.BackupsPage })));
 const LogsPage = lazy(() => import("./pages/system/Logs").then((m) => ({ default: m.LogsPage })));
+const StoragePage = lazy(() => import("./pages/system/Storage").then((m) => ({ default: m.StoragePage })));
 const DatabasePage = lazy(() => import("./pages/system/Database").then((m) => ({ default: m.DatabasePage })));
 const WorkersPage = lazy(() => import("./pages/system/Workers").then((m) => ({ default: m.WorkersPage })));
 const RecycleBinPage = lazy(() => import("./pages/system/RecycleBin").then((m) => ({ default: m.RecycleBinPage })));
@@ -172,6 +173,7 @@ export function App() {
           <Route path="system/backups" element={<Need perm="admin"><BackupsPage /></Need>} />
           <Route path="system/recycle-bin" element={<Need perm="admin"><RecycleBinPage /></Need>} />
           <Route path="system/logs" element={<Need perm="admin"><LogsPage /></Need>} />
+          <Route path="system/storage" element={<Need perm="admin"><StoragePage /></Need>} />
           <Route path="system/database" element={<Need perm="admin"><DatabasePage /></Need>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

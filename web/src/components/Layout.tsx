@@ -187,6 +187,7 @@ export function Layout() {
       need: "admin",
       children: [
         { to: "/system/status", label: "Status" },
+        { to: "/system/storage", label: "Storage" },
         { to: "/system/performance", label: "Performance" },
         { to: "/system/tasks", label: "Tasks" },
         { to: "/system/workers", label: "Workers" },

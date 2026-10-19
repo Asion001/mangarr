@@ -456,6 +456,11 @@ export function SeriesIndex() {
           </Select>
         </div>
       )}
+      {data && data.total > 0 && account.can("library.edit") && (
+        <p className="mt-3 text-center text-sm text-muted">
+          {t(q || filter !== "all" || rootFolderId || language || genres.length > 0 ? "{count} matching series · {size} on disk" : "{count} series · {size} on disk", { count: data.total, size: bytes(data.totalSize) })}
+        </p>
+      )}
       {(adds || requester) && q.trim().length > 1 && page === 1 && (
         <section aria-labelledby="request-results" className="mt-8">
           <h2 id="request-results" className="mb-1 text-lg font-semibold">{t("Not in the library?")}</h2>

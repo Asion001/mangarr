@@ -3267,6 +3267,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/system/storage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** How much space the library takes: totals, root folders and their drives, the largest series */
+        get: operations["system-storage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/system/tasks": {
         parameters: {
             query?: never;
@@ -6791,6 +6808,73 @@ export interface components {
             verified?: {
                 [key: string]: string;
             };
+        };
+        StorageLibrary: {
+            /** Format: int64 */
+            bytes: number;
+            /** Format: int64 */
+            files: number;
+            /** Format: int64 */
+            pages: number;
+            /** Format: int64 */
+            saved: number;
+            /** Format: int64 */
+            series: number;
+        };
+        StorageRoot: {
+            /** Format: int64 */
+            bytes: number;
+            drive: string;
+            /** Format: int64 */
+            driveFree: number;
+            /** Format: int64 */
+            driveTotal: number;
+            error?: string;
+            /** Format: int64 */
+            files: number;
+            /** Format: int64 */
+            id: number;
+            language: string;
+            path: string;
+            /** Format: int64 */
+            series: number;
+        };
+        StorageSeries: {
+            /** Format: int64 */
+            bytes: number;
+            /** Format: int64 */
+            files: number;
+            /** Format: int64 */
+            id: number;
+            language: string;
+            title: string;
+        };
+        StorageStatus: {
+            /** Format: int64 */
+            bytes: number;
+            /** Format: int64 */
+            series: number;
+            status: string;
+        };
+        StorageSummary: {
+            byStatus: components["schemas"]["StorageStatus"][];
+            /** Format: int64 */
+            imageBytes: number;
+            /** Format: int64 */
+            imageMaxBytes: number;
+            largest: components["schemas"]["StorageSeries"][];
+            library: components["schemas"]["StorageLibrary"];
+            /** Format: int64 */
+            readBytes: number;
+            /** Format: int64 */
+            readFiles: number;
+            /** Format: int64 */
+            recycleBytes: number;
+            /** Format: int64 */
+            recycleDays: number;
+            /** Format: int64 */
+            recycleFiles: number;
+            roots: components["schemas"]["StorageRoot"][];
         };
         "Stores-addRequest": {
             url: string;
@@ -15138,6 +15222,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SystemStatus"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "system-storage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageSummary"];
                 };
             };
             /** @description Error */
