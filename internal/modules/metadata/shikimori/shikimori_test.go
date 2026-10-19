@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/Asion001/mangarr/internal/modules"
 	"github.com/Asion001/mangarr/internal/modules/metadata"
 )
 
@@ -79,5 +80,18 @@ func TestOutagePausesCallsButNotTest(t *testing.T) {
 	}
 	if err := m.Test(context.Background()); err == nil || hits != 2 {
 		t.Fatalf("test should ask the server: %v, %d requests", err, hits)
+	}
+}
+
+func TestOldDomainMovesToCurrent(t *testing.T) {
+	for _, old := range []string{"https://shikimori.one", "https://shikimori.me/", ""} {
+		impl, _ := modules.Lookup(modules.KindMetadata, "shikimori")
+		inst, err := impl.New(modules.Deps{}, &Settings{Endpoint: old})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := inst.(*Module).s.Endpoint; got != defaultEndpoint {
+			t.Fatalf("%q became %q", old, got)
+		}
 	}
 }

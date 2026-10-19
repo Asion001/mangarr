@@ -20,9 +20,13 @@ import (
 )
 
 const (
-	defaultEndpoint  = "https://shikimori.one"
+	defaultEndpoint  = "https://shikimori.io"
 	defaultUserAgent = "mangarr (https://github.com/Asion001/mangarr)"
 )
+
+// oldEndpoints are Shikimori's former domains, saved as the endpoint by
+// earlier versions; they no longer answer, so they move to the current one.
+var oldEndpoints = map[string]bool{"https://shikimori.one": true, "https://shikimori.me": true}
 
 type Settings struct {
 	TitleLanguage string `json:"titleLanguage" label:"Title language" options:"russian:Russian (fallback romanized),english:English (fallback romanized),romanized:Romanized" order:"1"`
@@ -36,7 +40,7 @@ func init() {
 		Name:        "shikimori",
 		DisplayName: "Shikimori",
 		Description: "Russian and international manga metadata from Shikimori: localized titles, synonyms, synopsis, genres, cover and status.",
-		InfoURL:     "https://shikimori.one/api/doc",
+		InfoURL:     "https://shikimori.io/api/doc",
 		Settings: func() any {
 			return &Settings{TitleLanguage: "russian", Endpoint: defaultEndpoint, UserAgent: defaultUserAgent}
 		},
@@ -46,7 +50,7 @@ func init() {
 				hc = &http.Client{Timeout: 30 * time.Second}
 			}
 			s := raw.(*Settings)
-			if strings.TrimSpace(s.Endpoint) == "" {
+			if strings.TrimSpace(s.Endpoint) == "" || oldEndpoints[strings.TrimRight(strings.TrimSpace(s.Endpoint), "/")] {
 				s.Endpoint = defaultEndpoint
 			}
 			if strings.TrimSpace(s.UserAgent) == "" {
