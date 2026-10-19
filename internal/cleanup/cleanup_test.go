@@ -109,3 +109,33 @@ func TestScope(t *testing.T) {
 		t.Fatal(reason)
 	}
 }
+
+func TestRequiredReaders(t *testing.T) {
+	readers := []model.Reader{{ID: 1}, {ID: 2, CountForCleanup: true}, {ID: 3}}
+	if got := requiredReaders(readers, nil); len(got) != 1 || got[0] != 2 {
+		t.Fatalf("counting readers: %v", got)
+	}
+	if got := requiredReaders(readers, []int64{3, 9}); len(got) != 1 || got[0] != 3 {
+		t.Fatalf("chosen readers, counting or not: %v", got)
+	}
+	readers[1].CountForCleanup = false
+	if got := requiredReaders(readers, nil); len(got) != 3 {
+		t.Fatalf("nobody counting means everyone: %v", got)
+	}
+}
+
+func TestLimitToGoals(t *testing.T) {
+	at := func(days int) time.Time { return now.Add(-time.Duration(days) * 24 * time.Hour) }
+	cands := []Candidate{
+		{SeriesID: 1, ChapterID: 1, Size: 400, LastReadAt: at(5)},
+		{SeriesID: 1, ChapterID: 2, Size: 400, LastReadAt: at(50)},
+		{SeriesID: 2, ChapterID: 3, Size: 400, LastReadAt: at(20)},
+		{SeriesID: 3, ChapterID: 4, Size: 400, LastReadAt: at(1)}, // another drive, no limit there
+	}
+	driveOf := map[int64]string{1: "a", 2: "a"}
+	kept, held, heldSize := limitToGoals(cands, driveOf, map[string]*spaceGoal{"a": {need: 500}})
+	// read longest ago first: ch 2 (400) then ch 3 (800 >= 500); ch 1 held
+	if len(kept) != 3 || kept[0].ChapterID != 2 || kept[1].ChapterID != 3 || kept[2].ChapterID != 4 || held != 1 || heldSize != 400 {
+		t.Fatalf("kept %v, held %d (%d)", ids(kept), held, heldSize)
+	}
+}

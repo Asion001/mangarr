@@ -1606,6 +1606,14 @@
           "enabled": {
             "type": "boolean"
           },
+          "held": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "heldSize": {
+            "format": "int64",
+            "type": "integer"
+          },
           "skipped": {
             "items": {
               "$ref": "#/components/schemas/CleanupSkip"
@@ -1622,7 +1630,9 @@
           "dryRun",
           "candidates",
           "skipped",
-          "totalSize"
+          "totalSize",
+          "held",
+          "heldSize"
         ],
         "type": "object"
       },
@@ -1657,6 +1667,26 @@
       "CleanupSkip": {
         "additionalProperties": false,
         "properties": {
+          "code": {
+            "enum": [
+              "disabled",
+              "status",
+              "no-reader",
+              "none-finished",
+              "keep",
+              "grace",
+              "enough-space",
+              "bin-pending",
+              "tagged"
+            ],
+            "type": "string"
+          },
+          "params": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
           "reason": {
             "type": "string"
           },
@@ -1671,7 +1701,8 @@
         "required": [
           "seriesId",
           "seriesTitle",
-          "reason"
+          "reason",
+          "code"
         ],
         "type": "object"
       },

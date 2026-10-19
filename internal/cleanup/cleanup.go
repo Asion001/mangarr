@@ -64,17 +64,35 @@ type Candidate struct {
 type Skip struct {
 	SeriesID    int64  `json:"seriesId"`
 	SeriesTitle string `json:"seriesTitle"`
-	Reason      string `json:"reason"`
+	// Reason is in English; Code and Params let the UI say it in its language.
+	Reason string            `json:"reason"`
+	Code   string            `json:"code" enum:"disabled,status,no-reader,none-finished,keep,grace,enough-space,bin-pending,tagged"`
+	Params map[string]string `json:"params,omitempty"`
+}
+
+// why is the reason a series has nothing to clean.
+type why struct {
+	code, text string
+	params     map[string]string
+}
+
+func (w why) skip(s model.Series) Skip {
+	return Skip{SeriesID: s.ID, SeriesTitle: s.Title, Reason: w.text, Code: w.code, Params: w.params}
 }
 
 // Evaluate applies rules to one series and returns deletable chapters (or a
 // reason why nothing applies).
 func Evaluate(r Rules, sd SeriesData, now time.Time) ([]Candidate, string) {
+	c, w := evaluate(r, sd, now)
+	return c, w.text
+}
+
+func evaluate(r Rules, sd SeriesData, now time.Time) ([]Candidate, why) {
 	if !r.Enabled {
-		return nil, "cleanup disabled"
+		return nil, why{"disabled", "cleanup disabled", nil}
 	}
 	if len(r.Statuses) > 0 && !contains(r.Statuses, sd.Series.Status) {
-		return nil, "series status " + sd.Series.Status + " not in scope"
+		return nil, why{"status", "series status " + sd.Series.Status + " not in scope", map[string]string{"status": sd.Series.Status}}
 	}
 	required := append([]int64(nil), r.RequiredReaders...)
 	if r.IgnoreNotStarted {
@@ -95,7 +113,7 @@ func Evaluate(r Rules, sd SeriesData, now time.Time) ([]Candidate, string) {
 		required = kept
 	}
 	if len(required) == 0 {
-		return nil, "no required reader has started this series"
+		return nil, why{"no-reader", "no required reader has started this series", nil}
 	}
 	type done struct {
 		cd     ChapterData
@@ -125,7 +143,7 @@ func Evaluate(r Rules, sd SeriesData, now time.Time) ([]Candidate, string) {
 		}
 	}
 	if len(completed) == 0 {
-		return nil, "no chapter has been finished by all required readers"
+		return nil, why{"none-finished", "no chapter has been finished by all required readers", nil}
 	}
 	sort.Slice(completed, func(i, j int) bool { return completed[i].cd.Chapter.NumberSort < completed[j].cd.Chapter.NumberSort })
 	keep := r.KeepLastRead
@@ -133,7 +151,7 @@ func Evaluate(r Rules, sd SeriesData, now time.Time) ([]Candidate, string) {
 		keep = 0
 	}
 	if keep >= len(completed) {
-		return nil, fmt.Sprintf("keeping the last %d read chapters", keep)
+		return nil, why{"keep", fmt.Sprintf("keeping the last %d read chapters", keep), map[string]string{"count": fmt.Sprint(keep)}}
 	}
 	completed = completed[:len(completed)-keep]
 	grace := time.Duration(r.GraceDays) * 24 * time.Hour
@@ -146,9 +164,9 @@ func Evaluate(r Rules, sd SeriesData, now time.Time) ([]Candidate, string) {
 			Chapter: c.cd.Chapter.NumberKey, FileID: c.cd.File.ID, Size: c.cd.File.Size, LastReadAt: c.lastAt})
 	}
 	if len(out) == 0 {
-		return nil, fmt.Sprintf("finished chapters are still within the %d day grace period", r.GraceDays)
+		return nil, why{"grace", fmt.Sprintf("finished chapters are still within the %d day grace period", r.GraceDays), map[string]string{"days": fmt.Sprint(r.GraceDays)}}
 	}
-	return out, ""
+	return out, why{}
 }
 
 func contains(xs []string, s string) bool {
@@ -180,6 +198,39 @@ type Plan struct {
 	Candidates []Candidate `json:"candidates"`
 	Skipped    []Skip      `json:"skipped"`
 	TotalSize  int64       `json:"totalSize"`
+	// Held and HeldSize are finished chapters kept because removing the
+	// others already brings the drive back above the free space limit.
+	Held     int   `json:"held"`
+	HeldSize int64 `json:"heldSize"`
+}
+
+// requiredReaders are the readers who must have finished a chapter: the
+// chosen ones, else the ones counting for cleanup, else everyone (as the
+// series pages count progress).
+func requiredReaders(readers []model.Reader, chosen []int64) []int64 {
+	var picked, counted, all []int64
+	for _, r := range readers {
+		all = append(all, r.ID)
+		if r.CountForCleanup {
+			counted = append(counted, r.ID)
+		}
+		if containsID(chosen, r.ID) {
+			picked = append(picked, r.ID)
+		}
+	}
+	switch {
+	case len(chosen) > 0:
+		return picked
+	case len(counted) > 0:
+		return counted
+	}
+	return all
+}
+
+// spaceGoal is how much a drive below the free space limit still needs.
+type spaceGoal struct {
+	need int64
+	took int64
 }
 
 // Plan computes what a cleanup run would delete.
@@ -194,16 +245,7 @@ func (c *Cleaner) Plan(ctx context.Context) (*Plan, error) {
 	if err := c.db.NewSelect().Model(&readers).Scan(ctx); err != nil {
 		return nil, err
 	}
-	var required []int64
-	for _, r := range readers {
-		if !r.CountForCleanup {
-			continue
-		}
-		if len(cs.ReaderIDs) > 0 && !containsID(cs.ReaderIDs, r.ID) {
-			continue
-		}
-		required = append(required, r.ID)
-	}
+	required := requiredReaders(readers, cs.ReaderIDs)
 	var profiles []model.Profile
 	if err := c.db.NewSelect().Model(&profiles).Scan(ctx); err != nil {
 		return nil, err
@@ -218,22 +260,14 @@ func (c *Cleaner) Plan(ctx context.Context) (*Plan, error) {
 	for _, t := range tags {
 		tagLabel[t.ID] = t.Label
 	}
-	var roots []model.RootFolder
-	_ = c.db.NewSelect().Model(&roots).Scan(ctx)
-	rootSkip := map[int64]string{}
-	if cs.MinFreeSpaceGB > 0 {
-		for _, r := range roots {
-			if free, err := fsutil.FreeSpace(r.Path); err == nil && free >= uint64(cs.MinFreeSpaceGB)<<30 {
-				rootSkip[r.ID] = fmt.Sprintf("%s has more than %d GB free", r.Path, cs.MinFreeSpaceGB)
-			}
-		}
-	}
+	rootSkip, rootDrive, goals := c.spaceGoals(ctx, cs.MinFreeSpaceGB)
 
 	var series []model.Series
-	if err := c.db.NewSelect().Model(&series).Order("sort_title").Scan(ctx); err != nil {
+	if err := c.db.NewSelect().Model(&series).Where("preview = ?", false).Order("sort_title").Scan(ctx); err != nil {
 		return nil, err
 	}
 	now := time.Now().UTC()
+	driveOf := map[int64]string{} // series id -> drive with a space goal
 	for _, s := range series {
 		rules := Rules{Enabled: cs.Enabled, Statuses: cs.Statuses, RequiredReaders: required,
 			IgnoreNotStarted: cs.IgnoreReadersNotStarted, KeepLastRead: cs.KeepLastRead, GraceDays: cs.GraceDays}
@@ -252,22 +286,25 @@ func (c *Cleaner) Plan(ctx context.Context) (*Plan, error) {
 		if !rules.Enabled {
 			continue
 		}
-		if reason, ok := rootSkip[s.RootFolderID]; ok {
-			plan.Skipped = append(plan.Skipped, Skip{s.ID, s.Title, reason})
+		if w, ok := rootSkip[s.RootFolderID]; ok {
+			plan.Skipped = append(plan.Skipped, w.skip(s))
 			continue
 		}
 		if t := excludedTag(s.Tags, tagLabel, cs.ExcludeTags); t != "" {
-			plan.Skipped = append(plan.Skipped, Skip{s.ID, s.Title, "tagged " + t})
+			plan.Skipped = append(plan.Skipped, why{"tagged", "tagged " + t, map[string]string{"tag": t}}.skip(s))
 			continue
 		}
 		sd, err := c.loadSeries(ctx, s)
 		if err != nil {
 			return nil, err
 		}
-		cands, reason := Evaluate(rules, sd, now)
-		if reason != "" {
-			plan.Skipped = append(plan.Skipped, Skip{s.ID, s.Title, reason})
+		cands, w := evaluate(rules, sd, now)
+		if w.code != "" {
+			plan.Skipped = append(plan.Skipped, w.skip(s))
 			continue
+		}
+		if d, ok := rootDrive[s.RootFolderID]; ok {
+			driveOf[s.ID] = d
 		}
 		dir, _ := c.lib.SeriesDir(ctx, &s)
 		for _, cd := range cands {
@@ -277,10 +314,93 @@ func (c *Cleaner) Plan(ctx context.Context) (*Plan, error) {
 				}
 			}
 			plan.Candidates = append(plan.Candidates, cd)
-			plan.TotalSize += cd.Size
 		}
 	}
+	if len(goals) > 0 {
+		plan.Candidates, plan.Held, plan.HeldSize = limitToGoals(plan.Candidates, driveOf, goals)
+	}
+	for _, cd := range plan.Candidates {
+		plan.TotalSize += cd.Size
+	}
 	return plan, nil
+}
+
+// limitToGoals keeps, on each drive short of space, the chapters read
+// longest ago until removing them frees what the drive needs; the rest are
+// held. Chapters on other drives are all kept.
+func limitToGoals(cands []Candidate, driveOf map[int64]string, goals map[string]*spaceGoal) (kept []Candidate, held int, heldSize int64) {
+	order := make([]int, len(cands))
+	for i := range order {
+		order[i] = i
+	}
+	sort.SliceStable(order, func(a, b int) bool { return cands[order[a]].LastReadAt.Before(cands[order[b]].LastReadAt) })
+	hold := map[int]bool{}
+	for _, i := range order {
+		g, ok := goals[driveOf[cands[i].SeriesID]]
+		if !ok {
+			continue
+		}
+		if g.took >= g.need {
+			hold[i] = true
+			continue
+		}
+		g.took += cands[i].Size
+	}
+	kept = []Candidate{}
+	for i, cd := range cands {
+		if hold[i] {
+			held++
+			heldSize += cd.Size
+			continue
+		}
+		kept = append(kept, cd)
+	}
+	return kept, held, heldSize
+}
+
+// spaceGoals applies the free space limit (in GB, 0 = none): root folders
+// with enough free space are skipped, and every drive below the limit gets
+// the amount cleanup should free there. Files in the recycle bin count as
+// freed when the bin is on that drive and empties itself.
+func (c *Cleaner) spaceGoals(ctx context.Context, limitGB int) (skip map[int64]why, driveOf map[int64]string, goals map[string]*spaceGoal) {
+	skip, driveOf, goals = map[int64]why{}, map[int64]string{}, map[string]*spaceGoal{}
+	if limitGB <= 0 {
+		return
+	}
+	limit := uint64(limitGB) << 30
+	var binBytes int64
+	binDrive := ""
+	if mm, err := c.settings.MediaManagement(ctx); err == nil && mm.RecycleBinDays > 0 {
+		if _, _, d, err := fsutil.Usage(c.lib.RecycleDir(ctx)); err == nil {
+			binDrive = d
+			_ = c.db.NewSelect().Model((*model.RecycledFile)(nil)).ColumnExpr("COALESCE(SUM(size), 0)").Scan(ctx, &binBytes)
+		}
+	}
+	var roots []model.RootFolder
+	_ = c.db.NewSelect().Model(&roots).Order("id").Scan(ctx)
+	for _, r := range roots {
+		_, free, drive, err := fsutil.Usage(r.Path)
+		if err != nil {
+			continue
+		}
+		if free >= limit {
+			skip[r.ID] = why{"enough-space", fmt.Sprintf("%s has more than %d GB free", r.Path, limitGB), map[string]string{"path": r.Path, "gb": fmt.Sprint(limitGB)}}
+			continue
+		}
+		if _, ok := goals[drive]; !ok {
+			need := int64(limit - free)
+			if drive == binDrive {
+				need -= binBytes
+			}
+			goals[drive] = &spaceGoal{need: need}
+		}
+		if goals[drive].need <= 0 {
+			skip[r.ID] = why{"bin-pending", fmt.Sprintf("%s gets back above %d GB free once the recycle bin empties", r.Path, limitGB), map[string]string{"path": r.Path, "gb": fmt.Sprint(limitGB)}}
+			continue
+		}
+		driveOf[r.ID] = drive
+	}
+	return
 }
 
 func (c *Cleaner) loadSeries(ctx context.Context, s model.Series) (SeriesData, error) {
@@ -291,18 +411,25 @@ func (c *Cleaner) loadSeries(ctx context.Context, s model.Series) (SeriesData, e
 		RelativePath string `bun:"relative_path"`
 		Size         int64  `bun:"size"`
 	}
+	// a chapter with a download or processing job under way is left alone
 	err := c.db.NewSelect().TableExpr("chapters AS c").
 		ColumnExpr("c.*, f.id AS fid, f.relative_path, f.size").
 		Join("JOIN chapter_files AS f ON f.id = c.file_id").
-		Where("c.series_id = ?", s.ID).Scan(ctx, &rows)
+		Where("c.series_id = ?", s.ID).
+		Where("NOT EXISTS (SELECT 1 FROM download_jobs AS j WHERE j.chapter_id = c.id AND j.status NOT IN (?, ?))", model.JobCompleted, model.JobFailed).
+		Scan(ctx, &rows)
 	if err != nil {
 		return sd, err
 	}
 	for _, r := range rows {
 		sd.Chapters = append(sd.Chapters, ChapterData{Chapter: r.Chapter, File: model.ChapterFile{ID: r.FID, RelativePath: r.RelativePath, Size: r.Size}})
 	}
+	// Progress is shared by a title's editions; only what was read in this
+	// edition counts, so reading one language doesn't clean the others.
 	var states []model.ChapterReadState
-	if err := c.db.NewSelect().Model(&states).Where("series_id = ?", s.ID).Scan(ctx); err != nil {
+	if err := c.db.NewSelect().Model(&states).Where("series_id = ?", s.ID).
+		Where("(source_chapter_id = 0 OR source_chapter_id IN (SELECT id FROM chapters WHERE series_id = ?))", s.ID).
+		Scan(ctx); err != nil {
 		return sd, err
 	}
 	for _, st := range states {
@@ -348,6 +475,10 @@ func (c *Cleaner) Run(ctx context.Context, force bool) (*Plan, int, error) {
 	var errs []error
 	for _, cd := range plan.Candidates {
 		if err := c.remove(ctx, cd, cs.UseRecycleBin, model.HistoryCleaned); err != nil {
+			if errors.Is(err, errChanged) {
+				c.log.Info("cleanup skipped a chapter that changed since the plan", "series", cd.SeriesTitle, "chapter", cd.Chapter)
+				continue
+			}
 			errs = append(errs, fmt.Errorf("%s ch. %s: %w", cd.SeriesTitle, cd.Chapter, err))
 			continue
 		}
@@ -367,11 +498,24 @@ func (c *Cleaner) Run(ctx context.Context, force bool) (*Plan, int, error) {
 	return plan, deleted, errors.Join(errs...)
 }
 
+// errChanged: the chapter got another file, or a job started on it, after
+// it was chosen.
+var errChanged = errors.New("chapter changed since cleanup chose it")
+
 func (c *Cleaner) remove(ctx context.Context, cd Candidate, recycle bool, event string) error {
 	defer library.RLockSeries(cd.SeriesID)()
 	var s model.Series
 	if err := c.db.NewSelect().Model(&s).Where("id = ?", cd.SeriesID).Scan(ctx); err != nil {
 		return err
+	}
+	current, err := c.db.NewSelect().Model((*model.Chapter)(nil)).Where("id = ? AND file_id = ?", cd.ChapterID, cd.FileID).
+		Where("NOT EXISTS (SELECT 1 FROM download_jobs AS j WHERE j.chapter_id = ? AND j.status NOT IN (?, ?))", cd.ChapterID, model.JobCompleted, model.JobFailed).
+		Exists(ctx)
+	if err != nil {
+		return err
+	}
+	if !current {
+		return errChanged
 	}
 	if _, err := os.Stat(cd.Path); err == nil {
 		if recycle {
@@ -387,7 +531,7 @@ func (c *Cleaner) remove(ctx context.Context, cd Candidate, recycle bool, event 
 		}
 	}
 	now := time.Now().UTC()
-	err := c.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+	err = c.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
 		if _, err := tx.NewDelete().Model((*model.ChapterFile)(nil)).Where("id = ?", cd.FileID).Exec(ctx); err != nil {
 			return err
 		}
@@ -475,6 +619,10 @@ func (c *Cleaner) RemoveChapters(ctx context.Context, chapterIDs []int64) (*Remo
 		cd := Candidate{SeriesID: r.SeriesID, SeriesTitle: r.SeriesTitle, ChapterID: r.ChapterID, Chapter: r.Chapter,
 			FileID: r.FileID, Path: filepath.Join(dir, r.Relative), Size: r.Size}
 		if err := c.remove(ctx, cd, cs.UseRecycleBin, model.HistoryDeleted); err != nil {
+			if errors.Is(err, errChanged) {
+				result.Skipped++
+				continue
+			}
 			errs = append(errs, fmt.Errorf("%s ch. %s: %w", r.SeriesTitle, r.Chapter, err))
 			continue
 		}

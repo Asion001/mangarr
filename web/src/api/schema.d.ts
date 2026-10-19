@@ -4230,6 +4230,10 @@ export interface components {
             candidates: components["schemas"]["CleanupCandidate"][];
             dryRun: boolean;
             enabled: boolean;
+            /** Format: int64 */
+            held: number;
+            /** Format: int64 */
+            heldSize: number;
             skipped: components["schemas"]["CleanupSkip"][];
             /** Format: int64 */
             totalSize: number;
@@ -4245,6 +4249,11 @@ export interface components {
             skipped: number;
         };
         CleanupSkip: {
+            /** @enum {string} */
+            code: "disabled" | "status" | "no-reader" | "none-finished" | "keep" | "grace" | "enough-space" | "bin-pending" | "tagged";
+            params?: {
+                [key: string]: string;
+            };
             reason: string;
             /** Format: int64 */
             seriesId: number;

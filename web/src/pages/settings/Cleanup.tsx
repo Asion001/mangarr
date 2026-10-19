@@ -1,20 +1,45 @@
 import { t } from "../../lib/i18n/core";
 import { Link } from "react-router";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Eraser, RefreshCw } from "lucide-react";
 import { api, unwrap, type S } from "../../api/client";
 import { usePushCommand, useReaders, useTags } from "../../api/queries";
-import { Badge, Button, Card, ErrorBox, Field, Input, Loading, PageHeader, SaveBar, Switch, Table, Td, Th } from "../../components/ui";
+import { Badge, Button, Card, Confirm, ErrorBox, Field, Input, Loading, PageHeader, SaveBar, Switch, Table, Td, Th } from "../../components/ui";
 import { bytes, relative } from "../../lib/format";
 import { useSettingsDoc } from "./useSettingsDoc";
 
 type CleanupSettings = S["Cleanup"];
+type Skip = S["CleanupSkip"];
+
+// the preview lists at most this many chapters
+const previewRows = 200;
+
+const statusName = (s: string) =>
+  ({ ongoing: t("Ongoing"), completed: t("Completed"), hiatus: t("Hiatus"), cancelled: t("Cancelled"), unknown: t("Unknown") })[s] ?? s;
+
+/** skipReason says why a series has nothing to clean, in the UI's language. */
+function skipReason(s: Skip): string {
+  const p = s.params ?? {};
+  switch (s.code) {
+    case "status": return t("its status ({status}) isn't in scope", { status: statusName(p.status ?? "") });
+    case "no-reader": return t("no required reader has started it in this language");
+    case "none-finished": return t("no chapter is finished by every required reader yet");
+    case "keep": return t("keeping the last {count} read chapters", { count: p.count ?? "" });
+    case "grace": return t("finished chapters are still in the {days} day grace period", { days: p.days ?? "" });
+    case "enough-space": return t("{path} has more than {gb} GB free", { path: p.path ?? "", gb: p.gb ?? "" });
+    case "bin-pending": return t("{path} gets back above {gb} GB free once the recycle bin empties", { path: p.path ?? "", gb: p.gb ?? "" });
+    case "tagged": return t("tagged {tag}", { tag: p.tag ?? "" });
+  }
+  return s.reason;
+}
 
 export function CleanupPage() {
   const { value: c, patch, save, saving, isLoading, error, lock, dirty, reset } = useSettingsDoc<CleanupSettings>("cleanup");
   const { data: readers } = useReaders();
   const { data: tags } = useTags();
   const push = usePushCommand();
+  const [confirmRun, setConfirmRun] = useState(false);
   const preview = useQuery({ queryKey: ["cleanup-preview"], queryFn: () => unwrap(api.GET("/api/v1/cleanup/preview")) });
   const toggleStatus = (s: string) => {
     if (!c) return;
@@ -58,12 +83,12 @@ export function CleanupPage() {
               <div className="flex flex-wrap gap-3">
                 {["ongoing", "completed", "hiatus", "cancelled", "unknown"].map((s) => (
                   <label key={s} className="flex items-center gap-1.5 text-sm">
-                    <input type="checkbox" checked={(c.statuses ?? []).includes(s)} onChange={() => toggleStatus(s)} /> {s}
+                    <input type="checkbox" checked={(c.statuses ?? []).includes(s)} onChange={() => toggleStatus(s)} /> {statusName(s)}
                   </label>
                 ))}
               </div>
             </Field>
-            <Field env={lock("readerIds")} label={t("Required readers")} help={t("None selected = every reader counting for cleanup.")}>
+            <Field env={lock("readerIds")} label={t("Required readers")} help={t("None selected = every reader counting for cleanup, or everyone when no reader is marked to count.")}>
               <div className="flex flex-wrap gap-3">
                 {readers?.map((r) => (
                   <label key={r.id} className="flex items-center gap-1.5 text-sm">
@@ -103,11 +128,26 @@ export function CleanupPage() {
               variant="danger"
               icon={<Eraser className="size-3.5" />}
               disabled={!preview.data?.candidates.length}
-              onClick={() => push.mutate({ name: "Cleanup", body: { force: true }, label: "Cleanup started" })}
+              onClick={() => setConfirmRun(true)}
             >{t("Run now")}</Button>
           </>
         }
       >
+        {preview.data && (
+          <Confirm
+            open={confirmRun}
+            danger
+            title={t("Run cleanup now?")}
+            confirmLabel={t("Remove chapters")}
+            loading={push.isPending}
+            message={(c?.useRecycleBin ? t("{count} chapters ({size}) move to the recycle bin.", { count: preview.data.candidates.length, size: bytes(preview.data.totalSize) })
+              : t("{count} chapters ({size}) are deleted for good.", { count: preview.data.candidates.length, size: bytes(preview.data.totalSize) }))
+              + (preview.data.dryRun ? " " + t("This runs even though dry run is on.") : "")
+              + " " + t("They won't be downloaded again unless you restore them.")}
+            onConfirm={() => push.mutate({ name: "Cleanup", body: { force: true }, label: t("Cleanup started") }, { onSettled: () => setConfirmRun(false) })}
+            onClose={() => setConfirmRun(false)}
+          />
+        )}
         {preview.isLoading && <Loading />}
         {preview.error && <ErrorBox error={preview.error} />}
         {preview.data && (
@@ -127,7 +167,7 @@ export function CleanupPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {preview.data.candidates.slice(0, 200).map((cd) => (
+                  {preview.data.candidates.slice(0, previewRows).map((cd) => (
                     <tr key={cd.chapterId}>
                       <Td>
                         <Link to={`/series/${cd.seriesId}`} className="hover:text-accent-2">
@@ -142,13 +182,21 @@ export function CleanupPage() {
                 </tbody>
               </Table>
             )}
+            {preview.data.candidates.length > previewRows && (
+              <p className="mb-3 text-sm text-muted">{t("Showing the first {shown} of {count} chapters.", { shown: previewRows, count: preview.data.candidates.length })}</p>
+            )}
+            {preview.data.held > 0 && (
+              <p className="mb-3 text-sm text-muted">
+                {t("{count} more finished chapters ({size}) are kept: removing the ones above already brings the drive back above the free space limit.", { count: preview.data.held, size: bytes(preview.data.heldSize) })}
+              </p>
+            )}
             {preview.data.skipped.length > 0 && (
               <details className="text-sm">
                 <summary className="cursor-pointer text-muted">{preview.data.skipped.length}{" " + t("series skipped")}</summary>
                 <ul className="mt-2 flex flex-col gap-1">
                   {preview.data.skipped.map((s) => (
                     <li key={s.seriesId} className="text-xs">
-                      <span className="text-fg">{s.seriesTitle}</span> <span className="text-muted">— {s.reason}</span>
+                      <span className="text-fg">{s.seriesTitle}</span> <span className="text-muted">— {skipReason(s)}</span>
                     </li>
                   ))}
                 </ul>

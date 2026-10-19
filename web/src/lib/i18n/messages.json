@@ -2251,10 +2251,6 @@
     "ru": "Нет",
     "uk": "Немає"
   },
-  "None selected = every reader counting for cleanup.": {
-    "ru": "Ничего не выбрано = все учитываемые при очистке читатели.",
-    "uk": "Нічого не вибрано = усі враховані під час очищення читачі."
-  },
   "None selected: all root folders.": {
     "ru": "Ничего не выбрано: все корневые папки.",
     "uk": "Нічого не вибрано: усі кореневі теки."
@@ -9634,5 +9630,77 @@
   "{size} · {count} series": {
     "ru": "{size} · {count} серий",
     "uk": "{size} · {count} серій"
+  },
+  "Cleanup started": {
+    "ru": "Очистка запущена",
+    "uk": "Очищення запущено"
+  },
+  "None selected = every reader counting for cleanup, or everyone when no reader is marked to count.": {
+    "ru": "Если никто не выбран — все читатели, учитываемые при очистке, или все, если никто не отмечен.",
+    "uk": "Якщо нікого не вибрано — усі читачі, що враховуються при очищенні, або всі, якщо нікого не позначено."
+  },
+  "Remove chapters": {
+    "ru": "Удалить главы",
+    "uk": "Видалити розділи"
+  },
+  "Run cleanup now?": {
+    "ru": "Запустить очистку сейчас?",
+    "uk": "Запустити очищення зараз?"
+  },
+  "Showing the first {shown} of {count} chapters.": {
+    "ru": "Показаны первые {shown} из {count} глав.",
+    "uk": "Показано перші {shown} з {count} розділів."
+  },
+  "They won't be downloaded again unless you restore them.": {
+    "ru": "Они не будут скачаны снова, пока вы их не восстановите.",
+    "uk": "Їх не буде завантажено знову, доки ви їх не відновите."
+  },
+  "This runs even though dry run is on.": {
+    "ru": "Очистка выполнится, хотя включён пробный режим.",
+    "uk": "Очищення виконається, хоча увімкнено пробний режим."
+  },
+  "finished chapters are still in the {days} day grace period": {
+    "ru": "прочитанные главы ещё в периоде ожидания {days} дн.",
+    "uk": "прочитані розділи ще в періоді очікування {days} дн."
+  },
+  "its status ({status}) isn't in scope": {
+    "ru": "её статус ({status}) не входит в правила",
+    "uk": "її статус ({status}) не входить у правила"
+  },
+  "keeping the last {count} read chapters": {
+    "ru": "сохраняются последние {count} прочитанных глав",
+    "uk": "зберігаються останні {count} прочитаних розділів"
+  },
+  "no chapter is finished by every required reader yet": {
+    "ru": "ни одна глава ещё не дочитана всеми нужными читателями",
+    "uk": "жоден розділ ще не дочитаний усіма потрібними читачами"
+  },
+  "no required reader has started it in this language": {
+    "ru": "никто из нужных читателей не начинал её на этом языке",
+    "uk": "ніхто з потрібних читачів не починав її цією мовою"
+  },
+  "tagged {tag}": {
+    "ru": "с тегом {tag}",
+    "uk": "з тегом {tag}"
+  },
+  "{count} chapters ({size}) are deleted for good.": {
+    "ru": "{count} глав ({size}) будут удалены навсегда.",
+    "uk": "{count} розділів ({size}) буде видалено назавжди."
+  },
+  "{count} chapters ({size}) move to the recycle bin.": {
+    "ru": "{count} глав ({size}) переместятся в корзину.",
+    "uk": "{count} розділів ({size}) переміститься до кошика."
+  },
+  "{count} more finished chapters ({size}) are kept: removing the ones above already brings the drive back above the free space limit.": {
+    "ru": "Ещё {count} прочитанных глав ({size}) сохраняются: удаления глав выше уже хватает, чтобы свободного места на диске стало больше лимита.",
+    "uk": "Ще {count} прочитаних розділів ({size}) зберігаються: видалення розділів вище вже вистачає, щоб вільного місця на диску стало більше за ліміт."
+  },
+  "{path} gets back above {gb} GB free once the recycle bin empties": {
+    "ru": "на {path} станет больше {gb} ГБ свободно, когда очистится корзина",
+    "uk": "на {path} стане більше {gb} ГБ вільно, коли очиститься кошик"
+  },
+  "{path} has more than {gb} GB free": {
+    "ru": "на {path} свободно больше {gb} ГБ",
+    "uk": "на {path} вільно більше {gb} ГБ"
   }
 }
