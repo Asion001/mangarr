@@ -681,6 +681,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/data": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download your own data (progress, reading history and time, follows, reader and interface settings) to import on another server */
+        get: operations["me-data-export"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/data/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Import an exported account's data into your own; progress already further here is kept */
+        post: operations["me-data-import"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/data/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Match an exported account's titles to this server's library without importing anything */
+        post: operations["me-data-preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/library-accounts": {
         parameters: {
             query?: never;
@@ -4356,6 +4407,60 @@ export interface components {
             rows: number;
             version: string;
         };
+        DataImportOptions: {
+            follows: boolean;
+            /** @description Reading history and reading time */
+            history: boolean;
+            picked?: {
+                [key: string]: number;
+            };
+            progress: boolean;
+            /** @description Reader and interface settings */
+            settings: boolean;
+        };
+        DataImportResult: {
+            /** Format: int64 */
+            follows: number;
+            /** Format: int64 */
+            history: number;
+            /**
+             * Format: int64
+             * @description Chapters already further here
+             */
+            kept: number;
+            /**
+             * Format: int64
+             * @description Chapters this server doesn't list (yet)
+             */
+            missing: number;
+            /**
+             * Format: int64
+             * @description Chapters whose progress was set
+             */
+            progress: number;
+            /** Format: int64 */
+            sessions: number;
+            /** Format: int64 */
+            settings: number;
+            /** Format: int64 */
+            titles: number;
+        };
+        DataTitleMatch: {
+            /** @enum {string} */
+            by?: "source" | "id" | "title" | "picked" | "";
+            following: boolean;
+            /** Format: int64 */
+            index: number;
+            /**
+             * Format: int64
+             * @description Chapters read in the file
+             */
+            read: number;
+            /** Format: int64 */
+            seriesId: number;
+            seriesTitle?: string;
+            title: string;
+        };
         DatabaseInfo: {
             defaultDsn: string;
             dsn: string;
@@ -4688,6 +4793,78 @@ export interface components {
             /** Format: int64 */
             seriesId: number;
             seriesTitle: string;
+        };
+        Export: {
+            /** Format: date-time */
+            exported: string;
+            format: string;
+            reader?: unknown;
+            /** @description mangarr version that exported it */
+            server?: string;
+            titles: components["schemas"]["ExportTitle"][];
+            ui?: components["schemas"]["ExportUI"];
+            user?: string;
+            /** Format: int64 */
+            version: number;
+        };
+        ExportEvent: {
+            /** Format: date-time */
+            at: string;
+            /** Format: int64 */
+            chapters?: number;
+            client?: string;
+            completed: boolean;
+            device?: string;
+            number: string;
+            origin?: string;
+            outcome?: string;
+            /** Format: int64 */
+            page?: number;
+        };
+        ExportProgress: {
+            /** Format: date-time */
+            at: string;
+            completed: boolean;
+            number: string;
+            /** Format: int64 */
+            page?: number;
+            /** Format: date-time */
+            readAt?: string;
+        };
+        ExportSession: {
+            number: string;
+            /** Format: int64 */
+            seconds: number;
+            /** Format: date-time */
+            started: string;
+            /** Format: date-time */
+            updated: string;
+        };
+        ExportSource: {
+            lang?: string;
+            name?: string;
+            sourceId: string;
+            url: string;
+        };
+        ExportTitle: {
+            altTitles?: string[];
+            following?: boolean;
+            history?: components["schemas"]["ExportEvent"][];
+            /** @description Metadata ids, as anilist: 30013 */
+            ids?: {
+                [key: string]: string;
+            };
+            language?: string;
+            progress?: components["schemas"]["ExportProgress"][];
+            reader?: unknown;
+            sessions?: components["schemas"]["ExportSession"][];
+            sources?: components["schemas"]["ExportSource"][];
+            title: string;
+        };
+        ExportUI: {
+            locale: string;
+            mode: string;
+            options: components["schemas"]["UIOptions"];
         };
         FileRename: {
             /** Format: int64 */
@@ -5439,6 +5616,10 @@ export interface components {
             target?: string;
             /** Format: int64 */
             total: number;
+        };
+        MyDataImportInputBody: {
+            data: components["schemas"]["Export"];
+            options?: components["schemas"]["DataImportOptions"];
         };
         MyLibraryAccount: {
             fields: components["schemas"]["ModuleField"][];
@@ -9187,6 +9368,104 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OfferedLanguages"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "me-data-export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "Cache-Control"?: string;
+                    "Content-Disposition"?: string;
+                    "Content-Type"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string;
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "me-data-import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MyDataImportInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataImportResult"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "me-data-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MyDataImportInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataTitleMatch"][];
                 };
             };
             /** @description Error */
