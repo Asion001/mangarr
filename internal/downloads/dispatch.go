@@ -1,7 +1,9 @@
 package downloads
 
 import (
+	"cmp"
 	"context"
+	"slices"
 	"strconv"
 	"sync"
 	"time"
@@ -58,18 +60,32 @@ func (m *Manager) dispatch(ctx context.Context) {
 	}
 	sched, _ := m.settings.Schedule(ctx)
 	quietNow := quiet.Evaluate(sched, now)
+	// each kind gets its own look at the head of the queue: background
+	// processing ranks behind every download, so one window over both would
+	// never reach it while a long download backlog waits on its sources
 	var jobs []queuedJob
-	err := m.db.NewSelect().TableExpr("download_jobs AS j").ColumnExpr("j.*, COALESCE(ss.module_id, 0) AS module_id, COALESCE(ss.source_id, '') AS source_id").
-		Join("LEFT JOIN chapter_releases AS r ON r.id = j.release_id").
-		Join("LEFT JOIN series_sources AS ss ON ss.id = r.series_source_id").
-		Where("j.status = ? AND j.not_before <= ?", model.JobQueued, time.Now().UTC()).
-		OrderExpr("j.rank, j.id").Limit(100).Scan(ctx, &jobs)
-	if err != nil {
-		if ctx.Err() == nil {
-			m.log.Error("download queue", "err", err)
+	for _, reprocess := range []bool{false, true} {
+		var part []queuedJob
+		q := m.db.NewSelect().TableExpr("download_jobs AS j").ColumnExpr("j.*, COALESCE(ss.module_id, 0) AS module_id, COALESCE(ss.source_id, '') AS source_id").
+			Join("LEFT JOIN chapter_releases AS r ON r.id = j.release_id").
+			Join("LEFT JOIN series_sources AS ss ON ss.id = r.series_source_id").
+			Where("j.status = ? AND j.not_before <= ?", model.JobQueued, time.Now().UTC())
+		if reprocess {
+			q = q.Where("j.kind = ?", model.JobKindReprocess)
+		} else {
+			q = q.Where("j.kind <> ?", model.JobKindReprocess)
 		}
-		return
+		if err := q.OrderExpr("j.rank, j.id").Limit(100).Scan(ctx, &part); err != nil {
+			if ctx.Err() == nil {
+				m.log.Error("download queue", "err", err)
+			}
+			return
+		}
+		jobs = append(jobs, part...)
 	}
+	slices.SortStableFunc(jobs, func(a, b queuedJob) int {
+		return cmp.Or(cmp.Compare(a.Rank, b.Rank), cmp.Compare(a.ID, b.ID))
+	})
 	// jobs a worker downloads are not ours to run; one a worker processes
 	// runs to wait for it (see run)
 	onWorkers, err := m.openJobs(ctx, model.TaskDownload)
