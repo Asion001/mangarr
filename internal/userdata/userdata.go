@@ -606,3 +606,30 @@ func saveReaderPrefs(ctx context.Context, tx bun.Tx, userID, seriesID int64, dat
 		On("CONFLICT (user_id, series_id) DO UPDATE").Set("data = EXCLUDED.data").Set("updated_at = EXCLUDED.updated_at").Exec(ctx)
 	return err
 }
+
+// Summary counts what an export holds.
+type Summary struct {
+	Titles   int  `json:"titles"`
+	Read     int  `json:"read" doc:"Chapters read"`
+	History  int  `json:"history"`
+	Follows  int  `json:"follows"`
+	Settings bool `json:"settings"`
+}
+
+// Summarize counts an export's contents.
+func Summarize(d *Export) Summary {
+	out := Summary{Titles: len(d.Titles), Settings: d.UI != nil || len(d.Reader) > 0}
+	for _, t := range d.Titles {
+		for _, p := range t.Progress {
+			if p.Completed {
+				out.Read++
+			}
+		}
+		out.History += len(t.History)
+		if t.Following {
+			out.Follows++
+		}
+		out.Settings = out.Settings || len(t.Reader) > 0
+	}
+	return out
+}

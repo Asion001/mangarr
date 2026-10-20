@@ -80,6 +80,7 @@ var operationPermissions = map[string][]string{
 	"me-reading-stats":       {permSignedIn},
 	"me-data-export":         {permSignedIn},
 	"me-data-preview":        {permSignedIn},
+	"me-data-summary":        {permSignedIn},
 	"me-data-import":         {permSignedIn},
 	"updates-list":           {permSignedIn},
 	"read-file":              {access.Download},

@@ -10849,6 +10849,39 @@
         ],
         "type": "object"
       },
+      "Summary": {
+        "additionalProperties": false,
+        "properties": {
+          "follows": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "history": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "read": {
+            "description": "Chapters read",
+            "format": "int64",
+            "type": "integer"
+          },
+          "settings": {
+            "type": "boolean"
+          },
+          "titles": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "titles",
+          "read",
+          "history",
+          "follows",
+          "settings"
+        ],
+        "type": "object"
+      },
       "SwitchRow": {
         "additionalProperties": false,
         "properties": {
@@ -15503,6 +15536,37 @@
           }
         },
         "summary": "Match an exported account's titles to this server's library without importing anything",
+        "tags": [
+          "Account"
+        ]
+      }
+    },
+    "/api/v1/me/data/summary": {
+      "get": {
+        "operationId": "me-data-summary",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Summary"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Count what an export of your data would hold",
         "tags": [
           "Account"
         ]

@@ -9702,5 +9702,161 @@
   "{path} has more than {gb} GB free": {
     "ru": "на {path} свободно больше {gb} ГБ",
     "uk": "на {path} вільно більше {gb} ГБ"
+  },
+  "All {count}": {
+    "ru": "Все {count}",
+    "uk": "Усі {count}"
+  },
+  "Couldn't import your data": {
+    "ru": "Не удалось импортировать ваши данные",
+    "uk": "Не вдалося імпортувати ваші дані"
+  },
+  "Don't import": {
+    "ru": "Не импортировать",
+    "uk": "Не імпортувати"
+  },
+  "Export": {
+    "ru": "Экспорт",
+    "uk": "Експорт"
+  },
+  "Export my data": {
+    "ru": "Экспортировать мои данные",
+    "uk": "Експортувати мої дані"
+  },
+  "Exported by {user} on {date} from another server · {count} titles": {
+    "ru": "Экспорт {user} от {date} с другого сервера · тайтлов: {count}",
+    "uk": "Експорт {user} від {date} з іншого сервера · тайтлів: {count}"
+  },
+  "Followed titles": {
+    "ru": "Отслеживаемые тайтлы",
+    "uk": "Відстежувані тайтли"
+  },
+  "Import a file…": {
+    "ru": "Импортировать файл…",
+    "uk": "Імпортувати файл…"
+  },
+  "Import your data": {
+    "ru": "Импорт ваших данных",
+    "uk": "Імпорт ваших даних"
+  },
+  "Import {count} titles": {
+    "ru": "Импортировать тайтлы: {count}",
+    "uk": "Імпортувати тайтли: {count}"
+  },
+  "In the file": {
+    "ru": "В файле",
+    "uk": "У файлі"
+  },
+  "Matched by title {count}": {
+    "ru": "По названию {count}",
+    "uk": "За назвою {count}"
+  },
+  "Not here {count}": {
+    "ru": "Нет здесь {count}",
+    "uk": "Немає тут {count}"
+  },
+  "Not imported": {
+    "ru": "Не импортируется",
+    "uk": "Не імпортується"
+  },
+  "Not on this server": {
+    "ru": "Нет на этом сервере",
+    "uk": "Немає на цьому сервері"
+  },
+  "On this server": {
+    "ru": "На этом сервере",
+    "uk": "На цьому сервері"
+  },
+  "Progress already further here is kept. Importing again adds nothing twice.": {
+    "ru": "Прогресс, который здесь уже дальше, сохраняется. Повторный импорт ничего не дублирует.",
+    "uk": "Прогрес, який тут уже далі, зберігається. Повторний імпорт нічого не дублює."
+  },
+  "Progress in {count} titles, down to the page": {
+    "ru": "Прогресс в тайтлах ({count}), с точностью до страницы",
+    "uk": "Прогрес у тайтлах ({count}), з точністю до сторінки"
+  },
+  "Progress, down to the page": {
+    "ru": "Прогресс с точностью до страницы",
+    "uk": "Прогрес з точністю до сторінки"
+  },
+  "Reader and interface settings": {
+    "ru": "Настройки читалки и интерфейса",
+    "uk": "Налаштування читалки та інтерфейсу"
+  },
+  "Reading history ({count} entries) and reading time": {
+    "ru": "История чтения (записей: {count}) и время чтения",
+    "uk": "Історія читання (записів: {count}) і час читання"
+  },
+  "Reading history and reading time": {
+    "ru": "История чтения и время чтения",
+    "uk": "Історія читання і час читання"
+  },
+  "Reading history and time": {
+    "ru": "История и время чтения",
+    "uk": "Історія і час читання"
+  },
+  "Request it": {
+    "ru": "Запросить",
+    "uk": "Запитати"
+  },
+  "Series on this server": {
+    "ru": "Серия на этом сервере",
+    "uk": "Серія на цьому сервері"
+  },
+  "Take your reading with you to another mangarr server, or bring it here from one. Only your own data: nothing from other users, no password and no library files.": {
+    "ru": "Перенесите своё чтение на другой сервер mangarr или сюда с другого. Только ваши данные: ничего от других пользователей, без пароля и файлов библиотеки.",
+    "uk": "Перенесіть своє читання на інший сервер mangarr або сюди з іншого. Лише ваші дані: нічого від інших користувачів, без пароля й файлів бібліотеки."
+  },
+  "This isn't a mangarr data export.": {
+    "ru": "Это не экспорт данных mangarr.",
+    "uk": "Це не експорт даних mangarr."
+  },
+  "Upload a file exported from another server. You'll see which titles match this library before anything changes. Progress that's already further here is kept.": {
+    "ru": "Загрузите файл, экспортированный с другого сервера. До любых изменений вы увидите, какие тайтлы нашлись в этой библиотеке. Прогресс, который здесь уже дальше, сохраняется.",
+    "uk": "Завантажте файл, експортований з іншого сервера. До будь-яких змін ви побачите, які тайтли знайшлися в цій бібліотеці. Прогрес, який тут уже далі, зберігається."
+  },
+  "Your data": {
+    "ru": "Ваши данные",
+    "uk": "Ваші дані"
+  },
+  "Your data was imported": {
+    "ru": "Ваши данные импортированы",
+    "uk": "Ваші дані імпортовано"
+  },
+  "id": {
+    "ru": "id",
+    "uk": "id"
+  },
+  "not on this server": {
+    "ru": "нет на этом сервере",
+    "uk": "немає на цьому сервері"
+  },
+  "same AniList / MAL id": {
+    "ru": "тот же id AniList / MAL",
+    "uk": "той самий id AniList / MAL"
+  },
+  "same source": {
+    "ru": "тот же источник",
+    "uk": "те саме джерело"
+  },
+  "same title": {
+    "ru": "то же название",
+    "uk": "та сама назва"
+  },
+  "source": {
+    "ru": "источник",
+    "uk": "джерело"
+  },
+  "title": {
+    "ru": "название",
+    "uk": "назва"
+  },
+  "{count} followed titles": {
+    "ru": "Отслеживаемых тайтлов: {count}",
+    "uk": "Відстежуваних тайтлів: {count}"
+  },
+  "{titles} titles · {progress} chapters · {history} history entries · {follows} follows": {
+    "ru": "Тайтлов: {titles} · глав: {progress} · записей истории: {history} · отслеживаний: {follows}",
+    "uk": "Тайтлів: {titles} · розділів: {progress} · записів історії: {history} · відстежень: {follows}"
   }
 }

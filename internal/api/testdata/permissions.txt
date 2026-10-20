@@ -64,6 +64,7 @@ languages-list GET /api/v1/languages -> signedin
 me-data-export GET /api/v1/me/data -> signedin
 me-data-import POST /api/v1/me/data/import -> signedin
 me-data-preview POST /api/v1/me/data/preview -> signedin
+me-data-summary GET /api/v1/me/data/summary -> signedin
 me-library-account-delete DELETE /api/v1/me/library-accounts/{moduleId} -> signedin
 me-library-account-save POST /api/v1/me/library-accounts -> signedin
 me-library-accounts GET /api/v1/me/library-accounts -> signedin

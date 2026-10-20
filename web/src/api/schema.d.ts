@@ -732,6 +732,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/data/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Count what an export of your data would hold */
+        get: operations["me-data-summary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/library-accounts": {
         parameters: {
             query?: never;
@@ -7069,6 +7086,20 @@ export interface components {
         "Stores-addRequest": {
             url: string;
         };
+        Summary: {
+            /** Format: int64 */
+            follows: number;
+            /** Format: int64 */
+            history: number;
+            /**
+             * Format: int64
+             * @description Chapters read
+             */
+            read: number;
+            settings: boolean;
+            /** Format: int64 */
+            titles: number;
+        };
         SwitchRow: {
             catalog: string;
             /** Format: int64 */
@@ -9397,6 +9428,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DataTitleMatch"][];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "me-data-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Summary"];
                 };
             };
             /** @description Error */

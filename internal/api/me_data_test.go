@@ -118,6 +118,10 @@ func TestMyDataMovesToAnotherServer(t *testing.T) {
 	if err := json.Unmarshal(raw, &data); err != nil {
 		t.Fatal(err)
 	}
+	var sum userdata.Summary
+	if code := (caller{t, login(t, srvA.URL, "anna", "anna-pass-1"), srvA.URL}).do("GET", "/api/v1/me/data/summary", "", &sum); code != 200 || sum.Titles != 4 || sum.Read != 4 || sum.History != 1 || sum.Follows != 1 || !sum.Settings {
+		t.Fatalf("summary %d %+v", code, sum)
+	}
 	if data.Format != userdata.Format || data.User != "anna" || len(data.Titles) != 4 || !strings.Contains(string(data.Reader), "webtoon") {
 		t.Fatalf("export %s", raw)
 	}

@@ -68,6 +68,19 @@ func (s *Server) registerMyData() {
 			name += "-" + time.Now().Format("2006-01-02") + ".json"
 			return &mihonBackupOutput{ContentType: "application/json", ContentDisposition: `attachment; filename="` + name + `"`, CacheControl: "no-store", Body: body}, nil
 		})
+	huma.Register(s.api, huma.Operation{OperationID: "me-data-summary", Method: http.MethodGet, Path: "/api/v1/me/data/summary", Tags: tags,
+		Summary: "Count what an export of your data would hold"},
+		func(ctx context.Context, _ *struct{}) (*struct{ Body userdata.Summary }, error) {
+			acc, err := s.myAccount(ctx)
+			if err != nil {
+				return nil, toHTTPError(err)
+			}
+			data, err := (&userdata.Service{DB: s.app.DB}).Export(ctx, acc)
+			if err != nil {
+				return nil, toHTTPError(err)
+			}
+			return &struct{ Body userdata.Summary }{userdata.Summarize(data)}, nil
+		})
 	huma.Register(s.api, huma.Operation{OperationID: "me-data-preview", Method: http.MethodPost, Path: "/api/v1/me/data/preview", Tags: tags,
 		Summary: "Match an exported account's titles to this server's library without importing anything", MaxBodyBytes: maxDataImport},
 		func(ctx context.Context, in *myDataImportInput) (*struct{ Body []userdata.DataTitleMatch }, error) {
