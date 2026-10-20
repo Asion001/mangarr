@@ -17,20 +17,15 @@ import (
 
 	"github.com/Asion001/mangarr/internal/db"
 	"github.com/Asion001/mangarr/internal/dbcopy"
-	"github.com/Asion001/mangarr/internal/fsutil"
 	"github.com/Asion001/mangarr/internal/settings"
+	"github.com/Asion001/mangarr/internal/version"
 )
 
-// MaxUploadSize caps the database inside a backup. An archive itself may
-// be as big as the free space allows (an export with library files).
 const MaxUploadSize = 4 << 30
-
-// uploadReserve is the free space an upload leaves on the disk.
-const uploadReserve = 1 << 30
 
 type Backup struct {
 	Name         string        `json:"name"`
-	Type         string        `json:"type"` // manual | scheduled | uploaded | export
+	Type         string        `json:"type"` // manual | scheduled
 	Size         int64         `json:"size"`
 	Created      time.Time     `json:"created"`
 	Restorable   bool          `json:"restorable"`
@@ -47,20 +42,16 @@ type Verification struct {
 	Size  int64          `json:"size"`
 	Rows  map[string]int `json:"rows"`
 	Total int            `json:"total"`
-	// Folders are the backup's library folders, to choose where each one
-	// lives when it is restored on another server.
-	Folders []Folder `json:"folders"`
 }
 
 type Service struct {
 	db       *db.DB
 	settings *settings.Store
-	dataDir  string
 	dir      string
 }
 
 func New(d *db.DB, st *settings.Store, dataDir string) *Service {
-	return &Service{db: d, settings: st, dataDir: dataDir, dir: filepath.Join(dataDir, "backups")}
+	return &Service{db: d, settings: st, dir: filepath.Join(dataDir, "backups")}
 }
 
 func (s *Service) Dir() string { return s.dir }
@@ -84,7 +75,42 @@ func (s *Service) Create(ctx context.Context, typ string) (*Backup, error) {
 		_ = os.Remove(tmp)
 		return nil, err
 	}
-	if err := s.writeArchive(ctx, zw, false); err != nil {
+	manifest := map[string]any{"version": version.Version, "database": string(s.db.Kind), "created": time.Now().UTC()}
+	if s.db.Kind == db.SQLite {
+		dbTmp := filepath.Join(s.dir, ".backup-db.tmp")
+		if err := s.db.Backup(ctx, dbTmp); err != nil {
+			return fail(err)
+		}
+		err := addFile(zw, "mangarr.db", dbTmp)
+		_ = os.Remove(dbTmp)
+		if err != nil {
+			return fail(err)
+		}
+	} else {
+		// the whole database as a SQLite file: the same backup format on
+		// both databases, restorable into either
+		dbTmp := filepath.Join(s.dir, ".backup-db.tmp")
+		cleanup := func() {
+			for _, suffix := range []string{"", "-wal", "-shm"} {
+				_ = os.Remove(dbTmp + suffix)
+			}
+		}
+		cleanup()
+		lite, err := db.Open(ctx, "sqlite://"+dbTmp)
+		if err != nil {
+			return fail(err)
+		}
+		_, err = dbcopy.Copy(ctx, s.db, lite, false, nil)
+		_ = lite.Close()
+		if err == nil {
+			err = addFile(zw, "mangarr.db", dbTmp)
+		}
+		cleanup()
+		if err != nil {
+			return fail(err)
+		}
+	}
+	if err := addJSON(zw, "manifest.json", manifest); err != nil {
 		return fail(err)
 	}
 	if err := zw.Close(); err != nil {
@@ -161,8 +187,6 @@ func (s *Service) List() ([]Backup, error) {
 			typ = "scheduled"
 		case strings.Contains(e.Name(), "_uploaded_"):
 			typ = "uploaded"
-		case strings.Contains(e.Name(), "_export_"):
-			typ = "export"
 		}
 		b := Backup{Name: e.Name(), Type: typ, Size: info.Size(), Created: info.ModTime()}
 		if v, err := s.readVerification(e.Name()); err == nil {
@@ -178,14 +202,7 @@ func (s *Service) List() ([]Backup, error) {
 
 // SaveFrom stores and verifies an uploaded backup without keeping its body in memory.
 func (s *Service) SaveFrom(ctx context.Context, src io.Reader) (*Backup, error) {
-	if err := os.MkdirAll(s.dir, 0o775); err != nil {
-		return nil, err
-	}
-	limit := int64(MaxUploadSize)
-	if free, err := fsutil.FreeSpace(s.dir); err == nil {
-		limit = max(int64(free)-uploadReserve, 0)
-	}
-	return s.saveFromLimit(ctx, src, limit)
+	return s.saveFromLimit(ctx, src, MaxUploadSize)
 }
 
 func (s *Service) saveFromLimit(ctx context.Context, src io.Reader, maxSize int64) (*Backup, error) {
@@ -205,7 +222,7 @@ func (s *Service) saveFromLimit(ctx context.Context, src io.Reader, maxSize int6
 	}
 	if n > maxSize {
 		_ = tmp.Close()
-		return nil, fmt.Errorf("the upload is over the limit of %d bytes, the free space left for it (copy the file into %s instead)", maxSize, s.dir)
+		return nil, fmt.Errorf("backup upload exceeds the %d byte limit", maxSize)
 	}
 	if err := tmp.Close(); err != nil {
 		return nil, err
@@ -327,11 +344,6 @@ func (s *Service) verifyPath(ctx context.Context, path string) (*Verification, e
 	if err != nil {
 		return nil, fmt.Errorf("backup database is missing required tables: %w", err)
 	}
-	folders, err := listFolders(ctx, checkDB)
-	if err != nil {
-		return nil, fmt.Errorf("read the backup's library folders: %w", err)
-	}
-	countLibrary(zr.File, folders)
 	checksum, err := fileChecksum(path)
 	if err != nil {
 		return nil, err
@@ -340,7 +352,7 @@ func (s *Service) verifyPath(ctx context.Context, path string) (*Verification, e
 	if err != nil {
 		return nil, err
 	}
-	return &Verification{VerifiedAt: time.Now().UTC(), SourceVersion: info.Version, SourceDatabase: info.Database, Checksum: checksum, Size: st.Size(), Rows: rows.Rows, Total: rows.Total, Folders: folders}, nil
+	return &Verification{VerifiedAt: time.Now().UTC(), SourceVersion: info.Version, SourceDatabase: info.Database, Checksum: checksum, Size: st.Size(), Rows: rows.Rows, Total: rows.Total}, nil
 }
 
 func (s *Service) readVerification(name string) (*Verification, error) {
@@ -377,22 +389,6 @@ func fileChecksum(path string) (string, error) {
 		return "", err
 	}
 	return fmt.Sprintf("sha256:%x", h.Sum(nil)), nil
-}
-
-// Verified returns a backup's verification, verifying it only when it
-// changed since the last time: hashing an export with library files again
-// takes long.
-func (s *Service) Verified(ctx context.Context, name string) (*Verification, error) {
-	p, err := s.Path(name)
-	if err != nil {
-		return nil, err
-	}
-	if v, err := s.readVerification(name); err == nil && v.Folders != nil {
-		if st, err := os.Stat(p); err == nil && v.Size == st.Size() && !st.ModTime().After(v.VerifiedAt) {
-			return v, nil
-		}
-	}
-	return s.Verify(ctx, name)
 }
 
 // Path returns the absolute path of a backup, rejecting path traversal.
