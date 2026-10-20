@@ -2948,6 +2948,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/system/backups/check-folder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Look at a folder a backup's library folder could be restored to */
+        post: operations["backups-check-folder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/system/backups/upload": {
         parameters: {
             query?: never;
@@ -3143,6 +3160,23 @@ export interface paths {
         };
         /** Supported environment variables and which are set */
         get: operations["system-env"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/system/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download everything needed to move mangarr to another server: a backup and, with library=true, the library files */
+        get: operations["backups-export"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3899,6 +3933,17 @@ export interface components {
             scanlator?: string;
             url: string;
         };
+        BackupFolder: {
+            /** Format: int64 */
+            bytes: number;
+            /** Format: int64 */
+            files: number;
+            /** Format: int64 */
+            id: number;
+            path: string;
+            /** Format: int64 */
+            series: number;
+        };
         BackupManga: {
             /** Format: date-time */
             addedAt?: string;
@@ -3923,6 +3968,7 @@ export interface components {
         };
         BackupVerification: {
             checksum: string;
+            folders: components["schemas"]["BackupFolder"][];
             rows: {
                 [key: string]: number;
             };
@@ -3934,6 +3980,9 @@ export interface components {
             total: number;
             /** Format: date-time */
             verifiedAt: string;
+        };
+        "Backups-check-folderRequest": {
+            path: string;
         };
         BlocklistView: {
             /** Format: int64 */
@@ -4645,6 +4694,15 @@ export interface components {
             chapterId: number;
             from: string;
             to: string;
+        };
+        FolderCheck: {
+            absolute: boolean;
+            exists: boolean;
+            /** Format: int64 */
+            folders: number;
+            /** Format: int64 */
+            free: number;
+            path: string;
         };
         GeneralSettingsResource: {
             readonly apiKey: string;
@@ -5376,7 +5434,7 @@ export interface components {
             running: boolean;
             setEnv?: boolean;
             /** @enum {string} */
-            stage?: "" | "preparing" | "snapshot" | "copying" | "switching" | "done" | "failed";
+            stage?: "" | "preparing" | "snapshot" | "files" | "copying" | "switching" | "done" | "failed";
             table?: string;
             target?: string;
             /** Format: int64 */
@@ -6337,6 +6395,17 @@ export interface components {
         "Requests-linkRequest": {
             /** Format: int64 */
             seriesId: number;
+        };
+        RestoreFolder: {
+            /** Format: int64 */
+            id: number;
+            path: string;
+        };
+        RestoreRequest: {
+            /** @description Folders whose path differs here; the rest keep theirs */
+            folders?: components["schemas"]["RestoreFolder"][];
+            /** @description Unpack the archive's library files into the folders first */
+            library?: boolean;
         };
         Result: {
             /** Format: int64 */
@@ -14630,6 +14699,39 @@ export interface operations {
             };
         };
     };
+    "backups-check-folder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Backups-check-folderRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FolderCheck"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "backups-upload": {
         parameters: {
             query?: never;
@@ -14739,7 +14841,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RestoreRequest"];
+            };
+        };
         responses: {
             /** @description No Content */
             204: {
@@ -15020,6 +15126,35 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["System-envResponse"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "backups-export": {
+        parameters: {
+            query?: {
+                library?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {

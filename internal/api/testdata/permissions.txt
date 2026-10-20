@@ -5,9 +5,11 @@ auth-oidc-login GET /api/v1/auth/oidc/login -> public
 auth-password POST /api/v1/auth/password -> signedin
 auth-setup POST /api/v1/auth/setup -> public
 auth-status GET /api/v1/auth/status -> public
+backups-check-folder POST /api/v1/system/backups/check-folder -> admin
 backups-create POST /api/v1/system/backups -> admin
 backups-delete DELETE /api/v1/system/backups/{name} -> admin
 backups-download GET /api/v1/system/backups/{name} -> admin
+backups-export GET /api/v1/system/export -> admin
 backups-list GET /api/v1/system/backups -> admin
 backups-restore POST /api/v1/system/backups/{name}/restore -> admin
 backups-upload POST /api/v1/system/backups/upload -> admin

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Asion001/mangarr/internal/api"
+	"github.com/Asion001/mangarr/internal/app"
 	"github.com/Asion001/mangarr/internal/config"
 	"github.com/Asion001/mangarr/internal/db"
 	"github.com/Asion001/mangarr/internal/dbcopy"
@@ -120,7 +121,7 @@ func TestPostgresBackupRestore(t *testing.T) {
 	path, _ := f.e.App.Backups.Path(b.Name)
 
 	e := newTestApp(t, dsns["sqlite"])
-	if err := e.App.RestoreBackup(path, b.Name); err != nil {
+	if err := e.App.RestoreBackup(path, b.Name, app.RestoreOptions{}); err != nil {
 		t.Fatal(err)
 	}
 	waitFor(t, 30*time.Second, "restore done", func() bool { st := e.App.MoveState(); return st.Stage == "done" || st.Stage == "failed" })
@@ -157,7 +158,7 @@ func TestSQLiteBackupRestoreIntoPostgres(t *testing.T) {
 	path, _ := f.e.App.Backups.Path(b.Name)
 
 	e := newTestApp(t, dsns["postgres"])
-	if err := e.App.RestoreBackup(path, b.Name); err != nil {
+	if err := e.App.RestoreBackup(path, b.Name, app.RestoreOptions{}); err != nil {
 		t.Fatal(err)
 	}
 	waitFor(t, 30*time.Second, "restore done", func() bool { st := e.App.MoveState(); return st.Stage == "done" || st.Stage == "failed" })
@@ -175,5 +176,57 @@ func TestSQLiteBackupRestoreIntoPostgres(t *testing.T) {
 	case <-e.App.RestartRequested():
 	case <-time.After(5 * time.Second):
 		t.Fatal("no restart after restoring")
+	}
+}
+
+// TestExportRestoresOnAnotherServer moves an install to a server that keeps
+// its library somewhere else: the export carries the library files, the
+// restore unpacks them there and points the library folder at them.
+func TestExportRestoresOnAnotherServer(t *testing.T) {
+	dsns := dbtest.DSNs(t)
+	ctx := context.Background()
+	f := newKomgaFixture(t, dsns["sqlite"])
+	var root model.RootFolder
+	if err := f.e.App.DB.NewSelect().Model(&root).Where("id = ?", f.e.RFID).Scan(ctx); err != nil {
+		t.Fatal(err)
+	}
+	file := filepath.Join(root.Path, f.ser.Path, "Blue Period Ch.1.cbz")
+	if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(file, []byte("pages"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	e := newTestApp(t, dsns["sqlite"])
+	if err := os.MkdirAll(e.App.Backups.Dir(), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	out, err := os.Create(filepath.Join(e.App.Backups.Dir(), "mangarr_export_test.zip"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.e.App.Backups.Export(ctx, out, true); err != nil {
+		t.Fatal(err)
+	}
+	_ = out.Close()
+	v, err := e.App.Backups.Verified(ctx, "mangarr_export_test.zip")
+	if err != nil || len(v.Folders) == 0 || v.Folders[0].ID != f.e.RFID || v.Folders[0].Series != 2 || v.Folders[0].Files != 1 {
+		t.Fatalf("verified %+v %v", v, err)
+	}
+	moved := filepath.Join(t.TempDir(), "manga")
+	p, _ := e.App.Backups.Path("mangarr_export_test.zip")
+	if err := e.App.RestoreBackup(p, "mangarr_export_test.zip", app.RestoreOptions{Folders: map[int64]string{f.e.RFID: moved}, Library: true}); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, 30*time.Second, "restore done", func() bool { st := e.App.MoveState(); return st.Stage == "done" || st.Stage == "failed" })
+	if st := e.App.MoveState(); st.Stage != "done" {
+		t.Fatalf("restore %+v", st)
+	}
+	var got model.RootFolder
+	if err := e.App.DB.NewSelect().Model(&got).Where("id = ?", f.e.RFID).Scan(ctx); err != nil || got.Path != moved {
+		t.Fatalf("root folder %+v %v", got, err)
+	}
+	if b, err := os.ReadFile(filepath.Join(moved, f.ser.Path, "Blue Period Ch.1.cbz")); err != nil || string(b) != "pages" {
+		t.Fatalf("library file %q %v", b, err)
 	}
 }

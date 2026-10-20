@@ -539,6 +539,38 @@
         ],
         "type": "object"
       },
+      "BackupFolder": {
+        "additionalProperties": false,
+        "properties": {
+          "bytes": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "files": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "path": {
+            "type": "string"
+          },
+          "series": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "path",
+          "series",
+          "files",
+          "bytes"
+        ],
+        "type": "object"
+      },
       "BackupManga": {
         "additionalProperties": false,
         "properties": {
@@ -625,6 +657,12 @@
           "checksum": {
             "type": "string"
           },
+          "folders": {
+            "items": {
+              "$ref": "#/components/schemas/BackupFolder"
+            },
+            "type": "array"
+          },
           "rows": {
             "additionalProperties": {
               "format": "int64",
@@ -658,7 +696,20 @@
           "checksum",
           "size",
           "rows",
-          "total"
+          "total",
+          "folders"
+        ],
+        "type": "object"
+      },
+      "Backups-check-folderRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
         ],
         "type": "object"
       },
@@ -2947,6 +2998,36 @@
           "chapterId",
           "from",
           "to"
+        ],
+        "type": "object"
+      },
+      "FolderCheck": {
+        "additionalProperties": false,
+        "properties": {
+          "absolute": {
+            "type": "boolean"
+          },
+          "exists": {
+            "type": "boolean"
+          },
+          "folders": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "free": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "absolute",
+          "exists",
+          "folders",
+          "free"
         ],
         "type": "object"
       },
@@ -5386,6 +5467,7 @@
               "",
               "preparing",
               "snapshot",
+              "files",
               "copying",
               "switching",
               "done",
@@ -8527,6 +8609,40 @@
         "required": [
           "seriesId"
         ],
+        "type": "object"
+      },
+      "RestoreFolder": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "path"
+        ],
+        "type": "object"
+      },
+      "RestoreRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "folders": {
+            "description": "Folders whose path differs here; the rest keep theirs",
+            "items": {
+              "$ref": "#/components/schemas/RestoreFolder"
+            },
+            "type": "array"
+          },
+          "library": {
+            "description": "Unpack the archive's library files into the folders first",
+            "type": "boolean"
+          }
+        },
         "type": "object"
       },
       "Result": {
@@ -22538,6 +22654,47 @@
         ]
       }
     },
+    "/api/v1/system/backups/check-folder": {
+      "post": {
+        "operationId": "backups-check-folder",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Backups-check-folderRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FolderCheck"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Look at a folder a backup's library folder could be restored to",
+        "tags": [
+          "System"
+        ]
+      }
+    },
     "/api/v1/system/backups/upload": {
       "post": {
         "operationId": "backups-upload",
@@ -22668,6 +22825,15 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RestoreRequest"
+              }
+            }
+          }
+        },
         "responses": {
           "204": {
             "description": "No Content"
@@ -23002,6 +23168,40 @@
           }
         },
         "summary": "Supported environment variables and which are set",
+        "tags": [
+          "System"
+        ]
+      }
+    },
+    "/api/v1/system/export": {
+      "get": {
+        "operationId": "backups-export",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "library",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Download everything needed to move mangarr to another server: a backup and, with library=true, the library files",
         "tags": [
           "System"
         ]
