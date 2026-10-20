@@ -15,6 +15,7 @@ import (
 	"regexp"
 	"runtime"
 	"runtime/debug"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -31,6 +32,25 @@ type Engine struct {
 	ModelName   string `json:"-"` // realesrgan -n
 	Scales      []int  `json:"scales"`
 	NoiseLevels []int  `json:"noiseLevels,omitempty"`
+	// ScaleNoise narrows NoiseLevels at scales that ship fewer models.
+	ScaleNoise map[int][]int `json:"-"`
+}
+
+// noiseAt is the noise level the engine runs with at a scale: the one asked
+// for when that scale has a model for it, otherwise the strongest it has
+// below it (or its mildest), since a missing model crashes the tool.
+func (e Engine) noiseAt(scale, noise int) int {
+	levels, ok := e.ScaleNoise[scale]
+	if !ok || slices.Contains(levels, noise) {
+		return noise
+	}
+	best := slices.Min(levels)
+	for _, l := range levels {
+		if l <= noise && l > best {
+			best = l
+		}
+	}
+	return best
 }
 
 // Catalog lists every model the worker knows. Availability depends on which
@@ -41,7 +61,9 @@ var Catalog = []Engine{
 	{Name: "waifu2x-anime", Description: "waifu2x UpConv7 anime style – fast, color pages",
 		Tool: "waifu2x", Binary: "waifu2x-ncnn-vulkan", ModelDir: "models-upconv_7_anime_style_art_rgb", Scales: []int{2, 4, 8}, NoiseLevels: []int{-1, 0, 1, 2, 3}},
 	{Name: "realcugan", Description: "Real-CUGAN SE – sharp anime/manga art",
-		Tool: "realcugan", Binary: "realcugan-ncnn-vulkan", ModelDir: "models-se", Scales: []int{2, 3, 4}, NoiseLevels: []int{-1, 0, 1, 2, 3}},
+		Tool: "realcugan", Binary: "realcugan-ncnn-vulkan", ModelDir: "models-se", Scales: []int{2, 3, 4}, NoiseLevels: []int{-1, 0, 1, 2, 3},
+		// only 2x has the light denoise models
+		ScaleNoise: map[int][]int{3: {-1, 0, 3}, 4: {-1, 0, 3}}},
 	{Name: "realesr-animevideov3", Description: "Real-ESRGAN AnimeVideo v3 – fast, good for color webtoons",
 		Tool: "realesrgan", Binary: "realesrgan-ncnn-vulkan", ModelDir: "models", ModelName: "realesr-animevideov3", Scales: []int{2, 3, 4}},
 	{Name: "realesrgan-x4plus-anime", Description: "Real-ESRGAN x4plus anime – slow, strongest restoration",
@@ -158,7 +180,7 @@ func (r CLIRunner) run(ctx context.Context, e Engine, inDir, outDir string, scal
 	if e.ModelName != "" {
 		args = append(args, "-n", e.ModelName)
 	} else if len(e.NoiseLevels) > 0 {
-		args = append(args, "-n", strconv.Itoa(noise))
+		args = append(args, "-n", strconv.Itoa(e.noiseAt(scale, noise)))
 	}
 	if device != "" && device != "auto" {
 		args = append(args, "-g", device)
