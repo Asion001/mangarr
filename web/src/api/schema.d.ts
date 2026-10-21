@@ -3547,6 +3547,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/updates/seen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark updates seen (every one matching the filters, or the ones named); reading progress doesn't change */
+        post: operations["updates-seen"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/updates/unseen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** How many updates of the last days you haven't seen */
+        get: operations["updates-unseen"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/upscalers/models": {
         parameters: {
             query?: never;
@@ -7450,6 +7484,7 @@ export interface components {
             /** @enum {string} */
             readState?: "" | "unread" | "in_progress" | "read";
             readable?: boolean;
+            seen: boolean;
             /** Format: int64 */
             seriesId: number;
             seriesTitle: string;
@@ -7462,8 +7497,20 @@ export interface components {
             page: number;
             /** Format: int64 */
             pageSize: number;
+            /** Format: date-time */
+            seenThrough?: string;
             /** Format: int64 */
             total: number;
+            /** Format: int64 */
+            unseen: number;
+        };
+        UpdateRef: {
+            /** Format: date-time */
+            at: string;
+            /** Format: int64 */
+            id: number;
+            /** @enum {string} */
+            kind: "series" | "chapter";
         };
         UpdateRequest: {
             blockedScanlators?: string[];
@@ -7487,6 +7534,24 @@ export interface components {
             status?: "unknown" | "ongoing" | "completed" | "hiatus" | "cancelled";
             tags?: number[];
             title?: string;
+        };
+        UpdatesSeenInput: {
+            all?: boolean;
+            /** @enum {string} */
+            availability?: "" | "downloaded" | "streamable";
+            /** Format: int64 */
+            days?: number;
+            followed?: boolean;
+            items?: components["schemas"]["UpdateRef"][];
+            /** @enum {string} */
+            kind?: "" | "all" | "chapter" | "series";
+            language?: string;
+            /** Format: int64 */
+            seriesId?: number;
+        };
+        UpdatesUnseen: {
+            /** Format: int64 */
+            count: number;
         };
         UpscaleConfig: {
             /** @description Model for pages in color (empty = model for every page) */
@@ -16179,6 +16244,15 @@ export interface operations {
                 page?: number;
                 pageSize?: number;
                 cursor?: string;
+                /** @description Only updates you haven't seen */
+                unseen?: boolean;
+                /** @description Only chapters that are downloaded, or readable at all */
+                availability?: "" | "downloaded" | "streamable";
+                language?: string;
+                /** @description Only titles you follow */
+                followed?: boolean;
+                /** @description Only this title (any of its editions) */
+                seriesId?: number;
             };
             header?: never;
             path?: never;
@@ -16193,6 +16267,70 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UpdatePage"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "updates-seen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatesSeenInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdatesUnseen"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "updates-unseen": {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdatesUnseen"];
                 };
             };
             /** @description Error */

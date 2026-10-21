@@ -21,6 +21,7 @@ const map: Record<string, string[][]> = {
   settings: [["settings"]],
   readers: [["readers"], ["series"], ["me-library-accounts"]],
   reading: [["reading"], ["settings"], ["discover"], ["updates"]],
+  updates: [["updates"]],
   database: [["database"]],
   users: [["users"], ["auth"]],
   request: [["requests"], ["lookup"]],

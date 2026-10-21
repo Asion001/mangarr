@@ -83,6 +83,8 @@ var operationPermissions = map[string][]string{
 	"me-data-summary":        {permSignedIn},
 	"me-data-import":         {permSignedIn},
 	"updates-list":           {permSignedIn},
+	"updates-unseen":         {permSignedIn},
+	"updates-seen":           {permSignedIn},
 	"read-file":              {access.Download},
 
 	// reading apps (their own devices)

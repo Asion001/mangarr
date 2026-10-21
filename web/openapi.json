@@ -11951,6 +11951,9 @@
           "readable": {
             "type": "boolean"
           },
+          "seen": {
+            "type": "boolean"
+          },
           "seriesId": {
             "format": "int64",
             "type": "integer"
@@ -11967,7 +11970,8 @@
           "at",
           "seriesId",
           "seriesTitle",
-          "coverUrl"
+          "coverUrl",
+          "seen"
         ],
         "type": "object"
       },
@@ -11991,7 +11995,15 @@
             "format": "int64",
             "type": "integer"
           },
+          "seenThrough": {
+            "format": "date-time",
+            "type": "string"
+          },
           "total": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "unseen": {
             "format": "int64",
             "type": "integer"
           }
@@ -12000,7 +12012,34 @@
           "items",
           "total",
           "page",
-          "pageSize"
+          "pageSize",
+          "unseen"
+        ],
+        "type": "object"
+      },
+      "UpdateRef": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "kind": {
+            "enum": [
+              "series",
+              "chapter"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "id",
+          "at"
         ],
         "type": "object"
       },
@@ -12086,6 +12125,67 @@
             "type": "string"
           }
         },
+        "type": "object"
+      },
+      "UpdatesSeenInput": {
+        "additionalProperties": false,
+        "properties": {
+          "all": {
+            "type": "boolean"
+          },
+          "availability": {
+            "enum": [
+              "",
+              "downloaded",
+              "streamable"
+            ],
+            "type": "string"
+          },
+          "days": {
+            "format": "int64",
+            "maximum": 365,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "followed": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/UpdateRef"
+            },
+            "type": "array"
+          },
+          "kind": {
+            "enum": [
+              "",
+              "all",
+              "chapter",
+              "series"
+            ],
+            "type": "string"
+          },
+          "language": {
+            "type": "string"
+          },
+          "seriesId": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "UpdatesUnseen": {
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "count"
+        ],
         "type": "object"
       },
       "UpscaleConfig": {
@@ -24847,6 +24947,60 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "description": "Only updates you haven't seen",
+            "explode": false,
+            "in": "query",
+            "name": "unseen",
+            "schema": {
+              "description": "Only updates you haven't seen",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Only chapters that are downloaded, or readable at all",
+            "explode": false,
+            "in": "query",
+            "name": "availability",
+            "schema": {
+              "description": "Only chapters that are downloaded, or readable at all",
+              "enum": [
+                "",
+                "downloaded",
+                "streamable"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "language",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Only titles you follow",
+            "explode": false,
+            "in": "query",
+            "name": "followed",
+            "schema": {
+              "description": "Only titles you follow",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Only this title (any of its editions)",
+            "explode": false,
+            "in": "query",
+            "name": "seriesId",
+            "schema": {
+              "description": "Only this title (any of its editions)",
+              "format": "int64",
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -24872,6 +25026,92 @@
           }
         },
         "summary": "Recently discovered chapters and newly added titles visible to you; initial catalog chapters are suppressed",
+        "tags": [
+          "Updates"
+        ]
+      }
+    },
+    "/api/v1/updates/seen": {
+      "post": {
+        "operationId": "updates-seen",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatesSeenInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdatesUnseen"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Mark updates seen (every one matching the filters, or the ones named); reading progress doesn't change",
+        "tags": [
+          "Updates"
+        ]
+      }
+    },
+    "/api/v1/updates/unseen": {
+      "get": {
+        "operationId": "updates-unseen",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "days",
+            "schema": {
+              "default": 30,
+              "format": "int64",
+              "maximum": 365,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdatesUnseen"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "How many updates of the last days you haven't seen",
         "tags": [
           "Updates"
         ]
