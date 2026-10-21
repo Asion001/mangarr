@@ -135,6 +135,16 @@ export function SettingsPanel({
             <p className="text-xs text-muted">{t("Further ahead uses more data but keeps up with fast scrolling.")}</p>
           </Row>
         )}
+        {"serviceWorker" in navigator && (
+          <Row label={t("Save ahead on this device")}>
+            <Choice
+              value={String(s.saveAhead)}
+              options={[0, 1, 3, 5].map((n) => ({ value: String(n), label: n === 0 ? t("Off") : n === 1 ? t("1 chapter") : t("{count} chapters", { count: n }) }))}
+              onChange={(v) => set({ saveAhead: Number(v) })}
+            />
+            <p className="text-xs text-muted">{t("The chapter you're on and the next ones are saved in full, so reading carries on when the server restarts or the network drops. They're removed after you've read them.")}</p>
+          </Row>
+        )}
         {!paged && (
           <Row label={t("A tap or Page Down scrolls")}>
             <Choice

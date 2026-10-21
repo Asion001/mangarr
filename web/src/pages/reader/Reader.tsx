@@ -6,10 +6,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ChevronLeft, ChevronRight, Download, List, Maximize, Minimize, Minus, Pause, Play, Plus, Settings2 } from "lucide-react";
 import clsx from "clsx";
 import { ApiError, apiUrl, basePath, proxyGap, type S } from "../../api/client";
-import { onServerBack, serverAnswered, serverGone, unreachable } from "../../lib/connection";
+import { fromServer, onServerBack, serverAnswered, serverGone, unreachable } from "../../lib/connection";
 import { ErrorBox, Spinner } from "../../components/ui";
 import { AUTO_SCROLL_MAX, AUTO_SCROLL_MIN, useReaderSettings } from "./settings";
-import { displayWidth, pageUrl, useDims, useViewport, type Half } from "./page";
+import { displayWidth, pageUrl, useDims, useViewport, widths, type Half } from "./page";
 import { chapterQuery } from "./query";
 import { buildViews, indexOf, pageLayout, PagedViewer } from "./PagedViewer";
 import { WebtoonViewer } from "./WebtoonViewer";
@@ -17,6 +17,10 @@ import { SettingsPanel } from "./SettingsPanel";
 import { ChapterPicker } from "./ChapterPicker";
 import { ImagePreloader, useImagePreload } from "./preload";
 import { useReadingTime } from "./time";
+import { useSaveAhead } from "./saveAhead";
+import { isSaved, markRead, nearestSaved, offlineReady, saveWidth, savedChapters, saving, useSavedChapters } from "../../lib/offline/store";
+import { useReachable } from "../../lib/offline/connection";
+import { DeviceIcon } from "../../components/OnDevice";
 import { TapZones } from "./TapZones";
 import { canFullscreen, needsHomeScreen, toggleFullscreen as toggleFull, useFullscreen } from "./fullscreen";
 import { useToast } from "../../lib/toast";
@@ -50,6 +54,10 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
   const { settings: s, set, saveAsDefault, reset, hasOwn, loading: settingsLoading } = useReaderSettings(ch?.seriesId ?? 0, ch?.readingDirection ?? "");
   const { dims, need, natural } = useDims(ch?.id ?? chapterId, s.crop || s.splitWide || (s.mode === "paged" && s.spread !== "single"));
   const vp = useViewport();
+  // whole chapters saved ahead on this device, at about the width pages show at
+  // read when needed rather than subscribed to: it changes with every page saved
+  const reachable = useReachable();
+  useSaveAhead(settingsLoading ? null : ch, s.saveAhead, saveWidth(widths, s.mode === "webtoon" ? vp.w : Math.min(vp.w, vp.h * 0.75)));
   const views = useMemo(() => (ch ? buildViews(ch.pages.length, dims, s, vp.w > vp.h) : []), [ch, dims, s, vp.w, vp.h]);
   const [pos, setPos] = useState<Pos | null>(null);
   const [bars, setBars] = useState(true);
@@ -174,7 +182,8 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
       keepalive: true,
     }).then((r) => {
       if (!r.ok) throw new ApiError(r.status, r.statusText, proxyGap(r));
-      serverAnswered();
+      // queued by the service worker while mangarr is away: it sends it later
+      if (fromServer(r)) serverAnswered();
       qc.invalidateQueries({ queryKey: ["readers"] });
       qc.invalidateQueries({ queryKey: ["series"] });
     }).catch((e) => {
@@ -190,7 +199,10 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
   useEffect(() => {
     if (!ch || !page || !pos) return;
     pending.current = page;
-    if (page === count) return flush(); // finished
+    if (page === count) {
+      markRead(ch.id);
+      return flush(); // finished
+    }
     const t = window.setTimeout(flush, 1500);
     return () => window.clearTimeout(t);
   }, [ch, page, count, pos, flush]);
@@ -263,8 +275,16 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
 
   const goChapter = useCallback(
     (dir: "prev" | "next") => {
-      const target = dir === "next" ? ch?.next : ch?.prev;
+      let target = dir === "next" ? ch?.next : ch?.prev;
       if (!ch) return;
+      // offline, only saved chapters open: go to the nearest saved one that way
+      if (!reachable && target && !isSaved(target.id)) {
+        target = nearestSaved(savedChapters(), ch, dir);
+        if (!target) {
+          toast.info(t("No saved chapter that way"), t("It opens once the server answers again."));
+          return;
+        }
+      }
       if (!target) {
         // past the last chapter's end: back to the series
         if (dir === "next") {
@@ -276,7 +296,7 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
       flush();
       navigate(`/read/${target.id}${dir === "prev" ? "?page=last" : ""}`, { replace: true });
     },
-    [ch, flush, navigate],
+    [ch, flush, navigate, reachable, toast],
   );
 
   // global keys
@@ -365,6 +385,7 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
             {!ch.downloaded && tr(" · streamed")}
           </div>
         </div>
+        <SavedHere chapterId={ch.id} />
         {ch.canDownload && (
           <a href={apiUrl(`api/v1/read/chapters/${ch.id}/file`)} download className="rounded p-2 hover:bg-panel-2" aria-label={t("Download the chapter")}>
             <Download className="size-5" />
@@ -474,6 +495,7 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
         </div>
       )}
 
+      {!reachable && offlineReady() && <OfflinePill ch={ch} />}
       {!bars && !autoOn && s.showPageNumber && (
         <div className="pointer-events-none absolute bottom-2 left-1/2 z-10 -translate-x-1/2 rounded-full bg-black/60 px-2.5 py-0.5 text-xs tabular-nums text-fg" style={{ marginBottom: "env(safe-area-inset-bottom)" }}>
           {page} / {count}
@@ -524,6 +546,28 @@ function AutoSpeed({ speed, by, className }: { speed: number; by: (d: number) =>
       <button type="button" className="flex h-full min-h-9 w-9 items-center justify-center rounded-full hover:bg-white/10 disabled:opacity-30" disabled={speed >= AUTO_SCROLL_MAX} onClick={() => by(1)} aria-label={t("Faster")}>
         <Plus className="size-4" />
       </button>
+    </div>
+  );
+}
+
+/** SavedHere is the top bar's phone icon: this chapter saved on the device, or saving. */
+function SavedHere({ chapterId }: { chapterId: number }) {
+  const c = useSavedChapters()[chapterId];
+  if (!c) return null;
+  return (
+    <Link to="/on-device" className="rounded p-2 hover:bg-panel-2" aria-label={saving(c) ? t("Saving on this device…") : t("Saved on this device")}>
+      <DeviceIcon chapter={c} className="size-5" />
+    </Link>
+  );
+}
+
+/** OfflinePill says, while the server doesn't answer, how far the saved chapters go. */
+function OfflinePill({ ch }: { ch: Chapter }) {
+  const ahead = Object.values(useSavedChapters()).filter((c) => c.seriesId === ch.seriesId && Number(c.number) > Number(ch.number) && !saving(c)).length;
+  return (
+    <div role="status" className="pointer-events-none absolute bottom-12 left-1/2 z-30 flex -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-panel/90 px-3 py-1.5 text-xs text-fg" style={{ marginBottom: "env(safe-area-inset-bottom)" }}>
+      <span className="size-2 rounded-full bg-warn" />
+      {t("Offline · {count} chapters ahead saved", { count: ahead })}
     </div>
   );
 }

@@ -57,6 +57,12 @@ export function serverGone() {
   schedule();
 }
 
+/** OFFLINE_HEADER marks an answer the service worker made itself from what it saved (public/sw.js). */
+export const OFFLINE_HEADER = "x-mangarr-offline";
+
+/** fromServer: the answer came from mangarr, not from the service worker standing in for it. */
+export const fromServer = (r: Response) => !r.headers.has(OFFLINE_HEADER);
+
 /** serverAnswered records any answer from the server. */
 export function serverAnswered() {
   if (!down) return;

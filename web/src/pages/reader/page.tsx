@@ -3,12 +3,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api, apiUrl, unwrap } from "../../api/client";
 import { checkServer, isServerDown, onServerBack, useServerDown } from "../../lib/connection";
 import { Spinner } from "../../components/ui";
+import { isSaved, pageWidths } from "../../lib/offline/store";
 
 /** Dims are a page's size and the box inside its borders (source pixels). */
 export type Dims = { width: number; height: number; x: number; y: number; w: number; h: number; measured?: boolean };
 
-/** Widths the server keeps copies at (internal/imagedeliver). */
-const widths = [320, 720, 1080, 1440, 2160];
+/** Widths the server keeps copies at. */
+export const widths = pageWidths;
 
 /** displayWidth rounds a CSS width (in real pixels) up to a size the server keeps. */
 export function displayWidth(cssWidth: number): number {
@@ -25,7 +26,8 @@ export function rememberPageBase(chapterId: number, base?: string) {
 
 /** pageUrl is a page, optionally at a display size instead of the full scan. */
 export const pageUrl = (chapterId: number, n: number, width = 0) => {
-  const base = pageBases.get(chapterId);
+  // a chapter saved on this device is read through the links it was saved under
+  const base = isSaved(chapterId) ? undefined : pageBases.get(chapterId);
   return apiUrl(base ? `${base}/${n}` : `api/v1/read/chapters/${chapterId}/pages/${n}`, width > 0 ? { w: width } : undefined);
 };
 

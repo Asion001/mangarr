@@ -4,6 +4,8 @@ import { Check, Download, Search, X } from "lucide-react";
 import { api, unwrap } from "../../api/client";
 import { Spinner } from "../../components/ui";
 import { t } from "../../lib/i18n/core";
+import { DeviceIcon } from "../../components/OnDevice";
+import { isSaved, useSavedChapters } from "../../lib/offline/store";
 
 export function ChapterPicker({ seriesId, currentId, onPick, onClose }: { seriesId: number; currentId: number; onPick: (id: number) => void; onClose: () => void }) {
   const [draft, setDraft] = useState("");
@@ -17,6 +19,7 @@ export function ChapterPicker({ seriesId, currentId, onPick, onClose }: { series
     }, 200);
     return () => window.clearTimeout(timeout);
   }, [draft, query]);
+  const saved = useSavedChapters();
   const result = useQuery({
     queryKey: ["read-chapter-picker", seriesId, currentId, query, page],
     queryFn: () => unwrap(api.GET("/api/v1/read/series/{id}/chapters", { params: { path: { id: seriesId }, query: { q: query || undefined, currentId, page, pageSize: 50 } } })),
@@ -49,6 +52,7 @@ export function ChapterPicker({ seriesId, currentId, onPick, onClose }: { series
             >
               <span className="w-20 shrink-0 font-mono text-sm">{chapter.volume ? `v${chapter.volume} · ` : ""}{chapter.number}</span>
               <span className="min-w-0 flex-1 truncate text-sm">{chapter.title || `${t("Chapter")} ${chapter.number}`}</span>
+              {isSaved(chapter.id) && <span aria-label={t("Saved on this device")}><DeviceIcon chapter={saved[chapter.id]} className="size-3.5" /></span>}
               {chapter.downloaded && <Download className="size-3.5 text-muted" aria-label={t("Downloaded")} />}
               {chapter.completed && <Check className="size-4 text-ok" aria-label={t("Read")} />}
               {!chapter.available && <span className="text-xs text-muted">{t("unavailable")}</span>}

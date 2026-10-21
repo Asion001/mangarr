@@ -39,6 +39,13 @@ onServerBack(() => void queryClient.refetchQueries({ type: "active", predicate: 
 const root = document.getElementById("root")!;
 root.addEventListener("scroll", () => { if (root.scrollTop) root.scrollTop = 0; }, { passive: true });
 
+// the service worker opens the app and saved chapters without the server (public/sw.js)
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
+  // named after this build's entry script, so a new build installs afresh and keeps its own files
+  const build = import.meta.url.split("/").pop() ?? "";
+  void navigator.serviceWorker.register(`${basePath}/sw.js?build=${encodeURIComponent(build)}`, { scope: `${basePath}/` }).catch(() => undefined);
+}
+
 createRoot(root).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>

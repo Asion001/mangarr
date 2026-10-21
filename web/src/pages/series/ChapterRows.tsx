@@ -7,6 +7,7 @@ import { type Chapter } from "../../api/client";
 import { Badge, Button, Progress, Switch, Td } from "../../components/ui";
 import { bytes, date, relative } from "../../lib/format";
 import { eta } from "../../lib/liveProgress";
+import { SaveChapterButton } from "../../components/OnDevice";
 
 const stateTone: Record<string, "ok" | "warn" | "err" | "info" | "default" | "accent"> = {
   imported: "ok",
@@ -169,6 +170,7 @@ export const ChapterRow = memo(function ChapterRow({
         </Td>
         <Td className="text-right">
           <div className="flex items-center justify-end gap-1">
+            {readable(c) && <SaveChapterButton chapterId={c.id} />}
             {readable(c) && (
               <Link to={`/read/${c.id}`} title={c.file ? tr("Read") : tr("Read (streamed from the source)")}>
                 <Button className="w-28" variant={next ? "primary" : read ? "ghost" : "secondary"} icon={<BookOpen className="size-4" />}>
@@ -230,6 +232,7 @@ export const ChapterMobileRow = memo(function ChapterMobileRow({
           <span className={clsx("shrink-0 font-mono text-xs", read && "text-muted")}>{c.volume ? `v${c.volume} ` : ""}{c.number}</span>
           <span className={clsx("min-w-0 flex-1 truncate text-sm", read && "text-muted")}>{c.title || t("Chapter") + " " + c.number}</span>
         </button>
+        {readable(c) && <SaveChapterButton chapterId={c.id} />}
         {readable(c) && (
           <Link className="shrink-0" to={`/read/${c.id}`} title={c.file ? tr("Read") : tr("Read (streamed from the source)")}>
             <Button size="sm" variant={next ? "primary" : read ? "ghost" : "secondary"} icon={<BookOpen className="size-4" />}>

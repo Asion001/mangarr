@@ -2,7 +2,10 @@ import { t as tr, t, label } from "../../lib/i18n/core";
 import { useUIPreferences } from "../../lib/uiPreferences";
 import { useState, type FormEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, KeyRound, Link2, LogOut, Monitor, Unlink } from "lucide-react";
+import { Download, KeyRound, Link2, LogOut, Monitor, Smartphone, Unlink } from "lucide-react";
+import { Link } from "react-router";
+import { useOfflineReady } from "../../components/OnDevice";
+import { useSavedChapters } from "../../lib/offline/store";
 import { api, apiUrl, unwrap } from "../../api/client";
 import { DynamicForm, defaultsOf } from "../../components/DynamicForm";
 import { Badge, Button, Card, ErrorBox, Field, IconButton, Input, PageHeader, Select, Switch, Tabs } from "../../components/ui";
@@ -10,7 +13,7 @@ import { appAddress, appTabs, DevicesCard, Guide, type App } from "../settings/R
 import { useAccount } from "../../lib/account";
 import { useAuthStatus } from "../../api/queries";
 import { AccentPicker, StartPageOptions } from "../../components/AccentPicker";
-import { relative } from "../../lib/format";
+import { bytes, relative } from "../../lib/format";
 import { useToast } from "../../lib/toast";
 import { ReadingStatsCard } from "./ReadingStats";
 import { MessengerCard } from "./MessengerCard";
@@ -59,6 +62,7 @@ export function AccountPage() {
         </Card>
         <ReadingStatsCard />
         <YourDataCard />
+        <OnDeviceCard />
         {account?.kind === "user" && <MessengerCard />}
         {account?.kind === "user" && <LibraryAccountsCard />}
         {can("apps") && <ReadingAppsCard />}
@@ -66,6 +70,21 @@ export function AccountPage() {
         {account?.kind === "user" && <SessionsCard />}
       </div>
     </>
+  );
+}
+
+/** OnDeviceCard points at the chapters saved in this browser. */
+function OnDeviceCard() {
+  const ready = useOfflineReady();
+  const saved = Object.values(useSavedChapters());
+  if (!ready && saved.length === 0) return null;
+  const size = saved.reduce((n, c) => n + c.bytes, 0);
+  return (
+    <Card title={t("On this device")} actions={<Link to="/on-device"><Button size="sm" icon={<Smartphone className="size-3.5" />}>{t("Open")}</Button></Link>}>
+      <p className="text-sm text-muted">
+        {saved.length ? `${t("{count} chapters", { count: saved.length })} · ${bytes(size)}` : t("Nothing saved yet. The reader saves the next chapters as you read; you can also save chapters from a title's chapter list.")}
+      </p>
+    </Card>
   );
 }
 
