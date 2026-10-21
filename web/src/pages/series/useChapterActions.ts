@@ -57,6 +57,17 @@ export function useChapterActions(seriesId: number) {
       toast.fromError(e);
     }
   }, [refresh, toast]);
+  /** markMany marks several chapters read or unread, one toast for all of them. */
+  const markMany = useCallback(async (chapters: Chapter[], read: boolean) => {
+    try {
+      for (const c of chapters) await unwrap(api.PUT("/api/v1/read/chapters/{id}/mark", { params: { path: { id: c.id } }, body: { read, scope: "chapter" } }));
+      toast.success(read ? t("{count} chapters marked read", { count: chapters.length }) : t("{count} chapters marked unread", { count: chapters.length }));
+    } catch (e) {
+      toast.fromError(e);
+    } finally {
+      refresh();
+    }
+  }, [refresh, toast]);
   const queueAction = useCallback(async (jobID: number, action: "top" | "bottom" | "pause" | "resume") => {
     try {
       await unwrap(api.POST("/api/v1/queue/bulk", { body: { action, ids: [jobID] } }));
@@ -97,5 +108,5 @@ export function useChapterActions(seriesId: number) {
     }
   }, [refresh, toast]);
 
-  return useMemo(() => ({ monitor, search, restore, mark, queueAction, queueBulk, process, deleteFiles }), [monitor, search, restore, mark, queueAction, queueBulk, process, deleteFiles]);
+  return useMemo(() => ({ monitor, search, restore, mark, markMany, queueAction, queueBulk, process, deleteFiles }), [monitor, search, restore, mark, markMany, queueAction, queueBulk, process, deleteFiles]);
 }

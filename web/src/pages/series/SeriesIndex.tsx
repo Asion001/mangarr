@@ -1,12 +1,14 @@
 import { useUIMode, useUIPreferences } from "../../lib/uiPreferences";
 import { t } from "../../lib/i18n/core";
 import { useDocumentTitle } from "../../lib/documentTitle";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
 import { Link } from "react-router";
 import { Check, CheckSquare, Inbox, LayoutGrid, List, Plus, RefreshCw, Search, SlidersHorizontal, X } from "lucide-react";
 import { api, apiUrl, unwrap, type Series } from "../../api/client";
 import { usePushCommand, useRootFolders, useSeriesSearch } from "../../api/queries";
+import { useReachable } from "../../lib/offline/connection";
+import { useSavedChapters } from "../../lib/offline/store";
 import { Cover } from "../../components/Cover";
 import { Badge, Button, EmptyState, ErrorBox, Input, Loading, Progress, Select, Table, Td, Th, ButtonLink } from "../../components/ui";
 import { GenrePicker, type GenreMatch } from "./GenrePicker";
@@ -150,7 +152,11 @@ export function SeriesIndex() {
   };
   const [view, setView] = useState<"posters" | "table">(() => (localStorage.getItem("seriesView") as "posters" | "table") || ui.libraryView || "posters");
 
-  const list = data?.items ?? [];
+  // offline, the library keeps to the series with chapters saved on this device
+  const reachable = useReachable();
+  const saved = useSavedChapters();
+  const savedSeries = useMemo(() => new Set(Object.values(saved).map((c) => c.seriesId)), [saved]);
+  const list = !reachable && savedSeries.size > 0 ? (data?.items ?? []).filter((s) => savedSeries.has(s.id)) : data?.items ?? [];
   const setFilterAndReset = (value: string) => { setFilter(value); setPage("1"); };
   const setSortAndReset = (value: string) => { setSort(value); setPage("1"); };
 

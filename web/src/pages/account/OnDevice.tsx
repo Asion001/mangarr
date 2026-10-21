@@ -1,6 +1,7 @@
 import { t } from "../../lib/i18n/core";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
+import clsx from "clsx";
 import { Trash2 } from "lucide-react";
 import { Button, Card, Confirm, PageHeader, Progress, Switch } from "../../components/ui";
 import { DeviceIcon, useOfflineReady } from "../../components/OnDevice";
@@ -25,6 +26,26 @@ function useStorage(saved: unknown) {
   return usage;
 }
 
+type Show = "all" | "saving" | "unread" | "read";
+const shows: Record<Show, (c: SavedChapter) => boolean> = { all: () => true, saving, unread: (c) => !c.readAt, read: (c) => !!c.readAt };
+
+/** SavingNow is how far the chapters still saving have got, all together. */
+function SavingNow({ chapters }: { chapters: SavedChapter[] }) {
+  const pages = chapters.reduce((n, c) => n + c.pages, 0);
+  const done = chapters.reduce((n, c) => n + c.saved, 0);
+  return (
+    <Card>
+      <div className="flex flex-col gap-2" role="status">
+        <div className="flex items-baseline justify-between gap-3">
+          <span className="font-medium">{t("Saving {count} chapters", { count: chapters.length })}</span>
+          <span className="text-xs text-muted tabular-nums">{t("{saved} of {pages} pages", { saved: done, pages })}</span>
+        </div>
+        <Progress value={pages ? (100 * done) / pages : 0} />
+      </div>
+    </Card>
+  );
+}
+
 /** OnDevicePage lists the chapters saved in this browser for reading offline (/on-device). */
 export function OnDevicePage() {
   const ready = useOfflineReady();
@@ -32,13 +53,17 @@ export function OnDevicePage() {
   const removeRead = useRemoveRead();
   const usage = useStorage(saved);
   const [confirmAll, setConfirmAll] = useState(false);
+  const [show, setShow] = useState<Show>("all");
+  const all = Object.values(saved);
+  const inProgress = all.filter(saving);
+  const counts: Record<Show, number> = { all: all.length, saving: inProgress.length, unread: all.filter((c) => !c.readAt).length, read: all.filter((c) => c.readAt).length };
   const titles = useMemo(() => {
     const by = new Map<number, SavedChapter[]>();
-    for (const c of Object.values(saved)) by.set(c.seriesId, [...(by.get(c.seriesId) ?? []), c]);
+    for (const c of Object.values(saved).filter(shows[show])) by.set(c.seriesId, [...(by.get(c.seriesId) ?? []), c]);
     return [...by.values()]
       .map((list) => list.sort((a, b) => Number(a.number) - Number(b.number) || a.id - b.id))
       .sort((a, b) => Math.max(...b.map((c) => c.at)) - Math.max(...a.map((c) => c.at)));
-  }, [saved]);
+  }, [saved, show]);
   const total = Object.values(saved).reduce((n, c) => n + c.bytes, 0);
 
   return (
@@ -54,6 +79,7 @@ export function OnDevicePage() {
             <p className="text-sm text-muted">{t("Saving chapters needs the app opened from this server over HTTPS (or on this computer). Open Mangarr again and it will be ready.")}</p>
           </Card>
         )}
+        {inProgress.length > 0 && <SavingNow chapters={inProgress} />}
         <Card>
           <div className="flex flex-col gap-3">
             {usage && usage.quota > 0 && (
@@ -74,7 +100,24 @@ export function OnDevicePage() {
             <p className="text-xs text-muted">{t("Saved chapters are a copy in this browser. iOS can still clear them when the device runs low on space, or if you remove the app from the home screen. Chapters the reader saved ahead are removed after you read them.")}</p>
           </div>
         </Card>
-        {titles.length === 0 ? (
+        {all.length > 0 && (
+          <div role="group" aria-label={t("Show")} className="flex flex-wrap gap-1.5">
+            {(Object.keys(shows) as Show[]).map((key) => (
+              <button
+                key={key}
+                type="button"
+                aria-pressed={show === key}
+                onClick={() => setShow(key)}
+                className={clsx("rounded-full border px-3 py-1.5 text-xs font-medium", show === key ? "border-accent bg-accent text-white" : "border-border bg-panel-2 text-fg hover:border-accent")}
+              >
+                {{ all: t("All"), saving: t("Saving"), unread: t("Not read"), read: t("Read") }[key]} {counts[key]}
+              </button>
+            ))}
+          </div>
+        )}
+        {all.length > 0 && titles.length === 0 ? (
+          <p className="text-sm text-muted">{t("No saved chapters match.")}</p>
+        ) : titles.length === 0 ? (
           <p className="text-sm text-muted">{t("Nothing saved yet. The reader saves the next chapters as you read; you can also save chapters from a title's chapter list.")}</p>
         ) : (
           <Card>

@@ -30,17 +30,20 @@ import {
   Inbox,
   BellRing,
   Pause,
+  Smartphone,
 } from "lucide-react";
 import { api } from "../api/client";
 import { useAuthStatus, useHealth, usePendingRequests, useQueue, useUpdatesUnseen } from "../api/queries";
 import { useAccount, type Perm } from "../lib/account";
-import { OfflineBanner } from "./OnDevice";
+import { OfflineBanner, useOfflineReady } from "./OnDevice";
+import { useReachable } from "../lib/offline/connection";
+import { saving as stillSaving, useSavedChapters } from "../lib/offline/store";
 
 import { useUIMode } from "../lib/uiPreferences";
 import { useToast } from "../lib/toast";
 
 type Section = "library" | "manage" | "admin";
-type NavItem = { to: string; label: string; icon: ReactNode; section: Section; need?: Perm | Perm[]; children?: { to: string; label: string; need?: Perm | Perm[] }[]; };
+type NavItem = { to: string; label: string; icon: ReactNode; section: Section; need?: Perm | Perm[]; /** show: false leaves it out */ show?: boolean; children?: { to: string; label: string; need?: Perm | Perm[] }[]; };
 
 /** Settings pages, grouped for the navigation inside Settings. */
 const settingsGroups: { title: string; items: { to: string; label: string }[] }[] = [
@@ -187,12 +190,19 @@ export function Layout() {
   const { data: unseen } = useUpdatesUnseen();
   const unseenUpdates = unseen?.count ?? 0;
 
+  const offlineReady = useOfflineReady();
+  const reachable = useReachable();
+  // chapters still saving on this device, as one percentage for the tab
+  const savingNow = Object.values(useSavedChapters()).filter(stillSaving);
+  const savingPages = savingNow.reduce((n, c) => n + c.pages, 0);
+  const savingPercent = savingNow.length ? Math.floor((100 * savingNow.reduce((n, c) => n + c.saved, 0)) / Math.max(1, savingPages)) : undefined;
   const nav: NavItem[] = [
     { to: "/", section: "library", label: "Series", icon: <BookOpen className="size-4" /> },
     { to: "/discover", section: "library", label: "Discover", icon: <Compass className="size-4" /> },
     { to: "/updates", section: "library", label: "Updates", icon: <BellRing className="size-4" /> },
     { to: "/add", section: "manage", label: "Add series", icon: <PlusCircle className="size-4" />, need: "library.add" },
     { to: "/requests", section: "library", label: "Requests", icon: <Inbox className="size-4" />, need: ["requests.create", "requests.manage", "library.manage"] },
+    { to: "/on-device", section: "library", label: "On device", icon: <Smartphone className="size-4" />, show: offlineReady },
     { to: "/import", section: "manage", label: "Import library", icon: <FileUp className="size-4" />, need: "admin" },
     {
       to: "/activity",
@@ -255,7 +265,8 @@ export function Layout() {
   const parent = parentOf(loc.pathname);
   const back = useBack(parent ?? "/");
   // phones: the library's pages sit in a tab bar along the bottom
-  const tabBar = nav.filter((item) => item.section === "library" && !hiddenNav.includes(item.to) && (!item.need || can(item.need)) && (item.to !== "/requests" || can("requests.create")));
+  // offline only the library and what this device has saved can open
+  const tabBar = nav.filter((item) => item.section === "library" && item.show !== false && !hiddenNav.includes(item.to) && (!item.need || can(item.need)) && (item.to !== "/requests" || can("requests.create")) && (reachable || item.to === "/" || item.to === "/on-device"));
 
   const logout = async () => {
     await api.POST("/api/v1/auth/logout");
@@ -283,7 +294,7 @@ export function Layout() {
           </div>)}
       <nav aria-label={t("Navigation")} className="min-h-0 flex-1 overflow-y-auto overscroll-contain [&_a:focus-visible]:-outline-offset-2">
         {(["library","manage","admin"] as const).map(section=>{
-          const items = nav.filter(item => item.section === section && !hiddenNav.includes(item.to) && (!item.need || can(item.need)) && (editing || item.to === "/" || item.to === "/discover" || item.to === "/updates" || (item.to === "/requests" && can("requests.create")) || (item.to === "/activity" && !can("queue.manage"))));
+          const items = nav.filter(item => item.section === section && item.show !== false && !hiddenNav.includes(item.to) && (!item.need || can(item.need)) && (editing || item.to === "/" || item.to === "/discover" || item.to === "/updates" || item.to === "/on-device" || (item.to === "/requests" && can("requests.create")) || (item.to === "/activity" && !can("queue.manage"))));
           if (!items.length) return null;
           const title = {library:t("Library"),manage:t("Manage"),admin:t("Admin")}[section];
           return <div key={section} role="group" aria-label={title} className="mb-2 space-y-0.5">
@@ -342,8 +353,9 @@ export function Layout() {
         {tabBar.map(item=>{
           const active = item.to === "/" ? loc.pathname === "/" || loc.pathname.startsWith("/series") : loc.pathname.startsWith(item.to);
           const count = item.to === "/requests" && editing ? pendingRequests : 0;
+          const progress = item.to === "/on-device" ? savingPercent : undefined;
           return <Link key={item.to} to={item.to} aria-current={active?"page":undefined} className={clsx("relative flex h-14 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium active:bg-panel-2",active?"text-accent-2":"text-muted")}>
-            <span className="[&>svg]:size-5">{item.icon}</span>{label(item.label)}
+            <span className="[&>svg]:size-5">{item.icon}</span>{progress === undefined ? label(item.label) : `${label(item.label)} · ${progress}%`}
             {count>0&&<span className="absolute right-1/2 top-1.5 translate-x-5 rounded-full bg-primary px-1.5 text-[10px] text-white">{count}</span>}
           </Link>;
         })}
