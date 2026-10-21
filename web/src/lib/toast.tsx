@@ -22,7 +22,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <Ctx.Provider value={push}>
       {children}
-      <div className="fixed bottom-4 right-4 z-[100] flex w-96 max-w-[calc(100vw-2rem)] flex-col gap-2">
+      <div className="fixed bottom-[calc(1rem+var(--tabbar-h))] right-4 z-[100] flex w-96 max-w-[calc(100vw-2rem)] flex-col gap-2">
         {toasts.map((t) => {
           const Icon = icons[t.kind];
           return (

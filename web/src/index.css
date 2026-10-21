@@ -43,17 +43,18 @@ html, body, #root { height: 100%; }
    indicator strip itself; fixed bars in pages sit on top of it. */
 :root { --tabbar-h: 0px; }
 @media (max-width: 767px) {
-  [data-tabbar] { --root-pb: 0px; --tabbar-h: calc(3.5rem + env(safe-area-inset-bottom)); }
+  [data-tabbar] { --root-pb: 0px; --tabbar-h: calc(4.5rem + env(safe-area-inset-bottom)); }
+  /* the tab bar floats over the bottom of the page, which keeps clear of it */
+  [data-tabbar] main { padding-bottom: calc(1rem + var(--tabbar-h)); }
 }
 /* In a phone's browser tab the page itself scrolls rather than the box the
    pages sit in, like any web site: the browser then draws it under its
    status bar and address bar, and shrinks those while you scroll. The tab
-   bar stays put along the bottom. (A home screen app has no browser bars,
+   bar floats over it along the bottom. (A home screen app has no browser bars,
    and keeps the box, see above.) */
 @media (max-width: 767px) {
   [data-page-scroll] { height: auto; min-height: 100dvh; overflow: visible; }
-  [data-page-scroll] main { overflow: visible; overflow-x: clip; padding-bottom: calc(1rem + var(--tabbar-h)); }
-  [data-page-scroll] > div > nav:last-child { position: fixed; inset-inline: 0; bottom: 0; z-index: 20; }
+  [data-page-scroll] main { overflow: visible; overflow-x: clip; }
 }
 /* iOS zooms the page in on a focused field whose text is under 16px and
    leaves it zoomed. (maximum-scale would stop that too, but also the

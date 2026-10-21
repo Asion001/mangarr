@@ -352,12 +352,13 @@ export function Layout() {
           ? <div className="md:flex md:gap-8"><SettingsNav/><div className="min-w-0 flex-1"><RouteBoundary><Outlet/></RouteBoundary></div></div>
           : <RouteBoundary><Outlet/></RouteBoundary>}
       </main>
-      {tabBar.length>1&&<nav aria-label={t("Library")} className="flex shrink-0 border-t border-border bg-panel md:hidden" style={{paddingBottom:"env(safe-area-inset-bottom)"}}>
+      {/* a floating glass pill: pages scroll on under it, blurred */}
+      {tabBar.length>1&&<nav aria-label={t("Library")} className="fixed inset-x-3 z-20 flex h-15 items-center gap-0.5 rounded-full border border-fg/10 bg-panel-2/60 px-1.5 shadow-[0_8px_30px_rgb(0_0_0/0.45),inset_0_1px_0_rgb(255_255_255/0.08)] backdrop-blur-xl backdrop-saturate-150 md:hidden" style={{bottom:"calc(env(safe-area-inset-bottom) + 0.5rem)"}}>
         {tabBar.map(item=>{
           const active = item.to === "/" ? loc.pathname === "/" || loc.pathname.startsWith("/series") : loc.pathname.startsWith(item.to);
           const count = item.to === "/requests" && editing ? pendingRequests : item.to === "/on-device" ? savingCount : 0;
-          return <Link key={item.to} to={item.to} aria-current={active?"page":undefined} className={clsx("relative flex h-14 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium active:bg-panel-2",active?"text-accent-2":"text-muted")}>
-            <span className="[&>svg]:size-5">{item.icon}</span>{label(item.label)}
+          return <Link key={item.to} to={item.to} aria-current={active?"page":undefined} className={clsx("relative flex h-12 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-full text-[10.5px] font-medium active:bg-fg/10",active?"bg-fg/10 text-accent-2":"text-fg/80")}>
+            <span className="[&>svg]:size-5">{item.icon}</span><span className="max-w-full truncate px-1">{label(item.label)}</span>
             {count>0&&<span className="absolute right-1/2 top-1.5 translate-x-5 rounded-full bg-primary px-1.5 text-[10px] text-white">{count}</span>}
           </Link>;
         })}

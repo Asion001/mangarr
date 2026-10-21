@@ -31,7 +31,7 @@ test("on a phone, tab rows only scroll sideways and fields don't zoom the page",
   expect(await field.evaluate((el) => getComputedStyle(el).fontSize)).toBe("16px");
 });
 
-test("in a phone's browser tab the page itself scrolls and the tab bar stays at the bottom", async ({ page }) => {
+test("in a phone's browser tab the page itself scrolls and the tab bar floats at the bottom", async ({ page }) => {
   await page.route("**/api/v1/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
     if (path.endsWith("/auth/status")) return route.fulfill({ json: { authenticated: true, authDisabled: true, account: { kind: "anonymous", id: 0, permissions: ["admin"] } } });
@@ -48,5 +48,8 @@ test("in a phone's browser tab the page itself scrolls and the tab bar stays at 
   await page.evaluate(() => window.scrollTo(0, 400));
   await expect.poll(() => page.evaluate(() => document.scrollingElement!.scrollTop)).toBeGreaterThan(300);
   const box = await tabs.boundingBox();
-  expect(Math.round(box!.y + box!.height)).toBe(812);
+  // a pill floating just above the bottom edge, with the page showing through it
+  expect(box!.y + box!.height).toBeGreaterThan(812 - 16);
+  expect(box!.y + box!.height).toBeLessThan(812);
+  expect(await tabs.evaluate((el) => getComputedStyle(el).backdropFilter)).toContain("blur");
 });
