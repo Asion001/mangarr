@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { useMatch } from "react-router";
+import { useReachable } from "../lib/offline/connection";
 import { t } from "../lib/i18n/core";
 import { useServerDown } from "../lib/connection";
 import { Spinner } from "./ui";
@@ -9,7 +11,11 @@ import { Spinner } from "./ui";
  * blip shorter than a second shows nothing.
  */
 export function Reconnecting() {
-  const down = useServerDown();
+  // the reader works from what it has (and says so in its own bars); offline,
+  // the app's banner says it instead
+  const reading = !!useMatch("/read/:id");
+  const reachable = useReachable();
+  const down = useServerDown() && !reading && reachable;
   const [shown, setShown] = useState(false);
   useEffect(() => {
     if (!down) return setShown(false);

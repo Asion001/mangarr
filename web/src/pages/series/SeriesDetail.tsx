@@ -222,7 +222,7 @@ export function SeriesDetail() {
       </div>
 
       {manage && <SourcesPanel series={s} />}
-      <ChaptersTable key={String(manage)} seriesId={id} manage={manage} nextChapterId={readTarget?.id} editions={s.editions ?? []} />
+      <ChaptersTable key={String(manage)} seriesId={id} seriesTitle={s.title} manage={manage} nextChapterId={readTarget?.id} editions={s.editions ?? []} />
       {!s.preview && <Recommendations seriesId={id} />}
 
       {manage && edit && <EditSeriesModal series={s} onClose={() => setEdit(false)} />}

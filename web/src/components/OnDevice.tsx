@@ -6,7 +6,7 @@ import clsx from "clsx";
 import { Menu } from "./ui";
 import { bytes } from "../lib/format";
 import { useToast } from "../lib/toast";
-import { estimateBytes, offlineReady, removeChapter, saveChapterById, savedChapters, saving, savingNow, useSavedChapters, type SavedChapter } from "../lib/offline/store";
+import { estimateBytes, offlineReady, queueSave, removeChapter, saveChapterById, savedChapters, saving, savingNow, useSavedChapters, type QueuedChapter, type SavedChapter } from "../lib/offline/store";
 import { useReachable } from "../lib/offline/connection";
 
 /** useOfflineReady is true once a service worker answers this page, so chapters can be saved on the device. */
@@ -62,28 +62,27 @@ export function SaveChapterButton({ chapterId }: { chapterId: number }) {
   );
 }
 
-/** SaveSeriesMenu saves the next unread chapters, or all of them, on this device. */
-export function SaveSeriesMenu({ unread, all }: { unread: number[]; all: number[] }) {
+/** SaveSeriesMenu queues the next unread chapters, or all of them, to be saved on this device. */
+export function SaveSeriesMenu({ unread, all }: { unread: QueuedChapter[]; all: QueuedChapter[] }) {
   const ready = useOfflineReady();
   const saved = useSavedChapters();
   const toast = useToast();
   if (!ready) return null;
-  const save = async (ids: number[]) => {
-    const todo = ids.filter((id) => !saved[id] || saving(saved[id]));
-    if (todo.length === 0) return toast.info(t("Already on this device"));
-    toast.info(t("Saving {count} chapters on this device", { count: todo.length }));
-    for (const id of todo) await saveChapterById(id).catch(() => undefined);
+  const save = (chapters: QueuedChapter[]) => {
+    const added = queueSave(chapters);
+    if (added === 0) return toast.info(t("Already on this device"));
+    toast.info(t("Saving {count} chapters on this device", { count: added }));
   };
   const next = unread.slice(0, 5);
-  const here = all.filter((id) => saved[id]);
+  const here = all.filter((c) => saved[c.id]).map((c) => c.id);
   return (
     <Menu
       size="sm"
       label={t("Save on device")}
       icon={<Smartphone className="size-3.5" />}
       items={[
-        { label: `${t("Next 5 unread")} · ~${bytes(estimateBytes(savedChapters(), next.length))}`, onSelect: () => void save(next), hidden: next.length === 0 },
-        { label: `${t("All unread ({count})", { count: unread.length })} · ~${bytes(estimateBytes(savedChapters(), unread.length))}`, onSelect: () => void save(unread), hidden: unread.length <= 5 },
+        { label: `${t("Next 5 unread")} · ~${bytes(estimateBytes(savedChapters(), next.length))}`, onSelect: () => save(next), hidden: next.length === 0 },
+        { label: `${t("All unread ({count})", { count: unread.length })} · ~${bytes(estimateBytes(savedChapters(), unread.length))}`, onSelect: () => save(unread), hidden: unread.length <= 5 },
         { label: t("Remove from this device"), danger: true, onSelect: () => void Promise.all(here.map(removeChapter)), hidden: here.length === 0 },
       ]}
     />

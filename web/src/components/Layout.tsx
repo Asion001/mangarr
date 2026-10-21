@@ -37,7 +37,7 @@ import { useAuthStatus, useHealth, usePendingRequests, useQueue, useUpdatesUnsee
 import { useAccount, type Perm } from "../lib/account";
 import { OfflineBanner, useOfflineReady } from "./OnDevice";
 import { useReachable } from "../lib/offline/connection";
-import { saving as stillSaving, useSavedChapters } from "../lib/offline/store";
+import { saving as stillSaving, useSavedChapters, useSaveQueue } from "../lib/offline/store";
 
 import { useUIMode } from "../lib/uiPreferences";
 import { useToast } from "../lib/toast";
@@ -192,10 +192,9 @@ export function Layout() {
 
   const offlineReady = useOfflineReady();
   const reachable = useReachable();
-  // chapters still saving on this device, as one percentage for the tab
-  const savingNow = Object.values(useSavedChapters()).filter(stillSaving);
-  const savingPages = savingNow.reduce((n, c) => n + c.pages, 0);
-  const savingPercent = savingNow.length ? Math.floor((100 * savingNow.reduce((n, c) => n + c.saved, 0)) / Math.max(1, savingPages)) : undefined;
+  // chapters saving or waiting to be saved on this device, counted on the tab
+  const savedHere = useSavedChapters();
+  const savingCount = Object.values(savedHere).filter(stillSaving).length + useSaveQueue().filter((q) => !savedHere[q.id]).length;
   const nav: NavItem[] = [
     { to: "/", section: "library", label: "Series", icon: <BookOpen className="size-4" /> },
     { to: "/discover", section: "library", label: "Discover", icon: <Compass className="size-4" /> },
@@ -301,7 +300,7 @@ export function Layout() {
             {compact ? <div aria-hidden className="mx-2 mb-1 border-t border-border first:hidden" /> : <h2 className="px-2.5 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-wide text-muted">{title}</h2>}
             {items.map(item=>{
           const active = item.to === "/" ? loc.pathname === "/" || loc.pathname.startsWith("/series") : loc.pathname.startsWith(item.to);
-          const count = item.to === "/activity" ? queued : item.to === "/requests" && editing ? pendingRequests : item.to === "/system" ? issues : item.to === "/updates" ? unseenUpdates : 0;
+          const count = item.to === "/activity" ? queued : item.to === "/requests" && editing ? pendingRequests : item.to === "/system" ? issues : item.to === "/updates" ? unseenUpdates : item.to === "/on-device" ? savingCount : 0;
           return <div key={item.to}>
             <NavLink to={item.to==="/settings"?"/settings":item.children?item.children[0].to:item.to} title={label(item.label)} aria-label={label(item.label)} onClick={()=>setOpen(false)} className={clsx("flex items-center gap-2.5 rounded-md px-2.5 font-medium",mobile?"min-h-10 py-2":"min-h-8 py-1.5",compact&&"justify-center",active?"bg-panel-2 text-fg":"text-muted hover:bg-panel-2 hover:text-fg")}>
               <span className="shrink-0">{item.icon}</span>
@@ -352,10 +351,9 @@ export function Layout() {
       {tabBar.length>1&&<nav aria-label={t("Library")} className="flex shrink-0 border-t border-border bg-panel md:hidden" style={{paddingBottom:"env(safe-area-inset-bottom)"}}>
         {tabBar.map(item=>{
           const active = item.to === "/" ? loc.pathname === "/" || loc.pathname.startsWith("/series") : loc.pathname.startsWith(item.to);
-          const count = item.to === "/requests" && editing ? pendingRequests : 0;
-          const progress = item.to === "/on-device" ? savingPercent : undefined;
+          const count = item.to === "/requests" && editing ? pendingRequests : item.to === "/on-device" ? savingCount : 0;
           return <Link key={item.to} to={item.to} aria-current={active?"page":undefined} className={clsx("relative flex h-14 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium active:bg-panel-2",active?"text-accent-2":"text-muted")}>
-            <span className="[&>svg]:size-5">{item.icon}</span>{progress === undefined ? label(item.label) : `${label(item.label)} · ${progress}%`}
+            <span className="[&>svg]:size-5">{item.icon}</span>{label(item.label)}
             {count>0&&<span className="absolute right-1/2 top-1.5 translate-x-5 rounded-full bg-primary px-1.5 text-[10px] text-white">{count}</span>}
           </Link>;
         })}

@@ -2,11 +2,11 @@ import { t } from "../../lib/i18n/core";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 import clsx from "clsx";
-import { Trash2 } from "lucide-react";
+import { Trash2, X } from "lucide-react";
 import { Button, Card, Confirm, PageHeader, Progress, Switch } from "../../components/ui";
 import { DeviceIcon, useOfflineReady } from "../../components/OnDevice";
 import { bytes } from "../../lib/format";
-import { removeAll, removeChapter, saving, setRemoveRead, useRemoveRead, useSavedChapters, type SavedChapter } from "../../lib/offline/store";
+import { removeAll, removeChapter, saving, setRemoveRead, unqueue, useRemoveRead, useSavedChapters, useSaveQueue, type QueuedChapter, type SavedChapter } from "../../lib/offline/store";
 
 type Usage = { usage: number; quota: number; persisted: boolean };
 
@@ -29,18 +29,41 @@ function useStorage(saved: unknown) {
 type Show = "all" | "saving" | "unread" | "read";
 const shows: Record<Show, (c: SavedChapter) => boolean> = { all: () => true, saving, unread: (c) => !c.readAt, read: (c) => !!c.readAt };
 
-/** SavingNow is how far the chapters still saving have got, all together. */
-function SavingNow({ chapters }: { chapters: SavedChapter[] }) {
+/** SavingNow is how far the chapters being saved have got, all together, and what waits its turn. */
+function SavingNow({ chapters, waiting }: { chapters: SavedChapter[]; waiting: QueuedChapter[] }) {
   const pages = chapters.reduce((n, c) => n + c.pages, 0);
   const done = chapters.reduce((n, c) => n + c.saved, 0);
+  const [all, setAll] = useState(false);
+  const shown = all ? waiting : waiting.slice(0, 8);
   return (
     <Card>
-      <div className="flex flex-col gap-2" role="status">
+      <div className="flex flex-col gap-3" role="status">
         <div className="flex items-baseline justify-between gap-3">
-          <span className="font-medium">{t("Saving {count} chapters", { count: chapters.length })}</span>
-          <span className="text-xs text-muted tabular-nums">{t("{saved} of {pages} pages", { saved: done, pages })}</span>
+          <span className="font-medium">{t("Saving {count} chapters", { count: chapters.length + waiting.length })}</span>
+          {pages > 0 && <span className="text-xs text-muted tabular-nums">{t("{saved} of {pages} pages", { saved: done, pages })}</span>}
         </div>
-        <Progress value={pages ? (100 * done) / pages : 0} />
+        {pages > 0 && <Progress value={(100 * done) / pages} />}
+        {waiting.length > 0 && (
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between gap-3 text-xs text-muted">
+              <span>{t("Waiting: {count}", { count: waiting.length })}</span>
+              <button type="button" className="font-medium text-accent-2 hover:underline" onClick={() => unqueue(waiting.map((q) => q.id))}>{t("Cancel all")}</button>
+            </div>
+            <ul className="flex flex-col divide-y divide-border rounded-md border border-border">
+              {shown.map((q) => (
+                <li key={q.id} className="flex items-center gap-2 px-3 py-1.5 text-sm">
+                  <span className="min-w-0 flex-1 truncate">{q.seriesTitle ? `${q.seriesTitle} · ` : ""}{t("Ch.")} {q.number}</span>
+                  <button type="button" aria-label={t("Don't save chapter {number}", { number: q.number })} className="rounded p-1 text-muted hover:bg-panel-2 hover:text-fg" onClick={() => unqueue([q.id])}>
+                    <X className="size-3.5" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+            {waiting.length > shown.length && (
+              <button type="button" className="self-start text-xs font-medium text-accent-2 hover:underline" onClick={() => setAll(true)}>{t("Show all {count}", { count: waiting.length })}</button>
+            )}
+          </div>
+        )}
       </div>
     </Card>
   );
@@ -56,7 +79,8 @@ export function OnDevicePage() {
   const [show, setShow] = useState<Show>("all");
   const all = Object.values(saved);
   const inProgress = all.filter(saving);
-  const counts: Record<Show, number> = { all: all.length, saving: inProgress.length, unread: all.filter((c) => !c.readAt).length, read: all.filter((c) => c.readAt).length };
+  const waiting = useSaveQueue().filter((q) => !saved[q.id]);
+  const counts: Record<Show, number> = { all: all.length + waiting.length, saving: inProgress.length + waiting.length, unread: all.filter((c) => !c.readAt).length, read: all.filter((c) => c.readAt).length };
   const titles = useMemo(() => {
     const by = new Map<number, SavedChapter[]>();
     for (const c of Object.values(saved).filter(shows[show])) by.set(c.seriesId, [...(by.get(c.seriesId) ?? []), c]);
@@ -79,7 +103,7 @@ export function OnDevicePage() {
             <p className="text-sm text-muted">{t("Saving chapters needs the app opened from this server over HTTPS (or on this computer). Open Mangarr again and it will be ready.")}</p>
           </Card>
         )}
-        {inProgress.length > 0 && <SavingNow chapters={inProgress} />}
+        {(inProgress.length > 0 || waiting.length > 0) && <SavingNow chapters={inProgress} waiting={waiting} />}
         <Card>
           <div className="flex flex-col gap-3">
             {usage && usage.quota > 0 && (

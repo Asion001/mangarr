@@ -196,6 +196,88 @@ export async function saveChapterById(id: number, width = deviceWidth()) {
   await saveChapter((await r.json()) as Chapter, "kept", width);
 }
 
+/** A chapter waiting its turn to be saved on purpose. */
+export type QueuedChapter = { id: number; seriesId: number; seriesTitle?: string; number: string };
+
+const QUEUE_KEY = "mangarr.offline.queue";
+
+function readQueue(): QueuedChapter[] {
+  try {
+    return JSON.parse(localStorage.getItem(QUEUE_KEY) || "[]") as QueuedChapter[];
+  } catch {
+    return [];
+  }
+}
+
+let queue: QueuedChapter[] = readQueue();
+
+function writeQueue(next: QueuedChapter[]) {
+  queue = next;
+  try {
+    localStorage.setItem(QUEUE_KEY, JSON.stringify(next));
+  } catch {
+    // the queue then only lasts until the page closes
+  }
+  for (const l of listeners) l();
+}
+
+/** saveQueue is the chapters waiting to be saved, in order. */
+export const saveQueue = (): QueuedChapter[] => queue;
+
+/** useSaveQueue is saveQueue, kept up to date. */
+export const useSaveQueue = () => useSyncExternalStore(subscribe, saveQueue);
+
+let draining = false;
+
+/** drain saves the queued chapters one at a time; a chapter that fails stays queued for the next try. */
+async function drain() {
+  if (draining || !offlineReady()) return;
+  draining = true;
+  try {
+    for (let next = queue[0]; next; next = queue[0]) {
+      try {
+        await saveChapterById(next.id);
+      } catch {
+        return; // no server, or out of space: try again later
+      }
+      writeQueue(queue.filter((q) => q.id !== next.id));
+    }
+  } finally {
+    draining = false;
+  }
+}
+
+/**
+ * queueSave adds chapters to the save queue and starts saving them. Chapters
+ * already saved or already waiting are skipped; it returns how many it added.
+ */
+export function queueSave(chapters: QueuedChapter[]) {
+  const waiting = new Set(queue.map((q) => q.id));
+  const add = chapters.filter((c) => !waiting.has(c.id) && !isSaved(c.id));
+  if (add.length) writeQueue([...queue, ...add]);
+  void drain();
+  return add.length;
+}
+
+/** unqueue takes chapters out of the save queue. */
+export function unqueue(ids: number[]) {
+  const drop = new Set(ids);
+  writeQueue(queue.filter((q) => !drop.has(q.id)));
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("storage", (e) => {
+    if (e.key === QUEUE_KEY) {
+      queue = readQueue();
+      for (const l of listeners) l();
+    }
+  });
+  // what was still waiting when the page closed carries on, once a service worker answers
+  window.addEventListener("online", () => void drain());
+  navigator.serviceWorker?.addEventListener("controllerchange", () => void drain());
+  if (queue.length) setTimeout(() => void drain(), 2000);
+}
+
 /** removeChapter deletes a saved chapter from this device. */
 export async function removeChapter(id: number) {
   patch(id, null);
@@ -205,6 +287,7 @@ export async function removeChapter(id: number) {
 /** removeAll deletes every saved chapter from this device. */
 export async function removeAll() {
   const ids = Object.keys(index).map(Number);
+  writeQueue([]);
   writeIndex({});
   await Promise.all(ids.map((id) => caches.delete(CHAPTER_PREFIX + id).catch(() => false)));
 }

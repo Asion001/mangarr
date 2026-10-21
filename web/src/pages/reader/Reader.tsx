@@ -497,7 +497,8 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
         </div>
       )}
 
-      {!reachable && offlineReady() && <OfflinePill ch={ch} />}
+      {/* only with the bars open: while reading, nothing covers the page */}
+      {bars && !reachable && offlineReady() && <OfflinePill ch={ch} />}
       {!bars && !autoOn && s.showPageNumber && (
         <div className="pointer-events-none fixed bottom-2 left-1/2 z-10 -translate-x-1/2 rounded-full bg-black/60 px-2.5 py-0.5 text-xs tabular-nums text-fg" style={{ marginBottom: "env(safe-area-inset-bottom)" }}>
           {page} / {count}

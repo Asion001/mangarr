@@ -31,7 +31,7 @@ const toggle = (set: Set<number>, id: number) => {
 };
 
 /** nextChapterId is the chapter to read next: the one row with a primary Continue. */
-export function ChaptersTable({ seriesId, manage = true, nextChapterId, editions = [] }: { seriesId: number; manage?: boolean; nextChapterId?: number; editions?: S["EditionSummary"][] }) {
+export function ChaptersTable({ seriesId, seriesTitle, manage = true, nextChapterId, editions = [] }: { seriesId: number; seriesTitle?: string; manage?: boolean; nextChapterId?: number; editions?: S["EditionSummary"][] }) {
   const { data, isLoading, error } = useChapters(seriesId);
   const borrow = useUIOption("otherLanguageChapters", true) && editions.length > 1;
   // same query as the sidebar's queue count, so no extra request
@@ -129,7 +129,7 @@ export function ChaptersTable({ seriesId, manage = true, nextChapterId, editions
           ) : manage && list.length > 0 && (
             <Button size="sm" variant="ghost" onClick={() => setSelected(new Set(list.map((chapter) => chapter.id)))}>{t("Select all {count}", { count: list.length })}</Button>
           )}
-          {sel.length === 0 && data && <SaveSeriesMenu {...saveable(data)} />}
+          {sel.length === 0 && data && <SaveSeriesMenu {...saveable(data, seriesTitle)} />}
           {sel.length === 0 && <select
             className="rounded-md border border-border bg-bg bg-size-[0.875rem] bg-position-[right_0.5rem_center] py-1 pl-2 pr-7 text-xs"
             value={filter}
@@ -245,7 +245,7 @@ export function ChaptersTable({ seriesId, manage = true, nextChapterId, editions
           )}
           <Button size="sm" disabled={currentPage <= 1} onClick={() => goToPage(currentPage - 1)}>{t("Previous")}</Button>
           <Button size="sm" disabled={currentPage >= pages} onClick={() => goToPage(currentPage + 1)}>{t("Next")}</Button>
-          {data && <SaveSeriesMenu {...saveable(data)} />}
+          {data && <SaveSeriesMenu {...saveable(data, seriesTitle)} />}
           <select
             className="rounded-md border border-border bg-bg bg-size-[0.875rem] bg-position-[right_0.5rem_center] py-1 pl-2 pr-7 text-xs"
             aria-label={t("per page")}
@@ -262,6 +262,7 @@ export function ChaptersTable({ seriesId, manage = true, nextChapterId, editions
       {manage && sel.length > 0 && (
         <ChapterSelectionBar
           chapters={list.filter((chapter) => selected.has(chapter.id))}
+          seriesTitle={seriesTitle}
           deletes={deletes}
           queues={queues}
           actions={{ monitor, search, process, markMany, queueBulk, deleteFiles: setDeleteIds }}
@@ -293,8 +294,9 @@ export function ChaptersTable({ seriesId, manage = true, nextChapterId, editions
 }
 
 /** saveable is the chapters that can be saved on the device, in reading order, and which of them are unread. */
-function saveable(chapters: Chapter[]) {
+function saveable(chapters: Chapter[], seriesTitle?: string) {
   const list = chapters.filter(readable).sort((a, b) => Number(a.number) - Number(b.number) || a.id - b.id);
   const read = (c: Chapter) => c.readBy.length > 0 && c.readBy.every((r) => r.completed);
-  return { unread: list.filter((c) => !read(c)).map((c) => c.id), all: list.map((c) => c.id) };
+  const queued = (c: Chapter) => ({ id: c.id, seriesId: c.seriesId, seriesTitle, number: c.number });
+  return { unread: list.filter((c) => !read(c)).map(queued), all: list.map(queued) };
 }
