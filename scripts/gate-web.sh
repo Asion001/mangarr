@@ -18,7 +18,7 @@ if command -v npm >/dev/null 2>&1; then
   CI=1 sh -ec "$steps"
 else
   # the image's Playwright must match web/package-lock.json
-  image=${PLAYWRIGHT_IMAGE:-mcr.microsoft.com/playwright:v1.63.0-noble}
+  image=${PLAYWRIGHT_IMAGE:-mcr.microsoft.com/playwright:v1.64.0-noble}
   docker run --rm -v "$PWD:/app" -v mangarr-web-node-modules:/app/node_modules \
     -w /app -e CI=1 "$image" sh -ec "$steps"
 fi
