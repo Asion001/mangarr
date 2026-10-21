@@ -17,8 +17,22 @@ export function canFullscreen() {
  */
 export function needsHomeScreen() {
   if (canFullscreen()) return false;
-  const standalone = matchMedia("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
-  return !standalone && /iPhone|iPod/.test(navigator.userAgent);
+  return !isStandalone() && /iPhone|iPod/.test(navigator.userAgent);
+}
+
+/** isStandalone says the app was opened from the Home Screen, with no browser bars around it. */
+export function isStandalone() {
+  return matchMedia("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
+}
+
+/**
+ * pageScrolls says the webtoon strip scrolls the page itself rather than a box
+ * inside it. In a browser tab that's what lets a phone browser shrink its
+ * address bar and toolbar while you read. A home screen app has no bars to
+ * shrink, and its page doesn't scroll there (#root does, see index.css).
+ */
+export function pageScrolls() {
+  return !isStandalone();
 }
 
 function isFullscreen() {

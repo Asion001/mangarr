@@ -61,7 +61,8 @@ test("webtoon page down scrolls as far as the setting says", async ({ page }) =>
 
   await page.goto("/read/1");
   await expect(page.locator('[data-page="1"]')).toBeVisible();
-  const scroller = page.locator(".overflow-y-auto").first();
+  // in a browser tab the strip scrolls the page itself
+  const scroller = page.locator("html");
   await page.keyboard.press("PageDown");
   await expect.poll(() => scroller.evaluate((el) => Math.round(el.scrollTop / el.clientHeight * 100))).toBe(50);
 });

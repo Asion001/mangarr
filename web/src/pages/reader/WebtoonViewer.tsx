@@ -9,9 +9,15 @@ import { displayWidth, imageWidth, PageImage, pageUrl, placeholderUrl, useDims, 
 import { widen } from "./preload";
 import { chapterQuery } from "./query";
 import { scrollToTop } from "../../lib/scroll";
+import { pageScrolls } from "./fullscreen";
 
 type Chapter = S["ReadChapter"];
 type ChapterLink = NonNullable<Chapter["next"]>;
+
+/** scrollBox is what scrolls the strip: the page itself, or the strip's own box. */
+function scrollBox(strip: HTMLElement, page: boolean) {
+  return page ? (document.scrollingElement as HTMLElement) : strip;
+}
 
 const label = (c: { number: string; title?: string }) => `${t("Ch.")} ${c.number}${c.title && c.title !== c.number && !c.title.endsWith(c.number) ? ` · ${c.title}` : ""}`;
 
@@ -54,6 +60,7 @@ export function WebtoonViewer({
   const [startId] = useState(chapterId);
   const first = useQuery(chapterQuery(startId)).data;
   const scroller = useRef<HTMLDivElement>(null);
+  const [pageScroll] = useState(pageScrolls);
   const items = useRef<(HTMLDivElement | null)[]>([]);
   const observer = useRef<IntersectionObserver | null>(null);
   // the chapters after the first, added as the reader gets near them
@@ -88,7 +95,7 @@ export function WebtoonViewer({
           return next;
         });
       },
-      { root, rootMargin: `${s.aheadScreens * 100}% 0px` },
+      { root: pageScroll ? null : root, rootMargin: `${s.aheadScreens * 100}% 0px` },
     );
     observer.current = io;
     items.current.forEach((el) => el && io.observe(el));
@@ -96,7 +103,7 @@ export function WebtoonViewer({
       io.disconnect();
       observer.current = null;
     };
-  }, [ahead, first, s.aheadScreens]);
+  }, [ahead, first, s.aheadScreens, pageScroll]);
   const register = useCallback((k: number, el: HTMLDivElement | null) => {
     items.current[k - 1] = el;
     if (el) observer.current?.observe(el);
@@ -128,15 +135,20 @@ export function WebtoonViewer({
   useEffect(() => {
     if (!first) return;
     const el = items.current[startPage - 1];
-    if (el && startPage > 1) scrollToTop(el);
+    if (pageScroll) {
+      // the page may still be scrolled from the chapter before
+      const box = document.scrollingElement as HTMLElement;
+      box.scrollTop = 0;
+      if (el && startPage > 1) box.scrollTop = el.getBoundingClientRect().top;
+    } else if (el && startPage > 1) scrollToTop(el);
     current.current = startPage;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [!!first]);
 
   // the page at the top third of the screen is the current one
   useEffect(() => {
-    const root = scroller.current;
-    if (!root) return;
+    if (!scroller.current) return;
+    const root = scrollBox(scroller.current, pageScroll);
     let raf = 0;
     const set = (k: number) => {
       const at = stripRef.current[k - 1];
@@ -148,7 +160,7 @@ export function WebtoonViewer({
     const on = () => {
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
-        const line = root.getBoundingClientRect().top + root.clientHeight / 3;
+        const line = (pageScroll ? 0 : root.getBoundingClientRect().top) + root.clientHeight / 3;
         for (let i = 0; i < stripRef.current.length; i++) {
           const r = items.current[i]?.getBoundingClientRect();
           if (r && r.top <= line && r.bottom > line) {
@@ -160,9 +172,10 @@ export function WebtoonViewer({
         if (root.scrollTop + root.clientHeight >= root.scrollHeight - 2) set(stripRef.current.length);
       });
     };
-    root.addEventListener("scroll", on, { passive: true });
-    return () => root.removeEventListener("scroll", on);
-  }, [onPage, ahead, first]);
+    const target = pageScroll ? window : root;
+    target.addEventListener("scroll", on, { passive: true });
+    return () => target.removeEventListener("scroll", on);
+  }, [onPage, ahead, first, pageScroll]);
 
   // Auto scroll moves the strip a little every frame. A finger or the
   // wheel on the strip holds it while you scroll by hand, and it carries
@@ -172,8 +185,9 @@ export function WebtoonViewer({
   const autoEnd = useRef(onAutoScrollEnd);
   autoEnd.current = onAutoScrollEnd;
   useEffect(() => {
-    const root = scroller.current;
-    if (!autoScroll || !root) return;
+    const el = scroller.current;
+    if (!autoScroll || !el) return;
+    const root = scrollBox(el, pageScroll);
     let raf = 0;
     let prev = 0;
     let at = root.scrollTop;
@@ -202,24 +216,24 @@ export function WebtoonViewer({
       root.scrollTop = at;
     };
     raf = requestAnimationFrame(frame);
-    root.addEventListener("pointerdown", down);
+    el.addEventListener("pointerdown", down);
     window.addEventListener("pointerup", up);
     window.addEventListener("pointercancel", up);
-    root.addEventListener("wheel", hold, { passive: true });
+    el.addEventListener("wheel", hold, { passive: true });
     return () => {
       cancelAnimationFrame(raf);
-      root.removeEventListener("pointerdown", down);
+      el.removeEventListener("pointerdown", down);
       window.removeEventListener("pointerup", up);
       window.removeEventListener("pointercancel", up);
-      root.removeEventListener("wheel", hold);
+      el.removeEventListener("wheel", hold);
     };
-  }, [autoScroll, speed, lastChapterDone, first]);
+  }, [autoScroll, speed, lastChapterDone, first, pageScroll]);
 
   // keys scroll by most of a screen
   useEffect(() => {
     const on = (e: KeyboardEvent) => {
-      const root = scroller.current;
-      if (!root || e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
+      if (!scroller.current || e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
+      const root = scrollBox(scroller.current, pageScroll);
       const step = root.clientHeight * s.tapScroll;
       const nudge = root.clientHeight * 0.3;
       const by: Record<string, number> = { ArrowDown: nudge, ArrowUp: -nudge, PageDown: step, PageUp: -step, " ": e.shiftKey ? -step : step };
@@ -231,12 +245,12 @@ export function WebtoonViewer({
     };
     window.addEventListener("keydown", on);
     return () => window.removeEventListener("keydown", on);
-  }, [s.tapScroll]);
+  }, [s.tapScroll, pageScroll]);
 
   const onClick = (e: React.MouseEvent) => {
     if ((window.visualViewport?.scale ?? 1) > 1.05) return;
     const a = tapAction(e.clientX / vp.w, e.clientY / vp.h, s);
-    const root = scroller.current;
+    const root = scroller.current && scrollBox(scroller.current, pageScroll);
     if (a === "menu" || !root) onMenu();
     // at the very end of the last chapter, a page turn leaves like the paged reader does
     else if (a === "next" && root.scrollTop + root.clientHeight >= root.scrollHeight - 2) onChapter("next");
@@ -246,7 +260,7 @@ export function WebtoonViewer({
   if (!first) return null;
   let offset = 0;
   return (
-    <div ref={scroller} className="h-full w-full overflow-y-auto overflow-x-hidden" onClick={onClick} style={{ touchAction: "pan-y pinch-zoom" }}>
+    <div ref={scroller} className={pageScroll ? "w-full overflow-x-clip" : "h-full w-full overflow-y-auto overflow-x-hidden"} onClick={onClick} style={{ touchAction: "pan-y pinch-zoom" }}>
       <div className="mx-auto flex flex-col items-center" style={{ width }}>
         {first.prev && (
           <div className="w-full py-6 text-center text-sm text-muted">
