@@ -29,7 +29,8 @@ test("webtoon auto scroll runs from the bottom bar, pauses and changes speed", a
   const saved = await mock(page, { autoScrollSpeed: 10 }, 10);
   await page.goto("/read/1");
   await expect(page.locator('[data-page="1"]')).toBeVisible();
-  const scroller = page.locator(".overflow-y-auto").first();
+  // in a browser tab the strip scrolls the page itself
+  const scroller = page.locator("html");
 
   await page.getByRole("button", { name: "Start auto scroll" }).click();
   await expect.poll(() => scroller.evaluate((el) => el.scrollTop)).toBeGreaterThan(200);
@@ -50,7 +51,8 @@ test("webtoon auto scroll starts on open when set, and stops at the end", async 
   await page.setViewportSize({ width: 400, height: 700 });
   await mock(page, { autoScrollSpeed: 10, autoScrollOnOpen: true }, 2);
   await page.goto("/read/1");
-  const scroller = page.locator(".overflow-y-auto").first();
+  // in a browser tab the strip scrolls the page itself
+  const scroller = page.locator("html");
   await expect.poll(() => scroller.evaluate((el) => el.scrollTop + el.clientHeight >= el.scrollHeight - 2), { timeout: 15_000 }).toBe(true);
   // at the end it switches itself off
   await expect(page.getByRole("button", { name: "Start auto scroll" })).toBeAttached();

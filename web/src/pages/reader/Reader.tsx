@@ -22,8 +22,9 @@ import { isSaved, markRead, nearestSaved, offlineReady, saveWidth, savedChapters
 import { useReachable } from "../../lib/offline/connection";
 import { DeviceIcon } from "../../components/OnDevice";
 import { TapZones } from "./TapZones";
-import { canFullscreen, needsHomeScreen, toggleFullscreen as toggleFull, useFullscreen } from "./fullscreen";
+import { canFullscreen, needsHomeScreen, pageScrolls, toggleFullscreen as toggleFull, useFullscreen } from "./fullscreen";
 import { useToast } from "../../lib/toast";
+import { themeColor } from "../../lib/theme";
 
 /** ReaderPage is the full-screen web reader (/read/:id). */
 export function ReaderPage() {
@@ -319,6 +320,7 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
   }, [panel, ch, navigate, goChapter, webtoon, speedBy]);
 
   const bg = s.background === "white" ? "bg-white" : s.background === "gray" ? "bg-reader-gray" : "bg-black";
+  useBrowserChrome(s.background === "white" ? "#ffffff" : s.background === "gray" ? "#3f3f46" : "#000000");
   if (error) {
     return (
       <div className="flex h-dvh flex-col items-center justify-center gap-4 bg-black p-6 text-fg">
@@ -338,7 +340,7 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
   const sliderIndex = Math.min(Math.max(index, 1), pageViews);
 
   return (
-    <div className={clsx("fixed inset-0 select-none overflow-hidden", bg)}>
+    <div className={clsx("select-none", s.mode === "webtoon" && pageScrolls() ? "relative min-h-full" : "fixed inset-0 overflow-hidden", bg)}>
       {s.mode === "webtoon" ? (
         <WebtoonViewer
           chapterId={ch.id}
@@ -370,7 +372,7 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
       {/* top bar */}
       <div
         className={clsx(
-          "absolute inset-x-0 top-0 z-20 flex items-center gap-2 bg-bg/90 px-2 py-2 text-fg backdrop-blur transition-transform",
+          "fixed inset-x-0 top-0 z-20 flex items-center gap-2 bg-bg/90 px-2 py-2 text-fg backdrop-blur transition-transform",
           bars ? "translate-y-0" : "-translate-y-full",
         )}
         style={{ paddingTop: "max(0.5rem, var(--safe-top))", paddingLeft: "max(0.5rem, env(safe-area-inset-left))", paddingRight: "max(0.5rem, env(safe-area-inset-right))" }}
@@ -417,7 +419,7 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
       {/* bottom bar */}
       <div
         className={clsx(
-          "absolute inset-x-0 bottom-0 z-20 flex items-center gap-2 bg-bg/90 px-2 py-2 text-fg backdrop-blur transition-transform",
+          "fixed inset-x-0 bottom-0 z-20 flex items-center gap-2 bg-bg/90 px-2 py-2 text-fg backdrop-blur transition-transform",
           bars ? "translate-y-0" : "translate-y-full",
         )}
         style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))", paddingLeft: "max(0.5rem, env(safe-area-inset-left))", paddingRight: "max(0.5rem, env(safe-area-inset-right))" }}
@@ -473,7 +475,7 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
 
       {!bars && autoOn && (
         <div
-          className="absolute bottom-2 left-1/2 z-10 flex h-11 -translate-x-1/2 items-center gap-0.5 whitespace-nowrap rounded-full bg-black/70 pl-1 pr-3 text-fg"
+          className="fixed bottom-2 left-1/2 z-10 flex h-11 -translate-x-1/2 items-center gap-0.5 whitespace-nowrap rounded-full bg-black/70 pl-1 pr-3 text-fg"
           style={{ marginBottom: "env(safe-area-inset-bottom)" }}
           role="group"
           aria-label={t("Auto scroll")}
@@ -497,7 +499,7 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
 
       {!reachable && offlineReady() && <OfflinePill ch={ch} />}
       {!bars && !autoOn && s.showPageNumber && (
-        <div className="pointer-events-none absolute bottom-2 left-1/2 z-10 -translate-x-1/2 rounded-full bg-black/60 px-2.5 py-0.5 text-xs tabular-nums text-fg" style={{ marginBottom: "env(safe-area-inset-bottom)" }}>
+        <div className="pointer-events-none fixed bottom-2 left-1/2 z-10 -translate-x-1/2 rounded-full bg-black/60 px-2.5 py-0.5 text-xs tabular-nums text-fg" style={{ marginBottom: "env(safe-area-inset-bottom)" }}>
           {page} / {count}
         </div>
       )}
@@ -505,7 +507,7 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
       {!bars && !full && s.quickFullscreen && canFullscreen() && (
         <button
           type="button"
-          className="absolute bottom-2 right-2 z-10 rounded-full bg-black/50 p-2 text-fg/80 hover:bg-black/70 hover:text-fg"
+          className="fixed bottom-2 right-2 z-10 rounded-full bg-black/50 p-2 text-fg/80 hover:bg-black/70 hover:text-fg"
           style={{ marginBottom: "env(safe-area-inset-bottom)", marginRight: "env(safe-area-inset-right)" }}
           onClick={(e) => {
             e.stopPropagation();
@@ -533,6 +535,29 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
       )}
     </div>
   );
+}
+
+/**
+ * useBrowserChrome paints the page behind the reader, and the browser's own
+ * bars, in the reader's background while it's open: on a phone the status bar
+ * and the toolbar around the pages turn black instead of the app's color.
+ * Safari takes the page's color, other browsers the theme color. It also stops
+ * a pull down at the top of the strip from reloading the page.
+ */
+function useBrowserChrome(color: string) {
+  useEffect(() => {
+    const root = document.documentElement;
+    const meta = document.querySelector('meta[name="theme-color"]');
+    root.style.backgroundColor = document.body.style.backgroundColor = color;
+    root.style.overscrollBehaviorY = "none";
+    meta?.setAttribute("content", color);
+    return () => {
+      root.style.backgroundColor = document.body.style.backgroundColor = "";
+      root.style.overscrollBehaviorY = "";
+      // the app's colour now: the theme may have followed the system while reading
+      meta?.setAttribute("content", themeColor(root.classList.contains("light") ? "light" : "dark"));
+    };
+  }, [color]);
 }
 
 /** AutoSpeed is the auto scroll speed with a button either side. */

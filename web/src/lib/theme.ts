@@ -83,5 +83,8 @@ export function applyAppearance(theme: Theme, accent: string) {
     if (set) root.style.setProperty(v, set[v]);
     else root.style.removeProperty(v);
   }
-  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", mode === "dark" ? "#0f1115" : "#f6f7f9");
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", themeColor(mode));
 }
+
+/** themeColor is the browser bars' colour for the app in a mode. */
+export const themeColor = (mode: "dark" | "light") => (mode === "dark" ? "#0f1115" : "#f6f7f9");

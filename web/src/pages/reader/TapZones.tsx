@@ -30,7 +30,7 @@ export function TapZones({ s }: { s: ReaderSettings }) {
   const name: Record<TapAction, string> = { prev: t("Previous"), next: t("Next"), menu: t("Menu") };
   return (
     // taps go through to the reader underneath
-    <div data-testid="tap-zones" className="pointer-events-none absolute inset-0 z-10" aria-hidden="true">
+    <div data-testid="tap-zones" className="pointer-events-none fixed inset-0 z-10" aria-hidden="true">
       <svg className="size-full" viewBox={`0 0 ${N} ${N}`} preserveAspectRatio="none" shapeRendering="crispEdges">
         {cells.map((a, i) => (
           <rect key={i} x={i % N} y={Math.floor(i / N)} width={1} height={1} className={colour[a]} />
