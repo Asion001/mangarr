@@ -12,7 +12,8 @@ import { useAccount } from "../../lib/account";
 import { scrollToTop } from "../../lib/scroll";
 import { RecycledDrawer, ReprocessModal, VersionsModal } from "../system/RecycleDialogs";
 import type { Recycled } from "../system/recycle";
-import { ChapterMobileRow, ChapterRow, deletableFile } from "./ChapterRows";
+import { ChapterMobileRow, ChapterRow, deletableFile, readable } from "./ChapterRows";
+import { SaveSeriesMenu } from "../../components/OnDevice";
 import { DecisionModal } from "./ChapterDecision";
 import { useChapterActions, type QueueAction } from "./useChapterActions";
 
@@ -135,6 +136,7 @@ export function ChaptersTable({ seriesId, manage = true, nextChapterId, editions
           {manage && list.length > 0 && sel.length < list.length && (
             <Button size="sm" variant="ghost" onClick={() => setSelected(new Set(list.map((chapter) => chapter.id)))}>{t("Select all {count}", { count: list.length })}</Button>
           )}
+          {data && <SaveSeriesMenu {...saveable(data)} />}
           <select
             className="rounded-md border border-border bg-bg bg-size-[0.875rem] bg-position-[right_0.5rem_center] py-1 pl-2 pr-7 text-xs"
             value={filter}
@@ -236,6 +238,7 @@ export function ChaptersTable({ seriesId, manage = true, nextChapterId, editions
           </span>
           <Button size="sm" disabled={currentPage <= 1} onClick={() => goToPage(currentPage - 1)}>{t("Previous")}</Button>
           <Button size="sm" disabled={currentPage >= pages} onClick={() => goToPage(currentPage + 1)}>{t("Next")}</Button>
+          {data && <SaveSeriesMenu {...saveable(data)} />}
           <select
             className="rounded-md border border-border bg-bg bg-size-[0.875rem] bg-position-[right_0.5rem_center] py-1 pl-2 pr-7 text-xs"
             aria-label={t("per page")}
@@ -272,4 +275,11 @@ export function ChaptersTable({ seriesId, manage = true, nextChapterId, editions
       />
     </Card>
   );
+}
+
+/** saveable is the chapters that can be saved on the device, in reading order, and which of them are unread. */
+function saveable(chapters: Chapter[]) {
+  const list = chapters.filter(readable).sort((a, b) => Number(a.number) - Number(b.number) || a.id - b.id);
+  const read = (c: Chapter) => c.readBy.length > 0 && c.readBy.every((r) => r.completed);
+  return { unread: list.filter((c) => !read(c)).map((c) => c.id), all: list.map((c) => c.id) };
 }

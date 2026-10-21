@@ -1,7 +1,7 @@
 import createClient, { type Middleware } from "openapi-fetch";
 import type { components, paths } from "./schema";
 import { getLocale, t } from "../lib/i18n/core";
-import { checkServer, serverAnswered, serverGone, setPingUrl } from "../lib/connection";
+import { checkServer, fromServer, serverAnswered, serverGone, setPingUrl } from "../lib/connection";
 
 /** Path prefix when mangarr runs under a URL base (from <base href>). */
 export const basePath = new URL(document.baseURI).pathname.replace(/\/$/, "");
@@ -43,7 +43,7 @@ const restarts: Middleware = {
     // a proxy's 502-504 can also be a slow request timing out: only a /ping
     // that fails too means mangarr is gone
     if (proxyGap(response)) void checkServer();
-    else serverAnswered();
+    else if (fromServer(response)) serverAnswered();
     return response;
   },
   onError({ error }) {

@@ -33,6 +33,8 @@ export type ReaderSettings = {
   autoScrollSpeed: number;
   /** Webtoon: start auto scrolling when a chapter opens. */
   autoScrollOnOpen: boolean;
+  /** Chapters after the open one kept saved on this device while reading (the open one is always saved). */
+  saveAhead: number;
   keepAwake: boolean;
   /** Go on to the next chapter at the end. */
   autoNext: boolean;
@@ -61,6 +63,7 @@ export const DEFAULTS: ReaderSettings = {
   tapScroll: 0.85,
   autoScrollSpeed: 4,
   autoScrollOnOpen: false,
+  saveAhead: 3,
   keepAwake: true,
   autoNext: true,
   showPageNumber: true,
