@@ -32,11 +32,19 @@ var webSafe = map[string]bool{"jpeg": true, "png": true, "gif": true}
 // as tall). Small web-safe images that fit are returned unchanged, and so is
 // anything that can't be decoded. changed reports whether data was replaced.
 func Normalize(data []byte, maxWidth, quality int) (out []byte, contentType string, changed bool) {
+	return Fit(data, maxWidth, maxWidth*2, quality)
+}
+
+// Fit is Normalize with its own height limit; 0 leaves the height free, so a
+// tall page (a webtoon strip) keeps the width it was asked for.
+func Fit(data []byte, maxWidth, maxHeight, quality int) (out []byte, contentType string, changed bool) {
 	cfg, format, err := image.DecodeConfig(bytes.NewReader(data))
 	if err != nil || cfg.Width <= 0 || cfg.Height <= 0 || cfg.Width*cfg.Height > maxPixels {
 		return data, "", false
 	}
-	maxHeight := maxWidth * 2
+	if maxHeight <= 0 {
+		maxHeight = cfg.Height
+	}
 	fits := cfg.Width <= maxWidth && cfg.Height <= maxHeight
 	if fits && webSafe[format] && len(data) <= KeepBelow {
 		return data, "image/" + format, false

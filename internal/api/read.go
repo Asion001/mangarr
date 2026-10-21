@@ -532,7 +532,9 @@ func variantETag(etag string, width int) string {
 	if width == 0 {
 		return etag
 	}
-	return strings.TrimSuffix(etag, `"`) + fmt.Sprintf(`-w%d"`, width)
+	// h0 matches the copies' cache key (internal/imagedeliver): copies made
+	// before they kept their full height had other bytes under -w<width>
+	return strings.TrimSuffix(etag, `"`) + fmt.Sprintf(`-w%dh0"`, width)
 }
 
 // notModified tells the browser its copy of an image is still good.

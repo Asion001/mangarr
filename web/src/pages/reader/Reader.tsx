@@ -9,9 +9,9 @@ import { ApiError, apiUrl, basePath, proxyGap, type S } from "../../api/client";
 import { fromServer, onServerBack, serverAnswered, serverGone, unreachable } from "../../lib/connection";
 import { ErrorBox, Spinner } from "../../components/ui";
 import { AUTO_SCROLL_MAX, AUTO_SCROLL_MIN, useReaderSettings } from "./settings";
-import { displayWidth, pageUrl, useDims, useViewport, widths, type Half } from "./page";
+import { useDims, useViewport, widths, type Half } from "./page";
 import { chapterQuery } from "./query";
-import { buildViews, indexOf, pageLayout, PagedViewer } from "./PagedViewer";
+import { buildViews, indexOf, pageSrc, PagedViewer } from "./PagedViewer";
 import { WebtoonViewer } from "./WebtoonViewer";
 import { SettingsPanel } from "./SettingsPanel";
 import { ChapterPicker } from "./ChapterPicker";
@@ -134,7 +134,7 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
   const imagePreloads = useMemo(() => {
     if (!ch || s.mode !== "paged") return { load: [] as string[], retain: [] as string[] };
     const retain = view && "pages" in view
-      ? view.pages.map((p) => pageUrl(ch.id, p, displayWidth(pageLayout(p, view, dims, s, vp).w)))
+      ? view.pages.map((p) => pageSrc(ch.id, p, view, dims, s, vp))
       : [];
     const load: string[] = [];
     const seen = new Set(retain);
@@ -142,7 +142,7 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
       const candidate = views[i];
       if (!("pages" in candidate)) continue;
       for (const p of candidate.pages) {
-        const url = pageUrl(ch.id, p, displayWidth(pageLayout(p, candidate, dims, s, vp).w));
+        const url = pageSrc(ch.id, p, candidate, dims, s, vp);
         if (!seen.has(url)) {
           seen.add(url);
           load.push(url);
@@ -156,7 +156,7 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
       const nextViews = buildViews(3, {}, s, vp.w > vp.h);
       for (const v of nextViews) {
         if (!("pages" in v)) continue;
-        for (const p of v.pages) if (p <= 2) load.push(pageUrl(ch.next.id, p, displayWidth(pageLayout(p, v, {}, s, vp).w)));
+        for (const p of v.pages) if (p <= 2) load.push(pageSrc(ch.next.id, p, v, {}, s, vp));
       }
     }
     return { load, retain };

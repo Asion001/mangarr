@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { S } from "../../api/client";
 import { autoScrollPxPerSecond, type ReaderSettings } from "./settings";
 import { tapAction } from "./zones";
-import { displayWidth, PageImage, pageUrl, placeholderUrl, useDims, useViewport } from "./page";
+import { displayWidth, imageWidth, PageImage, pageUrl, placeholderUrl, useDims, useViewport } from "./page";
 import { widen } from "./preload";
 import { chapterQuery } from "./query";
 import { scrollToTop } from "../../lib/scroll";
@@ -335,7 +335,7 @@ function Segment({
                 until the page is almost on screen */}
             {near.has(k) ? (
               <PageImage
-                src={pageUrl(chapter.id, p.number, displayWidth(width))}
+                src={pageUrl(chapter.id, p.number, displayWidth(imageWidth(width, d, s.crop, true)))}
                 placeholder={placeholderUrl(chapter.id, p.number)}
                 dims={d}
                 crop={s.crop}

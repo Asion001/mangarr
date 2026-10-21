@@ -17,6 +17,13 @@ export function displayWidth(cssWidth: number): number {
   return widths.find((w) => want <= w) ?? 0; // 0: the page as it is
 }
 
+/** imageWidth is how wide (CSS px) the whole image is drawn when only a box of
+ * it, the cropped part or one half, fills the given width. */
+export function imageWidth(cssWidth: number, d: Dims | undefined, crop: boolean, sidesOnly = false, half?: Half) {
+  const box = crop || half ? boxOf(d, crop, sidesOnly, half) : null;
+  return box && d && box.w > 0 ? (cssWidth * d.width) / box.w : cssWidth;
+}
+
 /** Signed page links of the chapters opened, when a CDN may cache images. */
 const pageBases = new Map<number, string>();
 export function rememberPageBase(chapterId: number, base?: string) {
