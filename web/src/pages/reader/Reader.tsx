@@ -5,7 +5,8 @@ import { Link, useLocation, useNavigate, useParams, useSearchParams } from "reac
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ChevronLeft, ChevronRight, Download, List, Maximize, Minimize, Minus, Pause, Play, Plus, Settings2 } from "lucide-react";
 import clsx from "clsx";
-import { apiUrl, basePath, type S } from "../../api/client";
+import { ApiError, apiUrl, basePath, proxyGap, type S } from "../../api/client";
+import { onServerBack, serverAnswered, serverGone, unreachable } from "../../lib/connection";
 import { ErrorBox, Spinner } from "../../components/ui";
 import { AUTO_SCROLL_MAX, AUTO_SCROLL_MIN, useReaderSettings } from "./settings";
 import { displayWidth, pageUrl, useDims, useViewport, type Half } from "./page";
@@ -171,11 +172,21 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ page: p }),
       keepalive: true,
-    }).then(() => {
+    }).then((r) => {
+      if (!r.ok) throw new ApiError(r.status, r.statusText, proxyGap(r));
+      serverAnswered();
       qc.invalidateQueries({ queryKey: ["readers"] });
       qc.invalidateQueries({ queryKey: ["series"] });
+    }).catch((e) => {
+      // not saved (mangarr restarting): send it again once it's back,
+      // unless a later page was saved meanwhile
+      if (!unreachable(e)) return;
+      serverGone();
+      if (saved.current === p) saved.current = 0;
+      if (!pending.current) pending.current = p;
     });
   }, [ch, qc]);
+  useEffect(() => onServerBack(flush), [flush]);
   useEffect(() => {
     if (!ch || !page || !pos) return;
     pending.current = page;

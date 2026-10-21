@@ -8,13 +8,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"runtime/debug"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -124,12 +124,9 @@ func run() error {
 		return err
 	}
 
-	// Request contexts derive from ctx so long-lived SSE streams end on SIGTERM
-	// instead of holding Shutdown until its timeout.
 	// h2c: a reverse proxy in front (which is where TLS lives) can then speak
 	// HTTP/2 to us and multiplex a reader's page requests over one connection.
-	srv := &http.Server{Addr: cfg.Listen, Handler: h2c.NewHandler(api.New(a), &http2.Server{}), ReadHeaderTimeout: 10 * time.Second,
-		BaseContext: func(net.Listener) context.Context { return ctx }}
+	srv := &http.Server{Addr: cfg.Listen, Handler: h2c.NewHandler(endStreamsOn(ctx, api.New(a)), &http2.Server{}), ReadHeaderTimeout: 10 * time.Second}
 	errCh := make(chan error, 1)
 	go func() { errCh <- srv.ListenAndServe() }()
 	log.Info("http server listening", "addr", cfg.Listen)
@@ -146,15 +143,42 @@ func run() error {
 		}
 	}
 	log.Info("shutting down")
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	// Pages and answers already being sent get a moment to finish, so a
+	// reader mid-chapter doesn't see broken images; then the rest are cut.
+	// Short enough to leave the app time to close within docker's 10 s.
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	if err := srv.Shutdown(shutdownCtx); err != nil && !restart {
-		return err
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		_ = srv.Close()
+		if !restart && !errors.Is(err, context.DeadlineExceeded) {
+			return err
+		}
 	}
 	if restart {
 		return errRestart
 	}
 	return nil
+}
+
+// endStreamsOn ends requests that stay open (the live event streams, a
+// worker waiting for work) once ctx is done, so shutting down doesn't wait
+// on them; every other request keeps going until it has its answer.
+func endStreamsOn(ctx context.Context, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !longLived(r) {
+			next.ServeHTTP(w, r)
+			return
+		}
+		rctx, cancel := context.WithCancel(r.Context())
+		defer cancel()
+		defer context.AfterFunc(ctx, cancel)()
+		next.ServeHTTP(w, r.WithContext(rctx))
+	})
+}
+
+func longLived(r *http.Request) bool {
+	return strings.Contains(r.Header.Get("Accept"), "text/event-stream") ||
+		strings.HasSuffix(r.URL.Path, "/events") || strings.HasSuffix(r.URL.Path, "/worker/lease")
 }
 
 // keepCrashes copies what the Go runtime prints when the process dies (a

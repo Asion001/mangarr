@@ -3,11 +3,61 @@ import { Component, Suspense, type ErrorInfo, type ReactNode } from "react";
 import { useLocation } from "react-router";
 import { RefreshCw, RotateCcw } from "lucide-react";
 import { Button, Loading } from "./ui";
+import { checkServer, isServerDown, onServerBack } from "../lib/connection";
 
 /** A lazily loaded page whose file is gone: the server was updated since this tab loaded. */
 export function isStaleChunk(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
   return /dynamically imported module|Importing a module script failed|error loading dynamically imported|Failed to fetch dynamically/i.test(message);
+}
+
+/** chunkUrl is the file a failed page load names (where the browser says it). */
+export function chunkUrl(error: unknown): string | undefined {
+  const message = error instanceof Error ? error.message : String(error);
+  return /(https?:\/\/\S+?\.js)\b/.exec(message)?.[1];
+}
+
+/**
+ * retryWhenBack loads a page's code again once mangarr answers, when it
+ * failed because mangarr was restarting. The browser remembers a failed
+ * load, so the file is asked for under a fresh address. When mangarr answers
+ * and the file is still missing it was updated, and the page offers a reload.
+ */
+export async function retryWhenBack<M, T>(load: () => Promise<M>, pick: (m: M) => T): Promise<T> {
+  try {
+    return pick(await load());
+  } catch (e) {
+    const url = chunkUrl(e);
+    if (!isStaleChunk(e) || !url) throw e;
+    await checkServer();
+    if (!isServerDown()) throw e;
+    await new Promise<void>((resolve) => {
+      const off = onServerBack(() => {
+        off();
+        resolve();
+      });
+    });
+    try {
+      return pick(await import(/* @vite-ignore */ `${url}?retry=${Date.now()}`));
+    } catch (again) {
+      // a file it needs failed too, and the browser remembers that: start
+      // the app afresh (once a minute at most, should it keep failing)
+      if (reloadOnce()) await new Promise(() => undefined);
+      throw again;
+    }
+  }
+}
+
+function reloadOnce(): boolean {
+  try {
+    const last = Number(sessionStorage.getItem("mangarr:chunk-reload") ?? 0);
+    if (Date.now() - last < 60_000) return false;
+    sessionStorage.setItem("mangarr:chunk-reload", String(Date.now()));
+  } catch {
+    return false;
+  }
+  window.location.reload();
+  return true;
 }
 
 type Props = { children: ReactNode; resetKey: string };

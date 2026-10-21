@@ -1,6 +1,8 @@
 import { t } from "../../lib/i18n/core";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, apiUrl, unwrap } from "../../api/client";
+import { checkServer, isServerDown, onServerBack, useServerDown } from "../../lib/connection";
+import { Spinner } from "../../components/ui";
 
 /** Dims are a page's size and the box inside its borders (source pixels). */
 export type Dims = { width: number; height: number; x: number; y: number; w: number; h: number; measured?: boolean };
@@ -188,8 +190,29 @@ export function PageImage({
   // after a retry the page fades in over its placeholder instead of popping in
   const [retried, setRetried] = useState(false);
   const box = boxOf(dims, crop, sidesOnly, half);
+  const down = useServerDown();
+  // A page that didn't come (mangarr restarting, a dropped connection) is
+  // asked for again: as soon as the server answers, and a few times on its
+  // own; after that the button below is the way.
+  const tries = useRef(0);
+  useEffect(() => {
+    if (!failed) return;
+    const again = () => {
+      tries.current++;
+      setRetried(true);
+      setFailed(false);
+    };
+    const off = onServerBack(again);
+    void checkServer();
+    const timer = tries.current < 3 ? window.setTimeout(() => !isServerDown() && again(), 2000 * 2 ** tries.current) : undefined;
+    return () => {
+      off();
+      window.clearTimeout(timer);
+    };
+  }, [failed]);
   const load = (e: React.SyntheticEvent<HTMLImageElement>) => {
     setLoaded(true);
+    tries.current = 0;
     onNatural?.(e.currentTarget.naturalWidth, e.currentTarget.naturalHeight);
   };
   if (failed) {
@@ -197,7 +220,7 @@ export function PageImage({
     return (
       <div style={{ width, height, position: "relative", transition: "height 0.3s ease" }} className="flex items-center justify-center text-sm text-muted">
         {placeholder && <img src={placeholder} alt="" aria-hidden draggable={false} className="pointer-events-none absolute inset-0 size-full select-none object-contain opacity-40 blur-sm" onLoad={(e) => onPlaceholderNatural?.(e.currentTarget.naturalWidth, e.currentTarget.naturalHeight)} />}
-        <button
+        {down ? <Spinner className="relative" /> : <button
           type="button"
           className="relative rounded border border-muted/40 bg-black/60 px-3 py-1.5 text-fg"
           onClick={(e) => {
@@ -205,7 +228,7 @@ export function PageImage({
             setRetried(true);
             setFailed(false);
           }}
-        >{t("Couldn't load this page — retry")}</button>
+        >{t("Couldn't load this page — retry")}</button>}
       </div>
     );
   }

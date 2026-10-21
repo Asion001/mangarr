@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isStaleChunk } from "./RouteBoundary";
+import { chunkUrl, isStaleChunk } from "./RouteBoundary";
 
 describe("isStaleChunk", () => {
   it("recognises a page file that is gone after an update", () => {
@@ -9,5 +9,12 @@ describe("isStaleChunk", () => {
   });
   it("leaves ordinary errors alone", () => {
     expect(isStaleChunk(new Error("Cannot read properties of undefined"))).toBe(false);
+  });
+});
+
+describe("chunkUrl", () => {
+  it("finds the file a failed page load names", () => {
+    expect(chunkUrl(new TypeError("Failed to fetch dynamically imported module: http://x/assets/Tasks-abc.js"))).toBe("http://x/assets/Tasks-abc.js");
+    expect(chunkUrl(new TypeError("Importing a module script failed."))).toBeUndefined();
   });
 });

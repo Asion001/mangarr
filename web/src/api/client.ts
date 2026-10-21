@@ -1,17 +1,29 @@
 import createClient, { type Middleware } from "openapi-fetch";
 import type { components, paths } from "./schema";
-import { getLocale } from "../lib/i18n/core";
+import { getLocale, t } from "../lib/i18n/core";
+import { checkServer, serverAnswered, serverGone, setPingUrl } from "../lib/connection";
 
 /** Path prefix when mangarr runs under a URL base (from <base href>). */
 export const basePath = new URL(document.baseURI).pathname.replace(/\/$/, "");
+setPingUrl(basePath + "/ping");
 
 export class ApiError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  /** unreachable: mangarr wasn't there to answer (restarting), not an answer of its own */
+  unreachable: boolean;
+  constructor(status: number, message: string, unreachable = false) {
     super(message);
     this.status = status;
+    this.unreachable = unreachable;
   }
 }
+
+/**
+ * proxyGap is a 502-504 from a proxy in front while mangarr is down. mangarr's
+ * own errors (a source that's unavailable) come as JSON problems.
+ */
+export const proxyGap = (response: Response) =>
+  response.status >= 502 && response.status <= 504 && !/json/.test(response.headers.get("Content-Type") ?? "");
 
 const onUnauthorized: Middleware = {
   async onResponse({ response }) {
@@ -19,6 +31,25 @@ const onUnauthorized: Middleware = {
       window.dispatchEvent(new CustomEvent("mangarr:unauthorized"));
     }
     return response;
+  },
+};
+
+/**
+ * While mangarr restarts nothing answers, or a proxy in front answers 502-504:
+ * note it (pages then retry quietly) and give it a readable error.
+ */
+const restarts: Middleware = {
+  onResponse({ response }) {
+    // a proxy's 502-504 can also be a slow request timing out: only a /ping
+    // that fails too means mangarr is gone
+    if (proxyGap(response)) void checkServer();
+    else serverAnswered();
+    return response;
+  },
+  onError({ error }) {
+    if ((error as Error)?.name === "AbortError") return;
+    serverGone();
+    return new ApiError(0, t("Can't reach mangarr right now"), true);
   },
 };
 
@@ -31,7 +62,7 @@ const interfaceLanguage: Middleware = {
 };
 
 export const api = createClient<paths>({ baseUrl: window.location.origin + basePath });
-api.use(onUnauthorized, interfaceLanguage);
+api.use(onUnauthorized, restarts, interfaceLanguage);
 
 type ErrorBody = { title?: string; detail?: string; errors?: { message?: string; location?: string }[] } | undefined;
 
@@ -42,7 +73,7 @@ export async function unwrap<T>(p: Promise<{ data?: T; error?: unknown; response
     const e = error as ErrorBody;
     let msg = e?.detail || e?.title || response.statusText || "Request failed";
     if (e?.errors?.length) msg += ": " + e.errors.map((x) => x.message).filter(Boolean).join(", ");
-    throw new ApiError(response.status, msg);
+    throw new ApiError(response.status, msg, proxyGap(response));
   }
   return data as T;
 }
