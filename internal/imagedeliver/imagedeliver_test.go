@@ -67,6 +67,21 @@ func TestVariant(t *testing.T) {
 	}
 }
 
+// TestVariantTall: a tall strip keeps the asked-for width instead of being
+// shrunk to fit twice that height (which left phones a blurry, narrow copy).
+func TestVariantTall(t *testing.T) {
+	d := imagedeliver.New(diskcache.NewStore(t.TempDir(), nil, nil), nil)
+	tall := page(t, 2400, 9000)
+	data, _, ok := d.Variant(context.Background(), `"strip"`, 1440, func(context.Context) ([]byte, error) { return tall, nil })
+	if !ok {
+		t.Fatal("no copy of a wide strip")
+	}
+	info, err := imagecheck.Detect(data)
+	if err != nil || info.Width != 1440 || info.Height != 5400 {
+		t.Fatalf("copy is %+v (%v), want 1440x5400", info, err)
+	}
+}
+
 // TestWidth rounds up to a size we keep, and asks for nothing when the client
 // wants the full page.
 func TestWidth(t *testing.T) {

@@ -83,7 +83,8 @@ func (d *Deliverer) Variant(ctx context.Context, id string, width int, load func
 		return nil, "", false
 	}
 	defer apitiming.Span(ctx, "variant")()
-	key := fmt.Sprintf("%s|w%d|q%d|p%t", id, width, d.Quality, d.Progressive())
+	// h0: copies keep their full height (older ones were cut to twice the width)
+	key := fmt.Sprintf("%s|w%d|h0|q%d|p%t", id, width, d.Quality, d.Progressive())
 	out, ct, _, err := d.Cache.Get(ctx, Bucket, key, variantTTL, func(ctx context.Context) (io.ReadCloser, string, error) {
 		src, err := load(ctx)
 		if err != nil {
@@ -115,7 +116,7 @@ func (d *Deliverer) resize(ctx context.Context, src []byte, width int) ([]byte, 
 	if keepFormats[info.Format] || (info.Width > 0 && info.Width*100 <= width*keepWithin) {
 		return nil, "", errKeepOriginal
 	}
-	out, ct, changed := thumbs.Normalize(src, width, d.Quality)
+	out, ct, changed := thumbs.Fit(src, width, 0, d.Quality)
 	if !changed {
 		return nil, "", errKeepOriginal
 	}

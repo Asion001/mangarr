@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from "react";
 import type { S } from "../../api/client";
 import type { ReaderSettings } from "./settings";
 import { tapAction } from "./zones";
-import { displayWidth, fit, isWide, PageImage, pageUrl, placeholderUrl, useViewport, type Dims, type Half } from "./page";
+import { displayWidth, fit, imageWidth, isWide, PageImage, pageUrl, placeholderUrl, useViewport, type Dims, type Half } from "./page";
 import { Transition } from "./Transition";
 
 type Chapter = S["ReadChapter"];
@@ -21,6 +21,13 @@ export function pageLayout(page: number, view: Extract<View, { pages: number[] }
     naturalW = width;
   }
   return fit(aspect, viewport.w / view.pages.length, viewport.h, s.scale, naturalW);
+}
+
+/** pageSrc is the image a paged screen asks for: sized for the whole image, of
+ * which a crop or a half may show only part. */
+export function pageSrc(chapterId: number, page: number, view: Extract<View, { pages: number[] }>, dims: Record<number, Dims>, s: ReaderSettings, viewport: { w: number; h: number }) {
+  const w = pageLayout(page, view, dims, s, viewport).w;
+  return pageUrl(chapterId, page, displayWidth(imageWidth(w, dims[page], s.crop, false, view.half)));
 }
 
 /** buildViews lays pages out into screens. */
@@ -173,7 +180,7 @@ export function PagedViewer({
           return (
             <PageImage
               key={`${chapter.id}-${p}-${view.half ?? ""}`}
-              src={pageUrl(chapter.id, p, displayWidth(size.w))}
+              src={pageSrc(chapter.id, p, view, dims, s, vp)}
               placeholder={placeholderUrl(chapter.id, p)}
               dims={d}
               crop={s.crop}
