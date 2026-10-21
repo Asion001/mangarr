@@ -17,6 +17,7 @@ blocklist-list GET /api/v1/blocklist -> queue.manage
 calendar GET /api/v1/calendar -> library.edit
 catalogs-health GET /api/v1/catalogs/health -> library.edit
 catalogs-list GET /api/v1/catalogs -> library.add | library.edit | requests.manage
+catalogs-reliability GET /api/v1/catalogs/reliability -> library.edit
 catalogs-update PUT /api/v1/catalogs -> admin
 chapter-decision GET /api/v1/series/{id}/chapters/{chapterId}/decision -> library.edit
 chapter-restore POST /api/v1/chapters/{id}/restore -> library.edit
@@ -232,6 +233,7 @@ sources-thumbnail GET /api/v1/sources/{moduleId}/{sourceId}/thumbnail -> library
 stores-add POST /api/v1/modules/{id}/stores -> admin
 stores-list GET /api/v1/modules/{id}/stores -> admin
 stores-remove DELETE /api/v1/modules/{id}/stores -> admin
+system-attention GET /api/v1/system/attention -> admin
 system-cache GET /api/v1/system/cache -> admin
 system-cache-clear POST /api/v1/system/cache/clear -> admin
 system-diagnostics GET /api/v1/system/diagnostics -> admin

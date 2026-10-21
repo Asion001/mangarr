@@ -109,7 +109,7 @@ func (a *App) wireMore(ctx context.Context) error {
 				on++
 			}
 			if c.CooldownUntil != nil {
-				out = append(out, health.Check{Source: "Sources", Type: health.Warning, Link: "/sources/catalogs",
+				out = append(out, health.Check{Source: "Sources", Type: health.Warning, Link: health.ReliabilityLink(c.ModuleID, c.ID), Action: "Show " + c.DisplayName + " reliability",
 					Message: fmt.Sprintf("%s is paused until %s after %s", c.DisplayName, c.CooldownUntil.Local().Format("15:04"), c.CooldownReason)})
 			}
 		}

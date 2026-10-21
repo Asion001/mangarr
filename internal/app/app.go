@@ -172,6 +172,7 @@ func (a *App) Start(ctx context.Context) error {
 	}
 	go a.sampleMetrics(ctx)
 	go a.measureNewFiles(ctx)
+	go a.Catalogs.RunStats(ctx)
 	if err := a.Queue.Start(ctx); err != nil {
 		return err
 	}
@@ -189,6 +190,9 @@ func (a *App) Start(ctx context.Context) error {
 func (a *App) Close() error {
 	if a.Downloads != nil {
 		a.Downloads.Release()
+	}
+	if a.Catalogs != nil {
+		_ = a.Catalogs.FlushStats(context.Background())
 	}
 	a.stopped()
 	return a.DB.Close()

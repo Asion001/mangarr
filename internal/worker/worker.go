@@ -469,11 +469,11 @@ func (w *Worker) do(ctx context.Context, t Task) {
 		}
 		w.log.Warn("task failed", "task", t.ID, "kind", t.Kind, "err", err)
 		_ = w.call(context.WithoutCancel(ctx), http.MethodPost, fmt.Sprintf("/api/v1/worker/tasks/%d/fail", t.ID),
-			map[string]any{"reason": err.Error(), "pages": res.Pages}, nil)
+			withRequests(map[string]any{"reason": err.Error(), "pages": res.Pages}, res.Requests), nil)
 		return
 	}
 	if err = w.call(ctx, http.MethodPost, fmt.Sprintf("/api/v1/worker/tasks/%d/complete", t.ID),
-		map[string]any{"pages": res.Pages, "bytesIn": res.BytesIn, "bytesOut": res.BytesOut, "gpu": res.GPU}, nil); err != nil {
+		withRequests(map[string]any{"pages": res.Pages, "bytesIn": res.BytesIn, "bytesOut": res.BytesOut, "gpu": res.GPU}, res.Requests), nil); err != nil {
 		w.log.Warn("could not report a finished task", "task", t.ID, "err", err)
 		err = fmt.Errorf("could not report it: %w", err)
 		return
@@ -482,12 +482,22 @@ func (w *Worker) do(ctx context.Context, t Task) {
 		"mb", fmt.Sprintf("%.1f", float64(res.BytesIn)/(1<<20)), "seconds", fmt.Sprintf("%.1f", time.Since(started).Seconds()))
 }
 
+// withRequests adds the site requests to a report, when there are any.
+func withRequests(body map[string]any, reqs []siteRequest) map[string]any {
+	if len(reqs) > 0 {
+		body["requests"] = reqs
+	}
+	return body
+}
+
 // result is what a task did.
 type result struct {
 	Pages    int
 	BytesIn  int64
 	BytesOut int64
 	GPU      string
+	// Requests made to a site since the last heartbeat (a download).
+	Requests []siteRequest
 }
 
 // bye hands back whatever this worker still holds, so a restart doesn't

@@ -921,3 +921,24 @@ type TitleReadState struct {
 
 // ReadOriginBackup marks read states imported from a backup.
 const ReadOriginBackup = "backup"
+
+// SourceStat counts what one catalog answered in one hour.
+type SourceStat struct {
+	bun.BaseModel `bun:"table:source_stats"`
+	ModuleID      int64     `bun:"module_id,pk"`
+	SourceID      string    `bun:"source_id,pk"`
+	Hour          time.Time `bun:"hour,pk"`
+	Requests      int       `bun:"requests,notnull"`
+	Failures      int       `bun:"failures,notnull"`
+	Throttled     int       `bun:"throttled,notnull"`
+	Fallbacks     int       `bun:"fallbacks,notnull"`
+	TotalMs       int64     `bun:"total_ms,notnull"`
+	Lat0          int       `bun:"lat_0,notnull"`
+	Lat1          int       `bun:"lat_1,notnull"`
+	Lat2          int       `bun:"lat_2,notnull"`
+	Lat3          int       `bun:"lat_3,notnull"`
+	Lat4          int       `bun:"lat_4,notnull"`
+	Lat5          int       `bun:"lat_5,notnull"`
+	Lat6          int       `bun:"lat_6,notnull"`
+	Lat7          int       `bun:"lat_7,notnull"`
+}

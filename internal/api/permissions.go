@@ -155,6 +155,7 @@ var operationPermissions = map[string][]string{
 	"sources-thumbnail":        {access.LibraryAdd, access.LibraryEdit, access.RequestsManage},
 	"catalogs-list":            {access.LibraryAdd, access.LibraryEdit, access.RequestsManage},
 	"catalogs-health":          {access.LibraryEdit},
+	"catalogs-reliability":     {access.LibraryEdit},
 	"rootfolders-list":         {access.LibraryAdd, access.LibraryEdit, access.RequestsManage},
 	"rootfolders-for-language": {access.LibraryAdd, access.LibraryEdit, access.RequestsManage},
 	"profiles-list":            {access.LibraryAdd, access.LibraryEdit, access.RequestsManage},

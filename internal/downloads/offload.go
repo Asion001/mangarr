@@ -292,6 +292,37 @@ func (m *Manager) TaskAbandoned(ctx context.Context, task model.WorkerTask, reas
 	m.fail(ctx, &job, jc, infraError{errors.New(reason)})
 }
 
+// SiteRequest is one request a worker made to a site: how long it took and
+// what went wrong, if anything.
+type SiteRequest struct {
+	Ms    int64  `json:"ms"`
+	Error string `json:"error,omitempty"`
+}
+
+// TaskRequests counts the page requests a worker made for a job in its
+// catalog's reliability, as if they had been made here.
+func (m *Manager) TaskRequests(ctx context.Context, task model.WorkerTask, reqs []SiteRequest) {
+	if m.Gov == nil || len(reqs) == 0 {
+		return
+	}
+	var job model.DownloadJob
+	if err := m.db.NewSelect().Model(&job).Where("id = ?", task.JobID).Scan(ctx); err != nil {
+		return
+	}
+	jc, err := m.load(ctx, &job)
+	if err != nil || jc.link == nil {
+		return
+	}
+	k := sourcegov.Key{ModuleID: jc.link.ModuleID, SourceID: jc.link.SourceID}
+	for _, r := range reqs {
+		var err error
+		if r.Error != "" {
+			err = errors.New(r.Error)
+		}
+		m.Gov.Observe(k, "Page image (on a worker)", time.Duration(r.Ms)*time.Millisecond, err)
+	}
+}
+
 // TaskProgress reports what a worker has done so far against its job, so
 // the queue shows the same numbers a local download would.
 func (m *Manager) TaskProgress(task model.WorkerTask, done, total int, bytesIn int64) {

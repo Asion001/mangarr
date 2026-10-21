@@ -95,8 +95,13 @@ func TestMigrationsPreserveDataFromEarlierVersions(t *testing.T) {
 				t.Fatalf("migrate to the last pre-release version: %v", err)
 			}
 			res, err := migrationProvider(t, d).Up(ctx)
-			if err != nil || len(res) != 0 {
-				t.Fatalf("baseline on a pre-release database: applied %d, %v; want none", len(res), err)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, r := range res {
+				if r.Source.Version <= BaselineVersion {
+					t.Fatalf("baseline on a pre-release database: applied version %d; want only later ones", r.Source.Version)
+				}
 			}
 			if err := d.Migrate(ctx); err != nil {
 				t.Fatal(err)

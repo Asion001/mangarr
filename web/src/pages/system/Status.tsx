@@ -10,6 +10,7 @@ import { Badge, Button, Card, Confirm, Loading, PageHeader, Progress, Table, Td,
 import { bytes, dateTime, duration, relative } from "../../lib/format";
 import { useToast } from "../../lib/toast";
 import { describe, eta, useLiveProgress } from "../../lib/liveProgress";
+import { NeedsAttention } from "./Attention";
 
 export function StatusPage() {
   const qc = useQueryClient();
@@ -19,6 +20,7 @@ export function StatusPage() {
   const run = async () => {
     const r = await unwrap(api.POST("/api/v1/health/check"));
     qc.setQueryData(["health"], r);
+    void qc.invalidateQueries({ queryKey: ["system-attention"] });
   };
   const icon = (t: string) =>
     t === "error" ? <XCircle className="size-4 text-err" /> : t === "warning" ? <AlertTriangle className="size-4 text-warn" /> : <Info className="size-4 text-info" />;
@@ -32,6 +34,7 @@ export function StatusPage() {
           </a>
         }
       />
+      <NeedsAttention />
       <Card
         title={t("Health")}
         className="mb-6"
@@ -46,11 +49,11 @@ export function StatusPage() {
         )}
         <div className="flex flex-col gap-2">
           {health?.checks.map((c, i) => (
-            <div key={i} className="flex items-start gap-2 text-sm">
+            <div key={i} className="flex flex-wrap items-start gap-2 text-sm">
               {icon(c.type)}
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <span className="font-medium">{c.source}:</span>{" "}
-                {c.link ? (
+                {c.link && !c.action ? (
                   <Link to={c.link} className="text-fg/85 underline decoration-muted decoration-dotted underline-offset-2 hover:text-accent-2">
                     {c.message}
                   </Link>
@@ -59,6 +62,9 @@ export function StatusPage() {
                 )}
                 {c.items && c.items.length > 0 && <CheckItems items={c.items} />}
               </div>
+              {c.link && c.action && (
+                <Link to={c.link}><Button size="sm">{c.action}</Button></Link>
+              )}
             </div>
           ))}
         </div>

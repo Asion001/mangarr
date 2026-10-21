@@ -184,6 +184,9 @@ type ListFilter struct {
 	Statuses []string `json:"statuses,omitempty"`
 	Kind     string   `json:"kind,omitempty" enum:",download,reprocess"`
 	SeriesID int64    `json:"seriesId,omitempty"`
+	// Source limits to entries whose release comes from this catalog
+	// ("moduleId:sourceId").
+	Source string `json:"source,omitempty"`
 	// Query matches the series title.
 	Query       string `json:"q,omitempty"`
 	IncludeDone bool   `json:"includeDone,omitempty"`
@@ -206,6 +209,10 @@ func (q *Queue) base(d bun.IDB, f ListFilter, withStatus bool) *bun.SelectQuery 
 	}
 	if f.SeriesID > 0 {
 		sel = sel.Where("j.series_id = ?", f.SeriesID)
+	}
+	if f.Source != "" {
+		m, src, _ := strings.Cut(f.Source, ":")
+		sel = sel.Where("ss.module_id = ? AND ss.source_id = ?", m, src)
 	}
 	if len(f.IDs) > 0 {
 		sel = sel.Where("j.id IN (?)", bun.In(f.IDs))

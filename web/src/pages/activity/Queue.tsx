@@ -36,6 +36,8 @@ export function QueuePage({ mode }: { mode: "downloads" | "processing" }) {
   const manage = useAccount().can("queue.manage");
   const [status, setStatus] = useListParam("status");
   const [q, setQ] = useQueryParam("q");
+  // one catalog's entries, from a health warning or Sources → Reliability
+  const [source, setSource] = useQueryParam("source");
   const [pageStr, setPage] = useListParam("page", "1");
   // grouped by series unless you switched it off (remembered per browser)
   const [groupParam, setGroupParam] = useListParam("group", storedGroup());
@@ -51,7 +53,7 @@ export function QueuePage({ mode }: { mode: "downloads" | "processing" }) {
   };
   const page = Number(pageStr) || 1;
   const pageSize = 100;
-  const filter = { status: status ? status.split(",") : [...statuses], kind: mode === "processing" ? "reprocess" as const : "download" as const, q: q || undefined, includeDone: true };
+  const filter = { status: status ? status.split(",") : [...statuses], kind: mode === "processing" ? "reprocess" as const : "download" as const, q: q || undefined, source: source || undefined, includeDone: true };
   const { data, isLoading, isFetching, isPlaceholderData, error } = useQueue({ ...filter, page, pageSize });
   const allCount = statuses.reduce((sum, s) => sum + (data?.counts?.[s] ?? 0), 0);
   const liveMap = useLiveProgress();
@@ -82,7 +84,7 @@ export function QueuePage({ mode }: { mode: "downloads" | "processing" }) {
     moveLock.current = true;
     setMoving(true);
     try {
-      const body = allMatching && !ids ? { action, filter: { statuses: filter.status, kind: filter.kind, q: filter.q, includeDone: true } } : { action, ids: ids ?? [...selected], anchorId };
+      const body = allMatching && !ids ? { action, filter: { statuses: filter.status, kind: filter.kind, q: filter.q, source: filter.source, includeDone: true } } : { action, ids: ids ?? [...selected], anchorId };
       const r = await unwrap(api.POST("/api/v1/queue/bulk", { body }));
       // failed entries whose chapter is already queued stay failed
       const skipped = r.skipped ? t("Skipped, chapter already in the queue: {count}", { count: r.skipped }) : "";
@@ -313,6 +315,14 @@ export function QueuePage({ mode }: { mode: "downloads" | "processing" }) {
             </button>
           );
         })}
+        {source && (
+          <button
+            type="button"
+            onClick={() => (setSource(""), setPage("1"), resetSelection())}
+            className="rounded-full border border-accent bg-accent/15 px-3 py-1 text-xs text-fg"
+            title={t("Show every source")}
+          >{t("Source: {name}", { name: items[0]?.sourceName || source })} ×</button>
+        )}
         <Input className="max-w-xs" placeholder={t("Filter by series…")} defaultValue={q} onChange={(e) => (setQ(e.target.value), setPage("1"), resetSelection())} />
         <Switch checked={group} onChange={setGroup} label={t("Group by series")} />
       </div>

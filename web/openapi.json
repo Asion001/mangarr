@@ -415,6 +415,254 @@
         ],
         "type": "object"
       },
+      "Attention": {
+        "additionalProperties": false,
+        "properties": {
+          "backups": {
+            "$ref": "#/components/schemas/AttentionBackupsStruct"
+          },
+          "disk": {
+            "$ref": "#/components/schemas/AttentionDiskStruct"
+          },
+          "failedDownloads": {
+            "$ref": "#/components/schemas/AttentionFailedDownloadsStruct"
+          },
+          "processing": {
+            "$ref": "#/components/schemas/AttentionProcessingStruct"
+          },
+          "sources": {
+            "$ref": "#/components/schemas/AttentionSourcesStruct"
+          },
+          "workers": {
+            "$ref": "#/components/schemas/AttentionWorkersStruct"
+          }
+        },
+        "required": [
+          "failedDownloads",
+          "sources",
+          "backups",
+          "workers",
+          "processing",
+          "disk"
+        ],
+        "type": "object"
+      },
+      "AttentionBackupsStruct": {
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "lastVerifiedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "latestAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "latestName": {
+            "type": "string"
+          },
+          "latestVerified": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "count",
+          "latestVerified"
+        ],
+        "type": "object"
+      },
+      "AttentionCount": {
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "source": {
+            "description": "moduleId:sourceId",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "name",
+          "count"
+        ],
+        "type": "object"
+      },
+      "AttentionDiskStruct": {
+        "additionalProperties": false,
+        "properties": {
+          "folders": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "free": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "low": {
+            "type": "boolean"
+          },
+          "path": {
+            "description": "The root folder with the least free space",
+            "type": "string"
+          },
+          "total": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "free",
+          "total",
+          "low",
+          "folders"
+        ],
+        "type": "object"
+      },
+      "AttentionFailedDownloadsStruct": {
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "description": "Download entries that failed in the last 24 hours",
+            "format": "int64",
+            "type": "integer"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/AttentionCount"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "count",
+          "sources"
+        ],
+        "type": "object"
+      },
+      "AttentionProcessingStruct": {
+        "additionalProperties": false,
+        "properties": {
+          "failed": {
+            "description": "Reprocessing entries that failed in the last 24 hours",
+            "format": "int64",
+            "type": "integer"
+          },
+          "running": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "waiting": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "failed",
+          "running",
+          "waiting"
+        ],
+        "type": "object"
+      },
+      "AttentionSource": {
+        "additionalProperties": false,
+        "properties": {
+          "cooldownUntil": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "failures": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "requests": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "source": {
+            "description": "moduleId:sourceId",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "name",
+          "requests",
+          "failures"
+        ],
+        "type": "object"
+      },
+      "AttentionSourcesStruct": {
+        "additionalProperties": false,
+        "properties": {
+          "unhealthy": {
+            "items": {
+              "$ref": "#/components/schemas/AttentionSource"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "unhealthy"
+        ],
+        "type": "object"
+      },
+      "AttentionWorker": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "lastSeenAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object"
+      },
+      "AttentionWorkersStruct": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "stale": {
+            "items": {
+              "$ref": "#/components/schemas/AttentionWorker"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "enabled",
+          "stale"
+        ],
+        "type": "object"
+      },
       "Auth-passwordRequest": {
         "additionalProperties": false,
         "properties": {
@@ -3293,6 +3541,27 @@
         ],
         "type": "object"
       },
+      "Failure": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          },
+          "what": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "at",
+          "what",
+          "error"
+        ],
+        "type": "object"
+      },
       "FileRename": {
         "additionalProperties": false,
         "properties": {
@@ -3570,6 +3839,9 @@
       "HealthCheck": {
         "additionalProperties": false,
         "properties": {
+          "action": {
+            "type": "string"
+          },
           "items": {
             "items": {
               "$ref": "#/components/schemas/HealthCheckItem"
@@ -4601,6 +4873,9 @@
           "seriesId": {
             "format": "int64",
             "type": "integer"
+          },
+          "source": {
+            "type": "string"
           },
           "statuses": {
             "items": {
@@ -8647,6 +8922,123 @@
         ],
         "type": "object"
       },
+      "Reliability": {
+        "additionalProperties": false,
+        "properties": {
+          "cooldownReason": {
+            "type": "string"
+          },
+          "cooldownUntil": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "failingSeries": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "failures": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "fallbacks": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "lang": {
+            "type": "string"
+          },
+          "medianMs": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "moduleId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "moduleName": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "p90Ms": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/ReliabilityPoint"
+            },
+            "type": "array"
+          },
+          "recentFailures": {
+            "items": {
+              "$ref": "#/components/schemas/Failure"
+            },
+            "type": "array"
+          },
+          "requests": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "series": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "sourceId": {
+            "type": "string"
+          },
+          "throttled": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "moduleId",
+          "sourceId",
+          "name",
+          "lang",
+          "moduleName",
+          "enabled",
+          "requests",
+          "failures",
+          "throttled",
+          "fallbacks",
+          "medianMs",
+          "p90Ms",
+          "series",
+          "failingSeries",
+          "points",
+          "recentFailures"
+        ],
+        "type": "object"
+      },
+      "ReliabilityPoint": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "failures": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "requests": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "at",
+          "requests",
+          "failures"
+        ],
+        "type": "object"
+      },
       "Request": {
         "additionalProperties": false,
         "properties": {
@@ -10172,6 +10564,22 @@
           "page",
           "read",
           "total"
+        ],
+        "type": "object"
+      },
+      "SiteRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "ms": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "ms"
         ],
         "type": "object"
       },
@@ -12450,6 +12858,13 @@
           "pages": {
             "format": "int64",
             "type": "integer"
+          },
+          "requests": {
+            "items": {
+              "$ref": "#/components/schemas/SiteRequest"
+            },
+            "maxItems": 5000,
+            "type": "array"
           }
         },
         "required": [
@@ -12468,6 +12883,13 @@
           },
           "reason": {
             "type": "string"
+          },
+          "requests": {
+            "items": {
+              "$ref": "#/components/schemas/SiteRequest"
+            },
+            "maxItems": 5000,
+            "type": "array"
           }
         },
         "required": [
@@ -12493,6 +12915,13 @@
           "pagesTotal": {
             "format": "int64",
             "type": "integer"
+          },
+          "requests": {
+            "items": {
+              "$ref": "#/components/schemas/SiteRequest"
+            },
+            "maxItems": 5000,
+            "type": "array"
           },
           "stage": {
             "type": "string"
@@ -13602,6 +14031,56 @@
           }
         },
         "summary": "How many series use each catalog, how many of those links are failing, and when it last worked",
+        "tags": [
+          "Catalogs"
+        ]
+      }
+    },
+    "/api/v1/catalogs/reliability": {
+      "get": {
+        "operationId": "catalogs-reliability",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "days",
+            "schema": {
+              "default": 1,
+              "enum": [
+                1,
+                7
+              ],
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Reliability"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "How each catalog answered requests over the last day or week: success, response times, cooldowns, fallbacks and recent failures",
         "tags": [
           "Catalogs"
         ]
@@ -17380,6 +17859,16 @@
             "schema": {
               "format": "int64",
               "type": "integer"
+            }
+          },
+          {
+            "description": "Only entries from this catalog (moduleId:sourceId)",
+            "explode": false,
+            "in": "query",
+            "name": "source",
+            "schema": {
+              "description": "Only entries from this catalog (moduleId:sourceId)",
+              "type": "string"
             }
           },
           {
@@ -23051,6 +23540,37 @@
         "summary": "Proxy (and cache) a manga thumbnail through its source module",
         "tags": [
           "Sources"
+        ]
+      }
+    },
+    "/api/v1/system/attention": {
+      "get": {
+        "operationId": "system-attention",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Attention"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Failed downloads, unhealthy sources, unverified backups, stopped workers, processing and disk space at a glance",
+        "tags": [
+          "System"
         ]
       }
     },

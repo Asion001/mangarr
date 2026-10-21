@@ -97,6 +97,7 @@ func (s *Server) registerActivity() {
 			Status      []string `query:"status,explode" doc:"Statuses (repeat the parameter or separate with commas); empty = active (plus recent when includeDone)"`
 			Kind        string   `query:"kind" enum:",download,reprocess"`
 			SeriesID    int64    `query:"seriesId"`
+			Source      string   `query:"source" doc:"Only entries from this catalog (moduleId:sourceId)"`
 			Query       string   `query:"q"`
 			IncludeDone bool     `query:"includeDone"`
 			Page        int      `query:"page" default:"1"`
@@ -107,7 +108,7 @@ func (s *Server) registerActivity() {
 			if in.Revision >= 0 {
 				revision = &in.Revision
 			}
-			f := downloads.ListFilter{Statuses: splitList(in.Status), Kind: in.Kind, SeriesID: in.SeriesID, Query: in.Query, IncludeDone: in.IncludeDone}
+			f := downloads.ListFilter{Statuses: splitList(in.Status), Kind: in.Kind, SeriesID: in.SeriesID, Source: in.Source, Query: in.Query, IncludeDone: in.IncludeDone}
 			// watchers who see part of the library see only its entries
 			if who := access.From(ctx); !who.Can(access.LibraryEdit) && who.Scope.Limited() {
 				visible, err := s.seriesSeenBy(ctx, who)

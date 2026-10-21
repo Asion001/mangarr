@@ -14,6 +14,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/Asion001/mangarr/internal/access"
+	"github.com/Asion001/mangarr/internal/downloads"
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/processing"
 	"github.com/Asion001/mangarr/internal/settings"
@@ -319,6 +320,9 @@ func (s *Server) registerWorkerProtocol() {
 				// Stage is the processing stage the pages count (upscale,
 				// split or encode), for a processing task.
 				Stage string `json:"stage,omitempty"`
+				// Requests are the page requests made to the site since the
+				// last report, for the catalog's reliability.
+				Requests []downloads.SiteRequest `json:"requests,omitempty" maxItems:"5000"`
 			}
 		}) (*struct {
 			Body struct {
@@ -339,6 +343,7 @@ func (s *Server) registerWorkerProtocol() {
 				switch task.Kind {
 				case model.TaskDownload:
 					s.app.Downloads.TaskProgress(*task, in.Body.PagesDone, in.Body.PagesTotal, in.Body.BytesIn)
+					s.app.Downloads.TaskRequests(ctx, *task, in.Body.Requests)
 				case model.TaskEncode:
 					s.app.Downloads.ProcessingProgress(*task, in.Body.Stage, in.Body.PagesDone, in.Body.PagesTotal)
 				}
@@ -361,6 +366,8 @@ func (s *Server) registerWorkerProtocol() {
 				BytesIn  int64  `json:"bytesIn"`
 				BytesOut int64  `json:"bytesOut"`
 				GPU      string `json:"gpu,omitempty"`
+				// Requests: the page requests since the last heartbeat.
+				Requests []downloads.SiteRequest `json:"requests,omitempty" maxItems:"5000"`
 			}
 		}) (*struct{}, error) {
 			w, err := s.worker(ctx)
@@ -380,6 +387,7 @@ func (s *Server) registerWorkerProtocol() {
 			// it takes: the worker is free as soon as its pages are in. Other
 			// kinds of task are awaited by whoever asked for them.
 			if task.Kind == model.TaskDownload {
+				s.app.Downloads.TaskRequests(ctx, *task, in.Body.Requests)
 				go func() {
 					bg := context.WithoutCancel(ctx)
 					if err := s.app.Downloads.TaskDone(bg, *task); err != nil {
@@ -397,6 +405,8 @@ func (s *Server) registerWorkerProtocol() {
 			Body struct {
 				Reason string `json:"reason"`
 				Pages  int    `json:"pages,omitempty"`
+				// Requests: the page requests since the last heartbeat.
+				Requests []downloads.SiteRequest `json:"requests,omitempty" maxItems:"5000"`
 			}
 		}) (*struct{}, error) {
 			w, err := s.worker(ctx)
@@ -415,6 +425,7 @@ func (s *Server) registerWorkerProtocol() {
 				return nil, workerConflict(err)
 			}
 			if task.Kind == model.TaskDownload {
+				s.app.Downloads.TaskRequests(ctx, *task, in.Body.Requests)
 				s.app.Downloads.TaskFailed(context.WithoutCancel(ctx), *task, reason)
 			}
 			return &struct{}{}, nil
