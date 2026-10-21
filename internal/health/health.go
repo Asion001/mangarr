@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"sort"
 	"strings"
 	"sync"
@@ -31,6 +32,8 @@ type Check struct {
 	Type    string `json:"type"`
 	Message string `json:"message"`
 	Link    string `json:"link,omitempty"`
+	// Action names what Link opens (e.g. "Show 7 failed downloads").
+	Action string `json:"action,omitempty"`
 	// Items are the things the check is about (e.g. series), with links.
 	Items []CheckItem `json:"items,omitempty"`
 	// Key (optional) identifies the check across runs when its message
@@ -84,6 +87,11 @@ func moduleLink(kind string) string {
 		return "/settings/upscalers"
 	}
 	return ""
+}
+
+// ReliabilityLink opens one catalog on the Sources → Reliability page.
+func ReliabilityLink(moduleID int64, sourceID string) string {
+	return "/sources/reliability?source=" + url.QueryEscape(fmt.Sprintf("%d:%s", moduleID, sourceID))
 }
 
 func seriesItem(id int64, title, detail string) CheckItem {
@@ -314,26 +322,35 @@ func (c *Checker) checkSources(ctx context.Context, add func(Check)) {
 	type row struct {
 		SeriesID   int64  `bun:"series_id"`
 		Title      string `bun:"title"`
+		ModuleID   int64  `bun:"module_id"`
+		SourceID   string `bun:"source_id"`
 		SourceName string `bun:"source_name"`
 		Failures   int    `bun:"consecutive_failures"`
 		LastError  string `bun:"last_error"`
 	}
 	var failing []row
-	_ = c.db.NewSelect().TableExpr("series_sources AS ss").ColumnExpr("ss.series_id, s.title, ss.source_name, ss.consecutive_failures, ss.last_error").
+	_ = c.db.NewSelect().TableExpr("series_sources AS ss").ColumnExpr("ss.series_id, s.title, ss.module_id, ss.source_id, ss.source_name, ss.consecutive_failures, ss.last_error").
 		Join("JOIN series AS s ON s.id = ss.series_id").Where("ss.enabled = ? AND ss.consecutive_failures >= 3", true).
 		OrderExpr("ss.consecutive_failures DESC").Limit(50).Scan(ctx, &failing)
+	// by catalog, not by name: two modules can have catalogs of the same name
 	bySource := map[string][]CheckItem{}
+	names := map[string]string{}
+	links := map[string]string{}
 	var order []string
 	for _, f := range failing {
-		if _, ok := bySource[f.SourceName]; !ok {
-			order = append(order, f.SourceName)
+		k := fmt.Sprintf("%d:%s", f.ModuleID, f.SourceID)
+		if _, ok := bySource[k]; !ok {
+			order = append(order, k)
+			names[k] = f.SourceName
+			links[k] = ReliabilityLink(f.ModuleID, f.SourceID)
 		}
-		bySource[f.SourceName] = append(bySource[f.SourceName], seriesItem(f.SeriesID, f.Title,
+		bySource[k] = append(bySource[k], seriesItem(f.SeriesID, f.Title,
 			fmt.Sprintf("%d failed checks in a row: %s", f.Failures, f.LastError)))
 	}
-	for _, src := range order {
-		items := bySource[src]
-		add(Check{Source: "Sources", Type: Warning, Message: fmt.Sprintf("%s keeps failing for %d series", src, len(items)), Items: items})
+	for _, k := range order {
+		items, src := bySource[k], names[k]
+		add(Check{Source: "Sources", Type: Warning, Message: fmt.Sprintf("%s keeps failing for %d series", src, len(items)), Items: items,
+			Link: links[k], Action: "Show " + src + " reliability"})
 	}
 	var orphans []model.Series
 	_ = c.db.NewSelect().Model(&orphans).Column("id", "title").
@@ -352,7 +369,11 @@ func (c *Checker) checkQueue(ctx context.Context, add func(Check)) {
 	n, _ := c.db.NewSelect().Model((*model.DownloadJob)(nil)).Where("status = ?", model.JobFailed).
 		Where("updated_at > ?", time.Now().UTC().Add(-24*time.Hour)).Count(ctx)
 	if n > 0 {
-		add(Check{Source: "Downloads", Type: Warning, Message: fmt.Sprintf("%d downloads failed in the last 24 hours", n), Link: "/activity/queue?status=failed"})
+		action := fmt.Sprintf("Show %d failed downloads", n)
+		if n == 1 {
+			action = "Show the failed download"
+		}
+		add(Check{Source: "Downloads", Type: Warning, Message: fmt.Sprintf("%d downloads failed in the last 24 hours", n), Link: "/activity/downloads?status=failed", Action: action})
 	}
 }
 

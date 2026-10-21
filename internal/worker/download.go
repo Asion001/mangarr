@@ -30,6 +30,43 @@ type fetched struct {
 	data []byte
 }
 
+// siteRequest is one request made to the site (internal/downloads.SiteRequest).
+type siteRequest struct {
+	Ms    int64  `json:"ms"`
+	Error string `json:"error,omitempty"`
+}
+
+// siteLog keeps the requests made to the site until they are reported, so
+// the server counts them in the catalog's reliability.
+type siteLog struct {
+	mu   sync.Mutex
+	reqs []siteRequest
+}
+
+func (l *siteLog) add(d time.Duration, err error) {
+	r := siteRequest{Ms: d.Milliseconds()}
+	if err != nil {
+		r.Error = err.Error()
+	}
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if len(l.reqs) < maxSiteRequests {
+		l.reqs = append(l.reqs, r)
+	}
+}
+
+// take hands over what was logged since the last time.
+func (l *siteLog) take() []siteRequest {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	out := l.reqs
+	l.reqs = nil
+	return out
+}
+
+// maxSiteRequests is the most one report carries (the server takes 5000).
+const maxSiteRequests = 4000
+
 // download fetches a chapter's pages and uploads them to the server. Pages
 // are fetched ahead of the uploads (the prefetch cache), so a slow site and
 // a slow upload don't wait for each other.
@@ -64,6 +101,7 @@ func (w *Worker) download(ctx context.Context, t Task) (result, error) {
 		queue    = make(chan fetched, prefetch)
 		errOnce  sync.Once
 		failure  error
+		site     siteLog
 	)
 	fail := func(err error) {
 		errOnce.Do(func() {
@@ -90,10 +128,14 @@ func (w *Worker) download(ctx context.Context, t Task) (result, error) {
 				var out struct {
 					Cancel bool `json:"cancel"`
 				}
-				err := w.call(ctx, http.MethodPost, fmt.Sprintf("/api/v1/worker/tasks/%d/heartbeat", t.ID), map[string]any{
+				body := map[string]any{
 					"pagesDone": int(done.Load()), "pagesTotal": len(pages),
 					"bytesIn": bytesIn.Load(), "bytesOut": bytesOut.Load(),
-				}, &out)
+				}
+				if reqs := site.take(); len(reqs) > 0 {
+					body["requests"] = reqs
+				}
+				err := w.call(ctx, http.MethodPost, fmt.Sprintf("/api/v1/worker/tasks/%d/heartbeat", t.ID), body, &out)
 				switch {
 				case err != nil && gone(err):
 					fail(errors.New("the server gave this task to someone else"))
@@ -117,7 +159,7 @@ func (w *Worker) download(ctx context.Context, t Task) (result, error) {
 				if err := pace.wait(ctx); err != nil {
 					return
 				}
-				data, err := w.fetchPage(ctx, spec)
+				data, err := w.fetchPage(ctx, spec, &site)
 				if err != nil {
 					fail(fmt.Errorf("page %d: %w", spec.Index+1, err))
 					return
@@ -173,7 +215,7 @@ func (w *Worker) download(ctx context.Context, t Task) (result, error) {
 	for range queue { //nolint:revive // drain what the fetchers had in hand
 	}
 
-	res := result{Pages: int(done.Load()), BytesIn: bytesIn.Load(), BytesOut: bytesOut.Load()}
+	res := result{Pages: int(done.Load()), BytesIn: bytesIn.Load(), BytesOut: bytesOut.Load(), Requests: site.take()}
 	if failure != nil {
 		return res, failure
 	}
@@ -205,7 +247,7 @@ func pageSpecs(t Task) ([]PageSpec, error) {
 
 // fetchPage gets one page from the site, with the headers the server said
 // it needs, and a few tries before giving up.
-func (w *Worker) fetchPage(ctx context.Context, p PageSpec) ([]byte, error) {
+func (w *Worker) fetchPage(ctx context.Context, p PageSpec, site *siteLog) ([]byte, error) {
 	var last error
 	for attempt := range pageRetries {
 		if attempt > 0 {
@@ -222,29 +264,38 @@ func (w *Worker) fetchPage(ctx context.Context, p PageSpec) ([]byte, error) {
 		for k, v := range p.Headers {
 			req.Header.Set(k, v)
 		}
-		resp, err := w.cfg.Fetch.Do(req)
+		start := time.Now()
+		data, err := w.getPage(req)
+		if ctx.Err() == nil {
+			site.add(time.Since(start), err)
+		}
 		if err != nil {
 			last = err
-			continue
-		}
-		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-			resp.Body.Close()
-			last = fmt.Errorf("HTTP error %d for %s", resp.StatusCode, p.URL)
-			continue
-		}
-		data, err := io.ReadAll(io.LimitReader(resp.Body, maxPageBytes))
-		resp.Body.Close()
-		if err != nil {
-			last = err
-			continue
-		}
-		if len(data) == 0 {
-			last = errors.New("the site sent an empty page")
 			continue
 		}
 		return data, nil
 	}
 	return nil, last
+}
+
+// getPage makes one request for a page.
+func (w *Worker) getPage(req *http.Request) ([]byte, error) {
+	resp, err := w.cfg.Fetch.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("HTTP error %d for %s", resp.StatusCode, req.URL)
+	}
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxPageBytes))
+	if err != nil {
+		return nil, err
+	}
+	if len(data) == 0 {
+		return nil, errors.New("the site sent an empty page")
+	}
+	return data, nil
 }
 
 // budget bounds what the prefetch cache holds, in bytes.

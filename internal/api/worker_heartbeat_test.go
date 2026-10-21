@@ -48,6 +48,7 @@ func TestWorkerHeartbeatKeepsTheLease(t *testing.T) {
 	for _, body := range []string{
 		`{"pagesDone":0,"pagesTotal":15}`,
 		`{"pagesDone":3,"pagesTotal":15,"bytesIn":10,"bytesOut":20}`,
+		`{"pagesDone":4,"pagesTotal":15,"requests":[{"ms":120},{"ms":3000,"error":"HTTP error 503"}]}`,
 		`{}`,
 	} {
 		task := &model.WorkerTask{JobID: jobID, Kind: model.TaskEncode}

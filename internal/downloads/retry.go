@@ -99,6 +99,9 @@ func (m *Manager) fail(ctx context.Context, job *model.DownloadJob, jc *jobCtx, 
 		}
 		if jc != nil && !job.PinRelease {
 			if cand, upgrade, cerr := m.nextCandidate(bg, jc); cerr == nil && cand != nil {
+				if jc.link != nil && (cand.Source.ModuleID != jc.link.ModuleID || cand.Source.SourceID != jc.link.SourceID) {
+					m.Gov.Fallback(sourcegov.Key{ModuleID: jc.link.ModuleID, SourceID: jc.link.SourceID})
+				}
 				rid := cand.Release.ID
 				job.ReleaseID, job.IsUpgrade, job.Attempt = &rid, upgrade, 0
 				_, _ = m.db.NewUpdate().Model(job).Column("is_upgrade").WherePK().Exec(bg)

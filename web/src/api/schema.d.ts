@@ -204,6 +204,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/catalogs/reliability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** How each catalog answered requests over the last day or week: success, response times, cooldowns, fallbacks and recent failures */
+        get: operations["catalogs-reliability"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/chapters/delete": {
         parameters: {
             query?: never;
@@ -3000,6 +3017,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/system/attention": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Failed downloads, unhealthy sources, unverified backups, stopped workers, processing and disk space at a glance */
+        get: operations["system-attention"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/system/backups": {
         parameters: {
             query?: never;
@@ -3929,6 +3963,88 @@ export interface components {
             /** @enum {string} */
             theme: "dark" | "light" | "system";
         };
+        Attention: {
+            backups: components["schemas"]["AttentionBackupsStruct"];
+            disk: components["schemas"]["AttentionDiskStruct"];
+            failedDownloads: components["schemas"]["AttentionFailedDownloadsStruct"];
+            processing: components["schemas"]["AttentionProcessingStruct"];
+            sources: components["schemas"]["AttentionSourcesStruct"];
+            workers: components["schemas"]["AttentionWorkersStruct"];
+        };
+        AttentionBackupsStruct: {
+            /** Format: int64 */
+            count: number;
+            /** Format: date-time */
+            lastVerifiedAt?: string;
+            /** Format: date-time */
+            latestAt?: string;
+            latestName?: string;
+            latestVerified: boolean;
+        };
+        AttentionCount: {
+            /** Format: int64 */
+            count: number;
+            name: string;
+            /** @description moduleId:sourceId */
+            source: string;
+        };
+        AttentionDiskStruct: {
+            /** Format: int64 */
+            folders: number;
+            /** Format: int64 */
+            free: number;
+            low: boolean;
+            /** @description The root folder with the least free space */
+            path?: string;
+            /** Format: int64 */
+            total: number;
+        };
+        AttentionFailedDownloadsStruct: {
+            /**
+             * Format: int64
+             * @description Download entries that failed in the last 24 hours
+             */
+            count: number;
+            sources: components["schemas"]["AttentionCount"][];
+        };
+        AttentionProcessingStruct: {
+            /**
+             * Format: int64
+             * @description Reprocessing entries that failed in the last 24 hours
+             */
+            failed: number;
+            /** Format: int64 */
+            running: number;
+            /** Format: int64 */
+            waiting: number;
+        };
+        AttentionSource: {
+            /** Format: date-time */
+            cooldownUntil?: string;
+            /** Format: int64 */
+            failures: number;
+            name: string;
+            reason?: string;
+            /** Format: int64 */
+            requests: number;
+            /** @description moduleId:sourceId */
+            source: string;
+        };
+        AttentionSourcesStruct: {
+            unhealthy: components["schemas"]["AttentionSource"][];
+        };
+        AttentionWorker: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            lastSeenAt?: string;
+            name: string;
+        };
+        AttentionWorkersStruct: {
+            /** Format: int64 */
+            enabled: number;
+            stale: components["schemas"]["AttentionWorker"][];
+        };
         "Auth-passwordRequest": {
             /** @description Your current password */
             current?: string;
@@ -4834,6 +4950,12 @@ export interface components {
             mode: string;
             options: components["schemas"]["UIOptions"];
         };
+        Failure: {
+            /** Format: date-time */
+            at: string;
+            error: string;
+            what: string;
+        };
         FileRename: {
             /** Format: int64 */
             chapterId: number;
@@ -4902,6 +5024,7 @@ export interface components {
             rootFolders: number[];
         };
         HealthCheck: {
+            action?: string;
             items?: components["schemas"]["HealthCheckItem"][];
             link?: string;
             message: string;
@@ -5224,6 +5347,7 @@ export interface components {
             q?: string;
             /** Format: int64 */
             seriesId?: number;
+            source?: string;
             statuses?: string[];
         };
         LiveProgress: {
@@ -6446,6 +6570,44 @@ export interface components {
             uploadDate?: string;
             webUrl: string;
         };
+        Reliability: {
+            cooldownReason?: string;
+            /** Format: date-time */
+            cooldownUntil?: string;
+            enabled: boolean;
+            /** Format: int64 */
+            failingSeries: number;
+            /** Format: int64 */
+            failures: number;
+            /** Format: int64 */
+            fallbacks: number;
+            lang: string;
+            /** Format: int64 */
+            medianMs: number;
+            /** Format: int64 */
+            moduleId: number;
+            moduleName: string;
+            name: string;
+            /** Format: int64 */
+            p90Ms: number;
+            points: components["schemas"]["ReliabilityPoint"][];
+            recentFailures: components["schemas"]["Failure"][];
+            /** Format: int64 */
+            requests: number;
+            /** Format: int64 */
+            series: number;
+            sourceId: string;
+            /** Format: int64 */
+            throttled: number;
+        };
+        ReliabilityPoint: {
+            /** Format: date-time */
+            at: string;
+            /** Format: int64 */
+            failures: number;
+            /** Format: int64 */
+            requests: number;
+        };
         Request: {
             /** Format: date-time */
             availableAt?: string;
@@ -6889,6 +7051,11 @@ export interface components {
             title: string;
             /** Format: int64 */
             total: number;
+        };
+        SiteRequest: {
+            error?: string;
+            /** Format: int64 */
+            ms: number;
         };
         "Source-preferences-setRequest": {
             /** Format: int64 */
@@ -7558,11 +7725,13 @@ export interface components {
             gpu?: string;
             /** Format: int64 */
             pages: number;
+            requests?: components["schemas"]["SiteRequest"][];
         };
         "Worker-failRequest": {
             /** Format: int64 */
             pages?: number;
             reason: string;
+            requests?: components["schemas"]["SiteRequest"][];
         };
         "Worker-heartbeatRequest": {
             /** Format: int64 */
@@ -7573,6 +7742,7 @@ export interface components {
             pagesDone?: number;
             /** Format: int64 */
             pagesTotal?: number;
+            requests?: components["schemas"]["SiteRequest"][];
             stage?: string;
         };
         "Worker-heartbeatResponse": {
@@ -8157,6 +8327,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CatalogHealth"][];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "catalogs-reliability": {
+        parameters: {
+            query?: {
+                days?: 1 | 7;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Reliability"][];
                 };
             };
             /** @description Error */
@@ -10835,6 +11036,8 @@ export interface operations {
                 status?: string[];
                 kind?: "" | "download" | "reprocess";
                 seriesId?: number;
+                /** @description Only entries from this catalog (moduleId:sourceId) */
+                source?: string;
                 q?: string;
                 includeDone?: boolean;
                 page?: number;
@@ -14898,6 +15101,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": string;
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "system-attention": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Attention"];
                 };
             };
             /** @description Error */

@@ -17,8 +17,9 @@ import { AddCatalogs, useExtensions } from "./AddCatalogs";
 import { CatalogIcon, Catalogs } from "./Catalogs";
 import { SourceSettings } from "./SourceSettings";
 import { SwitchEngine } from "./SwitchEngine";
+import { Reliability } from "./Reliability";
 
-type Tab = "defaults" | "catalogs" | "add" | "browse";
+type Tab = "defaults" | "catalogs" | "add" | "browse" | "reliability";
 // older addresses of the tabs this page replaced
 const moved: Record<string, Tab> = { extensions: "add", stores: "add", priorities: "catalogs" };
 
@@ -56,6 +57,7 @@ export function SourcesPage() {
       ? [{ value: "add" as const, label: <>{t("Add catalogs")} {updates > 0 && <span className="ml-1 rounded-full bg-accent/15 px-1.5 py-0.5 text-[11px] font-semibold text-accent-2">{t("{n} updates", { n: updates })}</span>}</> }]
       : []),
     { value: "browse", label: t("Browse") },
+    { value: "reliability", label: t("Reliability") },
   ];
   const tab: Tab = tabs.some((x) => x.value === tabParam) ? (tabParam as Tab) : "catalogs";
   const go = (x: Tab) => nav({ pathname: `/sources/${x}`, search: current && mods.length > 1 ? `?module=${current.id}` : "" });
@@ -107,6 +109,7 @@ export function SourcesPage() {
       {current && tab === "catalogs" && <Catalogs module={current} />}
       {current && tab === "add" && <AddCatalogs module={current} />}
       {current && tab === "browse" && <Browse module={current} />}
+      {tab === "reliability" && <Reliability />}
       {switching && current && <SwitchEngine modules={mods} from={current} onClose={() => setSwitching(false)} />}
     </>
   );

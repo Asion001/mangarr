@@ -147,8 +147,9 @@ type Governor struct {
 	cfg        func(Key) model.ThrottleConfig
 	onCooldown func(CooldownEvent)
 
-	mu sync.Mutex
-	st map[Key]*state
+	mu    sync.Mutex
+	st    map[Key]*state
+	stats *Stats
 
 	now   func() time.Time
 	sleep func(ctx context.Context, d time.Duration) error
@@ -158,7 +159,7 @@ type Governor struct {
 // New returns a governor; cfg returns the effective throttle of a catalog and
 // onCooldown (optional) persists cooldown changes.
 func New(cfg func(Key) model.ThrottleConfig, onCooldown func(CooldownEvent)) *Governor {
-	return &Governor{cfg: cfg, onCooldown: onCooldown, st: map[Key]*state{},
+	return &Governor{cfg: cfg, onCooldown: onCooldown, st: map[Key]*state{}, stats: newStats(),
 		now: time.Now, sleep: sleepCtx, rnd: func(n int64) int64 { return rand.Int64N(n) }}
 }
 
@@ -209,6 +210,20 @@ func (g *Governor) Cooldown(k Key) (time.Time, string) {
 		return time.Time{}, ""
 	}
 	return s.cooldownUntil, s.reason
+}
+
+// CoolingDown lists the catalogs cooling down now.
+func (g *Governor) CoolingDown() []Key {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	var out []Key
+	now := g.now()
+	for k, s := range g.st {
+		if now.Before(s.cooldownUntil) {
+			out = append(out, k)
+		}
+	}
+	return out
 }
 
 // ClearCooldown ends k's cooldown and resets its strikes.
@@ -342,17 +357,47 @@ func (g *Governor) Report(k Key, err error) {
 
 // Do runs fn with a request slot on k and reports its outcome.
 func (g *Governor) Do(ctx context.Context, k Key, fn func(ctx context.Context) error) error {
+	return g.DoOp(ctx, k, "", fn)
+}
+
+// DoOp is Do for a request described by what (kept with its failures).
+func (g *Governor) DoOp(ctx context.Context, k Key, what string, fn func(ctx context.Context) error) error {
 	release, err := g.Acquire(ctx, k)
 	if err != nil {
 		return err
 	}
 	defer release()
+	start := g.now()
 	err = fn(ctx)
 	if ctx.Err() == nil {
+		g.observe(k, what, g.now().Sub(start), err)
 		g.Report(k, err)
 	}
 	return err
 }
+
+// observe counts a finished request on k for the reliability view.
+func (g *Governor) observe(k Key, what string, d time.Duration, err error) {
+	g.stats.record(k, g.now(), what, d, err)
+}
+
+// Observe counts a request made on another machine (a worker fetching a
+// chapter's pages itself) in k's reliability numbers.
+func (g *Governor) Observe(k Key, what string, d time.Duration, err error) {
+	if g != nil {
+		g.observe(k, what, d, err)
+	}
+}
+
+// Fallback counts a download that gave up on k and used another catalog.
+func (g *Governor) Fallback(k Key) {
+	if g != nil {
+		g.stats.fallback(k, g.now())
+	}
+}
+
+// Stats are the request counts and recent failures of every catalog.
+func (g *Governor) Stats() *Stats { return g.stats }
 
 // Limits is the effective throttle of a catalog, for handing part of its
 // budget to another machine that will make the requests itself.

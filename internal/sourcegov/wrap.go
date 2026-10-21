@@ -2,6 +2,7 @@ package sourcegov
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"sync"
 
@@ -43,6 +44,14 @@ func (w *Governed) Unwrap() source.Module { return w.inner }
 
 func (w *Governed) key(sourceID string) Key { return Key{ModuleID: w.moduleID, SourceID: sourceID} }
 
+// mangaName names a title in a failure: its title when known, else its address.
+func mangaName(ref source.MangaRef) string {
+	if ref.TitleHint != "" {
+		return ref.TitleHint
+	}
+	return ref.URL
+}
+
 func (w *Governed) Test(ctx context.Context) error { return w.inner.Test(ctx) }
 
 func (w *Governed) Sources(ctx context.Context) ([]source.SourceInfo, error) {
@@ -50,7 +59,7 @@ func (w *Governed) Sources(ctx context.Context) ([]source.SourceInfo, error) {
 }
 
 func (w *Governed) Search(ctx context.Context, sourceID, query string, page int) (res *source.MangaPage, err error) {
-	err = w.g.Do(ctx, w.key(sourceID), func(ctx context.Context) error {
+	err = w.g.DoOp(ctx, w.key(sourceID), "Search “"+query+"”", func(ctx context.Context) error {
 		res, err = w.inner.Search(ctx, sourceID, query, page)
 		return err
 	})
@@ -58,7 +67,11 @@ func (w *Governed) Search(ctx context.Context, sourceID, query string, page int)
 }
 
 func (w *Governed) Manga(ctx context.Context, ref source.MangaRef, withChapters bool) (d *source.MangaDetails, chs []source.Chapter, err error) {
-	err = w.g.Do(ctx, w.key(ref.SourceID), func(ctx context.Context) error {
+	what := "Details of " + mangaName(ref)
+	if withChapters {
+		what = "Chapter list of " + mangaName(ref)
+	}
+	err = w.g.DoOp(ctx, w.key(ref.SourceID), what, func(ctx context.Context) error {
 		d, chs, err = w.inner.Manga(ctx, ref, withChapters)
 		return err
 	})
@@ -66,7 +79,7 @@ func (w *Governed) Manga(ctx context.Context, ref source.MangaRef, withChapters 
 }
 
 func (w *Governed) Pages(ctx context.Context, ref source.ChapterRef) (pages []source.Page, err error) {
-	err = w.g.Do(ctx, w.key(ref.Manga.SourceID), func(ctx context.Context) error {
+	err = w.g.DoOp(ctx, w.key(ref.Manga.SourceID), "Page list of a chapter of "+mangaName(ref.Manga), func(ctx context.Context) error {
 		pages, err = w.inner.Pages(ctx, ref)
 		return err
 	})
@@ -83,8 +96,10 @@ func (w *Governed) FetchPage(ctx context.Context, p source.Page) (io.ReadCloser,
 	if err != nil {
 		return nil, "", err
 	}
+	start := w.g.now()
 	body, ct, err := w.inner.FetchPage(ctx, p)
 	if ctx.Err() == nil {
+		w.g.observe(k, fmt.Sprintf("Page %d image", p.Index+1), w.g.now().Sub(start), err)
 		w.g.Report(k, err)
 	}
 	if err != nil {
@@ -110,7 +125,7 @@ func (w *Governed) Latest(ctx context.Context, sourceID string, page int) (res *
 	if w.latest == nil {
 		return nil, source.ErrUnsupported
 	}
-	err = w.g.Do(ctx, w.key(sourceID), func(ctx context.Context) error {
+	err = w.g.DoOp(ctx, w.key(sourceID), "Latest titles", func(ctx context.Context) error {
 		res, err = w.latest.Latest(ctx, sourceID, page)
 		return err
 	})
@@ -121,7 +136,7 @@ func (w *Governed) Popular(ctx context.Context, sourceID string, page int) (res 
 	if w.latest == nil {
 		return nil, source.ErrUnsupported
 	}
-	err = w.g.Do(ctx, w.key(sourceID), func(ctx context.Context) error {
+	err = w.g.DoOp(ctx, w.key(sourceID), "Popular titles", func(ctx context.Context) error {
 		res, err = w.latest.Popular(ctx, sourceID, page)
 		return err
 	})
