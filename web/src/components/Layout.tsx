@@ -32,7 +32,7 @@ import {
   Pause,
 } from "lucide-react";
 import { api } from "../api/client";
-import { useAuthStatus, useHealth, usePendingRequests, useQueue } from "../api/queries";
+import { useAuthStatus, useHealth, usePendingRequests, useQueue, useUpdatesUnseen } from "../api/queries";
 import { useAccount, type Perm } from "../lib/account";
 import { OfflineBanner } from "./OnDevice";
 
@@ -184,6 +184,8 @@ export function Layout() {
   const issues = (health?.checks ?? []).filter((c) => c.type === "error" || c.type === "warning").length;
   const { data: requestCount } = usePendingRequests(can(["requests.manage", "library.manage"]));
   const pendingRequests = requestCount?.pending ?? 0;
+  const { data: unseen } = useUpdatesUnseen();
+  const unseenUpdates = unseen?.count ?? 0;
 
   const nav: NavItem[] = [
     { to: "/", section: "library", label: "Series", icon: <BookOpen className="size-4" /> },
@@ -288,7 +290,7 @@ export function Layout() {
             {compact ? <div aria-hidden className="mx-2 mb-1 border-t border-border first:hidden" /> : <h2 className="px-2.5 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-wide text-muted">{title}</h2>}
             {items.map(item=>{
           const active = item.to === "/" ? loc.pathname === "/" || loc.pathname.startsWith("/series") : loc.pathname.startsWith(item.to);
-          const count = item.to === "/activity" ? queued : item.to === "/requests" && editing ? pendingRequests : item.to === "/system" ? issues : 0;
+          const count = item.to === "/activity" ? queued : item.to === "/requests" && editing ? pendingRequests : item.to === "/system" ? issues : item.to === "/updates" ? unseenUpdates : 0;
           return <div key={item.to}>
             <NavLink to={item.to==="/settings"?"/settings":item.children?item.children[0].to:item.to} title={label(item.label)} aria-label={label(item.label)} onClick={()=>setOpen(false)} className={clsx("flex items-center gap-2.5 rounded-md px-2.5 font-medium",mobile?"min-h-10 py-2":"min-h-8 py-1.5",compact&&"justify-center",active?"bg-panel-2 text-fg":"text-muted hover:bg-panel-2 hover:text-fg")}>
               <span className="shrink-0">{item.icon}</span>

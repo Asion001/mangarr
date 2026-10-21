@@ -63,7 +63,7 @@ func TestUpdatesSQLCursorAndVisibility(t *testing.T) {
 
 		server := &Server{app: &app.App{DB: database}}
 		viewer := &access.Principal{Perms: map[string]bool{}, Scope: access.Scope{IncludeTags: []int64{7}, ExcludeTags: []int64{8}, RootFolders: []int64{visibleRoot.ID}}}
-		seriesPage, err := server.listUpdates(ctx, viewer, 7, "series", 1, 20, nil)
+		seriesPage, err := server.listUpdates(ctx, viewer, updateFilter{Days: 7, Kind: "series"}, 1, 20, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -75,7 +75,7 @@ func TestUpdatesSQLCursorAndVisibility(t *testing.T) {
 		if _, err := database.NewInsert().Model(tieSeries).Exec(ctx); err != nil {
 			t.Fatal(err)
 		}
-		mixedFirst, err := server.listUpdates(ctx, viewer, 7, "all", 1, 600, nil)
+		mixedFirst, err := server.listUpdates(ctx, viewer, updateFilter{Days: 7, Kind: "all"}, 1, 600, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -86,7 +86,7 @@ func TestUpdatesSQLCursorAndVisibility(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		mixedSecond, err := server.listUpdates(ctx, viewer, 7, "all", 1, 10, &mixedCursor)
+		mixedSecond, err := server.listUpdates(ctx, viewer, updateFilter{Days: 7, Kind: "all"}, 1, 10, &mixedCursor)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -100,7 +100,7 @@ func TestUpdatesSQLCursorAndVisibility(t *testing.T) {
 		var previousID int64
 		for {
 			started := time.Now()
-			page, err := server.listUpdates(ctx, viewer, 7, "chapter", 1, 37, cursor)
+			page, err := server.listUpdates(ctx, viewer, updateFilter{Days: 7, Kind: "chapter"}, 1, 37, cursor)
 			if err != nil {
 				t.Fatal(err)
 			}

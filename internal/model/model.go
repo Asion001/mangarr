@@ -942,3 +942,24 @@ type SourceStat struct {
 	Lat6          int       `bun:"lat_6,notnull"`
 	Lat7          int       `bun:"lat_7,notnull"`
 }
+
+// UpdateSeen is how far one person has seen the Updates feed: every item
+// at or before (SeenAt, SeenRank, SeenID) in the feed's order. UserID 0 is
+// a signed-out install.
+type UpdateSeen struct {
+	bun.BaseModel `bun:"table:update_seen"`
+	UserID        int64     `bun:"user_id,pk"`
+	SeenAt        time.Time `bun:"seen_at,notnull"`
+	SeenRank      int       `bun:"seen_rank,notnull"`
+	SeenID        int64     `bun:"seen_id,notnull"`
+	UpdatedAt     time.Time `bun:"updated_at,notnull"`
+}
+
+// UpdateSeenItem is one update marked seen above the person's cursor.
+type UpdateSeenItem struct {
+	bun.BaseModel `bun:"table:update_seen_items"`
+	UserID        int64     `bun:"user_id,pk"`
+	Kind          string    `bun:"kind,pk"`
+	ItemID        int64     `bun:"item_id,pk"`
+	At            time.Time `bun:"at,notnull"`
+}

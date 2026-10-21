@@ -88,6 +88,10 @@ export type QueueFilter = { status?: string[]; kind?: "" | "download" | "reproce
 export const useQueue = (f: QueueFilter = {}, enabled = true) =>
   useQuery({ queryKey: ["queue", f], queryFn: () => unwrap(api.GET("/api/v1/queue", { params: { query: f } })), placeholderData: (prev) => prev, enabled });
 
+/** useUpdatesUnseen counts the updates of the last 30 days you haven't seen (for the menu). */
+export const useUpdatesUnseen = (enabled = true) =>
+  useQuery({ queryKey: ["updates", "unseen"], queryFn: () => unwrap(api.GET("/api/v1/updates/unseen")), staleTime: 60_000, enabled });
+
 export const useHealth = (enabled = true) => useQuery({ queryKey: ["health"], queryFn: () => unwrap(api.GET("/api/v1/health")), enabled });
 export const useCommands = () => useQuery({ queryKey: ["commands"], queryFn: () => unwrap(api.GET("/api/v1/commands", { params: { query: { limit: 50 } } })) });
 export const useTasks = () => useQuery({ queryKey: ["tasks"], queryFn: () => unwrap(api.GET("/api/v1/system/tasks")) });

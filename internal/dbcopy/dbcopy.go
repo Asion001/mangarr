@@ -19,7 +19,7 @@ import (
 var Tables = []string{
 	"groups", "readers", "users", "user_ui_preferences", "source_priority_lists", "sessions", "invites",
 	"messenger_links", "messenger_link_tokens",
-	"settings", "tags", "root_folders", "profiles", "provider_definitions", "catalog_prefs", "source_stats",
+	"settings", "tags", "root_folders", "profiles", "provider_definitions", "catalog_prefs", "source_stats", "update_seen", "update_seen_items",
 	"works", "series", "series_sources", "chapters", "chapter_releases", "chapter_files", "page_bounds",
 	"notification_deliveries", "notification_dispatches",
 	"recycled_files", "download_queue_order", "download_jobs", "history", "blocklist", "commands", "scheduled_tasks",
