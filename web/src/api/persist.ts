@@ -25,5 +25,13 @@ export function saveCopy(name: string, match: string, data: unknown) {
   }
 }
 
+export function forgetCopy(name: string) {
+  try {
+    localStorage.removeItem(prefix + name);
+  } catch {
+    /* blocked */
+  }
+}
+
 /** accountKey names the signed-in account, so a shared browser never shows one person's copy to another. */
 export const accountKey = (account?: { kind?: string; id?: number } | null) => `${account?.kind ?? "guest"}:${account?.id ?? 0}`;

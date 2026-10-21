@@ -1,9 +1,34 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, unwrap } from "./client";
-import { accountKey, readCopy, saveCopy } from "./persist";
+import { accountKey, forgetCopy, readCopy, saveCopy } from "./persist";
+import { unreachable } from "../lib/connection";
 import { useToast } from "../lib/toast";
 
-export const useAuthStatus = () => useQuery({ queryKey: ["auth"], queryFn: () => unwrap(api.GET("/api/v1/auth/status")), staleTime: 60_000 });
+const fetchAuthStatus = () => unwrap(api.GET("/api/v1/auth/status"));
+
+/**
+ * useAuthStatus is who is signed in. The last signed-in answer is kept in
+ * this browser, so with no server at all (opened offline, with nothing the
+ * service worker kept) the app still opens what it has saved instead of a
+ * spinner; the server's answer replaces it once it comes.
+ */
+export const useAuthStatus = () =>
+  useQuery({
+    queryKey: ["auth"],
+    queryFn: async () => {
+      try {
+        const status = await fetchAuthStatus();
+        if (status.authenticated) saveCopy("auth", "", status);
+        else forgetCopy("auth");
+        return status;
+      } catch (err) {
+        const kept = unreachable(err) ? readCopy<Awaited<ReturnType<typeof fetchAuthStatus>>>("auth", "") : undefined;
+        if (kept) return kept;
+        throw err;
+      }
+    },
+    staleTime: 60_000,
+  });
 
 const fetchSeriesList = () => unwrap(api.GET("/api/v1/series"));
 

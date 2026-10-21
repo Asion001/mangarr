@@ -112,7 +112,7 @@ export function useReaderSettings(seriesId: number, seriesDirection: string) {
   const [version, setVersion] = useState(0);
   const device = useMemo(() => readDevice(key), [key, version]);
   const seeded = device.defaults !== undefined && seriesId in device.series;
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, failureCount } = useQuery({
     queryKey: ["reader-settings", seriesId],
     queryFn: () => unwrap(api.GET("/api/v1/read/settings", { params: { query: { seriesId } } })),
     enabled: !!account && seriesId > 0 && !seeded,
@@ -144,5 +144,7 @@ export function useReaderSettings(seriesId: number, seriesDirection: string) {
   };
   /** reset drops this series' own settings. */
   const reset = () => save({ defaults: device.defaults, series: { ...device.series, [seriesId]: null } });
-  return { settings, loading: seriesId > 0 && !seeded && (!account || isLoading), hasOwn: !!own, set, saveAsDefault, reset };
+  // waiting stops at the first failed try: with no server (offline, or a
+  // restart) the reader opens with what this device has instead of a spinner
+  return { settings, loading: seriesId > 0 && !seeded && (!account || (isLoading && failureCount === 0)), hasOwn: !!own, set, saveAsDefault, reset };
 }

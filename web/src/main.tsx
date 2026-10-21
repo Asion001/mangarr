@@ -21,7 +21,14 @@ const queryClient = new QueryClient({
       retry: (count, err) => (unreachable(err) && isServerDown() ? count < 35 : count < 2 && !(err as { status?: number })?.status?.toString().startsWith("4")),
       retryDelay: (count, err) => Math.min(1000 * 2 ** count, unreachable(err) ? 10_000 : 30_000),
       refetchOnWindowFocus: true,
+      // ask even when the browser says it's offline: the service worker
+      // answers from what it kept (public/sw.js). The default holds every
+      // request until the browser is back online, so an app opened offline
+      // showed only loaders.
+      networkMode: "offlineFirst",
     },
+    // progress saved offline goes to the service worker's outbox the same way
+    mutations: { networkMode: "offlineFirst" },
   },
 });
 
