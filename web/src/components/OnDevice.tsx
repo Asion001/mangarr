@@ -6,7 +6,7 @@ import clsx from "clsx";
 import { Menu } from "./ui";
 import { bytes } from "../lib/format";
 import { useToast } from "../lib/toast";
-import { estimateBytes, offlineReady, queueSave, removeChapter, saveChapterById, savedChapters, saving, savingNow, useSavedChapters, type QueuedChapter, type SavedChapter } from "../lib/offline/store";
+import { estimateBytes, offlineReady, queueSave, removeChapter, saveChapterById, savedChapters, saving, savingNow, useSavedChapters, useSaveQueue, type QueuedChapter, type SavedChapter } from "../lib/offline/store";
 import { useReachable } from "../lib/offline/connection";
 
 /** useOfflineReady is true once a service worker answers this page, so chapters can be saved on the device. */
@@ -62,10 +62,15 @@ export function SaveChapterButton({ chapterId }: { chapterId: number }) {
   );
 }
 
-/** SaveSeriesMenu queues the next unread chapters, or all of them, to be saved on this device. */
+/**
+ * SaveSeriesMenu queues the next unread chapters to be saved on this device.
+ * The next ones are those not saved or waiting yet, so asking for the next 5
+ * twice queues 10.
+ */
 export function SaveSeriesMenu({ unread, all }: { unread: QueuedChapter[]; all: QueuedChapter[] }) {
   const ready = useOfflineReady();
   const saved = useSavedChapters();
+  const waiting = useSaveQueue();
   const toast = useToast();
   if (!ready) return null;
   const save = (chapters: QueuedChapter[]) => {
@@ -73,16 +78,24 @@ export function SaveSeriesMenu({ unread, all }: { unread: QueuedChapter[]; all: 
     if (added === 0) return toast.info(t("Already on this device"));
     toast.info(t("Saving {count} chapters on this device", { count: added }));
   };
-  const next = unread.slice(0, 5);
+  const queued = new Set(waiting.map((q) => q.id));
+  const rest = unread.filter((c) => !saved[c.id] && !queued.has(c.id));
   const here = all.filter((c) => saved[c.id]).map((c) => c.id);
+  const next = (n: number) => ({
+    label: `${t("Next {count} unread", { count: n })} · ~${bytes(estimateBytes(savedChapters(), Math.min(n, rest.length)))}`,
+    onSelect: () => save(rest.slice(0, n)),
+    hidden: rest.length === 0 || (n > 5 && rest.length <= n - 5),
+  });
   return (
     <Menu
       size="sm"
       label={t("Save on device")}
       icon={<Smartphone className="size-3.5" />}
       items={[
-        { label: `${t("Next 5 unread")} · ~${bytes(estimateBytes(savedChapters(), next.length))}`, onSelect: () => save(next), hidden: next.length === 0 },
-        { label: `${t("All unread ({count})", { count: unread.length })} · ~${bytes(estimateBytes(savedChapters(), unread.length))}`, onSelect: () => save(unread), hidden: unread.length <= 5 },
+        next(5),
+        next(10),
+        next(15),
+        { label: `${t("All unread ({count})", { count: rest.length })} · ~${bytes(estimateBytes(savedChapters(), rest.length))}`, onSelect: () => save(rest), hidden: rest.length <= 15 },
         { label: t("Remove from this device"), danger: true, onSelect: () => void Promise.all(here.map(removeChapter)), hidden: here.length === 0 },
       ]}
     />
