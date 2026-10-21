@@ -166,3 +166,41 @@ func TestVerifyRejectsMissingManifest(t *testing.T) {
 		t.Fatal("archive without manifest accepted")
 	}
 }
+
+// TestBackupCarriesSourceSettings: a backup keeps the native sources' site
+// options from the data dir, and restoring puts them back.
+func TestBackupCarriesSourceSettings(t *testing.T) {
+	ctx := context.Background()
+	d, err := db.Open(ctx, "sqlite://"+filepath.Join(t.TempDir(), "source.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Close()
+	if err := d.Migrate(ctx); err != nil {
+		t.Fatal(err)
+	}
+	dataDir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dataDir, "sources"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dataDir, "sources", "native-3.json"), []byte(`{"lang":"en"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	svc := New(d, nil, dataDir)
+	b, err := svc.Create(ctx, "manual")
+	if err != nil {
+		t.Fatal(err)
+	}
+	path, err := svc.Path(b.Name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	other := t.TempDir()
+	if err := UnpackData(path, other); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(other, "sources", "native-3.json"))
+	if err != nil || string(got) != `{"lang":"en"}` {
+		t.Fatalf("restored source settings: %q, %v", got, err)
+	}
+}

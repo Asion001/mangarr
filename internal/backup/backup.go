@@ -17,11 +17,16 @@ import (
 
 	"github.com/Asion001/mangarr/internal/db"
 	"github.com/Asion001/mangarr/internal/dbcopy"
+	"github.com/Asion001/mangarr/internal/fsutil"
 	"github.com/Asion001/mangarr/internal/settings"
 	"github.com/Asion001/mangarr/internal/version"
 )
 
 const MaxUploadSize = 4 << 30
+
+// uploadReserve is the free space an upload and its verification leave on
+// the disk, so a big upload can't fill the data volume under the server.
+const uploadReserve = 1 << 30
 
 type Backup struct {
 	Name         string        `json:"name"`
@@ -47,11 +52,12 @@ type Verification struct {
 type Service struct {
 	db       *db.DB
 	settings *settings.Store
+	dataDir  string
 	dir      string
 }
 
 func New(d *db.DB, st *settings.Store, dataDir string) *Service {
-	return &Service{db: d, settings: st, dir: filepath.Join(dataDir, "backups")}
+	return &Service{db: d, settings: st, dataDir: dataDir, dir: filepath.Join(dataDir, "backups")}
 }
 
 func (s *Service) Dir() string { return s.dir }
@@ -110,6 +116,9 @@ func (s *Service) Create(ctx context.Context, typ string) (*Backup, error) {
 		if err != nil {
 			return fail(err)
 		}
+	}
+	if err := s.addDataFiles(zw); err != nil {
+		return fail(err)
 	}
 	if err := addJSON(zw, "manifest.json", manifest); err != nil {
 		return fail(err)
@@ -203,7 +212,14 @@ func (s *Service) List() ([]Backup, error) {
 
 // SaveFrom stores and verifies an uploaded backup without keeping its body in memory.
 func (s *Service) SaveFrom(ctx context.Context, src io.Reader) (*Backup, error) {
-	return s.saveFromLimit(ctx, src, MaxUploadSize)
+	if err := os.MkdirAll(s.dir, 0o775); err != nil {
+		return nil, err
+	}
+	limit := int64(MaxUploadSize)
+	if free, err := fsutil.FreeSpace(s.dir); err == nil {
+		limit = min(limit, max(int64(free)-uploadReserve, 0))
+	}
+	return s.saveFromLimit(ctx, src, limit)
 }
 
 func (s *Service) saveFromLimit(ctx context.Context, src io.Reader, maxSize int64) (*Backup, error) {
@@ -223,7 +239,7 @@ func (s *Service) saveFromLimit(ctx context.Context, src io.Reader, maxSize int6
 	}
 	if n > maxSize {
 		_ = tmp.Close()
-		return nil, fmt.Errorf("backup upload exceeds the %d byte limit", maxSize)
+		return nil, fmt.Errorf("backup upload exceeds the %d byte limit (4 GB, or the free space left for it)", maxSize)
 	}
 	if err := tmp.Close(); err != nil {
 		return nil, err
@@ -305,6 +321,10 @@ func (s *Service) verifyPath(ctx context.Context, path string) (*Verification, e
 			_ = os.Remove(dbPath + suffix)
 		}
 	}()
+	// the database is unpacked beside the archive: make sure it fits
+	if free, err := fsutil.FreeSpace(s.dir); err == nil && database.UncompressedSize64+uploadReserve > free {
+		return nil, fmt.Errorf("not enough free space to check the backup: its database needs %d MB", database.UncompressedSize64>>20)
+	}
 	r, err := database.Open()
 	if err != nil {
 		return nil, fmt.Errorf("read backup database: %w", err)

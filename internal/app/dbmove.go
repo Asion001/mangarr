@@ -14,6 +14,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Asion001/mangarr/internal/backup"
 	"github.com/Asion001/mangarr/internal/config"
 	"github.com/Asion001/mangarr/internal/db"
 	"github.com/Asion001/mangarr/internal/dbcopy"
@@ -337,6 +338,10 @@ func (a *App) restoreBackup(zipPath string) {
 	if err != nil {
 		fail(err)
 		return
+	}
+	// the source settings that go with the restored data
+	if err := backup.UnpackData(zipPath, a.Cfg.DataDir); err != nil {
+		log.Warn("restoring the source settings failed", "err", err)
 	}
 	log.Info("backup restored", "rows", res.Total)
 	a.setMove(func(s *MoveState) { s.Running, s.Stage, s.Result, s.Restarting = false, "done", res, true })
