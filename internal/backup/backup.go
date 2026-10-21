@@ -76,8 +76,10 @@ func (s *Service) Create(ctx context.Context, typ string) (*Backup, error) {
 		return nil, err
 	}
 	manifest := map[string]any{"version": version.Version, "database": string(s.db.Kind), "created": time.Now().UTC()}
+	// the database copy is named after this backup, so a manual and a
+	// scheduled backup running at once don't share one
+	dbTmp := tmp + ".db"
 	if s.db.Kind == db.SQLite {
-		dbTmp := filepath.Join(s.dir, ".backup-db.tmp")
 		if err := s.db.Backup(ctx, dbTmp); err != nil {
 			return fail(err)
 		}
@@ -89,7 +91,6 @@ func (s *Service) Create(ctx context.Context, typ string) (*Backup, error) {
 	} else {
 		// the whole database as a SQLite file: the same backup format on
 		// both databases, restorable into either
-		dbTmp := filepath.Join(s.dir, ".backup-db.tmp")
 		cleanup := func() {
 			for _, suffix := range []string{"", "-wal", "-shm"} {
 				_ = os.Remove(dbTmp + suffix)
