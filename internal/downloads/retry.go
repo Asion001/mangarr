@@ -38,6 +38,12 @@ func classify(err error) error {
 
 var retryDelays = []time.Duration{30 * time.Second, 2 * time.Minute, 10 * time.Minute}
 
+// removed reports a job that is no longer in the queue (removed while it ran).
+func (m *Manager) removed(jobID int64) bool {
+	exists, err := m.db.NewSelect().Model((*model.DownloadJob)(nil)).Where("id = ?", jobID).Exists(context.Background())
+	return err == nil && !exists
+}
+
 // fail handles a failed attempt: retry, fall back to another release, or fail.
 func (m *Manager) fail(ctx context.Context, job *model.DownloadJob, jc *jobCtx, err error) {
 	if ctx.Err() != nil {
@@ -45,7 +51,7 @@ func (m *Manager) fail(ctx context.Context, job *model.DownloadJob, jc *jobCtx, 
 		return
 	}
 	bg := context.Background()
-	if exists, err2 := m.db.NewSelect().Model((*model.DownloadJob)(nil)).Where("id = ?", job.ID).Exists(bg); err2 == nil && !exists {
+	if m.removed(job.ID) {
 		// removed from the queue while it ran (its worker task then can't be
 		// stored either): nothing failed, and there is nothing to retry
 		m.log.Debug("job removed while running", "job", job.ID, "err", err)

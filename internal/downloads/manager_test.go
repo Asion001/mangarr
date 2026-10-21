@@ -242,3 +242,54 @@ func TestRemovedJobFailsQuietly(t *testing.T) {
 		}
 	})
 }
+
+// removingProcessor removes the job from the queue while "processing", as a
+// user clearing the queue does, and fails the way storing its worker task
+// then does.
+type removingProcessor struct {
+	d     *db.DB
+	jobID int64
+}
+
+func (p removingProcessor) Process(ctx context.Context, _ model.ProfileConfig, pages []PageFile, _ string) (ProcessResult, error) {
+	if _, err := p.d.NewDelete().Model((*model.DownloadJob)(nil)).Where("id = ?", p.jobID).Exec(ctx); err != nil {
+		return ProcessResult{}, err
+	}
+	return ProcessResult{Pages: pages}, errors.New(`insert or update on table "worker_tasks" violates foreign key constraint "worker_tasks_job_id_fkey"`)
+}
+
+// TestReprocessRemovedMidwayLeavesFileAlone: a re-process removed from the
+// queue while it ran doesn't mark the chapter's file as failed with the
+// error from its worker task that couldn't be stored.
+func TestReprocessRemovedMidwayLeavesFileAlone(t *testing.T) {
+	dbtest.ForEachDialect(t, func(t *testing.T, d *db.DB) {
+		q, chapters := rankFixture(t, d, 1)
+		ctx := t.Context()
+		ch := chapters[0]
+		now := time.Now().UTC()
+		file := &model.ChapterFile{ChapterID: ch.ID, SeriesID: ch.SeriesID, RelativePath: "Ch.1.cbz", Size: 1, PageCount: 1, Format: "cbz", ImportedAt: now, ProcessState: model.ProcessDone}
+		if _, err := d.NewInsert().Model(file).Exec(ctx); err != nil {
+			t.Fatal(err)
+		}
+		job, _, err := q.Enqueue(ctx, ch.SeriesID, ch.ID, nil, model.JobKindReprocess, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		m := NewManager(d, q.bus, nil, settings.NewStore(d), nil, q, nil, slog.New(slog.NewTextHandler(io.Discard, nil)), t.TempDir())
+		m.Processor = removingProcessor{d: d, jobID: job.ID}
+		var profile model.Profile
+		if err := d.NewSelect().Model(&profile).Limit(1).Scan(ctx); err != nil {
+			t.Fatal(err)
+		}
+		profile.Config.Upscale = model.UpscaleConfig{Enabled: true, MinWidth: 32, Model: "waifu2x-cunet", Format: "png", Quality: 90}
+		jc := &jobCtx{job: job, profile: profile, chapter: ch, file: file}
+		m.finish(ctx, *job, jc, []PageFile{{Name: "0001.png", Path: filepath.Join(t.TempDir(), "0001.png"), Format: "png", Width: 16, Height: 16}}, t.TempDir())
+		var got model.ChapterFile
+		if err := d.NewSelect().Model(&got).Where("id = ?", file.ID).Scan(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if got.ProcessState != model.ProcessDone || got.ProcessError != "" || got.ProcessAttempts != 0 {
+			t.Fatalf("file marked after its job was removed: state %q, error %q, attempts %d", got.ProcessState, got.ProcessError, got.ProcessAttempts)
+		}
+	})
+}

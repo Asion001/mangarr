@@ -101,6 +101,11 @@ func (m *Manager) finish(ctx context.Context, job model.DownloadJob, jc *jobCtx,
 		case perr != nil && ctx.Err() != nil:
 			m.fail(ctx, &job, jc, ctx.Err())
 			return
+		case perr != nil && m.removed(job.ID):
+			// removed from the queue mid-way: its worker task couldn't be
+			// stored, which says nothing about the file, so leave it as it is
+			log.Debug("job removed while processing", "err", perr)
+			return
 		case perr != nil && job.Kind == model.JobKindReprocess && errors.As(perr, &tmp) && tmp.Temporary():
 			// the file on disk is fine; retry once the engine is back
 			m.markProcessRetry(ctx, jc.file, perr)
