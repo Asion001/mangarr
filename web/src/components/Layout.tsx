@@ -1,12 +1,16 @@
 import { t, label } from "../lib/i18n/core";
-import { useTitleBadge } from "../lib/documentTitle";
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { NavLink, Outlet, useLocation, useNavigate } from "react-router";
+import { usePageTitle, useTitleBadge } from "../lib/documentTitle";
+import { parentOf, useBack } from "../lib/navigation";
+import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
+import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate } from "react-router";
+import { PageHeader } from "./ui";
 import { RouteBoundary } from "./RouteBoundary";
 import clsx from "clsx";
 import { useQueryClient } from "@tanstack/react-query";
 import {
+  ArrowLeft,
   BookOpen,
+  ChevronRight,
   PanelLeftClose,
   PanelLeftOpen,
   Pencil,
@@ -57,11 +61,44 @@ function SectionTabs({ label: name, items }: { label: string; items: { to: strin
     if (nav && tab && (tab.offsetLeft < nav.scrollLeft || tab.offsetLeft + tab.offsetWidth > nav.scrollLeft + nav.clientWidth)) nav.scrollLeft = tab.offsetLeft - 16;
   }, [loc.pathname]);
   return <nav ref={row} aria-label={name} className="-mt-1 mb-5 flex gap-1 overflow-x-auto border-b border-border">
-    {items.map(c=><NavLink key={c.to} to={c.to} className={({isActive})=>clsx("-mb-px whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium",isActive?"border-accent text-fg":"border-transparent text-muted hover:text-fg")}>{label(c.label)}</NavLink>)}
+    {items.map(c=><NavLink key={c.to} to={c.to} end className={({isActive})=>clsx("-mb-px whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium",isActive?"border-accent text-fg":"border-transparent text-muted hover:text-fg")}>{label(c.label)}</NavLink>)}
   </nav>;
 }
 
-/** SettingsNav is the navigation inside Settings: grouped links, and the same tabs as System on phones. */
+const wideQuery = "(min-width: 768px)";
+/** useWide is whether the screen is wider than a phone (Tailwind's md). */
+function useWide() {
+  return useSyncExternalStore((listener) => {
+    const query = window.matchMedia(wideQuery);
+    query.addEventListener("change", listener);
+    return () => query.removeEventListener("change", listener);
+  }, () => window.matchMedia(wideQuery).matches);
+}
+
+/**
+ * SettingsHome is /settings: on a phone the grouped list of settings pages,
+ * each of which then has Back to here; wider screens show the list beside
+ * the first page instead.
+ */
+export function SettingsHome() {
+  const wide = useWide();
+  if (wide) return <Navigate to="/settings/media" replace />;
+  return <>
+    <PageHeader title={t("Settings")} />
+    <nav aria-label={t("Settings")} className="flex flex-col gap-5">
+      {settingsGroups.map(g=><section key={g.title}>
+        <h2 className="px-1 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted">{label(g.title)}</h2>
+        <div className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-panel">
+          {g.items.map(i=><Link key={i.to} to={i.to} className="flex min-h-12 items-center gap-3 px-4 py-3 text-sm font-medium active:bg-panel-2">
+            <span className="flex-1">{label(i.label)}</span><ChevronRight className="size-4 text-muted"/>
+          </Link>)}
+        </div>
+      </section>)}
+    </nav>
+  </>;
+}
+
+/** SettingsNav is the grouped list of settings pages beside them on wider screens. */
 function SettingsNav() {
   return <>
     <nav aria-label={t("Settings")} className="hidden w-52 shrink-0 md:block">
@@ -72,7 +109,6 @@ function SettingsNav() {
         </div>)}
       </div>
     </nav>
-    <div className="md:hidden"><SectionTabs label={t("Settings")} items={settingsGroups.flatMap(g=>g.items)}/></div>
   </>;
 }
 
@@ -138,7 +174,7 @@ export function Layout() {
       await save({mode:editing?"reading":"editing"});
     } catch(e) { toast.fromError(e); }
   };
-  const { can, isAdmin, name } = useAccount();
+  const { account, can, isAdmin, name } = useAccount();
   const { data: queue } = useQueue({ pageSize: 1 }, can("activity.view"));
   const queued = queue?.total ?? 0;
   const queuePaused = !!queue?.state?.paused;
@@ -202,6 +238,22 @@ export function Layout() {
 
   // Activity and System pages share a row of tabs instead of nesting in the sidebar
   const tabsFor = nav.find((item) => (item.to === "/activity" || item.to === "/system") && loc.pathname.startsWith(item.to) && (!item.need || can(item.need)));
+  // so does My account, with the parts this kind of account has
+  const user = account?.kind === "user";
+  const accountTabs = [
+    { to: "/account", label: "Profile", show: true },
+    { to: "/account/notifications", label: "Notifications", show: user },
+    { to: "/account/apps", label: "Apps & servers", show: user || can("apps") },
+    { to: "/account/security", label: "Security", show: user },
+  ].filter((tab) => tab.show);
+  const onAccount = loc.pathname === "/account" || loc.pathname.startsWith("/account/");
+
+  // phones: the top bar names the page and goes back up from a page under another
+  const pageTitle = usePageTitle();
+  const parent = parentOf(loc.pathname);
+  const back = useBack(parent ?? "/");
+  // phones: the library's pages sit in a tab bar along the bottom
+  const tabBar = nav.filter((item) => item.section === "library" && !hiddenNav.includes(item.to) && (!item.need || can(item.need)) && (item.to !== "/requests" || can("requests.create")));
 
   const logout = async () => {
     await api.POST("/api/v1/auth/logout");
@@ -238,7 +290,7 @@ export function Layout() {
           const active = item.to === "/" ? loc.pathname === "/" || loc.pathname.startsWith("/series") : loc.pathname.startsWith(item.to);
           const count = item.to === "/activity" ? queued : item.to === "/requests" && editing ? pendingRequests : item.to === "/system" ? issues : 0;
           return <div key={item.to}>
-            <NavLink to={item.children?item.children[0].to:item.to} title={label(item.label)} aria-label={label(item.label)} onClick={()=>setOpen(false)} className={clsx("flex items-center gap-2.5 rounded-md px-2.5 font-medium",mobile?"min-h-10 py-2":"min-h-8 py-1.5",compact&&"justify-center",active?"bg-panel-2 text-fg":"text-muted hover:bg-panel-2 hover:text-fg")}>
+            <NavLink to={item.to==="/settings"?"/settings":item.children?item.children[0].to:item.to} title={label(item.label)} aria-label={label(item.label)} onClick={()=>setOpen(false)} className={clsx("flex items-center gap-2.5 rounded-md px-2.5 font-medium",mobile?"min-h-10 py-2":"min-h-8 py-1.5",compact&&"justify-center",active?"bg-panel-2 text-fg":"text-muted hover:bg-panel-2 hover:text-fg")}>
               <span className="shrink-0">{item.icon}</span>
               {!compact&&<><span className="flex-1">{label(item.label)}</span>{item.to==="/activity"&&queuePaused&&<span title={t("Queue paused")} aria-label={t("Queue paused")} className="flex items-center rounded-full bg-warn/15 px-1.5 py-0.5 text-warn"><Pause className="size-3"/></span>}{count>0&&<span className="rounded-full bg-primary px-1.5 text-xs font-medium text-white">{count}</span>}</>}
             </NavLink>
@@ -253,30 +305,47 @@ export function Layout() {
         </NavLink>
         <div className={clsx("flex items-center gap-2 px-2 text-xs text-muted",compact?"justify-center":"justify-between")}>
           {!compact&&<span>{editing&&can("activity.view")&&<span className="flex items-center gap-1">{queuePaused?<Pause className="size-3.5 text-warn"/>:<Activity className="size-3.5"/>}{queued} {queuePaused?`· ${t("paused")}`:t("in queue")}</span>}</span>}
-          <button title={t("Log out")} aria-label={t("Log out")} className="flex shrink-0 items-center gap-1 whitespace-nowrap py-2 hover:text-fg" onClick={logout}><LogOut className="size-3.5"/>{!compact&&t("Log out")}</button>
+          {/* with logins turned off there is nothing to log out of */}
+          {!status?.authDisabled&&<button title={t("Log out")} aria-label={t("Log out")} className="flex shrink-0 items-center gap-1 whitespace-nowrap py-2 hover:text-fg" onClick={logout}><LogOut className="size-3.5"/>{!compact&&t("Log out")}</button>}
         </div>
       </footer>
     </div>;
   };
 
   // --nav-width lets fixed bars in pages line up with the content column
-  return <div className="flex h-dvh overflow-hidden" style={{"--nav-width":collapsed?"4rem":"15rem",padding:"var(--safe-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)"} as CSSProperties}>
+  // pinch zoom is for the reader only; the rest of the app stays at its size
+  // --tabbar-h does the same for the phone's bottom tab bar
+  return <div data-tabbar={tabBar.length>1||undefined} className="flex h-dvh touch-pan-x touch-pan-y overflow-hidden" style={{"--nav-width":collapsed?"4rem":"15rem",padding:"var(--safe-top) env(safe-area-inset-right) var(--root-pb, env(safe-area-inset-bottom)) env(safe-area-inset-left)"} as CSSProperties}>
     <aside data-testid="desktop-navigation" className={clsx("hidden shrink-0 border-r border-border bg-panel md:block",collapsed?"w-16":"w-60")}>{sidebar()}</aside>
     {open&&<div className="fixed inset-0 z-40 bg-black/60 md:hidden" onClick={()=>setOpen(false)}>
       <aside ref={drawer} role="dialog" aria-modal="true" aria-label={t("Navigation")} className="h-dvh w-72 max-w-[85vw] border-r border-border bg-panel" onClick={e=>e.stopPropagation()}>{sidebar(true)}</aside>
     </div>}
     <div inert={open} className="flex min-w-0 flex-1 flex-col">
-      <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border px-4 md:hidden">
-        <button onClick={()=>setOpen(true)} aria-label={t("Open navigation")} aria-expanded={open} className="p-2 text-muted"><Menu className="size-5"/></button>
-        <span className="truncate font-semibold">{siteName}</span>
+      <header className="flex h-12 shrink-0 items-center gap-1 border-b border-border px-2 md:hidden">
+        {parent
+          ? <button onClick={back} aria-label={t("Back")} title={t("Back")} className="rounded-md p-2 text-muted active:bg-panel-2"><ArrowLeft className="size-5"/></button>
+          : <button onClick={()=>setOpen(true)} aria-label={t("Open navigation")} aria-expanded={open} className="rounded-md p-2 text-muted active:bg-panel-2"><Menu className="size-5"/></button>}
+        <span className="min-w-0 flex-1 truncate px-1 font-semibold">{pageTitle||siteName}</span>
+        {parent&&<button onClick={()=>setOpen(true)} aria-label={t("Open navigation")} aria-expanded={open} className="rounded-md p-2 text-muted active:bg-panel-2"><Menu className="size-5"/></button>}
       </header>
-      <main className="min-h-0 min-w-0 flex-1 overflow-y-auto p-4 md:p-6">
+      <main className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-6">
         <OfflineBanner/>
         {tabsFor&&<SectionTabs label={label(tabsFor.label)} items={tabsFor.children!.filter((c)=>!c.need||can(c.need))}/>}
+        {onAccount&&accountTabs.length>1&&<SectionTabs label={t("My account")} items={accountTabs}/>}
         {loc.pathname.startsWith("/settings")&&can("admin")
           ? <div className="md:flex md:gap-8"><SettingsNav/><div className="min-w-0 flex-1"><RouteBoundary><Outlet/></RouteBoundary></div></div>
           : <RouteBoundary><Outlet/></RouteBoundary>}
       </main>
+      {tabBar.length>1&&<nav aria-label={t("Library")} className="flex shrink-0 border-t border-border bg-panel md:hidden" style={{paddingBottom:"env(safe-area-inset-bottom)"}}>
+        {tabBar.map(item=>{
+          const active = item.to === "/" ? loc.pathname === "/" || loc.pathname.startsWith("/series") : loc.pathname.startsWith(item.to);
+          const count = item.to === "/requests" && editing ? pendingRequests : 0;
+          return <Link key={item.to} to={item.to} aria-current={active?"page":undefined} className={clsx("relative flex h-14 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium active:bg-panel-2",active?"text-accent-2":"text-muted")}>
+            <span className="[&>svg]:size-5">{item.icon}</span>{label(item.label)}
+            {count>0&&<span className="absolute right-1/2 top-1.5 translate-x-5 rounded-full bg-primary px-1.5 text-[10px] text-white">{count}</span>}
+          </Link>;
+        })}
+      </nav>}
     </div>
   </div>;
 }

@@ -2,7 +2,7 @@ import { useLocale } from "./lib/uiPreferences";
 import { lazy, useEffect, useRef } from "react";
 import { Navigate, Route, Routes, useMatch } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { Layout } from "./components/Layout";
+import { Layout, SettingsHome } from "./components/Layout";
 import { Loading } from "./components/ui";
 import { useAuthStatus } from "./api/queries";
 import { onServerEvent, useLiveUpdates } from "./lib/events";
@@ -135,6 +135,7 @@ export function App() {
           <Route path="updates" element={<UpdatesPage />} />
           <Route path="account" element={<AccountPage />} />
           <Route path="on-device" element={<OnDevicePage />} />
+          <Route path="account/:section" element={<AccountPage />} />
           <Route path="add" element={<Need perm={["library.add", "requests.manage"]}><AddSearchStep /></Need>} />
           <Route path="add/:moduleId/:metaId/sources" element={<Need perm={["library.add", "requests.manage"]}><AddReviewStep /></Need>} />
           <Route path="add/:moduleId/:metaId/options" element={<Need perm={["library.add", "requests.manage"]}><AddOptionsRedirect /></Need>} />
@@ -151,7 +152,7 @@ export function App() {
           <Route path="sources" element={<Need perm="library.edit"><SourcesPage /></Need>} />
           <Route path="sources/:tab" element={<Need perm="library.edit"><SourcesPage /></Need>} />
           <Route path="cleanup" element={<Need perm="admin"><CleanupPage /></Need>} />
-          <Route path="settings" element={<Navigate to="/settings/media" replace />} />
+          <Route path="settings" element={<Need perm="admin"><SettingsHome /></Need>} />
           <Route path="settings/media" element={<Need perm="admin"><MediaPage /></Need>} />
           <Route path="settings/profiles" element={<Need perm="admin"><ProfilesPage /></Need>} />
           <Route path="settings/sources" element={<Need perm="admin"><ModulesPage kind="source" /></Need>} />

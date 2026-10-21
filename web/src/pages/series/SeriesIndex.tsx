@@ -8,7 +8,7 @@ import { Check, CheckSquare, Inbox, LayoutGrid, List, Plus, RefreshCw, Search, S
 import { api, apiUrl, unwrap, type Series } from "../../api/client";
 import { usePushCommand, useRootFolders, useSeriesSearch } from "../../api/queries";
 import { Cover } from "../../components/Cover";
-import { Badge, Button, EmptyState, ErrorBox, Input, Loading, Progress, Select, Table, Td, Th } from "../../components/ui";
+import { Badge, Button, EmptyState, ErrorBox, Input, Loading, Progress, Select, Table, Td, Th, ButtonLink } from "../../components/ui";
 import { GenrePicker, type GenreMatch } from "./GenrePicker";
 import { bytes, date, languageName } from "../../lib/format";
 import { genreName } from "../../lib/genres";
@@ -334,9 +334,9 @@ export function SeriesIndex() {
         ) : (
           <EmptyState title={t("No series yet")}>
             {account.can(["library.add", "requests.manage"]) ? (
-              <Link to="/add"><Button variant="primary">{t("Add series")}</Button></Link>
+              <ButtonLink to="/add" variant="primary">{t("Add series")}</ButtonLink>
             ) : requester ? (
-              <Link to="/requests?tab=ask"><Button variant="primary" icon={<Inbox className="size-4" />}>{t("Request a title")}</Button></Link>
+              <ButtonLink to="/requests?tab=ask" variant="primary" icon={<Inbox className="size-4" />}>{t("Request a title")}</ButtonLink>
             ) : (
               t("The library is empty. Ask an admin to add series.")
             )}

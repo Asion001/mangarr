@@ -1,6 +1,7 @@
 import { t as tr, t, label } from "../../lib/i18n/core";
 import { useUIPreferences } from "../../lib/uiPreferences";
 import { useState, type FormEvent } from "react";
+import { Navigate, useLocation, useParams } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, KeyRound, Link2, LogOut, Monitor, Smartphone, Unlink } from "lucide-react";
 import { Link } from "react-router";
@@ -40,8 +41,33 @@ function browser(ua: string) {
   return os ? `${b} on ${os}` : b;
 }
 
+/** AccountPage is My account; its sections are the tabs above it (see Layout). */
 export function AccountPage() {
   const { account, name, can } = useAccount();
+  const { section = "" } = useParams();
+  const { hash, search } = useLocation();
+  const user = account?.kind === "user";
+  // older links pointed at the notifications card on one long page
+  if (!section && (hash === "#notifications" || /[?&](linked|messenger_error)=/.test(search))) return <Navigate to={`/account/notifications${search}`} replace />;
+  if (account && section && !(user || (section === "apps" && can("apps")))) return <Navigate to="/account" replace />;
+  if (section) {
+    return (
+      <>
+        <PageHeader title={t("My account")} docTitle={t("My account")} />
+        <div className="flex flex-col gap-6">
+          {section === "notifications" && <MessengerCard />}
+          {section === "apps" && <>
+            {user && <LibraryAccountsCard />}
+            {can("apps") && <ReadingAppsCard />}
+          </>}
+          {section === "security" && <>
+            <PasswordCard />
+            <SessionsCard />
+          </>}
+        </div>
+      </>
+    );
+  }
   return (
     <>
       <PageHeader title={t("My account")} subtitle={
@@ -63,11 +89,6 @@ export function AccountPage() {
         <ReadingStatsCard />
         <YourDataCard />
         <OnDeviceCard />
-        {account?.kind === "user" && <MessengerCard />}
-        {account?.kind === "user" && <LibraryAccountsCard />}
-        {can("apps") && <ReadingAppsCard />}
-        {account?.kind === "user" && <PasswordCard />}
-        {account?.kind === "user" && <SessionsCard />}
       </div>
     </>
   );

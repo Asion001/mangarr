@@ -1,11 +1,12 @@
 import { t } from "../../lib/i18n/core";
 import { useEffect, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useSearchParams } from "react-router";
+import { Link as RouterLink, useSearchParams } from "react-router";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { api, basePath, unwrap, type S } from "../../api/client";
 import { Badge, Button, Card, ErrorBox, Segmented } from "../../components/ui";
 import { useToast } from "../../lib/toast";
+import { useAccount } from "../../lib/account";
 import { DiscordIcon, TelegramIcon } from "../settings/MessengerBots";
 
 type Kind = "telegram" | "discord";
@@ -45,6 +46,7 @@ export function MessengerCard() {
     refetchInterval: pending ? 3000 : false,
   });
   const link = (kind: Kind) => m?.links?.find((l) => l.kind === kind);
+  const { isAdmin } = useAccount();
 
   // the bot links the account: stop waiting once it shows up, or the link expires
   useEffect(() => {
@@ -112,7 +114,7 @@ export function MessengerCard() {
     }
   };
 
-  if (error) return <Card title={t("Notifications")}><ErrorBox error={error} /></Card>;
+  if (error) return <Card id="notifications" title={t("Notifications")}><ErrorBox error={error} /></Card>;
   if (!m?.links) return null;
   const none = !m.telegram.available && !m.discord.available;
   const linked = m.links.length > 0;
@@ -163,9 +165,11 @@ export function MessengerCard() {
   );
 
   return (
-    <Card title={t("Notifications")}>
+    <Card id="notifications" title={t("Notifications")}>
       <p className="mb-4 text-sm text-muted">{t("Private messages from this server's bot about the series you follow and your requests. Link an account once; there's nothing else to set up. Follow a series with the bell on its page.")}</p>
-      {none && <p className="text-sm text-muted">{t("The admin hasn't set up a Telegram or Discord bot on this server yet.")}</p>}
+      {none && (isAdmin
+        ? <p className="text-sm text-muted">{t("No Telegram or Discord bot is set up on this server yet.") + " "}<RouterLink to="/settings/notifications" className="text-accent-2 hover:underline">{t("Set up")}</RouterLink></p>
+        : <p className="text-sm text-muted">{t("The admin hasn't set up a Telegram or Discord bot on this server yet.")}</p>)}
       {!none && (
         <div className="flex flex-col divide-y divide-border rounded-lg border border-border">
           {m.telegram.available &&

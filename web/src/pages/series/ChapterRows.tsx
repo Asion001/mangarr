@@ -36,7 +36,7 @@ export type ChapterRowProps = {
   onSearch: (id: number) => void;
   onRestore: (chapter: Chapter) => void;
   onDelete?: (id: number) => void;
-  onMark: (chapter: Chapter, read: boolean, scope?: "chapter" | "previous") => void;
+  onMark: (chapter: Chapter, read: boolean, scope?: "chapter" | "previous") => unknown;
   onQueueAction: (jobID: number, action: "top" | "bottom" | "pause" | "resume") => void;
   onExplain: (chapter: Chapter) => void;
   /** versions: how many earlier versions of the file the recycle bin holds. */
@@ -336,7 +336,7 @@ function ChapterManagementActions({
   );
 }
 
-function ChapterExpandedInfo({ chapter: c, accountKind, onMark }: { chapter: Chapter; accountKind?: string; onMark: (chapter: Chapter, read: boolean, scope?: "chapter" | "previous") => void }) {
+function ChapterExpandedInfo({ chapter: c, accountKind, onMark }: { chapter: Chapter; accountKind?: string; onMark: (chapter: Chapter, read: boolean, scope?: "chapter" | "previous") => unknown }) {
   return <>
     {c.releases.length === 0 ? (
       <p className="text-xs text-muted">{t("No releases.")}</p>
