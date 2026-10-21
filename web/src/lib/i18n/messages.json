@@ -9858,5 +9858,13 @@
   "{titles} titles · {progress} chapters · {history} history entries · {follows} follows": {
     "ru": "Тайтлов: {titles} · глав: {progress} · записей истории: {history} · отслеживаний: {follows}",
     "uk": "Тайтлів: {titles} · розділів: {progress} · записів історії: {history} · відстежень: {follows}"
+  },
+  "Can't reach mangarr right now": {
+    "ru": "Сейчас не удаётся связаться с mangarr",
+    "uk": "Зараз не вдається зв'язатися з mangarr"
+  },
+  "Reconnecting…": {
+    "ru": "Переподключение…",
+    "uk": "Повторне підключення…"
   }
 }

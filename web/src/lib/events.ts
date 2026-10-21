@@ -1,6 +1,7 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { basePath } from "../api/client";
+import { checkServer, onServerBack, serverAnswered } from "./connection";
 
 // resource name (from the server) -> query key prefixes to invalidate
 const map: Record<string, string[][]> = {
@@ -91,6 +92,7 @@ export function useLiveUpdates(enabled: boolean) {
         interrupted = false;
         delay = 1000;
         setLiveStatus("connected");
+        serverAnswered();
         // Queries replace their cached result, so a reconnect catches missed
         // events without appending or duplicating feed rows.
         if (reconnected) void qc.invalidateQueries();
@@ -117,6 +119,7 @@ export function useLiveUpdates(enabled: boolean) {
       es.onerror = () => {
         interrupted = true;
         setLiveStatus(navigator.onLine === false ? "offline" : "reconnecting");
+        void checkServer(); // a blip, or mangarr restarting
         // The browser retries a dropped stream itself, but gives up for good
         // after an error response (a proxy's 502 while mangarr restarts):
         // start a new one, backing off.
@@ -127,6 +130,12 @@ export function useLiveUpdates(enabled: boolean) {
       };
     };
     connect();
+    // mangarr answers again: reconnect now rather than at the end of the backoff
+    const offBack = onServerBack(() => {
+      if (retry === undefined || closed) return;
+      clearTimeout(retry);
+      connect();
+    });
     const offline = () => setLiveStatus("offline");
     // coming back online doesn't always drop the stream (a LAN server)
     const online = () => setLiveStatus(interrupted ? "reconnecting" : "connected");
@@ -134,6 +143,7 @@ export function useLiveUpdates(enabled: boolean) {
     window.addEventListener("online", online);
     return () => {
       closed = true;
+      offBack();
       es.close();
       if (timer) clearTimeout(timer);
       if (retry) clearTimeout(retry);
