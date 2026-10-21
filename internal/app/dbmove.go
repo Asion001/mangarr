@@ -14,8 +14,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/uptrace/bun"
-
 	"github.com/Asion001/mangarr/internal/backup"
 	"github.com/Asion001/mangarr/internal/config"
 	"github.com/Asion001/mangarr/internal/db"
@@ -51,7 +49,7 @@ func (a *App) RequestRestart() {
 // MoveState is the progress of moving the database.
 type MoveState struct {
 	Running bool   `json:"running"`
-	Stage   string `json:"stage,omitempty" enum:",preparing,snapshot,files,copying,switching,done,failed"`
+	Stage   string `json:"stage,omitempty" enum:",preparing,snapshot,copying,switching,done,failed"`
 	Table   string `json:"table,omitempty"`
 	Done    int    `json:"done"`
 	Total   int    `json:"total"`
@@ -279,30 +277,9 @@ func (a *App) copyProgress() dbcopy.Progress {
 	}
 }
 
-// RestoreOptions say where a backup's library folders go on this server.
-type RestoreOptions struct {
-	// Folders maps the backup's folder ids to their path here; a folder
-	// left out keeps its path.
-	Folders map[int64]string
-	// Library unpacks the archive's library files into those folders.
-	Library bool
-}
-
 // RestoreBackup replaces all data with the database in a backup zip (made
 // by any mangarr install, on SQLite or Postgres) and restarts.
-func (a *App) RestoreBackup(zipPath, name string, opts RestoreOptions) error {
-	seen := map[string]bool{}
-	for id, p := range opts.Folders {
-		if !filepath.IsAbs(p) {
-			return fmt.Errorf("folder %d: %q is not an absolute path", id, p)
-		}
-		p = filepath.Clean(p)
-		if seen[p] {
-			return fmt.Errorf("two library folders can't both go to %s", p)
-		}
-		seen[p] = true
-		opts.Folders[id] = p
-	}
+func (a *App) RestoreBackup(zipPath, name string) error {
 	zr, err := zip.OpenReader(zipPath)
 	if err != nil {
 		return fmt.Errorf("not a mangarr backup: %w", err)
@@ -322,11 +299,11 @@ func (a *App) RestoreBackup(zipPath, name string, opts RestoreOptions) error {
 	}
 	a.maint.state = MoveState{Running: true, Stage: "preparing", Target: "backup " + name}
 	a.maint.mu.Unlock()
-	go a.restoreBackup(zipPath, opts)
+	go a.restoreBackup(zipPath)
 	return nil
 }
 
-func (a *App) restoreBackup(zipPath string, opts RestoreOptions) {
+func (a *App) restoreBackup(zipPath string) {
 	ctx := context.Background()
 	log := a.Log.With("component", "database", "backup", filepath.Base(zipPath))
 	fail := func(err error) {
@@ -336,14 +313,6 @@ func (a *App) restoreBackup(zipPath string, opts RestoreOptions) {
 	}
 	log.Info("restoring a backup")
 	a.enterMaintenance()
-	if opts.Library {
-		a.setMove(func(s *MoveState) { s.Stage = "files" })
-	}
-	// files first: when they don't fit, the data stays as it was
-	if err := backup.Unpack(ctx, zipPath, a.Cfg.DataDir, opts.Folders, opts.Library, a.fileProgress()); err != nil {
-		fail(fmt.Errorf("unpack the files: %w", err))
-		return
-	}
 	tmp := filepath.Join(a.Cfg.DataDir, "restore.db")
 	defer func() {
 		for _, suffix := range []string{"", "-wal", "-shm"} {
@@ -370,36 +339,13 @@ func (a *App) restoreBackup(zipPath string, opts RestoreOptions) {
 		fail(err)
 		return
 	}
-	if err := remapFolders(ctx, a.DB, opts.Folders); err != nil {
-		fail(fmt.Errorf("move the library folders: %w", err))
-		return
+	// the source settings that go with the restored data
+	if err := backup.UnpackData(zipPath, a.Cfg.DataDir); err != nil {
+		log.Warn("restoring the source settings failed", "err", err)
 	}
 	log.Info("backup restored", "rows", res.Total)
 	a.setMove(func(s *MoveState) { s.Running, s.Stage, s.Result, s.Restarting = false, "done", res, true })
 	time.AfterFunc(1500*time.Millisecond, a.RequestRestart)
-}
-
-func (a *App) fileProgress() func(done, total int) {
-	p := a.copyProgress()
-	return func(done, total int) { p("files", done, total) }
-}
-
-// remapFolders gives restored library folders their paths on this server,
-// through a placeholder so two folders can swap paths.
-func remapFolders(ctx context.Context, d *db.DB, folders map[int64]string) error {
-	return d.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
-		for id := range folders {
-			if _, err := tx.NewUpdate().Table("root_folders").Set("path = ?", fmt.Sprintf("/.mangarr-moving-%d", id)).Where("id = ?", id).Exec(ctx); err != nil {
-				return err
-			}
-		}
-		for id, p := range folders {
-			if _, err := tx.NewUpdate().Table("root_folders").Set("path = ?", p).Where("id = ?", id).Exec(ctx); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
 }
 
 func extractFile(zipPath, name, dst string) error {

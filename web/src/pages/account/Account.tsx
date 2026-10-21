@@ -14,6 +14,7 @@ import { relative } from "../../lib/format";
 import { useToast } from "../../lib/toast";
 import { ReadingStatsCard } from "./ReadingStats";
 import { MessengerCard } from "./MessengerCard";
+import { YourDataCard } from "./YourDataCard";
 
 const permLabel: Record<string, string> = {
   admin: "Administrator",
@@ -57,6 +58,7 @@ export function AccountPage() {
           </div>
         </Card>
         <ReadingStatsCard />
+        <YourDataCard />
         {account?.kind === "user" && <MessengerCard />}
         {account?.kind === "user" && <LibraryAccountsCard />}
         {can("apps") && <ReadingAppsCard />}

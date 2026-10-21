@@ -5,11 +5,9 @@ auth-oidc-login GET /api/v1/auth/oidc/login -> public
 auth-password POST /api/v1/auth/password -> signedin
 auth-setup POST /api/v1/auth/setup -> public
 auth-status GET /api/v1/auth/status -> public
-backups-check-folder POST /api/v1/system/backups/check-folder -> admin
 backups-create POST /api/v1/system/backups -> admin
 backups-delete DELETE /api/v1/system/backups/{name} -> admin
 backups-download GET /api/v1/system/backups/{name} -> admin
-backups-export GET /api/v1/system/export -> admin
 backups-list GET /api/v1/system/backups -> admin
 backups-restore POST /api/v1/system/backups/{name}/restore -> admin
 backups-upload POST /api/v1/system/backups/upload -> admin
@@ -63,6 +61,10 @@ invites-create POST /api/v1/invites -> admin
 invites-delete DELETE /api/v1/invites/{id} -> admin
 invites-list GET /api/v1/invites -> admin
 languages-list GET /api/v1/languages -> signedin
+me-data-export GET /api/v1/me/data -> signedin
+me-data-import POST /api/v1/me/data/import -> signedin
+me-data-preview POST /api/v1/me/data/preview -> signedin
+me-data-summary GET /api/v1/me/data/summary -> signedin
 me-library-account-delete DELETE /api/v1/me/library-accounts/{moduleId} -> signedin
 me-library-account-save POST /api/v1/me/library-accounts -> signedin
 me-library-accounts GET /api/v1/me/library-accounts -> signedin

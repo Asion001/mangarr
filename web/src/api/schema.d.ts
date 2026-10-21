@@ -681,6 +681,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/data": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download your own data (progress, reading history and time, follows, reader and interface settings) to import on another server */
+        get: operations["me-data-export"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/data/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Import an exported account's data into your own; progress already further here is kept */
+        post: operations["me-data-import"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/data/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Match an exported account's titles to this server's library without importing anything */
+        post: operations["me-data-preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/data/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Count what an export of your data would hold */
+        get: operations["me-data-summary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/library-accounts": {
         parameters: {
             query?: never;
@@ -2948,23 +3016,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/system/backups/check-folder": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Look at a folder a backup's library folder could be restored to */
-        post: operations["backups-check-folder"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/system/backups/upload": {
         parameters: {
             query?: never;
@@ -3160,23 +3211,6 @@ export interface paths {
         };
         /** Supported environment variables and which are set */
         get: operations["system-env"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/system/export": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Download everything needed to move mangarr to another server: a backup and, with library=true, the library files */
-        get: operations["backups-export"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3933,17 +3967,6 @@ export interface components {
             scanlator?: string;
             url: string;
         };
-        BackupFolder: {
-            /** Format: int64 */
-            bytes: number;
-            /** Format: int64 */
-            files: number;
-            /** Format: int64 */
-            id: number;
-            path: string;
-            /** Format: int64 */
-            series: number;
-        };
         BackupManga: {
             /** Format: date-time */
             addedAt?: string;
@@ -3968,7 +3991,6 @@ export interface components {
         };
         BackupVerification: {
             checksum: string;
-            folders: components["schemas"]["BackupFolder"][];
             rows: {
                 [key: string]: number;
             };
@@ -3980,9 +4002,6 @@ export interface components {
             total: number;
             /** Format: date-time */
             verifiedAt: string;
-        };
-        "Backups-check-folderRequest": {
-            path: string;
         };
         BlocklistView: {
             /** Format: int64 */
@@ -4356,6 +4375,60 @@ export interface components {
             rows: number;
             version: string;
         };
+        DataImportOptions: {
+            follows: boolean;
+            /** @description Reading history and reading time */
+            history: boolean;
+            picked?: {
+                [key: string]: number;
+            };
+            progress: boolean;
+            /** @description Reader and interface settings */
+            settings: boolean;
+        };
+        DataImportResult: {
+            /** Format: int64 */
+            follows: number;
+            /** Format: int64 */
+            history: number;
+            /**
+             * Format: int64
+             * @description Chapters already further here
+             */
+            kept: number;
+            /**
+             * Format: int64
+             * @description Chapters this server doesn't list (yet)
+             */
+            missing: number;
+            /**
+             * Format: int64
+             * @description Chapters whose progress was set
+             */
+            progress: number;
+            /** Format: int64 */
+            sessions: number;
+            /** Format: int64 */
+            settings: number;
+            /** Format: int64 */
+            titles: number;
+        };
+        DataTitleMatch: {
+            /** @enum {string} */
+            by?: "source" | "id" | "title" | "picked" | "";
+            following: boolean;
+            /** Format: int64 */
+            index: number;
+            /**
+             * Format: int64
+             * @description Chapters read in the file
+             */
+            read: number;
+            /** Format: int64 */
+            seriesId: number;
+            seriesTitle?: string;
+            title: string;
+        };
         DatabaseInfo: {
             defaultDsn: string;
             dsn: string;
@@ -4689,20 +4762,83 @@ export interface components {
             seriesId: number;
             seriesTitle: string;
         };
+        Export: {
+            /** Format: date-time */
+            exported: string;
+            format: string;
+            reader?: unknown;
+            /** @description mangarr version that exported it */
+            server?: string;
+            titles: components["schemas"]["ExportTitle"][];
+            ui?: components["schemas"]["ExportUI"];
+            user?: string;
+            /** Format: int64 */
+            version: number;
+        };
+        ExportEvent: {
+            /** Format: date-time */
+            at: string;
+            /** Format: int64 */
+            chapters?: number;
+            client?: string;
+            completed: boolean;
+            device?: string;
+            number: string;
+            origin?: string;
+            outcome?: string;
+            /** Format: int64 */
+            page?: number;
+        };
+        ExportProgress: {
+            /** Format: date-time */
+            at: string;
+            completed: boolean;
+            number: string;
+            /** Format: int64 */
+            page?: number;
+            /** Format: date-time */
+            readAt?: string;
+        };
+        ExportSession: {
+            number: string;
+            /** Format: int64 */
+            seconds: number;
+            /** Format: date-time */
+            started: string;
+            /** Format: date-time */
+            updated: string;
+        };
+        ExportSource: {
+            lang?: string;
+            name?: string;
+            sourceId: string;
+            url: string;
+        };
+        ExportTitle: {
+            altTitles?: string[];
+            following?: boolean;
+            history?: components["schemas"]["ExportEvent"][];
+            /** @description Metadata ids, as anilist: 30013 */
+            ids?: {
+                [key: string]: string;
+            };
+            language?: string;
+            progress?: components["schemas"]["ExportProgress"][];
+            reader?: unknown;
+            sessions?: components["schemas"]["ExportSession"][];
+            sources?: components["schemas"]["ExportSource"][];
+            title: string;
+        };
+        ExportUI: {
+            locale: string;
+            mode: string;
+            options: components["schemas"]["UIOptions"];
+        };
         FileRename: {
             /** Format: int64 */
             chapterId: number;
             from: string;
             to: string;
-        };
-        FolderCheck: {
-            absolute: boolean;
-            exists: boolean;
-            /** Format: int64 */
-            folders: number;
-            /** Format: int64 */
-            free: number;
-            path: string;
         };
         GeneralSettingsResource: {
             readonly apiKey: string;
@@ -5434,11 +5570,15 @@ export interface components {
             running: boolean;
             setEnv?: boolean;
             /** @enum {string} */
-            stage?: "" | "preparing" | "snapshot" | "files" | "copying" | "switching" | "done" | "failed";
+            stage?: "" | "preparing" | "snapshot" | "copying" | "switching" | "done" | "failed";
             table?: string;
             target?: string;
             /** Format: int64 */
             total: number;
+        };
+        MyDataImportInputBody: {
+            data: components["schemas"]["Export"];
+            options?: components["schemas"]["DataImportOptions"];
         };
         MyLibraryAccount: {
             fields: components["schemas"]["ModuleField"][];
@@ -6396,17 +6536,6 @@ export interface components {
             /** Format: int64 */
             seriesId: number;
         };
-        RestoreFolder: {
-            /** Format: int64 */
-            id: number;
-            path: string;
-        };
-        RestoreRequest: {
-            /** @description Folders whose path differs here; the rest keep theirs */
-            folders?: components["schemas"]["RestoreFolder"][];
-            /** @description Unpack the archive's library files into the folders first */
-            library?: boolean;
-        };
         Result: {
             /** Format: int64 */
             duration: number;
@@ -6956,6 +7085,20 @@ export interface components {
         };
         "Stores-addRequest": {
             url: string;
+        };
+        Summary: {
+            /** Format: int64 */
+            follows: number;
+            /** Format: int64 */
+            history: number;
+            /**
+             * Format: int64
+             * @description Chapters read
+             */
+            read: number;
+            settings: boolean;
+            /** Format: int64 */
+            titles: number;
         };
         SwitchRow: {
             catalog: string;
@@ -9187,6 +9330,133 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OfferedLanguages"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "me-data-export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "Cache-Control"?: string;
+                    "Content-Disposition"?: string;
+                    "Content-Type"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string;
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "me-data-import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MyDataImportInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataImportResult"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "me-data-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MyDataImportInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataTitleMatch"][];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "me-data-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Summary"];
                 };
             };
             /** @description Error */
@@ -14699,39 +14969,6 @@ export interface operations {
             };
         };
     };
-    "backups-check-folder": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["Backups-check-folderRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["FolderCheck"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
     "backups-upload": {
         parameters: {
             query?: never;
@@ -14841,11 +15078,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: {
-            content: {
-                "application/json": components["schemas"]["RestoreRequest"];
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description No Content */
             204: {
@@ -15126,35 +15359,6 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["System-envResponse"];
                 };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "backups-export": {
-        parameters: {
-            query?: {
-                library?: boolean;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
             /** @description Error */
             default: {

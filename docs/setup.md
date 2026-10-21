@@ -275,6 +275,15 @@ devices and their own notifications. The library itself is shared.
    may change the library start in **reading mode**, which hides the editing
    controls; the switch at the bottom of the sidebar turns on **editing
    mode**.
+8. **Your data**: My account → *Your data* → **Export my data** downloads a
+   file with your own progress (down to the page), reading history and time,
+   followed titles, and reader and interface settings; nothing of other users,
+   no password and no library files. **Import a file…** on another mangarr
+   server matches each title to that library (by source, then AniList/MAL id,
+   then name) and shows the result first; titles it doesn't have are listed,
+   and a match can be changed or skipped. Progress that is already further
+   there is kept, and importing again adds nothing twice. To move a whole
+   install, use a backup (§17).
 
 ## 7. Requests, following series and personal notifications
 
