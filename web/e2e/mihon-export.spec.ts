@@ -34,7 +34,7 @@ test("downloads a caller-scoped Mihon setup backup and refreshes devices", async
     await route.fulfill({ json: {} });
   });
 
-  await page.goto("/account");
+  await page.goto("/account/apps");
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download Mihon setup backup" }).click();
   const download = await downloadPromise;

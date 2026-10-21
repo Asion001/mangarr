@@ -53,6 +53,7 @@ export function QueuePage({ mode }: { mode: "downloads" | "processing" }) {
   const pageSize = 100;
   const filter = { status: status ? status.split(",") : [...statuses], kind: mode === "processing" ? "reprocess" as const : "download" as const, q: q || undefined, includeDone: true };
   const { data, isLoading, isFetching, isPlaceholderData, error } = useQueue({ ...filter, page, pageSize });
+  const allCount = statuses.reduce((sum, s) => sum + (data?.counts?.[s] ?? 0), 0);
   const liveMap = useLiveProgress();
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [allMatching, setAllMatching] = useState(false);
@@ -291,12 +292,13 @@ export function QueuePage({ mode }: { mode: "downloads" | "processing" }) {
         </p>
       ) : null}
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <button
+        {/* nothing to filter in an empty queue */}
+        {(allCount > 0 || status) && <button
           onClick={() => (setStatus(""), setPage("1"), resetSelection())}
           className={`rounded-full border px-3 py-1 text-xs ${!status ? "border-accent bg-accent/15 text-fg" : "border-border text-muted hover:text-fg"}`}
           title={t("Show every status")}
-        >{t("all") + " "}{statuses.reduce((sum, s) => sum + (data?.counts?.[s] ?? 0), 0)}
-        </button>
+        >{t("all") + " "}{allCount}
+        </button>}
         {statuses.map((s) => {
           const n = data?.counts?.[s] ?? 0;
           const on = status.split(",").includes(s);

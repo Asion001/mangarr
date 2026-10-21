@@ -1,10 +1,29 @@
 import { t, label as translateLabel } from "../lib/i18n/core";
 import { useDocumentTitle } from "../lib/documentTitle";
-import { useEffect, useId, useLayoutEffect, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type MouseEvent as ReactMouseEvent, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
 import clsx from "clsx";
+import { Link, type LinkProps } from "react-router";
 import { ChevronDown, Eye, EyeOff, Loader2, Lock, X, Plus, Trash2 } from "lucide-react";
 
 type Variant = "primary" | "secondary" | "danger" | "ghost";
+
+/** buttonClass is how a Button looks, for things that aren't buttons (links). */
+function buttonClass(variant: Variant, size: "sm" | "md", className?: string) {
+  return clsx(
+    "inline-flex items-center justify-center gap-1.5 rounded-md font-medium transition-[color,background-color,border-color,transform] active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100",
+    size === "sm" ? "h-7 px-2.5 text-xs" : "h-9 px-3.5 text-sm",
+    variant === "primary" && "bg-primary text-white hover:bg-primary-hover",
+    variant === "secondary" && "border border-border bg-panel-2 text-fg hover:bg-border",
+    variant === "danger" && "bg-danger text-white hover:bg-danger-hover",
+    variant === "ghost" && "text-muted hover:bg-panel-2 hover:text-fg",
+    className,
+  );
+}
+
+/** ButtonLink is a link that looks like a Button, instead of a button inside a link. */
+export function ButtonLink({ variant = "secondary", size = "md", icon, className, children, ...rest }: LinkProps & { variant?: Variant; size?: "sm" | "md"; icon?: ReactNode }) {
+  return <Link {...rest} className={buttonClass(variant, size, className)}>{icon}{children}</Link>;
+}
 
 export function Button({
   variant = "secondary",
@@ -13,21 +32,28 @@ export function Button({
   icon,
   className,
   children,
+  onClick,
   ...rest
-}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; size?: "sm" | "md"; loading?: boolean; icon?: ReactNode }) {
+}: Omit<ButtonHTMLAttributes<HTMLButtonElement>, "onClick"> & { variant?: Variant; size?: "sm" | "md"; loading?: boolean; icon?: ReactNode; onClick?: (event: ReactMouseEvent<HTMLButtonElement>) => unknown }) {
+  // an onClick that returns a promise shows the spinner until it settles
+  const [busy, setBusy] = useState(false);
+  const mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  const click = (event: ReactMouseEvent<HTMLButtonElement>) => {
+    const result = onClick?.(event);
+    if (result && typeof (result as Promise<unknown>).finally === "function") {
+      setBusy(true);
+      void (result as Promise<unknown>).catch(() => undefined).finally(() => { if (mounted.current) setBusy(false); });
+    }
+  };
+  loading = loading || busy;
   return (
     <button
       {...rest}
+      onClick={onClick && click}
       disabled={rest.disabled || loading}
-      className={clsx(
-        "inline-flex items-center justify-center gap-1.5 rounded-md font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50",
-        size === "sm" ? "h-7 px-2.5 text-xs" : "h-9 px-3.5 text-sm",
-        variant === "primary" && "bg-primary text-white hover:bg-primary-hover",
-        variant === "secondary" && "border border-border bg-panel-2 text-fg hover:bg-border",
-        variant === "danger" && "bg-danger text-white hover:bg-danger-hover",
-        variant === "ghost" && "text-muted hover:bg-panel-2 hover:text-fg",
-        className,
-      )}
+      aria-busy={loading || undefined}
+      className={buttonClass(variant, size, className)}
     >
       {loading ? <Loader2 className="size-4 animate-spin" /> : icon}
       {children}
@@ -41,7 +67,7 @@ export function IconButton({ title, className, children, ...rest }: ButtonHTMLAt
       {...rest}
       title={title}
       aria-label={title}
-      className={clsx("inline-flex size-8 items-center justify-center rounded-md text-muted hover:bg-panel-2 hover:text-fg disabled:opacity-40", className)}
+      className={clsx("inline-flex size-8 items-center justify-center rounded-md text-muted transition-[color,background-color,transform] hover:bg-panel-2 hover:text-fg active:scale-90 active:bg-panel-2 disabled:opacity-40 disabled:active:scale-100", className)}
     >
       {children}
     </button>
@@ -195,9 +221,9 @@ export function Field({
   );
 }
 
-export function Card({ title, actions, children, className }: { title?: ReactNode; actions?: ReactNode; children: ReactNode; className?: string }) {
+export function Card({ id, title, actions, children, className }: { id?: string; title?: ReactNode; actions?: ReactNode; children: ReactNode; className?: string }) {
   return (
-    <section className={clsx("rounded-lg border border-border bg-panel", className)}>
+    <section id={id} className={clsx("scroll-mt-4 rounded-lg border border-border bg-panel", className)}>
       {(title || actions) && (
         <header className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
           <h2 className="text-sm font-semibold">{title}</h2>

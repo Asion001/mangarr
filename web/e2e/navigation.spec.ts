@@ -63,19 +63,45 @@ test('mobile expanded menu scrolls with account visible, traps focus and closes 
   await expect(account).toBeInViewport();
   await dialog.getByRole('button',{name:'Close navigation'}).focus();
   await page.keyboard.press('Shift+Tab');
-  await expect(dialog.getByRole('button',{name:'Log out'})).toBeFocused();
+  // logins are off in this mock, so there is no Log out after My account
+  await expect(account).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(dialog).toHaveCount(0);
   await expect(opener).toBeFocused();
 });
-test('settings on a phone use the same tab row as system',async({page})=>{
+test('settings on a phone are a grouped list, and each page goes back to it',async({page})=>{
   await mock(page);
   await page.setViewportSize({width:390,height:700});
-  await page.goto('/settings/general');
-  const tabs=page.getByRole('navigation',{name:'Settings'}).filter({has:page.getByRole('link',{name:'Media management'})}).last();
-  await expect(tabs.getByRole('link',{name:'General',exact:true})).toHaveAttribute('aria-current','page');
-  await expect(tabs.getByRole('link',{name:'General',exact:true})).toBeInViewport();
-  await expect(page.getByRole('combobox')).toHaveCount(0);
-  await tabs.getByRole('link',{name:'Users & groups'}).click();
+  await page.goto('/settings');
+  await expect(page).toHaveURL(/\/settings$/);
+  const list=page.getByRole('main').getByRole('navigation',{name:'Settings'});
+  await expect(list.getByRole('heading',{name:'Users & access'})).toBeVisible();
+  await list.getByRole('link',{name:'Users & groups'}).click();
   await expect(page).toHaveURL(/\/settings\/users$/);
+  // the top bar goes back up
+  await page.getByRole('banner').getByRole('button',{name:'Back'}).click();
+  await expect(page).toHaveURL(/\/settings$/);
+  // opened directly, Back still goes to Settings rather than out of the app
+  await page.goto('/settings/general');
+  await page.getByRole('banner').getByRole('button',{name:'Back'}).click();
+  await expect(page).toHaveURL(/\/settings$/);
+});
+test('wider screens open Settings on its first page',async({page})=>{
+  await mock(page);
+  await page.goto('/settings');
+  await expect(page).toHaveURL(/\/settings\/media$/);
+});
+test('on a phone the library has a tab bar along the bottom',async({page})=>{
+  await mock(page);
+  await page.setViewportSize({width:390,height:700});
+  await page.goto('/updates');
+  // the top bar names the page; a top-level page has the menu, not Back
+  const bar=page.getByRole('banner');
+  await expect(bar).toContainText('Updates');
+  await expect(bar.getByRole('button',{name:'Back'})).toHaveCount(0);
+  const tabs=page.getByRole('navigation',{name:'Library'});
+  await expect(tabs.getByRole('link',{name:'Updates'})).toHaveAttribute('aria-current','page');
+  await tabs.getByRole('link',{name:'Discover'}).click();
+  await expect(page).toHaveURL(/\/discover$/);
+  await expect(tabs.getByRole('link',{name:'Discover'})).toHaveAttribute('aria-current','page');
 });

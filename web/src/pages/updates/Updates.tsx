@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
-import { BookOpen, BookPlus, Sparkles } from "lucide-react";
+import { BookOpen, BookPlus, Settings, Sparkles } from "lucide-react";
 import { api, apiUrl, unwrap, type S } from "../../api/client";
 import { Cover } from "../../components/Cover";
-import { Badge, Button, Card, ErrorBox, Loading, PageHeader, Select } from "../../components/ui";
+import { Badge, Button, ButtonLink, Card, EmptyState, ErrorBox, Loading, PageHeader, Segmented, Select } from "../../components/ui";
 import { languageName, relative } from "../../lib/format";
 import { useLiveUpdateStatus } from "../../lib/events";
 import { t } from "../../lib/i18n/core";
+import { useAccount } from "../../lib/account";
 
 type Update = S["UpdateItem"];
 
@@ -19,6 +20,9 @@ export function UpdatesPage() {
   const page = cursorHistory.length + 1;
   const pageSize = 50;
   const liveStatus = useLiveUpdateStatus();
+  const { account, isAdmin } = useAccount();
+  // your own Telegram/Discord messages; with logins off only the server's notifications exist
+  const settingsTo = account?.kind === "user" ? "/account/notifications" : isAdmin ? "/settings/notifications" : "";
   const resetPage = () => {
     setCursor("");
     setCursorHistory([]);
@@ -46,21 +50,34 @@ export function UpdatesPage() {
               <option value={30}>{t("Last 30 days")}</option>
               <option value={90}>{t("Last 90 days")}</option>
             </Select>
+            {settingsTo && (
+              <Link to={settingsTo} title={t("Notification settings")} aria-label={t("Notification settings")} className="inline-flex size-9 items-center justify-center rounded-md border border-border bg-panel-2 text-muted hover:bg-border hover:text-fg">
+                <Settings className="size-4" />
+              </Link>
+            )}
           </div>
         }
       />
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        {(["all", "chapter", "series"] as const).map((value) => (
-          <Button key={value} size="sm" variant={kind === value ? "primary" : "secondary"} onClick={() => (setKind(value), resetPage())}>
-            {value === "all" ? t("All") : value === "chapter" ? t("Chapters") : t("Titles")}
-          </Button>
-        ))}
+        <Segmented
+          label={t("Show")}
+          value={kind}
+          onChange={(value) => (setKind(value), resetPage())}
+          options={[
+            { value: "all", label: t("All") },
+            { value: "chapter", label: t("Chapters") },
+            { value: "series", label: t("Titles") },
+          ]}
+        />
         <span className="ml-auto text-xs text-muted">{t("Initial chapter catalogs are grouped into the new-title event.")}</span>
       </div>
       {isLoading && <Loading />}
       {error && <ErrorBox error={error} />}
       {!isLoading && !error && groups.length === 0 && (
-        <Card><p className="text-sm text-muted">{t("No updates in this period.")}</p></Card>
+        <EmptyState title={t("No updates in this period.")}>
+          {t("New chapters of the titles you follow show up here.") + " "}
+          <Link to="/discover" className="text-accent-2 hover:underline">{t("Find something to read")}</Link>
+        </EmptyState>
       )}
       <div className="flex flex-col gap-6">
         {groups.map(([day, items]) => (
@@ -125,9 +142,9 @@ function UpdateRow({ item }: { item: Update }) {
         )}
       </div>
       {chapter && item.readable ? (
-        <Link to={`/read/${item.chapterId}`}><Button variant="primary" icon={<BookOpen className="size-4" />}>{item.readState === "in_progress" ? t("Continue") : t("Read")}</Button></Link>
+        <ButtonLink to={`/read/${item.chapterId}`} variant="primary" icon={<BookOpen className="size-4" />}>{item.readState === "in_progress" ? t("Continue") : t("Read")}</ButtonLink>
       ) : !chapter ? (
-        <Link to={`/series/${item.seriesId}`}><Button icon={<BookPlus className="size-4" />}>{t("View")}</Button></Link>
+        <ButtonLink to={`/series/${item.seriesId}`} icon={<BookPlus className="size-4" />}>{t("View")}</ButtonLink>
       ) : null}
     </div>
   );

@@ -50,6 +50,9 @@ export function useChapterActions(seriesId: number) {
     try {
       await unwrap(api.PUT("/api/v1/read/chapters/{id}/mark", { params: { path: { id: c.id } }, body: { read, scope } }));
       refresh();
+      toast.success(scope === "previous"
+        ? (read ? t("Earlier chapters marked read") : t("Earlier chapters marked unread"))
+        : (read ? t("Chapter {number} marked read", { number: c.number }) : t("Chapter {number} marked unread", { number: c.number })));
     } catch (e) {
       toast.fromError(e);
     }

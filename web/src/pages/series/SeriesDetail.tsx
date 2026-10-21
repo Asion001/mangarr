@@ -1,9 +1,10 @@
 import { useUIMode } from "../../lib/uiPreferences";
 import { useDocumentTitle } from "../../lib/documentTitle";
+import { useBack } from "../../lib/navigation";
 import { label, t as tr, t } from "../../lib/i18n/core";
 import { useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
-import { Plus, BookOpen, ChevronDown, Eye, EyeOff, FilePen, Languages, HardDrive, MoreHorizontal, Pencil, RefreshCw, Search, Sparkles, Trash2, FileSearch, BookText, Link2, Unlink } from "lucide-react";
+import { ArrowLeft, Plus, BookOpen, ChevronDown, Eye, EyeOff, FilePen, Languages, HardDrive, MoreHorizontal, Pencil, RefreshCw, Search, Sparkles, Trash2, FileSearch, BookText, Link2, Unlink } from "lucide-react";
 import { apiUrl, type Chapter, type S } from "../../api/client";
 import { useChapters, usePushCommand, useSeries, useSeriesList } from "../../api/queries";
 import { Cover } from "../../components/Cover";
@@ -31,6 +32,7 @@ export function SeriesDetail() {
   const { data: library } = useSeriesList();
   const { data: chapters } = useChapters(id);
   useDocumentTitle(s?.title);
+  const back = useBack("/");
   const push = usePushCommand();
   const { can, account } = useAccount();
   const { editing } = useUIMode();
@@ -117,6 +119,8 @@ export function SeriesDetail() {
   const showsRead = account?.kind === "user" || s.stats.readCount > 0;
   return (
     <>
+      {/* phones have Back in the top bar */}
+      <button onClick={back} className="mb-4 hidden items-center gap-1.5 rounded-md py-1 text-sm text-muted hover:text-fg md:inline-flex"><ArrowLeft className="size-4" />{t("Back")}</button>
       {s.preview && <PreviewBanner series={s} />}
       {/* on a phone the cover sits beside the title and everything else runs full width under them */}
       <div className="mb-6 grid grid-cols-[6.5rem_minmax(0,1fr)] gap-4 sm:flex sm:items-start sm:gap-9">

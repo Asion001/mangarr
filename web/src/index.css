@@ -32,7 +32,24 @@ html, body, #root { height: 100%; }
    itself doesn't scroll there: #root does. */
 @media (display-mode: standalone) {
   html { height: 100lvh; overflow: hidden; }
-  #root { overflow-y: auto; }
+  #root { overflow-y: auto; overflow-x: hidden; }
+}
+/* A row that scrolls sideways (tabs, shelves, wide tables) would otherwise
+   also scroll a pixel or two up and down on a phone, since one overflow axis
+   other than visible turns the other one to auto. Swiping it doesn't drag
+   the page along either. */
+.overflow-x-auto { overflow-y: hidden; overscroll-behavior-x: contain; }
+/* On a phone the library's tab bar runs along the bottom and covers the home
+   indicator strip itself; fixed bars in pages sit on top of it. */
+:root { --tabbar-h: 0px; }
+@media (max-width: 767px) {
+  [data-tabbar] { --root-pb: 0px; --tabbar-h: calc(3.5rem + env(safe-area-inset-bottom)); }
+}
+/* iOS zooms the page in on a focused field whose text is under 16px and
+   leaves it zoomed. (maximum-scale would stop that too, but also the
+   reader's pinch zoom on Android.) */
+@media (pointer: coarse) {
+  input, select, textarea { font-size: 16px; }
 }
 /* The same app blurs the screen's top edge down to about 2.5rem below the
    status bar, over the page itself, so top bars start below that strip

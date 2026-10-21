@@ -6,7 +6,7 @@ import clsx from "clsx";
 import { Check } from "lucide-react";
 import { api, basePath, unwrap } from "../../api/client";
 import { useCatalogs, useHealth, useModules } from "../../api/queries";
-import { Button, Input, Progress } from "../../components/ui";
+import { Button, Input, Progress, ButtonLink } from "../../components/ui";
 import { LanguageSelect } from "../../components/LanguageSelect";
 import { LanguageList, useSourcesSettings } from "../../components/LanguageChooser";
 import { useToast } from "../../lib/toast";
@@ -215,7 +215,7 @@ export function SetupChecklist() {
             </span>
           </div>
           {ready ? (
-            <Link to="/add"><Button variant="primary">{t("Add series")}</Button></Link>
+            <ButtonLink to="/add" variant="primary">{t("Add series")}</ButtonLink>
           ) : (
             <Button variant="primary" disabled>{t("Add series")}</Button>
           )}

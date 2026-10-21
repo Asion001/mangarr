@@ -45,7 +45,7 @@ test('shows a reader their reading time, top series and breakdowns',async({page}
   await expect(genres.getByText('Action')).toBeVisible();
   await expect(genres.getByText('2 chapters',{exact:true})).toBeVisible();
   // the rest of the page still renders beside it
-  await expect(page.getByRole('heading',{name:"Where you're signed in"})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Interface'})).toBeVisible();
 });
 
 test('formats the statistics in Ukrainian',async({page})=>{
@@ -83,7 +83,7 @@ test('shows loading, then an error that can be retried without blocking the page
   await page.goto('/account');
   const stats=card(page);
   await expect(stats.getByRole('status',{name:'Loading reading statistics'})).toBeVisible();
-  await expect(page.getByRole('heading',{name:"Where you're signed in"})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Interface'})).toBeVisible();
   release();
   await expect(stats.getByText('Could not load reading statistics')).toBeVisible({timeout:15000});
   await stats.getByRole('button',{name:'Try again'}).click();

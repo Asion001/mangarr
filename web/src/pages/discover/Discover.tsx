@@ -3,7 +3,7 @@ import { ArrowRight, BookOpen, Clock3, Compass, RefreshCw, Sparkles, TriangleAle
 import { Link } from "react-router";
 import { api, apiUrl, unwrap, type S } from "../../api/client";
 import { Cover } from "../../components/Cover";
-import { Badge, Button, EmptyState, ErrorBox, PageHeader } from "../../components/ui";
+import { Badge, Button, EmptyState, ErrorBox, PageHeader, ButtonLink } from "../../components/ui";
 import { useAccount } from "../../lib/account";
 import { relative } from "../../lib/format";
 import { t } from "../../lib/i18n/core";
@@ -113,7 +113,7 @@ function Spotlight({ item }: { item: LibraryItem }) {
           {recommendationReason(item) && <p className="mt-2 text-sm text-accent-2">{recommendationReason(item)}</p>}
           {item.description && <p className="mt-3 line-clamp-3 max-w-xl text-sm leading-6 text-fg/80">{item.description}</p>}
           <div className="mt-5 flex flex-wrap items-center gap-3">
-            <Link to={`/series/${item.seriesId}`}><Button variant="primary" icon={<BookOpen className="size-4" />}>{t("Open series")}</Button></Link>
+            <ButtonLink to={`/series/${item.seriesId}`} variant="primary" icon={<BookOpen className="size-4" />}>{t("Open series")}</ButtonLink>
             {item.unread > 0 && <span className="text-sm text-muted">{item.unread} {t("unread chapters")}</span>}
           </div>
         </div>

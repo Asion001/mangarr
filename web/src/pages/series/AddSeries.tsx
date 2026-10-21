@@ -8,7 +8,7 @@ import { ArrowDown, ArrowUp, Plus, X } from "lucide-react";
 import { api, apiUrl, unwrap, type AddEditionsRequest, type EditionOptions, type LookupResult, type S } from "../../api/client";
 import { useProfiles } from "../../api/queries";
 import { Cover } from "../../components/Cover";
-import { Badge, Button, ErrorBox, Field, IconButton, Input, Loading, PageHeader, Select, Spinner, Switch } from "../../components/ui";
+import { Badge, Button, ErrorBox, Field, IconButton, Input, Loading, PageHeader, Select, Spinner, Switch, ButtonLink } from "../../components/ui";
 import { sessionState, useQueryParam } from "../../lib/urlState";
 import { useToast } from "../../lib/toast";
 import { useAccount } from "../../lib/account";
@@ -56,7 +56,7 @@ export function AddSearchStep() {
             onPick={pick}
             action={(r) =>
               r.existingSeriesId ? (
-                <Link to={`/series/${r.existingSeriesId}`}><Button size="sm">{t("In library")}</Button></Link>
+                <ButtonLink to={`/series/${r.existingSeriesId}`} size="sm">{t("In library")}</ButtonLink>
               ) : (
                 <span className="flex gap-2">
                   {!isNovel(r.format) && <ReadButton result={r} language={lang} />}

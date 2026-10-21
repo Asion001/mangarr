@@ -205,5 +205,5 @@ func (s *Server) messengerBack(linked string, err error) *messengerRedirect {
 	} else {
 		q.Set("linked", linked)
 	}
-	return &messengerRedirect{Status: http.StatusSeeOther, Location: s.app.Cfg.URLBase + "/account?" + q.Encode()}
+	return &messengerRedirect{Status: http.StatusSeeOther, Location: s.app.Cfg.URLBase + "/account/notifications?" + q.Encode()}
 }

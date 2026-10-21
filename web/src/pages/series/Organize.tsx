@@ -199,7 +199,7 @@ export function MassEditBar({
   // dialogs render outside the bar: its backdrop-blur would clip fixed children
   return (
     <>
-      <div role="toolbar" aria-label={t("Selection")} className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-panel/95 px-4 py-3 shadow-lg backdrop-blur md:left-(--nav-width)">
+      <div role="toolbar" aria-label={t("Selection")} className="fixed inset-x-0 bottom-(--tabbar-h) z-20 border-t border-border bg-panel/95 px-4 py-3 shadow-lg backdrop-blur md:left-(--nav-width)">
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative">
             <Button variant="primary" aria-expanded={listOpen} onClick={() => setListOpen(!listOpen)}>

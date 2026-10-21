@@ -109,7 +109,7 @@ func TestDiscordLinking(t *testing.T) {
 	}
 	// the failed exchange used the token up: a new one links
 	state, _, _ = a.Messenger.NewLinkToken(ctx, u.ID, model.MessengerDiscord)
-	if loc := get("code=code-1&state=" + state); loc != "/account?linked=discord" {
+	if loc := get("code=code-1&state=" + state); loc != "/account/notifications?linked=discord" {
 		t.Fatalf("linked went to %s", loc)
 	}
 	links, _ := a.Messenger.Links(ctx, u.ID)
