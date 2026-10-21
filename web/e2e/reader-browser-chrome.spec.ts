@@ -31,6 +31,9 @@ test("in a browser tab the webtoon strip scrolls the page, and the reader paints
   // the bars hide on their own and come back on screen over the scrolled page
   const settings = page.getByRole("button", { name: "Reader settings" });
   await expect(settings).not.toBeInViewport();
+  // and leave the page, so Safari doesn't paint its own bars in their colour over the strip
+  await expect(page.locator("[data-reader-bar]")).toHaveCount(2);
+  await expect(page.locator("[data-reader-bar]:visible")).toHaveCount(0);
   await page.keyboard.press("m");
   await expect(settings).toBeInViewport();
 

@@ -53,5 +53,6 @@ test("webtoon auto scroll starts on open when set, and stops at the end", async 
   const scroller = page.locator("html");
   await expect.poll(() => scroller.evaluate((el) => el.scrollTop + el.clientHeight >= el.scrollHeight - 2), { timeout: 15_000 }).toBe(true);
   // at the end it switches itself off
-  await expect(page.getByRole("button", { name: "Start auto scroll" })).toBeAttached();
+  await expect(page.getByRole("button", { name: "Start auto scroll", includeHidden: true })).toBeAttached();
+  await expect(page.getByRole("group", { name: "Auto scroll" })).toHaveCount(0);
 });

@@ -62,6 +62,15 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
   const views = useMemo(() => (ch ? buildViews(ch.pages.length, dims, s, vp.w > vp.h) : []), [ch, dims, s, vp.w, vp.h]);
   const [pos, setPos] = useState<Pos | null>(null);
   const [bars, setBars] = useState(true);
+  // Hidden bars leave the page once they've slid away. Safari paints its
+  // status bar and toolbar in the colour of a bar fixed to the screen's edge,
+  // even one moved off screen, so the strip couldn't show under them.
+  const [barsShown, setBarsShown] = useState(true);
+  useEffect(() => {
+    if (bars) return setBarsShown(true);
+    const timer = window.setTimeout(() => setBarsShown(false), 250);
+    return () => window.clearTimeout(timer);
+  }, [bars]);
   const [panel, setPanel] = useState(false);
   const [pickingChapter, setPickingChapter] = useState(false);
   const full = useFullscreen();
@@ -371,9 +380,11 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
 
       {/* top bar */}
       <div
+        data-reader-bar="top"
         className={clsx(
           "fixed inset-x-0 top-0 z-20 flex items-center gap-2 bg-bg/90 px-2 py-2 text-fg backdrop-blur transition-transform",
           bars ? "translate-y-0" : "-translate-y-full",
+          !barsShown && "hidden",
         )}
         style={{ paddingTop: "max(0.5rem, var(--safe-top))", paddingLeft: "max(0.5rem, env(safe-area-inset-left))", paddingRight: "max(0.5rem, env(safe-area-inset-right))" }}
       >
@@ -418,9 +429,11 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
 
       {/* bottom bar */}
       <div
+        data-reader-bar="bottom"
         className={clsx(
           "fixed inset-x-0 bottom-0 z-20 flex items-center gap-2 bg-bg/90 px-2 py-2 text-fg backdrop-blur transition-transform",
           bars ? "translate-y-0" : "translate-y-full",
+          !barsShown && "hidden",
         )}
         style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))", paddingLeft: "max(0.5rem, env(safe-area-inset-left))", paddingRight: "max(0.5rem, env(safe-area-inset-right))" }}
       >
