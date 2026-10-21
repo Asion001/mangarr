@@ -82,7 +82,7 @@ test.beforeEach(async ({ page }) => {
   await mockAPI(page);
 });
 
-test("chapter imports become one toast per title and a new title stays separate", async ({ page }) => {
+test("imported chapters make no toast, other notices still do", async ({ page }) => {
   await page.goto("/updates");
   await expect.poll(() => page.evaluate(() => (window as unknown as { __toastEvents: LiveEvents }).__toastEvents.count())).toBe(1);
 
@@ -94,9 +94,8 @@ test("chapter imports become one toast per title and a new title stays separate"
 
   await expect(page.getByText("Series added", { exact: true })).toBeVisible();
   await expect(page.getByText("Dorohedoro", { exact: true })).toBeVisible();
-  await expect(page.getByText("One Piece: 3 chapters imported", { exact: true })).toBeVisible();
-  await expect(page.getByText("Berserk: 1 chapter imported", { exact: true })).toBeVisible();
-  await expect(page.getByText(/One Piece ch\./)).toHaveCount(0);
+  await page.waitForTimeout(2_300);
+  await expect(page.getByText(/One Piece|Berserk/)).toHaveCount(0);
 });
 
 test("server events never create toasts over the reader", async ({ page }) => {
