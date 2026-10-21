@@ -3,13 +3,11 @@ import { expect, test, type Page } from "@playwright/test";
 const image = (width: number, height: number) => `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><rect width="100%" height="100%" fill="#555"/></svg>`;
 
 async function mock(page: Page, settings: Record<string, unknown>, pages: number) {
-  const saved: Record<string, unknown>[] = [];
   await page.route("**/api/v1/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
     if (/\/read\/chapters\/1\/pages\/\d+$/.test(path)) return route.fulfill({ contentType: "image/svg+xml", body: image(600, 900) });
     if (path.endsWith("/auth/status")) return route.fulfill({ json: { authenticated: true, authDisabled: true, account: { kind: "anonymous", id: 0, permissions: [] } } });
     if (path.endsWith("/read/settings")) {
-      if (route.request().method() === "PUT") saved.push(route.request().postDataJSON());
       return route.fulfill({ json: { defaults: { mode: "webtoon", showTapZones: false, ...settings }, series: null } });
     }
     if (path.endsWith("/read/chapters/1") && route.request().method() === "GET") {
@@ -21,12 +19,11 @@ async function mock(page: Page, settings: Record<string, unknown>, pages: number
     }
     return route.fulfill({ json: [] });
   });
-  return saved;
 }
 
 test("webtoon auto scroll runs from the bottom bar, pauses and changes speed", async ({ page }) => {
   await page.setViewportSize({ width: 400, height: 700 });
-  const saved = await mock(page, { autoScrollSpeed: 10 }, 10);
+  await mock(page, { autoScrollSpeed: 10 }, 10);
   await page.goto("/read/1");
   await expect(page.locator('[data-page="1"]')).toBeVisible();
   // in a browser tab the strip scrolls the page itself
@@ -39,7 +36,8 @@ test("webtoon auto scroll runs from the bottom bar, pauses and changes speed", a
   const pill = page.getByRole("group", { name: "Auto scroll" });
   await expect(pill).toBeVisible();
   await pill.getByRole("button", { name: "Slower" }).click();
-  await expect.poll(() => saved.some((b) => (b.data as { autoScrollSpeed?: number })?.autoScrollSpeed === 9)).toBe(true);
+  // kept on this device for the series
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem("mangarr:reader:anonymous:0") ?? "{}").series?.["1"]?.autoScrollSpeed)).toBe(9);
   await pill.getByRole("button", { name: "Pause auto scroll" }).click();
   await expect(pill).toBeHidden();
   const stopped = await scroller.evaluate((el) => el.scrollTop);

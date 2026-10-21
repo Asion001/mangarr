@@ -43,7 +43,7 @@ function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: 
   );
 }
 
-/** SettingsPanel edits the reader settings (saved for this series). */
+/** SettingsPanel edits the reader settings (kept for this series on this device). */
 export function SettingsPanel({
   s,
   set,
@@ -221,7 +221,7 @@ export function SettingsPanel({
           <Toggle checked={s.showPageNumber} onChange={(showPageNumber) => set({ showPageNumber })} label={t("Show the page number")} />
           {canFullscreen() && <Toggle checked={s.quickFullscreen} onChange={(quickFullscreen) => set({ quickFullscreen })} label={t("Quick full screen button")} />}
         </div>
-        <p className="text-xs text-muted">{t("Changes are kept for this series.")}</p>
+        <p className="text-xs text-muted">{t("Changes are kept for this series on this device.")}</p>
         <div className="flex flex-wrap gap-2">
           <button type="button" className="rounded-md border border-border px-3 py-1.5 text-xs hover:border-muted/60" onClick={saveAsDefault}>{t("Use for all series")}</button>
           {hasOwn && (
