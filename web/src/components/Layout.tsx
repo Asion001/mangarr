@@ -36,6 +36,7 @@ import { api } from "../api/client";
 import { useAuthStatus, useHealth, usePendingRequests, useQueue, useUpdatesUnseen } from "../api/queries";
 import { useAccount, type Perm } from "../lib/account";
 import { OfflineBanner, useOfflineReady } from "./OnDevice";
+import { isStandalone } from "../pages/reader/fullscreen";
 import { useReachable } from "../lib/offline/connection";
 import { saving as stillSaving, useSavedChapters, useSaveQueue } from "../lib/offline/store";
 
@@ -190,6 +191,9 @@ export function Layout() {
   const { data: unseen } = useUpdatesUnseen();
   const unseenUpdates = unseen?.count ?? 0;
 
+  // in a phone's browser tab the page itself scrolls (index.css), so the
+  // browser can run it under its status bar and shrink its address bar
+  const [pageScroll] = useState(() => !isStandalone());
   const offlineReady = useOfflineReady();
   const reachable = useReachable();
   // chapters saving or waiting to be saved on this device, counted on the tab
@@ -327,7 +331,7 @@ export function Layout() {
   // --nav-width lets fixed bars in pages line up with the content column
   // pinch zoom is for the reader only; the rest of the app stays at its size
   // --tabbar-h does the same for the phone's bottom tab bar
-  return <div data-tabbar={tabBar.length>1||undefined} className="flex h-dvh touch-pan-x touch-pan-y overflow-hidden" style={{"--nav-width":collapsed?"4rem":"15rem",padding:"var(--safe-top) env(safe-area-inset-right) var(--root-pb, env(safe-area-inset-bottom)) env(safe-area-inset-left)"} as CSSProperties}>
+  return <div data-tabbar={tabBar.length>1||undefined} data-page-scroll={pageScroll||undefined} className="flex h-dvh touch-pan-x touch-pan-y overflow-hidden" style={{"--nav-width":collapsed?"4rem":"15rem",padding:"var(--safe-top) env(safe-area-inset-right) var(--root-pb, env(safe-area-inset-bottom)) env(safe-area-inset-left)"} as CSSProperties}>
     <aside data-testid="desktop-navigation" className={clsx("hidden shrink-0 border-r border-border bg-panel md:block",collapsed?"w-16":"w-60")}>{sidebar()}</aside>
     {open&&<div className="fixed inset-0 z-40 bg-black/60 md:hidden" onClick={()=>setOpen(false)}>
       <aside ref={drawer} role="dialog" aria-modal="true" aria-label={t("Navigation")} className="h-dvh w-72 max-w-[85vw] border-r border-border bg-panel" onClick={e=>e.stopPropagation()}>{sidebar(true)}</aside>

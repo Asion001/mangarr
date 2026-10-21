@@ -18,7 +18,9 @@ test("on a phone, tab rows only scroll sideways and fields don't zoom the page",
   expect(await tabs.evaluate((el) => el.scrollHeight > el.clientHeight && getComputedStyle(el).overflowY !== "hidden")).toBe(false);
 
   // the page itself never scrolls sideways
-  expect(await page.locator("main").evaluate((el) => getComputedStyle(el).overflowX)).toBe("hidden");
+  expect(await page.locator("main").evaluate((el) => getComputedStyle(el).overflowX)).toMatch(/^(hidden|clip)$/);
+  // in a browser tab the page itself scrolls, so the browser can run it under its bars
+  expect(await page.evaluate(() => document.scrollingElement!.scrollWidth <= window.innerWidth)).toBe(true);
   // pinch zoom is left to the reader
   expect(await page.getByTestId("desktop-navigation").evaluate((el) => getComputedStyle(el.parentElement!).touchAction)).toBe("pan-x pan-y");
 
@@ -27,4 +29,24 @@ test("on a phone, tab rows only scroll sideways and fields don't zoom the page",
   const field = page.locator("main input[type=text], main input:not([type])").first();
   await expect(field).toBeVisible();
   expect(await field.evaluate((el) => getComputedStyle(el).fontSize)).toBe("16px");
+});
+
+test("in a phone's browser tab the page itself scrolls and the tab bar stays at the bottom", async ({ page }) => {
+  await page.route("**/api/v1/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path.endsWith("/auth/status")) return route.fulfill({ json: { authenticated: true, authDisabled: true, account: { kind: "anonymous", id: 0, permissions: ["admin"] } } });
+    if (path.endsWith("/queue")) return route.fulfill({ json: { total: 0, state: { paused: false }, items: [] } });
+    if (path.endsWith("/health")) return route.fulfill({ json: { checks: [] } });
+    return route.fulfill({ json: [] });
+  });
+  await page.goto("/");
+  const tabs = page.getByRole("navigation", { name: "Library" });
+  await expect(tabs).toBeVisible();
+  // a page taller than the screen
+  await page.locator("main").evaluate((el) => el.insertAdjacentHTML("beforeend", '<div style="height:3000px"></div>'));
+  await expect.poll(() => page.evaluate(() => document.scrollingElement!.scrollHeight > window.innerHeight)).toBe(true);
+  await page.evaluate(() => window.scrollTo(0, 400));
+  await expect.poll(() => page.evaluate(() => document.scrollingElement!.scrollTop)).toBeGreaterThan(300);
+  const box = await tabs.boundingBox();
+  expect(Math.round(box!.y + box!.height)).toBe(812);
 });

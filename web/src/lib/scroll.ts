@@ -8,4 +8,7 @@ export function scrollToTop(el: HTMLElement) {
     box.scrollTop += el.getBoundingClientRect().top - box.getBoundingClientRect().top;
     return;
   }
+  // nothing inside scrolls: the page itself does (a phone's browser tab)
+  const page = document.scrollingElement;
+  if (page) page.scrollTop += el.getBoundingClientRect().top;
 }
