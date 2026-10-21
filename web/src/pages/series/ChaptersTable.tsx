@@ -158,7 +158,8 @@ export function ChaptersTable({ seriesId, manage = true, nextChapterId, editions
       {data && data.length === 0 && <p className="text-sm text-muted">{t("No chapters yet. Refresh the series to fetch the chapter list.")}</p>}
       {list.length > 0 && (
         <div ref={tableTop}>
-          <div className="divide-y divide-border xl:hidden">
+          {/* rows reach the card's edges, so the Up next tint fills the whole row */}
+          <div className="-mx-4 divide-y divide-border xl:hidden">
             {visible.map((chapter) => (
               <ChapterMobileRow
                 key={chapter.id}

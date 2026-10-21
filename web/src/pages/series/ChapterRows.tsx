@@ -224,7 +224,7 @@ export const ChapterMobileRow = memo(function ChapterMobileRow({
 }: ChapterRowProps) {
   const read = c.readBy.length > 0 && c.readBy.every((r) => r.completed);
   return (
-    <article className={clsx("py-3", !c.monitored && "opacity-60", next && "bg-accent/5 shadow-[inset_3px_0_0_var(--color-accent)]")}>
+    <article className={clsx("px-4 py-3", !c.monitored && "opacity-60", next && "bg-accent/5 shadow-[inset_3px_0_0_var(--color-accent)]")}>
       <div className="flex min-w-0 items-center gap-2">
         {manage && <input className="shrink-0" type="checkbox" checked={selected} onChange={() => onSelect(c.id)} aria-label={`${t("Select")} ${t("Chapter")} ${c.number}`} />}
         <button className="flex min-w-0 flex-1 items-center gap-2 text-left hover:text-accent-2" onClick={() => onExpand(c.id)} aria-expanded={open}>
