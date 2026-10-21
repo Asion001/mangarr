@@ -1,7 +1,10 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
 import { api, unwrap } from "../../api/client";
+import { useAccount } from "../../lib/account";
+import { readDevice, seedDevice, writeDevice, type Device } from "./device";
 
-/** ReaderSettings are the web reader's options (saved per account and per series). */
+/** ReaderSettings are the web reader's options (kept on each device, per account and per series). */
 export type ReaderSettings = {
   /** paged: one screen at a time; webtoon: one long strip. */
   mode: "paged" | "webtoon";
@@ -97,38 +100,49 @@ export function fromSeries(dir: string): Partial<ReaderSettings> {
 
 type Saved = Partial<ReaderSettings>;
 
-/** useReaderSettings loads the effective settings for a series and saves changes for it. */
+/**
+ * useReaderSettings loads the effective settings for a series and saves
+ * changes for it. They're kept on this device, so a phone and a tablet can
+ * read differently; a device that hasn't kept any yet starts from the ones
+ * saved on the account.
+ */
 export function useReaderSettings(seriesId: number, seriesDirection: string) {
-  const qc = useQueryClient();
+  const { account } = useAccount();
+  const key = `mangarr:reader:${account?.kind ?? "guest"}:${account?.id ?? 0}`;
+  const [version, setVersion] = useState(0);
+  const device = useMemo(() => readDevice(key), [key, version]);
+  const seeded = device.defaults !== undefined && seriesId in device.series;
   const { data, isLoading } = useQuery({
     queryKey: ["reader-settings", seriesId],
     queryFn: () => unwrap(api.GET("/api/v1/read/settings", { params: { query: { seriesId } } })),
-    enabled: seriesId > 0,
+    enabled: !!account && seriesId > 0 && !seeded,
     staleTime: Infinity,
   });
-  const defaults = (data?.defaults ?? {}) as Saved;
-  const own = (data?.series ?? null) as Saved | null;
+  useEffect(() => {
+    if (!data || !account || seeded) return;
+    writeDevice(key, seedDevice(device, seriesId, data as { defaults?: Saved; series?: Saved | null }));
+    setVersion((v) => v + 1);
+  }, [data, account, seeded, key, device, seriesId]);
+  const defaults = device.defaults ?? ((data?.defaults ?? {}) as Saved);
+  const own = seriesId in device.series ? device.series[seriesId] : ((data?.series ?? null) as Saved | null);
   // defaults < the series' own direction < what you chose for this series
   const settings: ReaderSettings = { ...DEFAULTS, ...defaults, ...fromSeries(seriesDirection), ...(own ?? {}) };
-  const put = (body: { seriesId?: number; data?: Saved }) => unwrap(api.PUT("/api/v1/read/settings", { body })).catch(() => undefined);
-  /** set changes settings for this series. */
-  const set = (patch: Saved) => {
-    const next = { ...(own ?? {}), ...patch };
-    qc.setQueryData(["reader-settings", seriesId], { defaults, series: next });
-    void put({ seriesId, data: next });
+  const save = (next: Device) => {
+    writeDevice(key, next);
+    setVersion((v) => v + 1);
   };
-  /** saveAsDefault makes the current settings everyone's default (for series without their own). */
+  /** set changes settings for this series. */
+  // device.defaults, not defaults: until the account's are seeded, saving
+  // the built-in ones would stop them ever being fetched here
+  const set = (patch: Saved) => save({ defaults: device.defaults, series: { ...device.series, [seriesId]: { ...(own ?? {}), ...patch } } });
+  /** saveAsDefault makes the current settings the default here (for series without their own). */
   const saveAsDefault = () => {
     const next: Saved = { ...settings };
     delete next.mode;
     delete next.direction;
-    qc.setQueryData(["reader-settings", seriesId], { defaults: next, series: own });
-    void put({ seriesId: 0, data: next });
+    save({ defaults: next, series: { ...device.series, [seriesId]: own } });
   };
   /** reset drops this series' own settings. */
-  const reset = () => {
-    qc.setQueryData(["reader-settings", seriesId], { defaults, series: null });
-    void put({ seriesId });
-  };
-  return { settings, loading: isLoading, hasOwn: !!own, set, saveAsDefault, reset };
+  const reset = () => save({ defaults: device.defaults, series: { ...device.series, [seriesId]: null } });
+  return { settings, loading: seriesId > 0 && !seeded && (!account || isLoading), hasOwn: !!own, set, saveAsDefault, reset };
 }
