@@ -131,12 +131,10 @@ func browserName(ua string) string {
 func (s *Server) registerRead() {
 	tags := []string{"Reader"}
 
+	// book is a chapter for serving its pages or file (a reader fetches
+	// many pages at once: this doesn't read the whole series for each)
 	book := func(ctx context.Context, id int64) (*reading.BookInfo, error) {
-		rid, err := s.readerOf(ctx)
-		if err != nil {
-			return nil, toHTTPError(err)
-		}
-		b, err := s.app.Reading.Book(ctx, rid, id)
+		b, err := s.app.Reading.PageBook(ctx, id)
 		if err != nil {
 			return nil, readError(err)
 		}
@@ -150,13 +148,22 @@ func (s *Server) registerRead() {
 			if err != nil {
 				return nil, toHTTPError(err)
 			}
-			b, err := s.app.Reading.Book(ctx, rid, in.ID)
+			pb, err := s.app.Reading.PageBook(ctx, in.ID)
 			if err != nil {
 				return nil, readError(err)
 			}
-			books, err := s.app.Reading.Books(ctx, rid, b.Chapter.SeriesID)
+			books, err := s.app.Reading.Books(ctx, rid, pb.Chapter.SeriesID)
 			if err != nil {
 				return nil, toHTTPError(err)
+			}
+			var b *reading.BookInfo
+			for i := range books {
+				if books[i].Chapter.ID == in.ID {
+					b = &books[i]
+				}
+			}
+			if b == nil {
+				return nil, readError(reading.ErrNotFound)
 			}
 			ser, err := s.app.Series.Get(ctx, b.Chapter.SeriesID)
 			if err != nil {
