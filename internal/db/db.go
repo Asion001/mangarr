@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/pressly/goose/v3"
 	"github.com/uptrace/bun"
@@ -74,6 +75,7 @@ func openSQLite(ctx context.Context, path string) (*DB, error) {
 	// WAL allows concurrent readers; writers serialize through BEGIN IMMEDIATE
 	// and busy_timeout. Keep the pool small: the workload is light.
 	sqldb.SetMaxOpenConns(4)
+	sqldb.SetMaxIdleConns(4)
 	if err := sqldb.PingContext(ctx); err != nil {
 		return nil, fmt.Errorf("open sqlite %s: %w", path, err)
 	}
@@ -82,7 +84,13 @@ func openSQLite(ctx context.Context, path string) (*DB, error) {
 
 func openPostgres(ctx context.Context, dsn string) (*DB, error) {
 	sqldb := sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(dsn)))
+	// Keep the connections a burst opened (a reader fetching a chapter's
+	// pages, the download workers) instead of closing all but two of them
+	// and paying for a new login on the next burst; close them only after a
+	// quiet spell.
 	sqldb.SetMaxOpenConns(20)
+	sqldb.SetMaxIdleConns(20)
+	sqldb.SetConnMaxIdleTime(5 * time.Minute)
 	if err := sqldb.PingContext(ctx); err != nil {
 		return nil, fmt.Errorf("open postgres %s: %w", redact(dsn), err)
 	}
