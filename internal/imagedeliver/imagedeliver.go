@@ -7,10 +7,12 @@ package imagedeliver
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/Asion001/mangarr/internal/apitiming"
@@ -32,6 +34,10 @@ var Widths = []int{320, 720, 1080, 1440, 2160}
 var keepFormats = map[string]bool{"avif": true, "jxl": true}
 
 const variantTTL = 30 * 24 * time.Hour
+
+// keepMarker is what the cache holds for a page that goes out as it is, so
+// the next request for it doesn't load and inspect the page again.
+const keepMarker = "mangarr/original"
 
 // keepWithin is how much wider than asked (in percent) a page may be and
 // still go out as it is. Shrinking a tall webtoon page takes the server a
@@ -91,11 +97,17 @@ func (d *Deliverer) Variant(ctx context.Context, id string, width int, load func
 			return nil, "", err
 		}
 		small, ct, err := d.resize(ctx, src, width)
+		if errors.Is(err, errKeepOriginal) {
+			return io.NopCloser(strings.NewReader("-")), keepMarker, nil
+		}
 		if err != nil {
 			return nil, "", err
 		}
 		return io.NopCloser(bytes.NewReader(small)), ct, nil
 	})
+	if err == nil && ct == keepMarker {
+		return nil, "", false
+	}
 	if err != nil {
 		if d.Log != nil {
 			d.Log.Debug("serving the page as it is", "reason", err)
