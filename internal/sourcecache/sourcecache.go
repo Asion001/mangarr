@@ -7,6 +7,7 @@ package sourcecache
 
 import (
 	"container/list"
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -24,6 +25,9 @@ type entry struct {
 	val     any
 	size    int64
 	expires time.Time
+	// keep is how long an expired entry may still be served by DoStale
+	// while it is refreshed (zero: not at all).
+	keep time.Time
 }
 
 // Cache is an LRU cache with TTLs and request coalescing.
@@ -56,8 +60,10 @@ func (c *Cache) Get(key string) (any, bool) {
 		return nil, false
 	}
 	e := el.Value.(*entry)
-	if c.now().After(e.expires) {
-		c.remove(el)
+	if now := c.now(); now.After(e.expires) {
+		if !now.Before(e.keep) {
+			c.remove(el)
+		}
 		c.misses.Add(1)
 		return nil, false
 	}
@@ -66,8 +72,23 @@ func (c *Cache) Get(key string) (any, bool) {
 	return e.val, true
 }
 
+// stale returns an expired entry that may still be served.
+func (c *Cache) stale(key string) (any, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	el, ok := c.items[key]
+	if !ok || !c.now().Before(el.Value.(*entry).keep) {
+		return nil, false
+	}
+	return el.Value.(*entry).val, true
+}
+
 // Set stores val for ttl; size is its approximate memory cost.
 func (c *Cache) Set(key string, val any, size int64, ttl time.Duration) {
+	c.set(key, val, size, ttl, 0)
+}
+
+func (c *Cache) set(key string, val any, size int64, ttl, keep time.Duration) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if el, ok := c.items[key]; ok {
@@ -76,7 +97,8 @@ func (c *Cache) Set(key string, val any, size int64, ttl time.Duration) {
 	if size > c.max {
 		return
 	}
-	e := &entry{key: key, val: val, size: size, expires: c.now().Add(ttl)}
+	now := c.now()
+	e := &entry{key: key, val: val, size: size, expires: now.Add(ttl), keep: now.Add(max(ttl, keep))}
 	c.items[key] = c.ll.PushFront(e)
 	c.bytes += size
 	for c.bytes > c.max {
@@ -135,6 +157,47 @@ func Do[T any](c *Cache, key string, ttl time.Duration, fn func() (T, error)) (T
 		c.Set(key, v, sizeOf(v), ttl)
 		return v, nil
 	})
+	if err != nil {
+		var zero T
+		return zero, false, err
+	}
+	return v.(T), false, nil
+}
+
+// refreshTimeout bounds a background refresh started by DoStale.
+const refreshTimeout = time.Minute
+
+// DoStale is Do for results that may be served a while after they expire:
+// up to keep, an expired value is returned at once (as cached) while fn
+// refreshes it in the background, so a page that is opened rarely doesn't
+// wait on its sources every time. fn gets ctx, or for a background refresh
+// a context of its own.
+func DoStale[T any](ctx context.Context, c *Cache, key string, ttl, keep time.Duration, fn func(context.Context) (T, error)) (T, bool, error) {
+	if v, ok := c.Get(key); ok {
+		return v.(T), true, nil
+	}
+	refresh := func(ctx context.Context) func() (any, error) {
+		return func() (any, error) {
+			if v, ok := c.Get(key); ok {
+				return v, nil
+			}
+			v, err := fn(ctx)
+			if err != nil {
+				return nil, err
+			}
+			c.set(key, v, sizeOf(v), ttl, keep)
+			return v, nil
+		}
+	}
+	if v, ok := c.stale(key); ok {
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), refreshTimeout)
+			defer cancel()
+			_, _, _ = c.sf.Do(key, refresh(ctx))
+		}()
+		return v.(T), true, nil
+	}
+	v, err, _ := c.sf.Do(key, refresh(ctx))
 	if err != nil {
 		var zero T
 		return zero, false, err

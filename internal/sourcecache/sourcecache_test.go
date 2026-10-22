@@ -1,6 +1,7 @@
 package sourcecache
 
 import (
+	"context"
 	"errors"
 	"sync"
 	"sync/atomic"
@@ -74,5 +75,53 @@ func TestDoCoalescesAndSkipsErrors(t *testing.T) {
 	}
 	if v, _, _ := Do(c, "e", time.Minute, func() (int, error) { return 7, nil }); v != 7 {
 		t.Fatal("errors must not be cached")
+	}
+}
+
+// TestDoStale: an expired value is served at once while it is refreshed in
+// the background, and only until keep runs out.
+func TestDoStale(t *testing.T) {
+	c := New(1 << 20)
+	var mu sync.Mutex
+	now := time.Unix(0, 0)
+	c.now = func() time.Time { mu.Lock(); defer mu.Unlock(); return now }
+	advance := func(d time.Duration) { mu.Lock(); now = now.Add(d); mu.Unlock() }
+	var calls atomic.Int32
+	refreshed := make(chan struct{}, 4)
+	fetch := func(ctx context.Context) (int32, error) {
+		n := calls.Add(1)
+		refreshed <- struct{}{}
+		return n, nil
+	}
+	ctx := context.Background()
+	if v, cached, err := DoStale(ctx, c, "k", time.Minute, time.Hour, fetch); err != nil || cached || v != 1 {
+		t.Fatalf("first: %v %v %v", v, cached, err)
+	}
+	<-refreshed
+	if v, cached, _ := DoStale(ctx, c, "k", time.Minute, time.Hour, fetch); !cached || v != 1 || calls.Load() != 1 {
+		t.Fatalf("fresh: %v %v after %d calls", v, cached, calls.Load())
+	}
+	advance(2 * time.Minute)
+	if v, cached, _ := DoStale(ctx, c, "k", time.Minute, time.Hour, fetch); !cached || v != 1 {
+		t.Fatalf("stale: %v %v", v, cached)
+	}
+	select {
+	case <-refreshed:
+	case <-time.After(5 * time.Second):
+		t.Fatal("no background refresh")
+	}
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		if v, ok := c.Get("k"); ok && v.(int32) == 2 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("the refreshed value wasn't stored")
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	advance(2 * time.Hour)
+	if v, cached, _ := DoStale(ctx, c, "k", time.Minute, time.Hour, fetch); cached || v != 3 {
+		t.Fatalf("past keep: %v %v", v, cached)
 	}
 }
