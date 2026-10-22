@@ -290,50 +290,73 @@ function UpdateRow({ item, onSeen }: { item: Update; onSeen: () => void }) {
       start.current = null;
     },
   };
-  let action: ReactNode = null;
-  if (chapter && item.readable) {
-    action = <ButtonLink to={`/read/${item.chapterId}`} variant={fresh ? "primary" : "secondary"} icon={<BookOpen className="size-4" />}>{item.readState === "in_progress" ? t("Continue") : t("Read")}</ButtonLink>;
-  } else if (!chapter) {
-    action = <ButtonLink to={`/series/${item.seriesId}`} icon={<BookPlus className="size-4" />}>{t("View")}</ButtonLink>;
-  }
+  // on a phone the action sits small in the row under the title, on a wider
+  // screen at full size on the right
+  const action = (size: "sm" | "md"): ReactNode => {
+    if (chapter && item.readable) {
+      return <ButtonLink to={`/read/${item.chapterId}`} size={size} variant={fresh ? "primary" : "secondary"} icon={<BookOpen className="size-4" />}>{item.readState === "in_progress" ? t("Continue") : t("Read")}</ButtonLink>;
+    }
+    if (!chapter) return <ButtonLink to={`/series/${item.seriesId}`} size={size} icon={<BookPlus className="size-4" />}>{t("View")}</ButtonLink>;
+    return null;
+  };
+  const seenButton = (className: string) => (
+    <button
+      type="button"
+      onClick={onSeen}
+      title={t("Mark seen")}
+      aria-label={chapter ? t("Mark {title} chapter {n} seen", { title: item.seriesTitle, n: item.number ?? "" }) : t("Mark {title} seen", { title: item.seriesTitle })}
+      className={clsx("shrink-0 items-center justify-center rounded-md text-muted hover:bg-border hover:text-fg", className)}
+    >
+      <Eye className="size-4" />
+    </button>
+  );
+  const languages = (
+    <>
+      {item.language && <Badge>{languageName(item.language)}</Badge>}
+      {item.languages?.map((language) => <Badge key={language}>{languageName(language)}</Badge>)}
+    </>
+  );
+  const state = chapter && (
+    <>
+      <Badge tone={item.downloaded ? "ok" : item.readable ? "info" : "default"}>{item.downloaded ? t("Downloaded") : item.readable ? t("Streamable") : t("Unavailable")}</Badge>
+      <Badge tone={item.readState === "read" ? "ok" : item.readState === "in_progress" ? "accent" : "default"}>
+        {item.readState === "read" ? t("Read") : item.readState === "in_progress" ? `${t("In progress")} · ${item.readPage}` : t("Unread")}
+      </Badge>
+    </>
+  );
   return (
-    <div className={clsx("flex items-center gap-3 p-3 sm:p-4", !fresh && item.seen && "opacity-70")} {...swipe}>
-      <span aria-hidden="true" className={clsx("size-2 shrink-0 rounded-full", fresh ? "bg-accent" : "bg-transparent")} />
+    <div className={clsx("flex items-start gap-3 p-3 sm:items-center sm:p-4", !fresh && item.seen && "opacity-70")} {...swipe}>
+      <span aria-hidden="true" className={clsx("mt-1.5 size-2 shrink-0 rounded-full sm:mt-0", fresh ? "bg-accent" : "bg-transparent")} />
       <Link to={`/series/${item.seriesId}`} className="shrink-0">
         <Cover src={apiUrl(item.coverUrl)} alt={item.seriesTitle} className="aspect-[2/3] w-12 sm:w-14" />
       </Link>
       <div className="min-w-0 flex-1">
-        <div className="mb-1 flex flex-wrap items-center gap-1.5">
-          {fresh && <span className="sr-only">{t("New")}</span>}
+        {fresh && <span className="sr-only">{t("New")}</span>}
+        <div className="mb-1 hidden flex-wrap items-center gap-1.5 sm:flex">
           <Badge tone={chapter ? "info" : "accent"}>
             {chapter ? <BookOpen className="size-3" /> : <Sparkles className="size-3" />}
             {chapter ? t("New chapter") : t("New title")}
           </Badge>
-          {item.language && <Badge>{languageName(item.language)}</Badge>}
-          {item.languages?.map((language) => <Badge key={language}>{languageName(language)}</Badge>)}
-          {chapter && <Badge tone={item.downloaded ? "ok" : item.readable ? "info" : "default"}>{item.downloaded ? t("Downloaded") : item.readable ? t("Streamable") : t("Unavailable")}</Badge>}
-          {chapter && <Badge tone={item.readState === "read" ? "ok" : item.readState === "in_progress" ? "accent" : "default"}>
-            {item.readState === "read" ? t("Read") : item.readState === "in_progress" ? `${t("In progress")} · ${item.readPage}` : t("Unread")}
-          </Badge>}
+          {languages}
+          {state}
           <span className="text-xs text-muted">{relative(item.at)}</span>
         </div>
-        <Link to={`/series/${item.seriesId}`} className={clsx("hover:text-accent-2", fresh ? "font-semibold" : "font-medium")}>{item.seriesTitle}</Link>
-        {chapter && (
-          <p className="truncate text-sm text-muted">{t("Chapter") + " "}{item.number}{item.title ? ` · ${item.title}` : ""}</p>
-        )}
+        <div className="flex items-start gap-2">
+          <Link to={`/series/${item.seriesId}`} className={clsx("line-clamp-2 min-w-0 flex-1 hover:text-accent-2 sm:line-clamp-none", fresh ? "font-semibold" : "font-medium")}>{item.seriesTitle}</Link>
+          {fresh && seenButton("-mr-1 -mt-1.5 inline-flex size-9 sm:hidden")}
+        </div>
+        <p className="truncate text-sm text-muted">
+          {chapter ? <>{t("Chapter") + " "}{item.number}{item.title ? ` · ${item.title}` : ""}</> : <span className="sm:hidden">{t("New title")}</span>}
+          <span className="sm:hidden">{" · " + relative(item.at)}</span>
+        </p>
+        <div className="mt-1.5 flex flex-wrap items-center gap-1 sm:hidden">
+          {languages}
+          {state}
+          <span className="ml-auto pl-1">{action("sm")}</span>
+        </div>
       </div>
-      {fresh && (
-        <button
-          type="button"
-          onClick={onSeen}
-          title={t("Mark seen")}
-          aria-label={chapter ? t("Mark {title} chapter {n} seen", { title: item.seriesTitle, n: item.number ?? "" }) : t("Mark {title} seen", { title: item.seriesTitle })}
-          className="inline-flex size-9 shrink-0 items-center justify-center rounded-md border border-border bg-panel-2 text-muted hover:bg-border hover:text-fg"
-        >
-          <Eye className="size-4" />
-        </button>
-      )}
-      {action}
+      {fresh && seenButton("hidden size-9 border border-border bg-panel-2 sm:inline-flex")}
+      <div className="hidden shrink-0 sm:block">{action("md")}</div>
     </div>
   );
 }
