@@ -4,6 +4,8 @@ import (
 	"context"
 	"sort"
 	"time"
+
+	"github.com/Asion001/mangarr/internal/model"
 )
 
 // NextUp is the next chapter to read in a series.
@@ -29,15 +31,17 @@ func (s *Service) OnDeck(ctx context.Context, readerID int64) ([]NextUp, error) 
 	if len(started) == 0 {
 		return []NextUp{}, nil
 	}
-	books, err := s.Books(ctx, readerID, 0)
+	ids := make([]int64, 0, len(started))
+	for id := range started {
+		ids = append(ids, id)
+	}
+	books, err := s.booksIn(ctx, readerID, ids)
 	if err != nil {
 		return nil, err
 	}
 	bySeries := map[int64][]BookInfo{}
 	for _, b := range books {
-		if _, ok := started[b.Chapter.SeriesID]; ok {
-			bySeries[b.Chapter.SeriesID] = append(bySeries[b.Chapter.SeriesID], b)
-		}
+		bySeries[b.Chapter.SeriesID] = append(bySeries[b.Chapter.SeriesID], b)
 	}
 	out := []NextUp{}
 	for sid, list := range bySeries { // list is ordered by number
@@ -58,6 +62,53 @@ func (s *Service) OnDeck(ctx context.Context, readerID int64) ([]NextUp, error) 
 		return lastRead(out[i].Series).After(lastRead(out[j].Series))
 	})
 	return oncePerTitle(out, bySeries), nil
+}
+
+// booksIn loads the books of some listed series (as AllSeries shows them)
+// the way Books(…, 0) lists them, without reading the rest of the library.
+func (s *Service) booksIn(ctx context.Context, readerID int64, ids []int64) ([]BookInfo, error) {
+	if len(languagesOf(ctx)) == 0 {
+		chapters, err := s.chaptersOf(ctx, ids)
+		if err != nil {
+			return nil, err
+		}
+		return s.enrich(ctx, readerID, chapters, ids)
+	}
+	// a device with a language order: the titles' other editions too
+	var list []model.Series
+	if err := s.DB.NewSelect().Model(&list).Column("id", "work_id", "language", "preview", "root_folder_id", "tags", "metadata").
+		Where("preview = ?", false).Scan(ctx); err != nil {
+		return nil, err
+	}
+	if sc := scopeOf(ctx); sc != nil {
+		kept := list[:0]
+		for i := range list {
+			if sc.Allows(&list[i]) {
+				kept = append(kept, list[i])
+			}
+		}
+		list = kept
+	}
+	eds := editionsFor(ctx, list)
+	var all []int64
+	for _, id := range ids {
+		if of := eds.of[id]; len(of) > 0 {
+			for _, ed := range of {
+				all = append(all, ed.ID)
+			}
+		} else {
+			all = append(all, id)
+		}
+	}
+	chapters, err := s.chaptersOf(ctx, all)
+	if err != nil {
+		return nil, err
+	}
+	books, err := s.enrich(ctx, readerID, chapters, all)
+	if err != nil {
+		return nil, err
+	}
+	return eds.merge(books), nil
 }
 
 // oncePerTitle keeps one entry per title: of a title's language editions

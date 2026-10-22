@@ -446,7 +446,10 @@ func (s *Service) enrich(ctx context.Context, readerID int64, chapters []model.C
 			scanBy[*r.ChapterID] = r.Scanlator
 		}
 	}
-	dirs := map[int64]string{}
+	dirs, err := s.seriesDirs(ctx, chapters)
+	if err != nil {
+		return nil, err
+	}
 	out := make([]BookInfo, 0, len(chapters))
 	idx := map[int64]int{}
 	for _, ch := range chapters {
@@ -458,15 +461,7 @@ func (s *Service) enrich(ctx context.Context, readerID int64, chapters []model.C
 				if f.Scanlator != "" {
 					b.Scanlator = f.Scanlator
 				}
-				dir, ok := dirs[ch.SeriesID]
-				if !ok {
-					var ser model.Series
-					if err := s.DB.NewSelect().Model(&ser).Column("id", "root_folder_id", "path").Where("id = ?", ch.SeriesID).Scan(ctx); err == nil {
-						dir, _ = s.Library.SeriesDir(ctx, &ser)
-					}
-					dirs[ch.SeriesID] = dir
-				}
-				if dir != "" {
+				if dir := dirs[ch.SeriesID]; dir != "" {
 					b.Path = filepath.Join(dir, f.RelativePath)
 				}
 			}
@@ -474,6 +469,41 @@ func (s *Service) enrich(ctx context.Context, readerID int64, chapters []model.C
 		out = append(out, b)
 	}
 	return out, nil
+}
+
+// seriesDirs is the folder of each series that chapters are of ("" when its
+// root folder is gone), in two queries however many series there are.
+func (s *Service) seriesDirs(ctx context.Context, chapters []model.Chapter) (map[int64]string, error) {
+	seen := map[int64]bool{}
+	var ids []int64
+	for _, ch := range chapters {
+		if ch.FileID != nil && !seen[ch.SeriesID] {
+			seen[ch.SeriesID] = true
+			ids = append(ids, ch.SeriesID)
+		}
+	}
+	dirs := map[int64]string{}
+	if len(ids) == 0 {
+		return dirs, nil
+	}
+	var list []model.Series
+	if err := s.DB.NewSelect().Model(&list).Column("id", "root_folder_id", "path").Where("id IN (?)", bun.In(ids)).Scan(ctx); err != nil {
+		return nil, err
+	}
+	var rfs []model.RootFolder
+	if err := s.DB.NewSelect().Model(&rfs).Column("id", "path").Scan(ctx); err != nil {
+		return nil, err
+	}
+	roots := map[int64]string{}
+	for _, rf := range rfs {
+		roots[rf.ID] = rf.Path
+	}
+	for _, ser := range list {
+		if root, ok := roots[ser.RootFolderID]; ok {
+			dirs[ser.ID] = filepath.Join(root, ser.Path)
+		}
+	}
+	return dirs, nil
 }
 
 // SortSeries orders series by title (the default).
