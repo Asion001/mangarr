@@ -97,6 +97,11 @@ func (m *Manager) dispatch(ctx context.Context) {
 	if m.held {
 		return
 	}
+	// the queue may have been paused while the jobs were read: a job queued
+	// since then must wait (and keep its place) like the rest
+	if qs, _ := m.settings.QueueState(ctx); qs.Active(time.Now()) {
+		return
+	}
 	busy := len(m.running) > 0
 	for _, j := range jobs {
 		if _, ok := m.running[j.ID]; ok {
