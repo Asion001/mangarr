@@ -81,8 +81,11 @@ test("preloads upcoming reader pages and cancels pages skipped by a fast jump", 
   expect(timeReports.at(-1)?.sessionId.length).toBeGreaterThanOrEqual(16);
   await expect.poll(() => [2, 3, 4, 5].every((number) => requested.has(number))).toBe(true);
 
-  await page.getByRole("slider", { name: "Page" }).fill("10");
-  await expect(page.getByText("10 / 20")).toBeVisible();
+  // the bars hide on their own after a moment; on a slow machine they already have
+  const slider = page.getByRole("slider", { name: "Page" });
+  if (!(await slider.isVisible())) await page.keyboard.press("m");
+  await slider.fill("10");
+  await expect(page.getByText("10 / 20").first()).toBeVisible();
   await expect.poll(() => [11, 12, 13, 14].every((number) => requested.has(number))).toBe(true);
   await expect.poll(() => [2, 3, 4, 5].some((number) => cancelled.has(number))).toBe(true);
 });

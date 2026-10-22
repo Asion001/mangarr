@@ -29,7 +29,10 @@ test("webtoon auto scroll runs from the bottom bar, pauses and changes speed", a
   // in a browser tab the strip scrolls the page itself
   const scroller = page.locator("html");
 
-  await page.getByRole("button", { name: "Start auto scroll" }).click();
+  // the bars hide on their own after a moment; on a slow machine they already have
+  const start = page.getByRole("button", { name: "Start auto scroll" });
+  if (!(await start.isVisible())) await page.keyboard.press("m");
+  await start.click();
   await expect.poll(() => scroller.evaluate((el) => el.scrollTop)).toBeGreaterThan(200);
 
   // the bars hide; the pill pauses it and changes the speed
