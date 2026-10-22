@@ -383,6 +383,41 @@ func (s *Service) Book(ctx context.Context, readerID, chapterID int64) (*BookInf
 	return nil, ErrNotFound
 }
 
+// PageBook loads one chapter with just its file and folder (no place in its
+// series, no progress): enough to serve its pages, without reading the
+// whole series as Book does.
+func (s *Service) PageBook(ctx context.Context, chapterID int64) (*BookInfo, error) {
+	var ch model.Chapter
+	if err := s.DB.NewSelect().Model(&ch).Where("id = ?", chapterID).Scan(ctx); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	if _, err := s.visibleSeries(ctx, ch.SeriesID); err != nil {
+		return nil, err
+	}
+	b := &BookInfo{Chapter: ch, EditionID: ch.SeriesID}
+	if ch.FileID == nil {
+		return b, nil
+	}
+	var f model.ChapterFile
+	if err := s.DB.NewSelect().Model(&f).Where("id = ?", *ch.FileID).Scan(ctx); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return b, nil
+		}
+		return nil, err
+	}
+	b.File, b.Scanlator = &f, f.Scanlator
+	var ser model.Series
+	if err := s.DB.NewSelect().Model(&ser).Column("id", "root_folder_id", "path").Where("id = ?", ch.SeriesID).Scan(ctx); err == nil {
+		if dir, _ := s.Library.SeriesDir(ctx, &ser); dir != "" {
+			b.Path = filepath.Join(dir, f.RelativePath)
+		}
+	}
+	return b, nil
+}
+
 // FileBook is a downloaded file as a book, found by the file alone (no
 // reader, no permissions): for links that carry their own permission.
 func (s *Service) FileBook(ctx context.Context, fileID int64) (*BookInfo, error) {
