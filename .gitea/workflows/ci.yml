@@ -1,0 +1,282 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+
+# The runner runs jobs on its own host, without Docker: Postgres comes from
+# the runner's own binaries, images are built by a BuildKit daemon at
+# $BUILDKIT_HOST (set in the runner's environment), and packages and release
+# files are uploaded to the Gitea address the runner itself talks to
+# (ACTIONS_RUNTIME_URL), which takes large uploads the public address may not.
+#
+# Worker zips are generic packages of the repository's owner: packages are as
+# visible as their owner, so workers download them without signing in
+# (internal/workerupdate), and the images are pulled the same way.
+env:
+  UPDATE_URL: ${{ github.server_url }}/api/packages/${{ github.repository_owner }}/generic/mangarr-worker/build-{build}/{zip}
+  # a token of the owner with write:package and write:repository; the job's
+  # own token can't publish packages
+  TOKEN: ${{ secrets.CI_TOKEN }}
+  RUN: ${{ github.run_number }}
+
+# A push to main never cancels the run in progress: with pushes landing
+# faster than a run takes, every run was cancelled and no image got
+# published. The newest push waits instead (older waiting ones drop out).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - run: command -v xmllint || (apt-get update && apt-get install -y libxml2-utils)
+      - name: gofmt
+        run: test -z "$(gofmt -l cmd internal)"
+      - name: vet
+        run: go vet ./...
+      - name: import lint (vendor clients only inside modules)
+        run: ./scripts/import-lint.sh
+      # a throwaway Postgres in the job's own directory, on a free port
+      - name: start Postgres
+        run: |
+          pg=$(mktemp -d) port=$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1])')
+          chown postgres "$pg"
+          su postgres -c "initdb -D $pg/data -A trust -U postgres >/dev/null && pg_ctl -D $pg/data -l $pg/log -w -o '-k $pg -p $port -c listen_addresses=127.0.0.1' start"
+          echo "PGDIR=$pg" >> "$GITHUB_ENV"
+          echo "MANGARR_TEST_POSTGRES=postgres://postgres@127.0.0.1:$port/postgres?sslmode=disable" >> "$GITHUB_ENV"
+      - name: test (SQLite + Postgres)
+        run: go test -race -count=1 -timeout 30m -p 2 ./... # the runner shares a busy machine
+      - name: stop Postgres
+        if: always()
+        run: '[ -z "$PGDIR" ] || { su postgres -c "pg_ctl -D $PGDIR/data -m immediate stop" || true; rm -rf "$PGDIR"; }'
+
+  # after test, not beside it: on the shared runner the two together ran
+  # out of memory and time
+  web:
+    needs: [test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+        working-directory: web
+      - name: lint
+        run: npm run lint --if-present
+        working-directory: web
+      - name: typecheck
+        run: npm run typecheck
+        working-directory: web
+      - name: translations
+        run: npm run check:i18n
+        working-directory: web
+      - name: unit tests
+        run: npm test
+        working-directory: web
+      - name: production build
+        run: npm run build
+        working-directory: web
+      - name: first-load bundle budget
+        run: npm run check:bundle
+        working-directory: web
+      - name: install Chromium
+        run: npm exec -- playwright install --with-deps chromium
+        working-directory: web
+      - name: browser tests
+        run: npm run test:e2e
+        working-directory: web
+      - name: upload browser failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v3 # v4+ refuses servers other than github.com
+        with:
+          name: playwright-failure-${{ github.run_id }}
+          path: |
+            web/playwright-report
+            web/test-results
+          if-no-files-found: ignore
+          retention-days: 7
+
+  generated:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+        working-directory: web
+      - name: regenerate OpenAPI schema
+        run: |
+          mkdir -p bin
+          go build -o bin/mangarr ./cmd/mangarr
+          ./bin/mangarr openapi > web/openapi.json
+          npm run gen --prefix web
+      - name: reject generated schema drift
+        run: git diff --exit-code -- web/openapi.json web/src/api/schema.d.ts
+
+  # the desktop worker: mangarr-worker with the upscalers, one zip per
+  # platform (docs/setup.md, "A worker on a desktop"), published for every
+  # push as the generic package mangarr-worker, version build-<n>, for
+  # workers updating to the server's build (internal/workerupdate); attached
+  # to the release on a tag too
+  worker-zips:
+    needs: [test]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [windows-amd64, darwin-arm64, linux-amd64]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - run: command -v zip || (apt-get update && apt-get install -y zip)
+      - name: build
+        env:
+          TARGET: ${{ matrix.target }}
+          VERSION: ${{ github.ref_name }}
+          COMMIT: ${{ github.sha }}
+        run: |
+          . ./scripts/ci-env.sh
+          ./scripts/worker-zip.sh "${TARGET%-*}" "${TARGET#*-}" dist
+      - name: publish for worker updates
+        run: |
+          . ./scripts/ci-env.sh
+          for f in dist/*.zip dist/*.zip.sha256; do
+            url="$INTERNAL_URL/api/packages/$GITHUB_REPOSITORY_OWNER/generic/mangarr-worker/build-$BUILD/$(basename "$f")"
+            curl -sS -o /dev/null -X DELETE -H "Authorization: token $TOKEN" "$url" || true
+            curl -fsS -X PUT -H "Authorization: token $TOKEN" --upload-file "$f" "$url"
+          done
+      - name: attach to the release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          . ./scripts/ci-env.sh
+          ./scripts/gitea-release.sh upload "$TAG" dist/*.zip dist/*.zip.sha256
+
+  # a v* tag: the release, with notes from the conventional commits since
+  # the previous tag, and the server and worker binaries with checksums
+  # (the worker zips with upscalers are attached by worker-zips)
+  release:
+    needs: [test, web, generated]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: web
+        run: npm ci && npm run build
+        working-directory: web
+      - name: binaries
+        env:
+          VERSION: ${{ github.ref_name }}
+          COMMIT: ${{ github.sha }}
+        run: |
+          . ./scripts/ci-env.sh
+          mkdir -p dist
+          for target in linux/amd64 linux/arm64; do
+            GOOS=${target%/*} GOARCH=${target#*/} make build build-worker
+            for bin in mangarr mangarr-worker; do
+              mv "bin/$bin" "dist/$bin-${target%/*}-${target#*/}"
+            done
+          done
+          for target in darwin/arm64 darwin/amd64 windows/amd64; do
+            ext=; [ "${target%/*}" = windows ] && ext=.exe
+            GOOS=${target%/*} GOARCH=${target#*/} make build-worker
+            mv bin/mangarr-worker "dist/mangarr-worker-${target%/*}-${target#*/}$ext"
+          done
+          cd dist && sha256sum -- * > SHA256SUMS
+      - name: release
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          . ./scripts/ci-env.sh
+          ./scripts/release-notes.sh "$TAG" > notes.md
+          prerelease=false; case "$TAG" in *-*) prerelease=true ;; esac
+          ./scripts/gitea-release.sh ensure "$TAG" "$TAG" notes.md "$prerelease"
+          ./scripts/gitea-release.sh upload "$TAG" dist/*
+
+  # keep the newest 30 per-build worker packages
+  prune-builds:
+    needs: [worker-zips]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: |
+          . ./scripts/ci-env.sh
+          api="$INTERNAL_URL/api/v1/packages/$GITHUB_REPOSITORY_OWNER?type=generic&q=mangarr-worker&limit=50"
+          page=1
+          while :; do
+            got=$(curl -fsS -H "Authorization: token $TOKEN" "$api&page=$page" | jq -r '.[] | select(.name == "mangarr-worker") | "\(.created_at) \(.version)"')
+            [ -n "$got" ] || break
+            printf '%s\n' "$got"
+            page=$((page + 1))
+          done | sort -r | tail -n +31 | while read -r _ version; do
+            curl -fsS -X DELETE -H "Authorization: token $TOKEN" \
+              "$INTERNAL_URL/api/v1/packages/$GITHUB_REPOSITORY_OWNER/generic/mangarr-worker/$version"
+          done
+
+  # amd64 only: the runner's BuildKit can't emulate arm64
+  images:
+    needs: [test, web, generated]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: build and push
+        env:
+          VERSION: ${{ github.ref_name }}
+          COMMIT: ${{ github.sha }}
+          IS_TAG: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        run: |
+          . ./scripts/ci-env.sh
+          # pushed through the runner's own address, pulled as $IMAGE
+          push=${INTERNAL_URL#*://}/${GITHUB_REPOSITORY,,}
+          export DOCKER_CONFIG=$(mktemp -d)
+          trap 'rm -rf "$DOCKER_CONFIG"' EXIT
+          printf '{"auths":{"%s":{"auth":"%s"}}}' "${push%%/*}" "$(printf '%s:%s' "$GITHUB_ACTOR" "$TOKEN" | base64 -w0)" > "$DOCKER_CONFIG/config.json"
+          # tags: the branch, or the version and latest on a release
+          if [ "$IS_TAG" = true ]; then tags="${VERSION#v} latest"; else tags=$(printf '%s' "$VERSION" | tr -c 'A-Za-z0-9_.-' '-'); fi
+          for target in full slim; do
+            names=
+            for t in $tags; do
+              case $target in
+                full) names="$names,$push:$t" ;;
+                slim) [ "$t" = latest ] && t=slim || t=$t-slim; names="$names,$push:$t" ;;
+              esac
+            done
+            buildctl --addr "$BUILDKIT_HOST" build \
+              --frontend dockerfile.v0 --local context=. --local dockerfile=docker \
+              --opt filename=Dockerfile --opt target=$target --opt platform=linux/amd64 \
+              --opt build-arg:VERSION="$VERSION" --opt build-arg:BUILD="$BUILD" --opt build-arg:COMMIT="$COMMIT" \
+              --opt build-arg:UPDATE_URL="$UPDATE_URL" --opt build-arg:IMAGE="$IMAGE" \
+              --output "type=image,\"name=${names#,}\",push=true,registry.insecure=true"
+          done
