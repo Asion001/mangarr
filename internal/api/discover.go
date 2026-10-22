@@ -263,6 +263,10 @@ func (s *Server) discoverLatestChapters(ctx context.Context, items []DiscoverLib
 	return nil
 }
 
+// discoverStaleFor is how long Discover keeps showing a source's popular
+// list after it is due for a refresh.
+const discoverStaleFor = 24 * time.Hour
+
 type discoverCatalogResult struct {
 	items  []source.Manga
 	cached bool
@@ -292,12 +296,15 @@ func (s *Server) discoverPopular(ctx context.Context, rootFolderID int64, lang s
 			}
 			defer func() { <-sem }()
 			key := sourcecache.BrowseKey(s.app.Catalogs.Generation(), catalog.ModuleID, catalog.ID, "popular", 1)
-			page, cached, err := sourcecache.Do(s.app.SourceCache, key, browseTTL, func() (*source.MangaPage, error) {
+			// Discover is opened now and then: show the last lists at once
+			// and refresh them behind the scenes rather than wait on every
+			// source each time
+			page, cached, err := sourcecache.DoStale(browseCtx, s.app.SourceCache, key, browseTTL, discoverStaleFor, func(ctx context.Context) (*source.MangaPage, error) {
 				provider, _, err := modules.GetAs[source.Latest](s.app.Modules, catalog.ModuleID)
 				if err != nil {
 					return nil, err
 				}
-				return provider.Popular(browseCtx, catalog.ID, 1)
+				return provider.Popular(ctx, catalog.ID, 1)
 			})
 			results[index].cached, results[index].err = cached, err
 			if page != nil {
