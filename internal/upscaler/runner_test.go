@@ -114,3 +114,22 @@ func TestRunnerListsDevicesAsTheToolNumbersThem(t *testing.T) {
 		t.Fatalf("devices %q", got)
 	}
 }
+
+// TestRunnerToolLeavingOutputOpen: a tool that exits cleanly while
+// something it started still holds its output has done its work.
+func TestRunnerToolLeavingOutputOpen(t *testing.T) {
+	r, e, _ := fakeTool(t, `sleep 5 & exit 0`)
+	if err := r.Run(context.Background(), e, t.TempDir(), t.TempDir(), 2, 1); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestRunnerErrorNamesTheGPU: on a machine with two GPUs the error says
+// which one the tool failed on.
+func TestRunnerErrorNamesTheGPU(t *testing.T) {
+	r, e, _ := fakeTool(t, `exit 1`)
+	err := r.RunDevice(context.Background(), e, t.TempDir(), t.TempDir(), 2, 1, "1")
+	if err == nil || !strings.Contains(err.Error(), "on GPU 1") {
+		t.Fatalf("err = %v", err)
+	}
+}

@@ -3,6 +3,7 @@ package upscaler
 import (
 	"bytes"
 	"context"
+	"errors"
 	"image"
 	"image/color"
 	"image/jpeg"
@@ -124,7 +125,7 @@ func TestProcessKeepsEnginePNG(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := NewServer(Config{TmpDir: t.TempDir(), Version: "test"}, fixedRunner{png: b.Bytes()}, slog.New(slog.NewTextHandler(io.Discard, nil)))
-	in := []Image{{Name: "0001.jpg", Data: jpegPage(40, 300)}}
+	in := []Image{{Name: "0001.jpg", Data: jpegPage(80, 300)}}
 
 	out, err := s.Process(context.Background(), Params{Model: "waifu2x-cunet", Scale: 2, Format: "png", MaxWidth: 1400}, in)
 	if err != nil {
@@ -177,7 +178,7 @@ func TestProcessUsesOnePinnedSlotPerGPU(t *testing.T) {
 	r := &deviceRunner{barrier: make(chan struct{})}
 	s := NewServer(Config{TmpDir: t.TempDir(), GPU: "0,1"}, r, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	params := Params{Model: "waifu2x-cunet", Scale: 2, Format: "png"}
-	images := []Image{{Name: "page.jpg", Data: jpegPage(8, 8)}}
+	images := []Image{{Name: "page.jpg", Data: jpegPage(64, 64)}}
 	var wg sync.WaitGroup
 	errs := make(chan error, 2)
 	for range 2 {
@@ -246,7 +247,7 @@ func (r emptyRunner) Run(ctx context.Context, e Engine, in, out string, scale, n
 // every page of the batch came back empty.
 func TestProcessKeepsPagesTheEngineCouldNotWrite(t *testing.T) {
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	in := []Image{{Name: "0001.jpg", Data: jpegPage(30, 40)}, {Name: "0002.jpg", Data: jpegPage(30, 40)}, {Name: "0003.jpg", Data: jpegPage(30, 40)}}
+	in := []Image{{Name: "0001.jpg", Data: jpegPage(64, 80)}, {Name: "0002.jpg", Data: jpegPage(64, 80)}, {Name: "0003.jpg", Data: jpegPage(64, 80)}}
 	p := Params{Model: "waifu2x-cunet", Scale: 2, Format: "png"}
 
 	s := NewServer(Config{TmpDir: t.TempDir(), Version: "test"}, emptyRunner{empty: map[string]bool{"0002": true, "0003": true}}, log)
@@ -261,5 +262,62 @@ func TestProcessKeepsPagesTheEngineCouldNotWrite(t *testing.T) {
 	s = NewServer(Config{TmpDir: t.TempDir(), Version: "test"}, emptyRunner{empty: map[string]bool{"0001": true, "0002": true, "0003": true}}, log)
 	if _, err := s.Process(context.Background(), p, in); err == nil || !strings.Contains(err.Error(), "empty") {
 		t.Fatalf("a batch the engine wrote nothing for should fail: %v", err)
+	}
+}
+
+// thinRunner upscales like fakeRunner but fails on a page thinner than the
+// engine takes, the way Real-CUGAN crashes on one.
+type thinRunner struct{ runs *int }
+
+func (thinRunner) Available(e Engine) bool { return e.Name == "waifu2x-cunet" }
+
+func (r thinRunner) Run(ctx context.Context, e Engine, in, out string, scale, noise int) error {
+	*r.runs++
+	entries, err := os.ReadDir(in)
+	if err != nil {
+		return err
+	}
+	for _, ent := range entries {
+		f, err := os.Open(filepath.Join(in, ent.Name()))
+		if err != nil {
+			return err
+		}
+		cfg, _, err := image.DecodeConfig(f)
+		f.Close()
+		if err != nil {
+			return err
+		}
+		if min(cfg.Width, cfg.Height) < MinEnginePixels {
+			return errors.New("segmentation fault")
+		}
+	}
+	return fakeRunner{}.Run(ctx, e, in, out, scale, noise)
+}
+
+// TestProcessThinPages: a strip too thin for the engine is scaled without
+// it, and a batch of only such strips doesn't run the engine at all.
+func TestProcessThinPages(t *testing.T) {
+	runs := 0
+	s := NewServer(Config{TmpDir: t.TempDir(), Version: "test"}, thinRunner{&runs}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	p := Params{Model: "waifu2x-cunet", Scale: 2, Format: "png"}
+	out, err := s.Process(context.Background(), p, []Image{{Name: "0001.jpg", Data: jpegPage(720, 2400)}, {Name: "0002.jpg", Data: jpegPage(720, 13)}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string][2]int{"0001.png": {1440, 4800}, "0002.png": {1440, 26}}
+	for _, img := range out {
+		cfg, _, err := image.DecodeConfig(bytes.NewReader(img.Data))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if w := want[img.Name]; cfg.Width != w[0] || cfg.Height != w[1] {
+			t.Fatalf("%s = %dx%d, want %v", img.Name, cfg.Width, cfg.Height, w)
+		}
+	}
+	if len(out) != 2 || runs != 1 {
+		t.Fatalf("got %d pages from %d engine runs", len(out), runs)
+	}
+	if _, err := s.Process(context.Background(), p, []Image{{Name: "0003.jpg", Data: jpegPage(720, 4)}}); err != nil || runs != 1 {
+		t.Fatalf("thin-only batch: err %v, engine runs %d", err, runs)
 	}
 }

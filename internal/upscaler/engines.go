@@ -199,12 +199,21 @@ func (r CLIRunner) run(ctx context.Context, e Engine, inDir, outDir string, scal
 	cmd.WaitDelay = 2 * time.Second // don't hang on pipes held open after a kill
 	start := time.Now()
 	out, err := cmd.CombinedOutput()
+	if errors.Is(err, exec.ErrWaitDelay) {
+		// the tool exited cleanly but something it started still holds its
+		// output open (seen on Windows): its pages are written
+		err = nil
+	}
 	if err == nil {
 		return nil
 	}
 	tileNote := "automatic tiles"
 	if tile > 0 {
 		tileNote = fmt.Sprintf("tile %d", tile)
+	}
+	if device != "" && device != "auto" {
+		// a machine with two GPUs can fail on one of them only
+		tileNote += " on GPU " + device
 	}
 	switch {
 	case errors.Is(ctx.Err(), context.DeadlineExceeded):
@@ -218,7 +227,7 @@ func (r CLIRunner) run(ctx context.Context, e Engine, inDir, outDir string, scal
 	case outOfMemory(out):
 		return fmt.Errorf("%s ran out of GPU memory with %s: %s: %w", e.Binary, tileNote, errorTail(out), ErrOutOfMemory)
 	}
-	return fmt.Errorf("%s failed: %w: %s", e.Binary, err, errorTail(out))
+	return fmt.Errorf("%s failed with %s: %w: %s", e.Binary, tileNote, err, errorTail(out))
 }
 
 // killed reports whether the process died from SIGKILL.

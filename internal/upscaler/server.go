@@ -310,9 +310,13 @@ func (s *Server) process(ctx context.Context, eng Engine, p Params, images []Ima
 	}()
 	s.maybeSweep()
 	in, outDir := filepath.Join(work, "in"), filepath.Join(work, "out")
-	names, err := writeInput(images, in, outDir)
+	names, engine, err := writeInput(images, in, outDir, p.Scale)
 	if err != nil {
 		return nil, "", err
+	}
+	if engine == 0 {
+		out, err := s.finishAll(ctx, outDir, names, images, p)
+		return out, "", err
 	}
 	device, release, err := s.acquire(ctx)
 	if err != nil {
@@ -336,47 +340,79 @@ func (s *Server) process(ctx context.Context, eng Engine, p Params, images []Ima
 	return out, device, err
 }
 
+// MinEnginePixels is the smallest side a page goes to the engine with.
+// Real-CUGAN crashes on thinner pages (the thin strips a webtoon chapter
+// is cut into end with one), taking the whole batch with it.
+const MinEnginePixels = 64
+
 // writeInput puts a batch where the engine reads it and returns the pages'
-// base names.
-func writeInput(images []Image, in, outDir string) ([]string, error) {
+// base names and how many of them the engine has to run on. A page too thin
+// for the engine is scaled here and goes straight to outDir.
+func writeInput(images []Image, in, outDir string, scale int) ([]string, int, error) {
 	if err := os.MkdirAll(in, 0o755); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	if err := os.MkdirAll(outDir, 0o755); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	var names []string
+	engine := 0
 	for _, img := range images {
 		name := filepath.Base(img.Name)
 		ext := strings.ToLower(filepath.Ext(name))
 		base := strings.TrimSuffix(name, filepath.Ext(name))
+		names = append(names, base)
+		if cfg, _, err := image.DecodeConfig(bytes.NewReader(img.Data)); err == nil &&
+			min(cfg.Width, cfg.Height) < MinEnginePixels {
+			if err := scaleThin(img.Data, filepath.Join(outDir, base+".png"), scale); err != nil {
+				return nil, 0, fmt.Errorf("%s: %w", name, err)
+			}
+			continue
+		}
+		engine++
 		switch ext {
 		case ".png", ".jpg", ".jpeg", ".webp":
 			if err := os.WriteFile(filepath.Join(in, name), img.Data, 0o644); err != nil {
-				return nil, err
+				return nil, 0, err
 			}
 		default:
 			// normalize other formats (e.g. gif, avif) to png for the engines
 			decoded, _, err := image.Decode(bytes.NewReader(img.Data))
 			if err != nil {
-				return nil, fmt.Errorf("%s: %w", name, err)
+				return nil, 0, fmt.Errorf("%s: %w", name, err)
 			}
-			f, err := os.Create(filepath.Join(in, base+".png"))
-			if err != nil {
-				return nil, err
-			}
-			err = png.Encode(f, decoded)
-			f.Close()
-			if err != nil {
-				return nil, err
+			if err := writePNG(filepath.Join(in, base+".png"), decoded); err != nil {
+				return nil, 0, err
 			}
 		}
-		names = append(names, base)
 	}
 	if len(names) == 0 {
-		return nil, badRequest{errors.New("no images in request")}
+		return nil, 0, badRequest{errors.New("no images in request")}
 	}
-	return names, nil
+	return names, engine, nil
+}
+
+// scaleThin scales a page too thin for the engine by scale, the way the
+// engine would have sized it.
+func scaleThin(data []byte, out string, scale int) error {
+	img, _, err := image.Decode(bytes.NewReader(data))
+	if err != nil {
+		return err
+	}
+	b := img.Bounds()
+	return writePNG(out, imagescale.CatmullRom(img, b.Dx()*max(scale, 1), b.Dy()*max(scale, 1)))
+}
+
+func writePNG(path string, img image.Image) error {
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	if err := png.Encode(f, img); err != nil {
+		f.Close()
+		return err
+	}
+	return f.Close()
 }
 
 // errUnreadable marks a page the engine wrote nothing readable for: it
