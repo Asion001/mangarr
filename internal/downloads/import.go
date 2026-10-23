@@ -270,7 +270,7 @@ func (m *Manager) comicInfo(ctx context.Context, jc *jobCtx, pageCount int, writ
 		in.TotalCount = s.Metadata.TotalChapters
 		if in.TotalCount == 0 {
 			n, _ := m.db.NewSelect().Model((*model.Chapter)(nil)).Where("series_id = ?", s.ID).Count(ctx)
-			in.TotalCount = n
+			in.TotalCount = int(n)
 		}
 	}
 	if jc.link != nil {

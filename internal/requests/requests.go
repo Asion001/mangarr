@@ -297,8 +297,9 @@ func trimNote(note string) string {
 
 // waiting counts a series' chapters that aren't monitored or downloaded.
 func (s *Service) waiting(ctx context.Context, seriesID int64) (int, error) {
-	return s.DB.NewSelect().Model((*model.Chapter)(nil)).Where("series_id = ?", seriesID).Where("monitored = ?", false).
+	n, err := s.DB.NewSelect().Model((*model.Chapter)(nil)).Where("series_id = ?", seriesID).Where("monitored = ?", false).
 		Where("file_id IS NULL").Where("state <> ?", model.ChapterCleaned).Count(ctx)
+	return int(n), err
 }
 
 // createMonitor asks for a title in the library to be downloaded: its
@@ -658,7 +659,8 @@ func (s *Service) Get(ctx context.Context, p *access.Principal, id int64) (*Requ
 
 // Pending counts requests waiting for a manager.
 func (s *Service) Pending(ctx context.Context) (int, error) {
-	return s.DB.NewSelect().Model((*model.Request)(nil)).Where("status = ?", model.RequestPending).Count(ctx)
+	n, err := s.DB.NewSelect().Model((*model.Request)(nil)).Where("status = ?", model.RequestPending).Count(ctx)
+	return int(n), err
 }
 
 func (s *Service) views(ctx context.Context, p *access.Principal, rs []model.Request) ([]Request, error) {

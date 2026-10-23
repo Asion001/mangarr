@@ -65,12 +65,12 @@ func List(ctx context.Context, db bun.IDB, q Query) (*Page, error) {
 	default:
 		sel = sel.OrderExpr("history.id DESC")
 	}
-	total, err := sel.Limit(q.PageSize).Offset((q.Page - 1) * q.PageSize).ScanAndCount(ctx)
+	total, err := sel.Limit(int64(q.PageSize)).Offset(int64((q.Page - 1) * q.PageSize)).ScanAndCount(ctx)
 	if err != nil {
 		return nil, err
 	}
 	if items == nil {
 		items = []model.History{}
 	}
-	return &Page{Items: items, Total: total, Page: q.Page, PageSize: q.PageSize}, nil
+	return &Page{Items: items, Total: int(total), Page: q.Page, PageSize: q.PageSize}, nil
 }

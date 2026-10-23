@@ -282,14 +282,14 @@ func (q *Queue) ListPageAt(ctx context.Context, f ListFilter, page, pageSize int
 		if err != nil {
 			return err
 		}
-		out.Total = total
+		out.Total = int(total)
 		err = q.base(tx, f, true).
 			ColumnExpr("j.*").
 			ColumnExpr("s.title AS series_title, c.number_key AS chapter, c.number_sort AS number_sort").
 			ColumnExpr("COALESCE(ss.source_name, '') AS source_name, COALESCE(r.scanlator, '') AS scanlator").
 			OrderExpr("CASE j.status WHEN 'importing' THEN 0 WHEN 'processing' THEN 1 WHEN 'downloading' THEN 2 WHEN 'queued' THEN 3 WHEN 'paused' THEN 3 WHEN 'failed' THEN 4 ELSE 5 END").
 			OrderExpr("j.rank, j.id").
-			Limit(pageSize).Offset((page-1)*pageSize).Scan(ctx, &out.Items)
+			Limit(int64(pageSize)).Offset(int64((page-1)*pageSize)).Scan(ctx, &out.Items)
 		if err != nil {
 			return err
 		}

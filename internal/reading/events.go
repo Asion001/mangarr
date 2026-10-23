@@ -212,7 +212,7 @@ func (s *Service) SyncHealth(ctx context.Context, readerID int64, limit int) (Sy
 
 func (s *Service) recentEvents(ctx context.Context, readerID int64, limit int) ([]EventView, error) {
 	var evs []model.ReadEvent
-	if err := s.DB.NewSelect().Model(&evs).Where("reader_id = ?", readerID).OrderExpr("at DESC, id DESC").Limit(limit).Scan(ctx); err != nil {
+	if err := s.DB.NewSelect().Model(&evs).Where("reader_id = ?", readerID).OrderExpr("at DESC, id DESC").Limit(int64(limit)).Scan(ctx); err != nil {
 		return nil, err
 	}
 	seriesIDs, chapterIDs := map[int64]bool{}, map[int64]bool{}

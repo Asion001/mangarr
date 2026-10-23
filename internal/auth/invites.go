@@ -90,6 +90,7 @@ func (s *Service) Admins(ctx context.Context, idb bun.IDB) (int, error) {
 	if idb == nil {
 		idb = s.db
 	}
-	return idb.NewSelect().Model((*model.User)(nil)).
+	n, err := idb.NewSelect().Model((*model.User)(nil)).
 		Where("group_id IN (SELECT id FROM groups WHERE builtin = ?)", model.GroupAdmins).Where("disabled = ?", false).Count(ctx)
+	return int(n), err
 }

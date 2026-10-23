@@ -26,7 +26,7 @@ func TestRetirePersonalTargets(t *testing.T) {
 	if err := e.App.RetirePersonalTargets(ctx); err != nil {
 		t.Fatal(err)
 	}
-	var on int
+	var on int64
 	on, _ = e.App.DB.NewSelect().Model((*model.ProviderDefinition)(nil)).Where("user_id IS NOT NULL AND enabled = ?", true).Count(ctx)
 	if links, _ := e.App.Messenger.Links(ctx, ann.ID); on != 0 || len(links) != 0 {
 		t.Fatalf("after retiring: %d on, links %+v", on, links)

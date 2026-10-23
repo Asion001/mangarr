@@ -86,7 +86,7 @@ func TestActivityViewIsReadOnly(t *testing.T) {
 		}
 	}
 	left, _ := a.DB.NewSelect().Model((*model.DownloadJob)(nil)).Where("status = ?", model.JobQueued).Count(ctx)
-	if left != len(jobs) {
+	if left != int64(len(jobs)) {
 		t.Fatalf("queued jobs %d, want %d", left, len(jobs))
 	}
 }

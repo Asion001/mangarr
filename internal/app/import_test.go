@@ -165,7 +165,7 @@ func TestImportMihonBackup(t *testing.T) {
 			if _, err := e.App.Imports.Run(e.Ctx, imp.ID, nil); err != nil {
 				t.Fatal(err)
 			}
-			var n int
+			var n int64
 			n, _ = e.App.DB.NewSelect().Model((*model.Series)(nil)).Count(e.Ctx)
 			if n != 5 {
 				t.Fatalf("running again must not add series twice: %d", n)

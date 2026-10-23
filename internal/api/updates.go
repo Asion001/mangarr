@@ -290,7 +290,8 @@ func (s *Server) seriesUpdateQuery(viewer *access.Principal, cutoff time.Time, c
 
 func (s *Server) countSeriesUpdates(ctx context.Context, viewer *access.Principal, cutoff time.Time, f updateFilter, seen *model.UpdateSeen) (int, error) {
 	grouped := s.seriesUpdateQuery(viewer, cutoff, nil, f, seen)
-	return s.app.DB.NewSelect().TableExpr("(?) AS grouped_updates", grouped).Count(ctx)
+	n, err := s.app.DB.NewSelect().TableExpr("(?) AS grouped_updates", grouped).Count(ctx)
+	return int(n), err
 }
 
 // countUpdates counts the feed's items for f.
@@ -302,14 +303,14 @@ func (s *Server) countUpdates(ctx context.Context, viewer *access.Principal, f u
 		if err != nil {
 			return 0, err
 		}
-		total += n
+		total += int(n)
 	}
 	if f.Kind != "chapter" && f.Availability == "" {
 		n, err := s.countSeriesUpdates(ctx, viewer, cutoff, f, seen)
 		if err != nil {
 			return 0, err
 		}
-		total += n
+		total += int(n)
 	}
 	return total, nil
 }
@@ -339,11 +340,11 @@ func (s *Server) listUpdates(ctx context.Context, viewer *access.Principal, f up
 		if err != nil {
 			return UpdatePage{}, err
 		}
-		if err := q.Limit(queryLimit).Scan(ctx, &chapterRows); err != nil {
+		if err := q.Limit(int64(queryLimit)).Scan(ctx, &chapterRows); err != nil {
 			return UpdatePage{}, err
 		}
 		rows = append(rows, chapterRows...)
-		total += chapterTotal
+		total += int(chapterTotal)
 	}
 	if kind != "chapter" && f.Availability == "" {
 		var seriesRows []updateFeedRow
@@ -351,7 +352,7 @@ func (s *Server) listUpdates(ctx context.Context, viewer *access.Principal, f up
 		if err != nil {
 			return UpdatePage{}, err
 		}
-		if err := s.seriesUpdateQuery(viewer, cutoff, cursor, f, seen).OrderExpr(seriesUpdateAt+" DESC, MIN(s.id) DESC").Limit(queryLimit).Scan(ctx, &seriesRows); err != nil {
+		if err := s.seriesUpdateQuery(viewer, cutoff, cursor, f, seen).OrderExpr(seriesUpdateAt+" DESC, MIN(s.id) DESC").Limit(int64(queryLimit)).Scan(ctx, &seriesRows); err != nil {
 			return UpdatePage{}, err
 		}
 		rows = append(rows, seriesRows...)

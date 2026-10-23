@@ -245,10 +245,10 @@ func (s *Service) Entries(ctx context.Context, id int64, f EntryFilter, page, pa
 	out := []model.ImportEntry{}
 	q := f.apply(s.DB.NewSelect().Model(&out).Where("import_id = ?", id)).Order("position")
 	if pageSize > 0 {
-		q = q.Limit(pageSize).Offset(max(page-1, 0) * pageSize)
+		q = q.Limit(int64(pageSize)).Offset(int64(max(page-1, 0) * pageSize))
 	}
 	total, err := q.ScanAndCount(ctx)
-	return out, total, err
+	return out, int(total), err
 }
 
 // EntryPatch changes entries.

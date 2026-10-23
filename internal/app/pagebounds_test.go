@@ -46,7 +46,7 @@ func TestPageBoundsStored(t *testing.T) {
 				t.Fatalf("stored pages were measured again: %d", again)
 			}
 			rows, _ := e.App.DB.NewSelect().Model((*model.PageBounds)(nil)).Where("file_id = ?", file.ID).Count(e.Ctx)
-			if rows != file.PageCount {
+			if rows != int64(file.PageCount) {
 				t.Fatalf("%d rows for %d pages", rows, file.PageCount)
 			}
 

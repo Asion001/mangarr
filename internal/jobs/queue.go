@@ -351,7 +351,7 @@ func (q *Queue) Active() []*model.Command {
 // Recent returns the latest commands from the database.
 func (q *Queue) Recent(ctx context.Context, limit int, name ...string) ([]model.Command, error) {
 	var out []model.Command
-	query := q.db.NewSelect().Model(&out).Order("id DESC").Limit(limit)
+	query := q.db.NewSelect().Model(&out).Order("id DESC").Limit(int64(limit))
 	if len(name) > 0 && name[0] != "" {
 		query.Where("name = ?", name[0])
 	}

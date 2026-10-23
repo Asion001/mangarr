@@ -173,5 +173,5 @@ func (l *Ledger) pinState(ctx context.Context, id int64, kind string, perWorker 
 	}
 	held, err := l.db.NewSelect().Model((*model.WorkerTask)(nil)).
 		Where("worker_id = ? AND state = ?", id, model.TaskLeased).Count(ctx)
-	return pinState{ready: true, room: err == nil && held < max(limit, 1)}
+	return pinState{ready: true, room: err == nil && held < int64(max(limit, 1))}
 }

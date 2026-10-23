@@ -178,7 +178,7 @@ func (s *Server) registerSettings() {
 					res.FreeSpace, _ = fsutil.FreeSpace(r.Path)
 				}
 				n, _ := s.app.DB.NewSelect().Model((*model.Series)(nil)).Where("root_folder_id = ? AND preview = ?", r.ID, false).Count(ctx)
-				res.SeriesCnt = n
+				res.SeriesCnt = int(n)
 				out = append(out, res)
 			}
 			return &struct{ Body []RootFolderResource }{out}, nil

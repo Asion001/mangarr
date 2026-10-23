@@ -24,11 +24,11 @@ func init() { register((*Server).registerDiagnostics) }
 // diagnosticsSystem is system.json in the bundle.
 type diagnosticsSystem struct {
 	SystemStatus
-	Uptime     string         `json:"uptime"`
-	Goroutines int            `json:"goroutines"`
-	Counts     map[string]int `json:"counts"`
-	ImageCache int64          `json:"imageCacheBytes"`
-	LogDir     string         `json:"logDir"`
+	Uptime     string           `json:"uptime"`
+	Goroutines int              `json:"goroutines"`
+	Counts     map[string]int64 `json:"counts"`
+	ImageCache int64            `json:"imageCacheBytes"`
+	LogDir     string           `json:"logDir"`
 }
 
 // diagnostics builds the support bundle: everything is redacted.
@@ -49,7 +49,7 @@ func (s *Server) diagnostics(ctx context.Context) ([]byte, error) {
 		return err
 	}
 
-	counts := map[string]int{}
+	counts := map[string]int64{}
 	for name, m := range map[string]any{"series": (*model.Series)(nil), "chapters": (*model.Chapter)(nil), "files": (*model.ChapterFile)(nil),
 		"sources": (*model.SeriesSource)(nil), "readers": (*model.Reader)(nil), "readStates": (*model.ChapterReadState)(nil),
 		"queue": (*model.DownloadJob)(nil), "imports": (*model.Import)(nil)} {

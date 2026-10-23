@@ -22,14 +22,14 @@ type UserView struct {
 	model.User
 	Group      string `json:"group"`
 	ReaderName string `json:"readerName"`
-	Sessions   int    `json:"sessions"`
-	Devices    int    `json:"devices"`
+	Sessions   int64  `json:"sessions"`
+	Devices    int64  `json:"devices"`
 }
 
 // GroupView is a group with its member count.
 type GroupView struct {
 	model.Group
-	Members int `json:"members"`
+	Members int64 `json:"members"`
 }
 
 // InviteView is an invite for the admin pages.
