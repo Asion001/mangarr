@@ -82,6 +82,10 @@ type Scenario struct {
 	PageBase string
 	// Served counts pages fetched over HTTP rather than in process.
 	Served int
+	// Account makes the module read site accounts (source.Accounts): the
+	// first catalog's account answers AccountToken.
+	Account      *source.Account
+	AccountToken string
 }
 
 // Extension is an installable package offering catalogs.
@@ -185,6 +189,9 @@ func init() {
 			if sc.Extensions != nil {
 				return &ExtModule{Module{sc: sc}}, nil
 			}
+			if sc.Account != nil {
+				return &AccountModule{Module{sc: sc}}, nil
+			}
 			return &Module{sc: sc}, nil
 		},
 	})
@@ -228,6 +235,29 @@ func (m *ExtModule) UninstallExtension(ctx context.Context, pkg string) error { 
 func (m *ExtModule) Stores(ctx context.Context) ([]string, error)             { return []string{}, nil }
 func (m *ExtModule) AddStore(ctx context.Context, url string) error           { return nil }
 func (m *ExtModule) RemoveStore(ctx context.Context, url string) error        { return nil }
+
+// AccountModule is a Module whose first catalog has readable accounts.
+type AccountModule struct{ Module }
+
+func (m *AccountModule) AccountSources(ctx context.Context) ([]source.AccountSource, error) {
+	m.sc.mu.Lock()
+	defer m.sc.mu.Unlock()
+	c := m.sc.Sources[0]
+	return []source.AccountSource{{SourceID: c.ID, Name: c.Name, Lang: c.Lang, Field: "Token", Steps: []string{"Paste it."}}}, nil
+}
+
+func (m *AccountModule) ReadAccount(ctx context.Context, sourceID, token string) (*source.Account, error) {
+	m.sc.mu.Lock()
+	defer m.sc.mu.Unlock()
+	if sourceID != m.sc.Sources[0].ID {
+		return nil, source.ErrUnsupported
+	}
+	if token != m.sc.AccountToken {
+		return nil, source.ErrUnauthorized
+	}
+	a := *m.sc.Account
+	return &a, nil
+}
 
 func (m *Module) Sources(ctx context.Context) ([]source.SourceInfo, error) {
 	m.sc.mu.Lock()

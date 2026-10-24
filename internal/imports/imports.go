@@ -84,6 +84,12 @@ func (s *Service) Create(ctx context.Context, fileName string, data []byte) (*mo
 	if err != nil {
 		return nil, &ParseError{err}
 	}
+	return s.create(ctx, fileName, b, data, nil)
+}
+
+// create stores a parsed backup (data is kept as the upload when set);
+// prepare adjusts the new import before it is saved.
+func (s *Service) create(ctx context.Context, fileName string, b *backupimport.Backup, data []byte, prepare func(*model.Import)) (*model.Import, error) {
 	now := time.Now().UTC()
 	opts := model.DefaultImportOptions()
 	var rf model.RootFolder
@@ -105,7 +111,11 @@ func (s *Service) Create(ctx context.Context, fileName string, data []byte) (*mo
 	if !b.CreatedAt.IsZero() {
 		imp.Info.BackupDate = &b.CreatedAt
 	}
-	err = s.DB.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+	if prepare != nil {
+		prepare(imp)
+	}
+	opts = imp.Options
+	err := s.DB.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
 		if _, err := tx.NewInsert().Model(imp).Exec(ctx); err != nil {
 			return err
 		}
@@ -125,7 +135,7 @@ func (s *Service) Create(ctx context.Context, fileName string, data []byte) (*mo
 	if err != nil {
 		return nil, err
 	}
-	if s.Dir != "" {
+	if s.Dir != "" && data != nil {
 		if err := os.MkdirAll(s.Dir, 0o750); err == nil {
 			name := fmt.Sprintf("%d-%s", imp.ID, unsafeName.ReplaceAllString(imp.FileName, "_"))
 			if err := os.WriteFile(filepath.Join(s.Dir, name), data, 0o640); err != nil {

@@ -804,6 +804,24 @@ request throttling, so a library of hundreds of series takes a while; the page
 shows progress and can be left. Running an import again only picks up
 entries that aren't imported yet (and retries failed ones).
 
+### From a manga site account
+
+Import library → **From a site account** reads your lists and progress from a
+site's account instead of a backup. Sites that support it: **Senkuro** (the
+built-in *mangarr sources* module must be enabled).
+
+The site only signs you in on its own pages, so paste the account's sign-in
+token: sign in at senkuro.me in a computer browser, open the developer tools
+(F12) → Application (Storage in Firefox) → Cookies, and copy `access_token`.
+mangarr uses it once to read the account and doesn't keep it.
+
+The result opens in the same review. Every title links to the site's catalog
+directly; the account's lists (Reading, Planned, Completed, Favourites, On
+hold, Dropped and your own) work like backup categories, and Dropped starts
+skipped. The site keeps only the chapter you reached in each title, so every
+chapter numbered below it is marked read, and the page you stopped on is kept
+for that chapter.
+
 ## 15. PostgreSQL (optional)
 
 mangarr starts on SQLite. To move to PostgreSQL (13 or newer), create an

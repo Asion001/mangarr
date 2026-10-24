@@ -49,6 +49,11 @@ type ImportInfo struct {
 	Categories []string          `json:"categories"`
 	Sources    map[string]string `json:"sources"`
 	Entries    int               `json:"entries"`
+	// ModuleID is the source module that read the account (account imports).
+	ModuleID int64 `json:"moduleId,omitempty"`
+	// Lists maps an account's list names to their status (reading, dropped,
+	// ...; account imports).
+	Lists map[string]string `json:"lists,omitempty"`
 }
 
 // ImportOptions control how entries are added.

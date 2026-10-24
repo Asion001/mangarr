@@ -3,6 +3,7 @@ package sites
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -122,6 +123,11 @@ type senkuroManga struct {
 }
 
 func (s *senkuro) query(ctx context.Context, op, query string, vars map[string]any, out any) error {
+	return s.queryAs(ctx, "", op, query, vars, out)
+}
+
+// queryAs runs a query signed in with an account's token (none when empty).
+func (s *senkuro) queryAs(ctx context.Context, token, op, query string, vars map[string]any, out any) error {
 	body, err := json.Marshal(map[string]any{"operationName": op, "query": query, "variables": vars})
 	if err != nil {
 		return err
@@ -129,15 +135,28 @@ func (s *senkuro) query(ctx context.Context, op, query string, vars map[string]a
 	var env struct {
 		Data   json.RawMessage `json:"data"`
 		Errors []struct {
-			Message string `json:"message"`
+			Message    string `json:"message"`
+			Extensions struct {
+				Code string `json:"code"`
+			} `json:"extensions"`
 		} `json:"errors"`
 	}
 	req := sourcekit.Request{Method: http.MethodPost, URL: s.api, Body: body, Headers: map[string]string{
 		"Content-Type": "application/json", "App-Id": senkuroApp, "App-Version": senkuroAppVersion}}
+	if token != "" {
+		req.Headers["Authorization"] = "Bearer " + token
+	}
 	if err := s.c.JSON(ctx, req, &env); err != nil {
+		var se *sourcekit.StatusError
+		if token != "" && errors.As(err, &se) && se.Code == http.StatusUnauthorized {
+			return sourcekit.ErrUnauthorized
+		}
 		return err
 	}
 	if len(env.Errors) > 0 {
+		if env.Errors[0].Extensions.Code == "NOT_AUTHORIZED" || env.Errors[0].Extensions.Code == "UNAUTHENTICATED" {
+			return sourcekit.ErrUnauthorized
+		}
 		return fmt.Errorf("senkuro: %s", env.Errors[0].Message)
 	}
 	if len(env.Data) == 0 {

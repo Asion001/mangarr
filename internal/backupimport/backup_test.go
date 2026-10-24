@@ -351,3 +351,21 @@ func TestMarshalMihonSourcePreferences(t *testing.T) {
 		t.Fatalf("source preferences = %v", got)
 	}
 }
+
+// TestReadUpTo: a position counts the chapters below it as read and resumes
+// at the chapter reached.
+func TestReadUpTo(t *testing.T) {
+	e := BackupManga{ReadUpTo: &ReadUpTo{Chapter: 12, Page: 3}}
+	if n := e.ReadCount(); n != 11 {
+		t.Errorf("read count = %d", n)
+	}
+	if !e.ReadsChapter(11.5) || e.ReadsChapter(12) || e.ReadsChapter(-1) {
+		t.Error("reads chapter")
+	}
+	if from, ok := e.ResumeFrom(); !ok || from > 12 || from < 11.99 {
+		t.Errorf("resume = %v %v", from, ok)
+	}
+	if _, ok := (BackupManga{ReadUpTo: &ReadUpTo{Chapter: 1}}).ResumeFrom(); ok {
+		t.Error("nothing read yet")
+	}
+}

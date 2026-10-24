@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"time"
 )
 
@@ -17,6 +18,9 @@ import (
 const (
 	FormatMihon  = "mihon"  // Mihon, Tachiyomi, forks and Suwayomi (.tachibk, .proto.gz)
 	FormatAidoku = "aidoku" // Aidoku (.aib)
+	// FormatAccount is a manga site account read through its source (not a
+	// file): entries carry the source id and ReadUpTo instead of chapters.
+	FormatAccount = "account"
 )
 
 // Tracker names used in BackupManga.Trackers (match metadata provider names).
@@ -64,7 +68,20 @@ type BackupManga struct {
 	Trackers           map[string]string `json:"trackers,omitempty"`
 	ExcludedScanlators []string          `json:"excludedScanlators,omitempty"`
 	Chapters           []BackupChapter   `json:"chapters,omitempty"`
+	// ReadUpTo is how far the title was read, for sources that keep only
+	// that (a site account) instead of each chapter's state.
+	ReadUpTo *ReadUpTo `json:"readUpTo,omitempty"`
 }
+
+// ReadUpTo is a reading position: chapters numbered below Chapter are read,
+// and Chapter is open at Page (1-based, 0 when not started).
+type ReadUpTo struct {
+	Chapter float64 `json:"chapter"`
+	Page    int     `json:"page,omitempty"`
+}
+
+// readBelow is whether n counts as read under u.
+func (u *ReadUpTo) readBelow(n float64) bool { return n >= 0 && n < u.Chapter-0.0005 }
 
 // BackupChapter is one chapter of an entry with its read state.
 type BackupChapter struct {
@@ -79,7 +96,8 @@ type BackupChapter struct {
 	ReadAt       *time.Time `json:"readAt,omitempty"`
 }
 
-// ReadCount returns how many chapters are read.
+// ReadCount returns how many chapters are read (estimated from ReadUpTo
+// when there is no chapter list: chapters usually start at 1).
 func (e BackupManga) ReadCount() int {
 	n := 0
 	for _, c := range e.Chapters {
@@ -87,7 +105,15 @@ func (e BackupManga) ReadCount() int {
 			n++
 		}
 	}
+	if len(e.Chapters) == 0 && e.ReadUpTo != nil {
+		n = max(int(math.Ceil(e.ReadUpTo.Chapter-0.0005))-1, 0)
+	}
 	return n
+}
+
+// ReadsChapter reports whether the chapter numbered n is read under ReadUpTo.
+func (e BackupManga) ReadsChapter(n float64) bool {
+	return e.ReadUpTo != nil && e.ReadUpTo.readBelow(n)
 }
 
 // ErrLegacyJSON is returned for Tachiyomi's old JSON backups.
@@ -143,6 +169,13 @@ func Parse(data []byte) (*Backup, error) {
 // ResumeFrom returns the chapter number to monitor from: just after the
 // highest read chapter. ok is false when nothing was read.
 func (e BackupManga) ResumeFrom() (from float64, ok bool) {
+	if u := e.ReadUpTo; len(e.Chapters) == 0 && u != nil {
+		// the chapter reached is unread or half read: monitor from it
+		if u.Chapter <= 1 && u.Page == 0 {
+			return 0, false
+		}
+		return u.Chapter - 0.001, true
+	}
 	maxRead := -1.0
 	for _, c := range e.Chapters {
 		if c.Read && c.Number >= 0 && c.Number > maxRead {

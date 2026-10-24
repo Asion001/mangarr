@@ -41,8 +41,10 @@ type extRef struct {
 
 // mapper holds what mapping every entry needs, loaded once per run.
 type mapper struct {
-	s          *Service
-	format     string
+	s      *Service
+	format string
+	// account is the module that read an account import
+	account    int64
 	opts       model.ImportOptions
 	threshold  float64
 	langs      []string
@@ -72,7 +74,7 @@ func (s *Service) newMapper(ctx context.Context, imp *model.Import) (*mapper, er
 	if err != nil {
 		return nil, err
 	}
-	m := &mapper{s: s, format: imp.Format, opts: imp.Options, threshold: st.QuickSearch.Threshold, langs: st.DefaultLanguages,
+	m := &mapper{s: s, format: imp.Format, account: imp.Info.ModuleID, opts: imp.Options, threshold: st.QuickSearch.Threshold, langs: st.DefaultLanguages,
 		byID: map[string][]catalogs.Catalog{}, byName: map[string][]catalogs.Catalog{}, links: map[linkKey]int64{}, byExternal: map[string]int64{}}
 	if m.threshold <= 0 || m.threshold > 1 {
 		m.threshold = 0.88
@@ -180,6 +182,8 @@ func (m *mapper) mapEntry(ctx context.Context, e *model.ImportEntry) {
 		switch m.format {
 		case backupimport.FormatAidoku:
 			m.mapAidoku(ctx, e)
+		case backupimport.FormatAccount:
+			m.mapAccount(e)
 		default:
 			m.mapMihon(e)
 		}
@@ -246,6 +250,19 @@ func (m *mapper) mapMihon(e *model.ImportEntry) {
 		return
 	}
 	e.Message = "no catalog or extension for " + firstNonEmpty(d.SourceName, "source "+d.SourceID)
+}
+
+// mapAccount links a title of a site account to that site's catalog in the
+// module that read the account.
+func (m *mapper) mapAccount(e *model.ImportEntry) {
+	d := e.Data
+	for _, c := range m.byID[d.SourceID] {
+		if c.ModuleID == m.account {
+			e.Source = m.source(c, d, d.URL, model.MatchExact)
+			return
+		}
+	}
+	m.mapMihon(e)
 }
 
 // aidokuRule converts an Aidoku source's manga key to a Keiyoushi url.

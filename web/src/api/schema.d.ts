@@ -512,6 +512,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/imports/accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Sites whose accounts (lists and reading progress) can be imported */
+        get: operations["imports-account-sources"];
+        put?: never;
+        /** Read a site account's manga lists and progress into a new import; its manga are matched in the background. The token is not kept. */
+        post: operations["imports-account-create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/imports/{id}": {
         parameters: {
             query?: never;
@@ -3898,6 +3916,15 @@ export interface components {
             /** Format: int64 */
             moduleId: number;
         };
+        AccountSource: {
+            field: string;
+            lang: string;
+            /** Format: int64 */
+            moduleId: number;
+            name: string;
+            sourceId: string;
+            steps: string[];
+        };
         Adaptation: {
             coverUrl?: string;
             externalIds: {
@@ -4128,6 +4155,7 @@ export interface components {
             excludedScanlators?: string[];
             favorite: boolean;
             genres?: string[];
+            readUpTo?: components["schemas"]["ReadUpTo"];
             sourceId: string;
             sourceName?: string;
             status: string;
@@ -5175,6 +5203,11 @@ export interface components {
             categories: string[];
             /** Format: int64 */
             entries: number;
+            lists?: {
+                [key: string]: string;
+            };
+            /** Format: int64 */
+            moduleId?: number;
             sources: {
                 [key: string]: string;
             };
@@ -5245,6 +5278,13 @@ export interface components {
             thumbnailUrl?: string;
             title: string;
             url: string;
+        };
+        "Imports-account-createRequest": {
+            /** Format: int64 */
+            moduleId: number;
+            sourceId: string;
+            /** @description The account's sign-in token; used for this read only */
+            token: string;
         };
         "Imports-entries-updateResponse": {
             /** Format: int64 */
@@ -6264,6 +6304,12 @@ export interface components {
         ReadSync: {
             /** Format: int64 */
             intervalMinutes: number;
+        };
+        ReadUpTo: {
+            /** Format: double */
+            chapter: number;
+            /** Format: int64 */
+            page?: number;
         };
         Reader: {
             countForCleanup: boolean;
@@ -9096,6 +9142,68 @@ export interface operations {
         requestBody: {
             content: {
                 "application/octet-stream": string;
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportResource"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "imports-account-sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountSource"][];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "imports-account-create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Imports-account-createRequest"];
             };
         };
         responses: {

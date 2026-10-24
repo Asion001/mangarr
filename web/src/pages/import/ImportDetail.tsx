@@ -133,8 +133,8 @@ export function ImportDetailPage() {
         title={d.fileName}
         subtitle={
           <span className="flex flex-wrap items-center gap-2">
-            {formatLabel(d.format)}
-            {d.info.backupDate && <span>{t("· made") + " "}{date(d.info.backupDate)}</span>}
+            {formatLabel(d)}
+            {d.info.backupDate && <span>{(d.format === "account" ? t("· read") : t("· made")) + " "}{date(d.info.backupDate)}</span>}
             <span>· {d.info.entries}{" " + t("manga")}</span>
             <Badge tone={statusTone(d.status)}>{statusLabel(d.status)}</Badge>
             {busy && <Spinner className="size-3.5" />}
@@ -188,7 +188,7 @@ export function ImportDetailPage() {
         <thead>
           <tr>
             <Th className="w-8" />
-            <Th>{t("Manga in the backup")}</Th>
+            <Th>{d.format === "account" ? t("Manga in the account") : t("Manga in the backup")}</Th>
             <Th>{t("Source")}</Th>
             <Th>{t("Metadata")}</Th>
             <Th>{t("Status")}</Th>
@@ -314,6 +314,10 @@ function EntryRow({
                 <span>
                   · {e.readCount}/{e.chapterCount}{" " + t("read")}</span>
               )}
+              {e.data.readUpTo && (
+                <span>
+                  · {t("reached ch.") + " "}{e.data.readUpTo.chapter}{e.data.readUpTo.page ? ", " + t("page") + " " + e.data.readUpTo.page : ""}</span>
+              )}
               {!e.data.favorite && <Badge>{t("history only")}</Badge>}
               {(e.data.categories ?? []).map((c) => (
                 <Badge key={c}>
@@ -396,6 +400,7 @@ function OptionsCard({ imp, disabled, onSaved }: { imp: S["ImportResource"]; dis
   };
   const set = <K extends keyof Options>(k: K, v: Options[K]) => save({ ...o, [k]: v });
   const cats = imp.info.categories ?? [];
+  const account = imp.format === "account";
   const catRule = (c: string) => o.categories?.[c] ?? {};
   const setCat = (c: string, patch: Partial<S["ImportCategory"]>) => save({ ...o, categories: { ...(o.categories ?? {}), [c]: { ...catRule(c), ...patch } } });
 
@@ -433,13 +438,17 @@ function OptionsCard({ imp, disabled, onSaved }: { imp: S["ImportResource"]; dis
         <div className="flex flex-col gap-2">
           <Switch checked={o.searchMissing} onChange={(v) => set("searchMissing", v)} label={t("Download monitored chapters right away")} />
           <Switch checked={o.monitorNew === "all"} onChange={(v) => set("monitorNew", v ? "all" : "none")} label={t("Monitor new chapters")} />
-          <Switch checked={o.onlyFavorites} onChange={(v) => set("onlyFavorites", v)} label={t("Only library manga (not history)")} />
+          {!account && <Switch checked={o.onlyFavorites} onChange={(v) => set("onlyFavorites", v)} label={t("Only library manga (not history)")} />}
         </div>
         <div className="flex flex-col gap-2">
           <Switch checked={o.readState} onChange={(v) => set("readState", v)} label={t("Import read chapters")} />
           {o.readState && (
             <Select value={o.readerId} onChange={(e) => set("readerId", Number(e.target.value))}>
-              <option value={0}>{t("New reader “")}{imp.format === "aidoku" ? "Aidoku" : "Mihon"}{" " + t("backup”")}</option>
+              {account ? (
+                <option value={0}>{t("New reader “")}{imp.fileName}”</option>
+              ) : (
+                <option value={0}>{t("New reader “")}{imp.format === "aidoku" ? "Aidoku" : "Mihon"}{" " + t("backup”")}</option>
+              )}
               {readers?.map((r) => (
                 <option key={r.id} value={r.id}>
                   {r.name}
@@ -453,14 +462,14 @@ function OptionsCard({ imp, disabled, onSaved }: { imp: S["ImportResource"]; dis
         </div>
         <div className="flex flex-col gap-2">
           <Switch checked={o.matchMetadata} onChange={(v) => set("matchMetadata", v)} label={t("Link metadata (tracker ids, titles)")} />
-          <Switch checked={o.findByTitle} onChange={(v) => set("findByTitle", v)} label={t("Search by title when a source can't be matched")} />
-          <Switch checked={o.blockScanlators} onChange={(v) => set("blockScanlators", v)} label={t("Keep excluded scanlators blocked")} />
-          <Switch checked={o.categoryTags} onChange={(v) => set("categoryTags", v)} label={t("Tag series with their categories")} />
+          {!account && <Switch checked={o.findByTitle} onChange={(v) => set("findByTitle", v)} label={t("Search by title when a source can't be matched")} />}
+          {!account && <Switch checked={o.blockScanlators} onChange={(v) => set("blockScanlators", v)} label={t("Keep excluded scanlators blocked")} />}
+          <Switch checked={o.categoryTags} onChange={(v) => set("categoryTags", v)} label={account ? t("Tag series with their lists") : t("Tag series with their categories")} />
         </div>
       </fieldset>
       {cats.length > 0 && (
         <div className="mt-4">
-          <div className="mb-2 text-sm font-medium">{t("Categories")}</div>
+          <div className="mb-2 text-sm font-medium">{account ? t("Lists") : t("Categories")}</div>
           <div className="grid gap-2">
             {cats.map((c) => (
               <div key={c} className="flex flex-wrap items-center gap-2 text-sm">

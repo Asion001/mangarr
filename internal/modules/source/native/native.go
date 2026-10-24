@@ -536,3 +536,46 @@ func (m *Module) Politeness(sourceID string) (requestsPerMinute, maxConcurrent i
 	pol := p.Politeness()
 	return pol.RequestsPerMinute, pol.MaxConcurrent, true
 }
+
+func (m *Module) AccountSources(ctx context.Context) ([]source.AccountSource, error) {
+	var out []source.AccountSource
+	for _, s := range m.sites {
+		a, ok := s.(sourcekit.AccountReader)
+		if !ok {
+			continue
+		}
+		i, h := s.Info(), a.AccountHelp()
+		out = append(out, source.AccountSource{SourceID: i.ID, Name: i.Name, Lang: i.Lang, Field: h.Field, Steps: h.Steps})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	return out, nil
+}
+
+func (m *Module) ReadAccount(ctx context.Context, sourceID, token string) (*source.Account, error) {
+	s, err := m.site(sourceID)
+	if err != nil {
+		return nil, err
+	}
+	a, ok := s.(sourcekit.AccountReader)
+	if !ok {
+		return nil, fmt.Errorf("%w: %s accounts can't be read", source.ErrUnsupported, s.Info().Name)
+	}
+	acc, err := a.ReadAccount(ctx, token)
+	if errors.Is(err, sourcekit.ErrUnauthorized) {
+		return nil, source.ErrUnauthorized
+	}
+	if err != nil {
+		return nil, err
+	}
+	out := &source.Account{User: acc.User, Lists: []source.AccountList{}, Entries: []source.AccountEntry{}}
+	for _, l := range acc.Lists {
+		out.Lists = append(out.Lists, source.AccountList{ID: l.ID, Name: l.Name, Status: l.Status})
+	}
+	for _, e := range acc.Entries {
+		out.Entries = append(out.Entries, source.AccountEntry{
+			Manga: source.Manga{MangaRef: source.MangaRef{SourceID: sourceID, URL: e.URL, EngineRef: e.ID, TitleHint: e.Title},
+				Title: e.Title, ThumbnailURL: publicURL(s.Info().BaseURL, e.CoverURL)},
+			Status: status(e.Status), Lists: e.Lists, Chapter: e.Chapter, Page: e.Page})
+	}
+	return out, nil
+}

@@ -45,6 +45,8 @@ groups-update PUT /api/v1/groups/{id} -> admin
 health-get GET /api/v1/health -> admin
 health-run POST /api/v1/health/check -> admin
 history-list GET /api/v1/history -> queue.manage
+imports-account-create POST /api/v1/imports/accounts -> admin
+imports-account-sources GET /api/v1/imports/accounts -> admin
 imports-create POST /api/v1/imports -> admin
 imports-delete DELETE /api/v1/imports/{id} -> admin
 imports-entries GET /api/v1/imports/{id}/entries -> admin

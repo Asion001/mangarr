@@ -102,7 +102,7 @@ func (s *Service) Run(ctx context.Context, id int64, progress func(string)) (Run
 		return res, err
 	}
 	if opts.ReadState && opts.ReaderID == 0 {
-		r := &model.Reader{Name: readerName(imp.Format), CreatedAt: time.Now().UTC()}
+		r := &model.Reader{Name: readerName(imp), CreatedAt: time.Now().UTC()}
 		if _, err := s.DB.NewInsert().Model(r).Exec(ctx); err != nil {
 			return fail(err)
 		}
@@ -171,8 +171,11 @@ func (s *Service) Run(ctx context.Context, id int64, progress func(string)) (Run
 	return res, nil
 }
 
-func readerName(format string) string {
-	if format == backupimport.FormatAidoku {
+func readerName(imp *model.Import) string {
+	switch imp.Format {
+	case backupimport.FormatAccount:
+		return imp.FileName
+	case backupimport.FormatAidoku:
 		return "Aidoku backup"
 	}
 	return "Mihon backup"
@@ -504,6 +507,16 @@ func ImportReadState(ctx context.Context, idb bun.IDB, readerID, seriesID int64,
 			w.readAt = c.ReadAt
 		}
 		wanted[id] = w
+	}
+	if u := d.ReadUpTo; u != nil && len(d.Chapters) == 0 {
+		for _, c := range chapters {
+			switch {
+			case d.ReadsChapter(c.NumberSort):
+				wanted[c.ID] = want{completed: true}
+			case u.Page > 0 && math.Abs(c.NumberSort-u.Chapter) < 0.001:
+				wanted[c.ID] = want{page: u.Page}
+			}
+		}
 	}
 	if len(wanted) == 0 {
 		return 0, nil

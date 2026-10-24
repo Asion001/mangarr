@@ -188,6 +188,67 @@ type Polite interface {
 	Politeness() Politeness
 }
 
+// ErrUnauthorized means the site turned an account's sign-in token away.
+var ErrUnauthorized = errors.New("the site didn't accept the sign-in token")
+
+// AccountReader is implemented by sites whose accounts keep manga lists and
+// reading progress that can be brought into a library.
+type AccountReader interface {
+	// AccountHelp says what to paste to sign in and where to find it.
+	AccountHelp() AccountHelp
+	// ReadAccount reads the account's manga lists with the progress in
+	// each title. The token is only used for this call.
+	ReadAccount(ctx context.Context, token string) (Account, error)
+}
+
+// AccountHelp tells a user how to sign in to read their account.
+type AccountHelp struct {
+	// Field names what is pasted ("Sign-in token").
+	Field string
+	// Steps say where to find it, one step each.
+	Steps []string
+}
+
+// List statuses, for lists that carry one.
+const (
+	ListReading   = "reading"
+	ListPlanned   = "planned"
+	ListCompleted = "completed"
+	ListFavorite  = "favorite"
+	ListOnHold    = "onhold"
+	ListDropped   = "dropped"
+)
+
+// Account is what a site account holds.
+type Account struct {
+	// User is the account's name at the site.
+	User    string
+	Lists   []AccountList
+	Entries []AccountEntry
+}
+
+// AccountList is one of the account's lists.
+type AccountList struct {
+	ID   string
+	Name string
+	// Status is one of the List* values, or empty for a list of the user's own.
+	Status string
+}
+
+// AccountEntry is one manga in the account with how far it was read.
+type AccountEntry struct {
+	Manga
+	// Status is the manga's status (Status*).
+	Status string
+	// Lists are the ids of the lists it is in.
+	Lists []string
+	// Chapter is the number of the chapter reached (-1 when not started):
+	// chapters numbered below it are read, and it is open at Page (1-based,
+	// 0 when not started).
+	Chapter float64
+	Page    int
+}
+
 // KeiyoushiID is the id Mihon and Tachiyomi give an extension: the first
 // eight bytes of md5("<name lowercased>/<lang>/<version>"), big-endian and
 // made positive. A site declared with the same name, language and version as

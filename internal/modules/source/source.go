@@ -164,6 +164,8 @@ var (
 	ErrNotFound = errors.New("not found at source")
 	// ErrUnsupported means the module does not support the operation.
 	ErrUnsupported = errors.New("operation not supported by this source module")
+	// ErrUnauthorized means the site turned an account's sign-in token away.
+	ErrUnauthorized = errors.New("the site didn't accept the sign-in token; copy a fresh one")
 )
 
 // PageRequest is everything needed to fetch a page image, so another
@@ -201,4 +203,62 @@ type Assets interface {
 // AutoUpdater is implemented by extension managers that may install updates automatically.
 type AutoUpdater interface {
 	AutoUpdateExtensions() bool
+}
+
+// Accounts is implemented by modules with sites whose user accounts keep
+// manga lists and reading progress that can be imported.
+type Accounts interface {
+	// AccountSources lists the catalogs whose accounts can be read.
+	AccountSources(ctx context.Context) ([]AccountSource, error)
+	// ReadAccount reads an account's lists and progress. The token is used
+	// for this call only and must not be kept.
+	ReadAccount(ctx context.Context, sourceID, token string) (*Account, error)
+}
+
+// AccountSource is a catalog whose accounts can be read, with how to sign in.
+type AccountSource struct {
+	SourceID string `json:"sourceId"`
+	Name     string `json:"name"`
+	Lang     string `json:"lang"`
+	// Field names what is pasted to sign in ("Sign-in token").
+	Field string `json:"field"`
+	// Steps say where to find it.
+	Steps []string `json:"steps"`
+}
+
+// List statuses, for an account's lists that carry one.
+const (
+	ListReading   = "reading"
+	ListPlanned   = "planned"
+	ListCompleted = "completed"
+	ListFavorite  = "favorite"
+	ListOnHold    = "onhold"
+	ListDropped   = "dropped"
+)
+
+// Account is a site account's manga lists and progress.
+type Account struct {
+	User    string         `json:"user"`
+	Lists   []AccountList  `json:"lists"`
+	Entries []AccountEntry `json:"entries"`
+}
+
+type AccountList struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	// Status is one of the List* values, or empty for the user's own list.
+	Status string `json:"status,omitempty"`
+}
+
+// AccountEntry is one manga of an account with how far it was read.
+type AccountEntry struct {
+	Manga
+	Status string `json:"status"`
+	// Lists are the ids of the lists it is in.
+	Lists []string `json:"lists,omitempty"`
+	// Chapter is the number of the chapter reached (-1 when not started):
+	// chapters numbered below it are read, and it is open at Page (1-based,
+	// 0 when not started).
+	Chapter float64 `json:"chapter"`
+	Page    int     `json:"page,omitempty"`
 }

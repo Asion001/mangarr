@@ -66,6 +66,10 @@ func importError(err error) error {
 		return huma.Error404NotFound(err.Error())
 	case errors.Is(err, imports.ErrBusy):
 		return huma.Error409Conflict(err.Error())
+	case errors.Is(err, imports.ErrUnauthorized):
+		return huma.Error422UnprocessableEntity(err.Error())
+	case errors.Is(err, source.ErrUnsupported):
+		return huma.Error400BadRequest(err.Error())
 	}
 	var pe *imports.ParseError
 	if errors.As(err, &pe) {
@@ -96,6 +100,34 @@ func (s *Server) registerImports() {
 				return nil, importError(err)
 			}
 			if _, err := s.app.Queue.Push(ctx, "MapImport", map[string]any{"importId": imp.ID}, "upload"); err != nil {
+				return nil, toHTTPError(err)
+			}
+			res, err := s.importResource(ctx, imp)
+			return &struct{ Body *ImportResource }{res}, toHTTPError(err)
+		})
+
+	huma.Register(s.api, huma.Operation{OperationID: "imports-account-sources", Method: http.MethodGet, Path: "/api/v1/imports/accounts", Tags: tags,
+		Summary: "Sites whose accounts (lists and reading progress) can be imported"},
+		func(ctx context.Context, in *struct{}) (*struct{ Body []imports.AccountSource }, error) {
+			list, err := s.app.Imports.AccountSources(ctx)
+			return &struct{ Body []imports.AccountSource }{list}, toHTTPError(err)
+		})
+
+	huma.Register(s.api, huma.Operation{OperationID: "imports-account-create", Method: http.MethodPost, Path: "/api/v1/imports/accounts", Tags: tags,
+		Summary:       "Read a site account's manga lists and progress into a new import; its manga are matched in the background. The token is not kept.",
+		DefaultStatus: http.StatusCreated},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				ModuleID int64  `json:"moduleId"`
+				SourceID string `json:"sourceId" minLength:"1"`
+				Token    string `json:"token" minLength:"1" doc:"The account's sign-in token; used for this read only"`
+			}
+		}) (*struct{ Body *ImportResource }, error) {
+			imp, err := s.app.Imports.CreateFromAccount(ctx, in.Body.ModuleID, in.Body.SourceID, in.Body.Token)
+			if err != nil {
+				return nil, importError(err)
+			}
+			if _, err := s.app.Queue.Push(ctx, "MapImport", map[string]any{"importId": imp.ID}, "account"); err != nil {
 				return nil, toHTTPError(err)
 			}
 			res, err := s.importResource(ctx, imp)
