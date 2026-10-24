@@ -44,8 +44,15 @@ test("a long chapter list opens on the page with the chapter to read next", asyn
   await expect(page.getByText("51–75 / 120")).toBeVisible();
   await expect(page.locator("article", { hasText: "Chapter 69" }).getByText("Up next")).toBeVisible();
   await page.getByRole("button", { name: "Next", exact: true }).click();
-  await page.getByRole("button", { name: "Up next: chapter 69" }).click();
+  await page.getByRole("button", { name: "Up next: 69" }).click();
   await expect(page.getByText("51–75 / 120")).toBeVisible();
+  // the list keeps the order it came in: chapter 110 is on the last page
+  await page.getByRole("textbox", { name: "Jump to chapter" }).fill("110");
+  await page.getByRole("textbox", { name: "Jump to chapter" }).press("Enter");
+  await expect(page.getByText("101–120 / 120")).toBeVisible();
+  await expect(page.locator("article", { hasText: "Chapter 110" })).toBeInViewport();
+  await page.getByRole("combobox", { name: "Chapters on this page" }).selectOption({ index: 0 });
+  await expect(page.getByText("1–25 / 120")).toBeVisible();
 });
 
 test("selected chapters get a bar along the bottom with the rest under More", async ({ page }) => {
