@@ -3,7 +3,7 @@ import { useDocumentTitle } from "../../lib/documentTitle";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, ChevronLeft, ChevronRight, Download, List, Maximize, Minimize, Minus, Pause, Play, Plus, Settings2 } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, Download, List, Maximize, Minimize, Minus, Pause, Play, Plus, Settings2 } from "lucide-react";
 import clsx from "clsx";
 import { ApiError, apiUrl, basePath, proxyGap, type S } from "../../api/client";
 import { fromServer, onServerBack, serverAnswered, serverGone, unreachable } from "../../lib/connection";
@@ -391,13 +391,17 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
         <Link to={`/series/${ch.seriesId}`} className="rounded p-2 hover:bg-panel-2" aria-label={t("Back to the series")}>
           <ArrowLeft className="size-5" />
         </Link>
-        <div className="min-w-0 flex-1">
+        {/* the title opens the chapter picker too: it's where the eye goes for "which chapter" */}
+        <button type="button" className="min-w-0 flex-1 rounded px-1 py-0.5 text-left hover:bg-panel-2" onClick={() => setPickingChapter(true)} aria-label={t("Choose chapter")}>
           <div className="truncate text-sm font-medium">{ch.seriesTitle}</div>
-          <div className="truncate text-xs text-muted">{t("Ch.") + " "}{ch.number}
-            {ch.title && ch.title !== ch.number && !ch.title.endsWith(ch.number) ? ` · ${ch.title}` : ""}
-            {!ch.downloaded && tr(" · streamed")}
+          <div className="flex items-center gap-1 text-xs text-muted">
+            <span className="truncate">{t("Ch.") + " "}{ch.number}
+              {ch.title && ch.title !== ch.number && !ch.title.endsWith(ch.number) ? ` · ${ch.title}` : ""}
+              {!ch.downloaded && tr(" · streamed")}
+            </span>
+            <ChevronDown className="size-3 shrink-0" aria-hidden="true" />
           </div>
-        </div>
+        </button>
         <SavedHere chapterId={ch.id} />
         {ch.canDownload && (
           <a href={apiUrl(`api/v1/read/chapters/${ch.id}/file`)} download className="rounded p-2 hover:bg-panel-2" aria-label={t("Download the chapter")}>

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Asion001/mangarr/internal/model"
+	"github.com/Asion001/mangarr/internal/readstate"
 )
 
 func TestReadChapterPickerCentersAndSearches(t *testing.T) {
@@ -28,7 +29,7 @@ func TestReadChapterPickerCentersAndSearches(t *testing.T) {
 	if _, err := app.DB.NewInsert().Model(series).Exec(ctx); err != nil {
 		t.Fatal(err)
 	}
-	var currentID int64
+	var currentID, readID int64
 	for number := 1; number <= 65; number++ {
 		chapter := &model.Chapter{SeriesID: series.ID, NumberKey: fmt.Sprintf("%d", number), NumberSort: float64(number), Title: fmt.Sprintf("Episode %d", number),
 			Monitored: true, State: model.ChapterMissing, FirstSeenAt: now, UpdatedAt: now}
@@ -38,14 +39,27 @@ func TestReadChapterPickerCentersAndSearches(t *testing.T) {
 		if number == 55 {
 			currentID = chapter.ID
 		}
+		if number == 9 {
+			readID = chapter.ID
+		}
+	}
+	readerID, err := app.Reading.ReaderID(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := readstate.Save(ctx, app.DB, &model.ChapterReadState{ReaderID: readerID, ChapterID: readID, SeriesID: series.ID, Completed: true, ReadAt: &now, SyncedAt: now}); err != nil {
+		t.Fatal(err)
 	}
 
 	get := func(url string) struct {
 		Items []struct {
 			Number string `json:"number"`
 		} `json:"items"`
-		Page  int `json:"page"`
-		Total int `json:"total"`
+		Page                         int `json:"page"`
+		Total                        int `json:"total"`
+		First, Latest, UpNext, Match *struct {
+			Number string `json:"number"`
+		}
 	} {
 		t.Helper()
 		response, err := http.Get(srv.URL + url)
@@ -60,8 +74,11 @@ func TestReadChapterPickerCentersAndSearches(t *testing.T) {
 			Items []struct {
 				Number string `json:"number"`
 			} `json:"items"`
-			Page  int `json:"page"`
-			Total int `json:"total"`
+			Page                         int `json:"page"`
+			Total                        int `json:"total"`
+			First, Latest, UpNext, Match *struct {
+				Number string `json:"number"`
+			}
 		}
 		if err := json.NewDecoder(response.Body).Decode(&body); err != nil {
 			t.Fatal(err)
@@ -76,6 +93,14 @@ func TestReadChapterPickerCentersAndSearches(t *testing.T) {
 	found := get(fmt.Sprintf("/api/v1/read/series/%d/chapters?q=Episode+58&pageSize=20", series.ID))
 	if found.Total != 1 || len(found.Items) != 1 || found.Items[0].Number != "58" {
 		t.Fatalf("searched picker: %+v", found)
+	}
+	if found.First == nil || found.First.Number != "1" || found.Latest == nil || found.Latest.Number != "65" || found.UpNext == nil || found.UpNext.Number != "10" || found.Match != nil {
+		t.Fatalf("picker shortcuts: %+v", found)
+	}
+	// a number goes straight to that chapter, though "6" also appears in 16, 26, 60…
+	exact := get(fmt.Sprintf("/api/v1/read/series/%d/chapters?q=6&pageSize=20", series.ID))
+	if exact.Match == nil || exact.Match.Number != "6" || exact.Total < 2 {
+		t.Fatalf("number match: %+v", exact)
 	}
 
 	response, err := http.Get(fmt.Sprintf("%s/api/v1/series/search?q=Pick&filter=unread&rootFolderId=%d&pageSize=12", srv.URL, root.ID))

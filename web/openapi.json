@@ -7758,11 +7758,20 @@
       "ReadChapterPickerResponse": {
         "additionalProperties": false,
         "properties": {
+          "first": {
+            "$ref": "#/components/schemas/ReadChapterRef"
+          },
           "items": {
             "items": {
               "$ref": "#/components/schemas/ReadChapterItem"
             },
             "type": "array"
+          },
+          "latest": {
+            "$ref": "#/components/schemas/ReadChapterRef"
+          },
+          "match": {
+            "$ref": "#/components/schemas/ReadChapterRef"
           },
           "page": {
             "format": "int64",
@@ -7775,6 +7784,9 @@
           "total": {
             "format": "int64",
             "type": "integer"
+          },
+          "upNext": {
+            "$ref": "#/components/schemas/ReadChapterRef"
           }
         },
         "required": [
@@ -7782,6 +7794,27 @@
           "page",
           "pageSize",
           "total"
+        ],
+        "type": "object"
+      },
+      "ReadChapterRef": {
+        "additionalProperties": false,
+        "properties": {
+          "available": {
+            "type": "boolean"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "number": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "available"
         ],
         "type": "object"
       },

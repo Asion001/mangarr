@@ -3,7 +3,9 @@ package api
 import (
 	"context"
 	"net/http"
+	"slices"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/Asion001/mangarr/internal/model"
@@ -25,11 +27,29 @@ type ReadChapterItem struct {
 	Page       int     `json:"page,omitempty"`
 }
 
+// ReadChapterRef points at one chapter the picker offers a shortcut to.
+type ReadChapterRef struct {
+	ID        int64  `json:"id"`
+	Number    string `json:"number"`
+	Available bool   `json:"available"`
+}
+
 type ReadChapterPickerResponse struct {
 	Items    []ReadChapterItem `json:"items"`
 	Page     int               `json:"page"`
 	PageSize int               `json:"pageSize"`
 	Total    int               `json:"total"`
+	// First, Latest and UpNext are the shortcuts above the list, whatever the search.
+	First  *ReadChapterRef `json:"first,omitempty"`
+	Latest *ReadChapterRef `json:"latest,omitempty"`
+	// UpNext is the first chapter after the highest one this reader finished.
+	UpNext *ReadChapterRef `json:"upNext,omitempty"`
+	// Match is the chapter whose number is the search, to go straight to.
+	Match *ReadChapterRef `json:"match,omitempty"`
+}
+
+func chapterRef(chapter model.Chapter) *ReadChapterRef {
+	return &ReadChapterRef{ID: chapter.ID, Number: chapter.NumberKey, Available: chapter.FileID != nil}
 }
 
 func (s *Server) registerReadPicker() {
@@ -53,7 +73,33 @@ func (s *Server) registerReadPicker() {
 			if err := s.app.DB.NewSelect().Model(&chapters).Where("series_id = ?", in.ID).Order("number_sort", "id").Scan(ctx); err != nil {
 				return nil, toHTTPError(err)
 			}
+			var first, latest, upNext, match *ReadChapterRef
+			if len(chapters) > 0 {
+				first, latest = chapterRef(chapters[0]), chapterRef(chapters[len(chapters)-1])
+			}
+			maxRead := -1.0
+			if err := s.app.DB.NewSelect().TableExpr("chapter_read_states AS rs").Join("JOIN chapters AS c ON c.id = rs.chapter_id").
+				ColumnExpr("COALESCE(MAX(c.number_sort), -1)").Where("rs.series_id = ? AND rs.completed AND rs.reader_id = ?", in.ID, readerID).
+				Scan(ctx, &maxRead); err != nil {
+				return nil, toHTTPError(err)
+			}
+			if maxRead >= 0 {
+				for _, chapter := range chapters {
+					if chapter.NumberSort > maxRead {
+						upNext = chapterRef(chapter)
+						break
+					}
+				}
+			}
 			needle := strings.ToLower(strings.TrimSpace(in.Query))
+			if number, err := strconv.ParseFloat(needle, 64); err == nil {
+				for _, chapter := range chapters {
+					if strings.ToLower(chapter.NumberKey) == needle || chapter.NumberSort == number {
+						match = chapterRef(chapter)
+						break
+					}
+				}
+			}
 			if needle != "" {
 				filtered := chapters[:0]
 				for _, chapter := range chapters {
@@ -84,18 +130,33 @@ func (s *Server) registerReadPicker() {
 			for i := range pageChapters {
 				ids[i] = pageChapters[i].ID
 			}
+			refs := []*ReadChapterRef{}
+			for _, ref := range []*ReadChapterRef{first, latest, upNext, match} {
+				if ref != nil {
+					refs = append(refs, ref)
+				}
+			}
+			releaseIDs := slices.Clone(ids)
+			for _, ref := range refs {
+				releaseIDs = append(releaseIDs, ref.ID)
+			}
 			releases := map[int64]bool{}
 			states := map[int64]model.ChapterReadState{}
-			if len(ids) > 0 {
+			if len(releaseIDs) > 0 {
 				var releaseRows []struct {
 					ChapterID int64 `bun:"chapter_id"`
 				}
-				if err := s.app.DB.NewSelect().Model((*model.ChapterRelease)(nil)).Column("chapter_id").Where("chapter_id IN (?)", bun.In(ids)).Where("removed = ?", false).Group("chapter_id").Scan(ctx, &releaseRows); err != nil {
+				if err := s.app.DB.NewSelect().Model((*model.ChapterRelease)(nil)).Column("chapter_id").Where("chapter_id IN (?)", bun.In(releaseIDs)).Where("removed = ?", false).Group("chapter_id").Scan(ctx, &releaseRows); err != nil {
 					return nil, toHTTPError(err)
 				}
 				for _, row := range releaseRows {
 					releases[row.ChapterID] = true
 				}
+				for _, ref := range refs {
+					ref.Available = ref.Available || releases[ref.ID]
+				}
+			}
+			if len(ids) > 0 {
 				var stateRows []model.ChapterReadState
 				if err := s.app.DB.NewSelect().Model(&stateRows).Where("reader_id = ? AND chapter_id IN (?)", readerID, bun.In(ids)).Scan(ctx); err != nil {
 					return nil, toHTTPError(err)
@@ -111,6 +172,7 @@ func (s *Server) registerReadPicker() {
 					Title: chapter.Title, Downloaded: chapter.FileID != nil, Available: chapter.FileID != nil || releases[chapter.ID], Completed: state.Completed, Page: state.Page})
 			}
 			sort.SliceStable(items, func(i, j int) bool { return items[i].NumberSort < items[j].NumberSort })
-			return &struct{ Body ReadChapterPickerResponse }{ReadChapterPickerResponse{Items: items, Page: page, PageSize: pageSize, Total: total}}, nil
+			return &struct{ Body ReadChapterPickerResponse }{ReadChapterPickerResponse{Items: items, Page: page, PageSize: pageSize, Total: total,
+				First: first, Latest: latest, UpNext: upNext, Match: match}}, nil
 		})
 }

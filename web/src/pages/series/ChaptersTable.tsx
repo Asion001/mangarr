@@ -1,7 +1,8 @@
 import { t } from "../../lib/i18n/core";
 import { useUIOption } from "../../lib/uiPreferences";
 import { OtherLanguageChapters } from "./OtherLanguageChapters";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowDownToLine, ArrowDownUp, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Hash } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { api, unwrap, type Chapter, type S } from "../../api/client";
 import { useChapters, useQueue } from "../../api/queries";
@@ -22,6 +23,22 @@ import { useChapterActions, type QueueAction } from "./useChapterActions";
 export { readable } from "./ChapterRows";
 
 const chapterPageSizes = ["25", "50", "100"] as const;
+const chapterSorts = ["desc", "asc"] as const;
+
+/** closestChapter is the chapter numbered `number`, or the nearest one to it. */
+export function closestChapter<T extends { number: string }>(list: T[], number: string): T | undefined {
+  const wanted = number.trim();
+  const exact = list.find((chapter) => chapter.number === wanted);
+  if (exact || !wanted) return exact;
+  const n = Number(wanted.replace(",", "."));
+  if (!Number.isFinite(n)) return undefined;
+  let best: T | undefined;
+  for (const chapter of list) {
+    const distance = Math.abs(Number(chapter.number) - n);
+    if (Number.isFinite(distance) && (!best || distance < Math.abs(Number(best.number) - n))) best = chapter;
+  }
+  return best;
+}
 
 const toggle = (set: Set<number>, id: number) => {
   const next = new Set(set);
@@ -65,6 +82,11 @@ export function ChaptersTable({ seriesId, seriesTitle, manage = true, nextChapte
   const setPage = useCallback((next: number) => setPageParam(String(next)), [setPageParam]);
   const [filterParam, setFilter] = useListParam("chapters", "all");
   const [pageSizeParam, setPageSize] = useStoredListParam("chapterPageSize", "25", "mangarr:chapters:page-size", chapterPageSizes);
+  // the server sends newest first; oldest first reads like a book's contents
+  const [sortParam, setSort] = useStoredListParam("chapterSort", "desc", "mangarr:chapters:sort", chapterSorts);
+  const oldestFirst = sortParam === "asc";
+  const [jump, setJump] = useState("");
+  const [found, setFound] = useState<number | null>(null);
   const filter = filterParam as "all" | "missing" | "downloaded";
   const chaptersPerPage = Number(pageSizeParam);
 
@@ -76,10 +98,10 @@ export function ChaptersTable({ seriesId, seriesTitle, manage = true, nextChapte
   const list = useMemo(() => {
     let l = data ?? [];
     if (offlineOnly) l = l.filter((c) => saved[c.id]);
-    if (filter === "missing") return l.filter((c) => !c.file && c.state !== "cleaned");
-    if (filter === "downloaded") return l.filter((c) => c.file);
-    return l;
-  }, [data, filter, offlineOnly, saved]);
+    if (filter === "missing") l = l.filter((c) => !c.file && c.state !== "cleaned");
+    else if (filter === "downloaded") l = l.filter((c) => c.file);
+    return oldestFirst ? [...l].reverse() : l;
+  }, [data, filter, offlineOnly, saved, oldestFirst]);
   // with no page asked for, the list opens on the page with the chapter to read next
   const nextIndex = nextChapterId ? list.findIndex((chapter) => chapter.id === nextChapterId) : -1;
   const nextPage = nextIndex < 0 ? 1 : Math.floor(nextIndex / chaptersPerPage) + 1;
@@ -108,9 +130,40 @@ export function ChaptersTable({ seriesId, seriesTitle, manage = true, nextChapte
   const monitorOne = useCallback((id: number, monitored: boolean) => monitor([id], monitored), [monitor]);
   const searchOne = useCallback((id: number) => search([id]), [search]);
   const goToPage = useCallback((next: number) => {
+    setFound(null);
     setPage(next);
     requestAnimationFrame(() => tableTop.current && scrollToTop(tableTop.current));
   }, [setPage]);
+  // showChapter opens the page holding the chapter and outlines its row
+  const showChapter = useCallback((chapter: Chapter) => {
+    const index = list.indexOf(chapter);
+    if (index < 0) return;
+    setPage(Math.floor(index / chaptersPerPage) + 1);
+    setFound(chapter.id);
+  }, [list, chaptersPerPage, setPage]);
+  useEffect(() => {
+    if (found === null) return;
+    const frame = requestAnimationFrame(() => {
+      // the table and the phone rows are both there; one of them is hidden
+      const row = [...(tableTop.current?.querySelectorAll<HTMLElement>(`[data-chapter-id="${found}"]`) ?? [])].find((el) => el.offsetParent !== null);
+      if (row) scrollToTop(row, 96);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [found, currentPage]);
+  const jumpTo = () => {
+    const chapter = closestChapter(list, jump);
+    if (chapter) showChapter(chapter);
+  };
+  const ranges = useMemo(() => {
+    const out: string[] = [];
+    for (let start = 0; start < list.length; start += chaptersPerPage) {
+      const first = list[start].number;
+      const last = list[Math.min(start + chaptersPerPage, list.length) - 1].number;
+      out.push(first === last ? t("Ch. {number}", { number: first }) : t("Ch. {first}–{last}", { first, last }));
+    }
+    return out;
+  }, [list, chaptersPerPage]);
+  const pagerButton = "inline-flex size-8 items-center justify-center rounded-md border border-border text-muted hover:bg-panel-2 hover:text-fg disabled:pointer-events-none disabled:opacity-30";
 
   const sel = [...selected];
   return (
@@ -130,6 +183,11 @@ export function ChaptersTable({ seriesId, seriesTitle, manage = true, nextChapte
             <Button size="sm" variant="ghost" onClick={() => setSelected(new Set(list.map((chapter) => chapter.id)))}>{t("Select all {count}", { count: list.length })}</Button>
           )}
           {sel.length === 0 && data && <SaveSeriesMenu {...saveable(data, seriesTitle)} />}
+          {sel.length === 0 && list.length > 1 && (
+            <Button size="sm" variant="ghost" icon={<ArrowDownUp className="size-3.5" />} onClick={() => (setSort(oldestFirst ? "desc" : "asc"), setPage(1))} title={t("Change the order")}>
+              {oldestFirst ? t("Oldest first") : t("Newest first")}
+            </Button>
+          )}
           {sel.length === 0 && <select
             className="rounded-md border border-border bg-bg bg-size-[0.875rem] bg-position-[right_0.5rem_center] py-1 pl-2 pr-7 text-xs"
             value={filter}
@@ -159,6 +217,55 @@ export function ChaptersTable({ seriesId, seriesTitle, manage = true, nextChapte
       {error && <ErrorBox error={error} />}
       {borrow && data && filter !== "missing" && <OtherLanguageChapters seriesId={seriesId} editions={editions} own={data} />}
       {data && data.length === 0 && <p className="text-sm text-muted">{t("No chapters yet. Refresh the series to fetch the chapter list.")}</p>}
+      {pages > 1 && (
+        <div className="-mx-4 -mt-1 mb-3 flex flex-col gap-2 border-b border-border px-4 pb-3 sm:flex-row sm:flex-wrap sm:items-center">
+          <div className="flex gap-2">
+            <form
+              className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-md border border-border bg-bg pl-2.5 pr-1 text-sm focus-within:border-accent sm:w-56 sm:flex-none"
+              onSubmit={(event) => {
+                event.preventDefault();
+                jumpTo();
+              }}
+            >
+              <Hash className="size-4 shrink-0 text-muted" aria-hidden="true" />
+              <input
+                value={jump}
+                onChange={(event) => setJump(event.target.value)}
+                inputMode="decimal"
+                enterKeyHint="go"
+                placeholder={t("Jump to chapter")}
+                aria-label={t("Jump to chapter")}
+                className="min-w-0 flex-1 bg-transparent font-mono outline-none placeholder:font-sans placeholder:text-muted"
+              />
+              {jump.trim() && <button type="submit" className="rounded px-2 py-1 text-xs font-medium hover:bg-panel-2">{t("Go")}</button>}
+            </form>
+            {nextIndex >= 0 && (
+              <Button size="sm" className="h-9 shrink-0" icon={<ArrowDownToLine className="size-4" />} onClick={() => showChapter(list[nextIndex])}>
+                {t("Up next: {number}", { number: list[nextIndex].number })}
+              </Button>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5 sm:ml-auto">
+            <button type="button" className={pagerButton} disabled={currentPage <= 1} onClick={() => goToPage(1)} aria-label={t("First page")}><ChevronsLeft className="size-4" /></button>
+            <button type="button" className={pagerButton} disabled={currentPage <= 1} onClick={() => goToPage(currentPage - 1)} aria-label={t("Previous page")}><ChevronLeft className="size-4" /></button>
+            <select
+              className="h-8 min-w-0 flex-1 rounded-md border border-border bg-bg bg-size-[0.875rem] bg-position-[right_0.5rem_center] py-1 pl-2 pr-7 text-xs font-medium sm:flex-none"
+              aria-label={t("Chapters on this page")}
+              value={currentPage}
+              onChange={(event) => goToPage(Number(event.target.value))}
+            >
+              {ranges.map((range, index) => (
+                <option key={index} value={index + 1}>
+                  {range}{nextIndex >= 0 && Math.floor(nextIndex / chaptersPerPage) === index ? " · " + t("up next") : ""}
+                </option>
+              ))}
+            </select>
+            <button type="button" className={pagerButton} disabled={currentPage >= pages} onClick={() => goToPage(currentPage + 1)} aria-label={t("Next page")}><ChevronRight className="size-4" /></button>
+            <button type="button" className={pagerButton} disabled={currentPage >= pages} onClick={() => goToPage(pages)} aria-label={t("Last page")}><ChevronsRight className="size-4" /></button>
+            <span className="ml-1 whitespace-nowrap text-xs text-muted">{t("{page} of {pages}", { page: currentPage, pages })}</span>
+          </div>
+        </div>
+      )}
       {list.length > 0 && (
         <div ref={tableTop}>
           {/* rows reach the card's edges, so the Up next tint fills the whole row */}
@@ -182,6 +289,7 @@ export function ChaptersTable({ seriesId, seriesTitle, manage = true, nextChapte
                 onExplain={setExplain}
                 queuePaused={queuePaused}
                 next={chapter.id === nextChapterId}
+                found={chapter.id === found}
               />
             ))}
           </div>
@@ -229,6 +337,7 @@ export function ChaptersTable({ seriesId, seriesTitle, manage = true, nextChapte
                   onVersions={setVersionsOf}
                   queuePaused={queuePaused}
                   next={chapter.id === nextChapterId}
+                  found={chapter.id === found}
                 />
               ))}
             </tbody>
@@ -240,9 +349,6 @@ export function ChaptersTable({ seriesId, seriesTitle, manage = true, nextChapte
           <span className="text-muted">
             {pageStart + 1}–{Math.min(pageStart + chaptersPerPage, list.length)} / {list.length} · {t("Page") + " "}{currentPage}{" " + t("of") + " "}{pages}
           </span>
-          {nextIndex >= 0 && currentPage !== nextPage && (
-            <Button size="sm" variant="ghost" onClick={() => goToPage(nextPage)}>{t("Up next: chapter {number}", { number: list[nextIndex].number })}</Button>
-          )}
           <Button size="sm" disabled={currentPage <= 1} onClick={() => goToPage(currentPage - 1)}>{t("Previous")}</Button>
           <Button size="sm" disabled={currentPage >= pages} onClick={() => goToPage(currentPage + 1)}>{t("Next")}</Button>
           {data && <SaveSeriesMenu {...saveable(data, seriesTitle)} />}

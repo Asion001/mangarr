@@ -6271,13 +6271,23 @@ export interface components {
             volume?: string;
         };
         ReadChapterPickerResponse: {
+            first?: components["schemas"]["ReadChapterRef"];
             items: components["schemas"]["ReadChapterItem"][];
+            latest?: components["schemas"]["ReadChapterRef"];
+            match?: components["schemas"]["ReadChapterRef"];
             /** Format: int64 */
             page: number;
             /** Format: int64 */
             pageSize: number;
             /** Format: int64 */
             total: number;
+            upNext?: components["schemas"]["ReadChapterRef"];
+        };
+        ReadChapterRef: {
+            available: boolean;
+            /** Format: int64 */
+            id: number;
+            number: string;
         };
         ReadPage: {
             mediaType: string;

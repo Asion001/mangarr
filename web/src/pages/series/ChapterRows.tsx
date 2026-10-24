@@ -46,6 +46,8 @@ export type ChapterRowProps = {
   queuePaused?: boolean;
   /** next: this is the chapter to read next. */
   next?: boolean;
+  /** found: the chapter just jumped to, outlined so the eye lands on it. */
+  found?: boolean;
 };
 
 /** A memoized row keeps queue progress updates from rerendering every chapter. */
@@ -68,12 +70,13 @@ export const ChapterRow = memo(function ChapterRow({
   onVersions,
   queuePaused,
   next,
+  found,
 }: ChapterRowProps) {
   // read: everyone who opened it finished it (for a user account, that's you)
   const read = c.readBy.length > 0 && c.readBy.every((r) => r.completed);
   return (
     <Fragment>
-      <tr className={clsx(!c.monitored && "opacity-60", next && "bg-accent/5 shadow-[inset_3px_0_0_var(--color-accent)]")}>
+      <tr data-chapter-id={c.id} className={clsx(!c.monitored && "opacity-60", next && "bg-accent/5 shadow-[inset_3px_0_0_var(--color-accent)]", found && "shadow-[inset_0_0_0_2px_var(--color-info)]")}>
         <Td>
           {manage && <input type="checkbox" checked={selected} onChange={() => onSelect(c.id)} />}
         </Td>
@@ -221,10 +224,11 @@ export const ChapterMobileRow = memo(function ChapterMobileRow({
   onExplain,
   queuePaused,
   next,
+  found,
 }: ChapterRowProps) {
   const read = c.readBy.length > 0 && c.readBy.every((r) => r.completed);
   return (
-    <article className={clsx("px-4 py-3", !c.monitored && "opacity-60", next && "bg-accent/5 shadow-[inset_3px_0_0_var(--color-accent)]")}>
+    <article data-chapter-id={c.id} className={clsx("px-4 py-3", !c.monitored && "opacity-60", next && "bg-accent/5 shadow-[inset_3px_0_0_var(--color-accent)]", found && "shadow-[inset_0_0_0_2px_var(--color-info)]")}>
       <div className="flex min-w-0 items-center gap-2">
         {manage && <input className="shrink-0" type="checkbox" checked={selected} onChange={() => onSelect(c.id)} aria-label={`${t("Select")} ${t("Chapter")} ${c.number}`} />}
         <button className="flex min-w-0 flex-1 items-center gap-2 text-left hover:text-accent-2" onClick={() => onExpand(c.id)} aria-expanded={open}>
