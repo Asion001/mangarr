@@ -45,7 +45,7 @@ func (s *Service) ReadAhead(ctx context.Context, readerID, seriesID int64) (int,
 	furthest := sql.NullFloat64{Float64: pos[0].Number, Valid: true}
 	var next []model.Chapter
 	if err := s.DB.NewSelect().Model(&next).Where("series_id = ? AND number_sort > ?", seriesID, furthest.Float64).
-		Order("number_sort", "id").Limit(cfg.ReadAhead.Chapters).Scan(ctx); err != nil {
+		Order("number_sort", "id").Limit(int64(cfg.ReadAhead.Chapters)).Scan(ctx); err != nil {
 		return 0, err
 	}
 	var want, newlyMonitored []int64

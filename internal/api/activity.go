@@ -271,11 +271,11 @@ func (s *Server) registerActivity() {
 			if err != nil {
 				return nil, toHTTPError(err)
 			}
-			err = q.OrderExpr("c.release_date DESC NULLS LAST, c.id DESC").Limit(in.PageSize).Offset((in.Page-1)*in.PageSize).Scan(ctx, &items)
+			err = q.OrderExpr("c.release_date DESC NULLS LAST, c.id DESC").Limit(int64(in.PageSize)).Offset(int64((in.Page-1)*in.PageSize)).Scan(ctx, &items)
 			if items == nil {
 				items = []WantedItem{}
 			}
-			return &struct{ Body WantedPage }{WantedPage{Items: items, Total: total, Page: in.Page, PageSize: in.PageSize}}, toHTTPError(err)
+			return &struct{ Body WantedPage }{WantedPage{Items: items, Total: int(total), Page: in.Page, PageSize: in.PageSize}}, toHTTPError(err)
 		})
 
 	huma.Register(s.api, huma.Operation{OperationID: "calendar", Method: http.MethodGet, Path: "/api/v1/calendar", Tags: tags,

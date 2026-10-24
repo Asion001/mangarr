@@ -103,7 +103,7 @@ func TestEditionProgress(t *testing.T) {
 			if st := state("Abyss EN", 4); st != nil {
 				t.Fatalf("english 4 = %+v, want untouched", st)
 			}
-			var rows int
+			var rows int64
 			rows, _ = e.App.DB.NewSelect().Model((*model.TitleReadState)(nil)).Count(e.Ctx)
 			if rows != 1 {
 				t.Fatalf("%d stored states, want one for the title", rows)

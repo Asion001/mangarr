@@ -71,7 +71,7 @@ func TestReprocessWithNothingToDo(t *testing.T) {
 		return func() bool {
 			c, _ := e.App.DB.NewSelect().Model((*model.DownloadJob)(nil)).
 				Where("kind = ? AND status = ?", model.JobKindReprocess, model.JobCompleted).Count(e.Ctx)
-			return c >= n
+			return c >= int64(n)
 		}
 	}
 	// 1. processing disabled on the profile: nothing is queued
@@ -100,7 +100,7 @@ func TestReprocessWithNothingToDo(t *testing.T) {
 	if after.ProcessSeconds != 0 || after.ProcessPages != 0 {
 		t.Fatalf("no-op processing must not report throughput: %v s, %d pages", after.ProcessSeconds, after.ProcessPages)
 	}
-	var failed int
+	var failed int64
 	failed, _ = e.App.DB.NewSelect().Model((*model.DownloadJob)(nil)).Where("status = ?", model.JobFailed).Count(e.Ctx)
 	if failed != 0 {
 		t.Fatalf("%d failed jobs", failed)

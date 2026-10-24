@@ -176,7 +176,7 @@ func (s *Server) registerRecycle() {
 				out.Size += g.Size
 			}
 			var rows []model.RecycledFile
-			if err := base(true).Order("series_title", "recycled_at DESC", "id DESC").Limit(in.PageSize).Offset((in.Page-1)*in.PageSize).Scan(ctx, &rows); err != nil {
+			if err := base(true).Order("series_title", "recycled_at DESC", "id DESC").Limit(int64(in.PageSize)).Offset(int64((in.Page-1)*in.PageSize)).Scan(ctx, &rows); err != nil {
 				return nil, toHTTPError(err)
 			}
 			out.Items, err = s.recycleResources(ctx, rows)

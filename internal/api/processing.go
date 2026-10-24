@@ -238,7 +238,7 @@ func (s *Server) registerProcessing() {
 				base := s.app.DB.NewSelect().Model((*model.ChapterFile)(nil)).Where("process_params <> ?", params).
 					Where("series_id IN (SELECT id FROM series WHERE profile_id = ?)", p.ID)
 				n, _ := base.Where("process_attempts < ?", downloads.MaxProcessAttempts).Count(ctx)
-				st.Pending += n
+				st.Pending += int(n)
 				var pages int
 				_ = s.app.DB.NewSelect().Model((*model.ChapterFile)(nil)).ColumnExpr("COALESCE(SUM(page_count), 0)").
 					Where("process_params <> ?", params).Where("series_id IN (SELECT id FROM series WHERE profile_id = ?)", p.ID).
@@ -247,7 +247,7 @@ func (s *Server) registerProcessing() {
 				f, _ := s.app.DB.NewSelect().Model((*model.ChapterFile)(nil)).Where("process_params <> ?", params).
 					Where("series_id IN (SELECT id FROM series WHERE profile_id = ?)", p.ID).
 					Where("process_attempts >= ?", downloads.MaxProcessAttempts).Count(ctx)
-				st.Failed += f
+				st.Failed += int(f)
 			}
 			var agg struct {
 				Processed int   `bun:"processed"`

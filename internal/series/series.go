@@ -600,7 +600,7 @@ func (s *Service) LinkSource(ctx context.Context, seriesID int64, l SourceLink) 
 	if err != nil {
 		return nil, err
 	}
-	ss, err := s.insertLink(ctx, s.db, ser, l, n)
+	ss, err := s.insertLink(ctx, s.db, ser, l, int(n))
 	if err != nil {
 		return nil, err
 	}
