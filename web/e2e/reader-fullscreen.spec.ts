@@ -58,3 +58,49 @@ test.describe("in Chrome on iPhone", () => {
     await expect(page.getByText("iPhone browsers can't go full screen")).toBeVisible();
   });
 });
+
+test("leaving full screen keeps the webtoon strip where you read to", async ({ page }) => {
+  await page.setViewportSize({ width: 820, height: 1180 });
+  const tall = '<svg xmlns="http://www.w3.org/2000/svg" width="600" height="1200"><rect width="100%" height="100%" fill="#555"/></svg>';
+  const progress: { chapter: number; page: number }[] = [];
+  const strip = (id: number) => ({
+    id, seriesId: 7, seriesTitle: "Strip", number: String(id), readingDirection: "webtoon", downloaded: true, canDownload: false,
+    pages: [1, 2, 3].map((number) => ({ number, mediaType: "image/svg+xml" })),
+    progress: { page: 0, completed: false },
+    ...(id === 1 ? { next: { id: 2, number: "2" } } : { prev: { id: 1, number: "1" } }),
+  });
+  await page.route("**/api/v1/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (/\/read\/chapters\/\d+\/pages\/\d+$/.test(path)) return route.fulfill({ contentType: "image/svg+xml", body: tall });
+    const saved = path.match(/\/read\/chapters\/(\d+)\/progress$/);
+    if (saved) {
+      progress.push({ chapter: Number(saved[1]), page: route.request().postDataJSON().page });
+      return route.fulfill({ json: {} });
+    }
+    if (path.endsWith("/auth/status")) return route.fulfill({ json: { authenticated: true, authDisabled: true, account: { kind: "anonymous", id: 0, permissions: [] } } });
+    if (path.endsWith("/read/settings")) return route.fulfill({ json: { defaults: { mode: "webtoon", keepAwake: false, preload: 2, showTapZones: false }, series: null } });
+    const ch = path.match(/\/read\/chapters\/(\d+)$/);
+    if (ch && route.request().method() === "GET") return route.fulfill({ json: strip(Number(ch[1])) });
+    return route.fulfill({ json: [] });
+  });
+
+  await page.goto("/read/1");
+  const second = page.locator('[data-chapter="2"][data-page="2"]');
+  await expect(second).toBeAttached();
+  await second.evaluate((el) => el.scrollIntoView({ block: "start" }));
+  await expect(page).toHaveURL(/\/read\/2$/);
+  await expect.poll(() => progress.some((p) => p.chapter === 2 && p.page === 2)).toBe(true);
+  progress.length = 0;
+
+  // Safari leaving full screen: the page goes back to where it was when full
+  // screen began, a moment after the change
+  await page.evaluate(() => {
+    document.dispatchEvent(new Event("fullscreenchange"));
+    setTimeout(() => (document.scrollingElement!.scrollTop = 0), 300);
+  });
+  await page.waitForTimeout(2000);
+
+  await expect(page).toHaveURL(/\/read\/2$/);
+  await expect(second).toBeInViewport();
+  expect(progress.filter((p) => p.chapter === 1)).toEqual([]);
+});

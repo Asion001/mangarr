@@ -9,7 +9,7 @@ import { displayWidth, imageWidth, PageImage, pageUrl, placeholderUrl, useDims, 
 import { widen } from "./preload";
 import { chapterQuery } from "./query";
 import { scrollToTop } from "../../lib/scroll";
-import { pageScrolls } from "./fullscreen";
+import { onFullscreenChange, pageScrolls } from "./fullscreen";
 
 type Chapter = S["ReadChapter"];
 type ChapterLink = NonNullable<Chapter["next"]>;
@@ -75,6 +75,8 @@ export function WebtoonViewer({
   const ahead = 2;
   const [near, setNear] = useState<Set<number>>(() => widen(new Set(), startPage - 1, startPage + ahead, first?.pages.length ?? 0));
   const current = useRef(startPage);
+  const spot = useRef<{ k: number; at: number } | null>(null);
+  const settling = useRef(0);
   // a readable column on wide screens; side padding narrows it further
   const width = Math.min(vp.w, 900) * (1 - (2 * s.padding) / 100);
 
@@ -150,6 +152,26 @@ export function WebtoonViewer({
     if (!scroller.current) return;
     const root = scrollBox(scroller.current, pageScroll);
     let raf = 0;
+    const lineAt = () => (pageScroll ? 0 : root.getBoundingClientRect().top) + root.clientHeight / 3;
+    // the page the line is on and how far down it, to come back to
+    const measure = () => {
+      const line = lineAt();
+      for (let i = 0; i < stripRef.current.length; i++) {
+        const r = items.current[i]?.getBoundingClientRect();
+        if (r && r.top <= line && r.bottom > line) return { k: i + 1, at: (line - r.top) / r.height };
+      }
+      return null;
+    };
+    // Leaving full screen, Safari scrolls the page back to where it was when
+    // full screen began, a while after it has left (iPad's swipe down closes
+    // it that way too). That spot is long gone: the strip may be chapters on
+    // by now. For a moment any scroll that isn't a finger's is put back.
+    const timers: number[] = [];
+    const keep = () => {
+      const at = spot.current;
+      const r = at && items.current[at.k - 1]?.getBoundingClientRect();
+      if (at && r) root.scrollTop += r.top - (lineAt() - at.at * r.height);
+    };
     const set = (k: number) => {
       const at = stripRef.current[k - 1];
       if (!at || current.current === k) return;
@@ -160,21 +182,39 @@ export function WebtoonViewer({
     const on = () => {
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
-        const line = (pageScroll ? 0 : root.getBoundingClientRect().top) + root.clientHeight / 3;
-        for (let i = 0; i < stripRef.current.length; i++) {
-          const r = items.current[i]?.getBoundingClientRect();
-          if (r && r.top <= line && r.bottom > line) {
-            set(i + 1);
-            break;
-          }
+        if (performance.now() < settling.current) return keep();
+        const at = measure();
+        if (at) {
+          spot.current = at;
+          set(at.k);
         }
         // at the very end, the last page counts as read
         if (root.scrollTop + root.clientHeight >= root.scrollHeight - 2) set(stripRef.current.length);
       });
     };
+    const settle = () => {
+      spot.current ??= measure();
+      settling.current = performance.now() + 1500;
+      timers.forEach(clearTimeout);
+      timers.length = 0;
+      requestAnimationFrame(keep);
+      for (const ms of [150, 400, 800, 1200]) timers.push(window.setTimeout(keep, ms));
+      timers.push(window.setTimeout(on, 1550));
+    };
+    const touched = () => {
+      settling.current = 0;
+    };
     const target = pageScroll ? window : root;
     target.addEventListener("scroll", on, { passive: true });
-    return () => target.removeEventListener("scroll", on);
+    window.addEventListener("pointerdown", touched);
+    const stop = onFullscreenChange(settle);
+    return () => {
+      cancelAnimationFrame(raf);
+      timers.forEach(clearTimeout);
+      target.removeEventListener("scroll", on);
+      window.removeEventListener("pointerdown", touched);
+      stop();
+    };
   }, [onPage, ahead, first, pageScroll]);
 
   // Auto scroll moves the strip a little every frame. A finger or the

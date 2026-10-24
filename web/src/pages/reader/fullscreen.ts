@@ -51,17 +51,19 @@ export function toggleFullscreen() {
   else el.webkitRequestFullscreen?.();
 }
 
+/** onFullscreenChange calls on whenever the page enters or leaves full screen, until the returned function is called. */
+export function onFullscreenChange(on: () => void) {
+  document.addEventListener("fullscreenchange", on);
+  document.addEventListener("webkitfullscreenchange", on);
+  return () => {
+    document.removeEventListener("fullscreenchange", on);
+    document.removeEventListener("webkitfullscreenchange", on);
+  };
+}
+
 /** useFullscreen tracks whether the page is full screen. */
 export function useFullscreen() {
   const [full, setFull] = useState(isFullscreen);
-  useEffect(() => {
-    const on = () => setFull(isFullscreen());
-    document.addEventListener("fullscreenchange", on);
-    document.addEventListener("webkitfullscreenchange", on);
-    return () => {
-      document.removeEventListener("fullscreenchange", on);
-      document.removeEventListener("webkitfullscreenchange", on);
-    };
-  }, []);
+  useEffect(() => onFullscreenChange(() => setFull(isFullscreen())), []);
   return full;
 }
