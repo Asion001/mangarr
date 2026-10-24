@@ -52,6 +52,13 @@ export function staleAhead(saved: Index, seriesId: number, keep: ReadonlySet<num
     .map((c) => c.id);
 }
 
+/** unfinished is the chapters saved on purpose that stopped part way (the page was closed or reloaded) and aren't waiting in `queued`, oldest first. */
+export function unfinished(saved: Index, queued: ReadonlySet<number>): SavedChapter[] {
+  return Object.values(saved)
+    .filter((c) => c.kind === "kept" && c.saved < c.pages && !queued.has(c.id))
+    .sort((a, b) => a.at - b.at);
+}
+
 /** nearestSaved is the closest complete saved chapter of the same series after (or before) `from`, by chapter number. */
 export function nearestSaved(saved: Index, from: { id: number; seriesId: number; number: string }, dir: "next" | "prev") {
   const n = Number(from.number);

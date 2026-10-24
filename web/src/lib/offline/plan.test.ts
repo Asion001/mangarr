@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { nearestSaved, saveWidth, staleAhead, type SavedChapter } from "./plan";
+import { nearestSaved, saveWidth, staleAhead, unfinished, type SavedChapter } from "./plan";
 
 const widths = [320, 720, 1080, 1440, 2160];
 const ch = (id: number, kind: SavedChapter["kind"], seriesId = 1): SavedChapter => ({
@@ -25,5 +25,10 @@ describe("saved chapters", () => {
     expect(nearestSaved(saved, { id: 4, seriesId: 1, number: "4" }, "next")?.id).toBe(5);
     expect(nearestSaved(saved, { id: 5, seriesId: 1, number: "5" }, "next")).toBeUndefined();
     expect(nearestSaved(saved, { id: 3, seriesId: 1, number: "3" }, "prev")?.id).toBe(1);
+  });
+
+  test("picks up chapters saved on purpose that stopped part way, not ones already queued", () => {
+    const saved = { 1: { ...ch(1, "kept"), saved: 3, at: 2 }, 2: { ...ch(2, "kept"), saved: 0, at: 1 }, 3: { ...ch(3, "ahead"), saved: 2 }, 4: ch(4, "kept"), 5: { ...ch(5, "kept"), saved: 1 } };
+    expect(unfinished(saved, new Set([5])).map((c) => c.id)).toEqual([2, 1]);
   });
 });

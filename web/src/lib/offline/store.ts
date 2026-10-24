@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { apiUrl, type S } from "../../api/client";
-import { pageWidths, saveWidth, type Index, type SaveKind, type SavedChapter } from "./plan";
+import { pageWidths, saveWidth, unfinished, type Index, type SaveKind, type SavedChapter } from "./plan";
 
 export { estimateBytes, nearestSaved, pageWidths, readKept, saveWidth, staleAhead, type SaveKind, type SavedChapter } from "./plan";
 
@@ -228,17 +228,26 @@ export const saveQueue = (): QueuedChapter[] => queue;
 export const useSaveQueue = () => useSyncExternalStore(subscribe, saveQueue);
 
 let draining = false;
+let retry: ReturnType<typeof setTimeout> | undefined;
+/** How long a queue that stopped on an error waits before trying again. */
+const RETRY_MS = 30_000;
 
 /** drain saves the queued chapters one at a time; a chapter that fails stays queued for the next try. */
 async function drain() {
   if (draining || !offlineReady()) return;
   draining = true;
+  clearTimeout(retry);
   try {
+    // a chapter saved on its own that the page closed on goes first, then the queue
+    const stopped = unfinished(index, new Set(queue.map((q) => q.id))).filter((c) => !running.has(c.id));
+    if (stopped.length) writeQueue([...stopped.map(({ id, seriesId, seriesTitle, number }) => ({ id, seriesId, seriesTitle, number })), ...queue]);
     for (let next = queue[0]; next; next = queue[0]) {
       try {
         await saveChapterById(next.id);
       } catch {
-        return; // no server, or out of space: try again later
+        // no server, or out of space: try again later
+        retry = setTimeout(() => void drain(), RETRY_MS);
+        return;
       }
       writeQueue(queue.filter((q) => q.id !== next.id));
     }
@@ -259,10 +268,11 @@ export function queueSave(chapters: QueuedChapter[]) {
   return add.length;
 }
 
-/** unqueue takes chapters out of the save queue. */
+/** unqueue takes chapters out of the save queue, dropping what a started one had saved so it isn't picked up again. */
 export function unqueue(ids: number[]) {
   const drop = new Set(ids);
   writeQueue(queue.filter((q) => !drop.has(q.id)));
+  for (const id of ids) if (saving(index[id])) void removeChapter(id);
 }
 
 if (typeof window !== "undefined") {
@@ -272,10 +282,10 @@ if (typeof window !== "undefined") {
       for (const l of listeners) l();
     }
   });
-  // what was still waiting when the page closed carries on, once a service worker answers
+  // what was still waiting or saving when the page closed carries on, once a service worker answers
   window.addEventListener("online", () => void drain());
   navigator.serviceWorker?.addEventListener("controllerchange", () => void drain());
-  if (queue.length) setTimeout(() => void drain(), 2000);
+  setTimeout(() => void drain(), 2000);
 }
 
 /** removeChapter deletes a saved chapter from this device. */
