@@ -114,3 +114,17 @@ fieldset:disabled :is(input, select, textarea, button) {
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+/* a section that loads late opens to its height instead of pushing the page down in one jump */
+.open-in {
+  display: grid;
+  animation: open-in 0.3s ease-out;
+}
+.open-in > * { min-height: 0; overflow: hidden; }
+@keyframes open-in {
+  from { grid-template-rows: 0fr; opacity: 0; }
+  to { grid-template-rows: 1fr; opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .open-in { animation: none; }
+}
