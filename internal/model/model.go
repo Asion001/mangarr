@@ -569,10 +569,20 @@ type Adaptation struct {
 	Links       map[string]string `json:"links"`
 }
 
+// Keys of SeriesMetadata.Titles besides language codes: the original title
+// transliterated to Latin script, and as written in its own script.
+const (
+	TitleRomanized = "romanized"
+	TitleNative    = "native"
+)
+
 // SeriesMetadata is the merged metadata of a series plus provenance and locks.
 type SeriesMetadata struct {
-	Adaptations   []Adaptation      `json:"adaptations,omitempty"`
-	AltTitles     []string          `json:"altTitles,omitempty"`
+	Adaptations []Adaptation `json:"adaptations,omitempty"`
+	AltTitles   []string     `json:"altTitles,omitempty"`
+	// Titles are the title's names by language ("en", "ru"), plus
+	// TitleRomanized and TitleNative, as the metadata providers know them.
+	Titles        map[string]string `json:"titles,omitempty"`
 	Description   string            `json:"description,omitempty"`
 	Year          int               `json:"year,omitempty"`
 	Authors       []string          `json:"authors,omitempty"`
@@ -590,6 +600,17 @@ type SeriesMetadata struct {
 	Provenance map[string]string `json:"provenance,omitempty"`
 	// Locks lists fields the user edited; refreshes do not overwrite them.
 	Locks []string `json:"locks,omitempty"`
+}
+
+// FromProviders reports whether a metadata provider supplied any field (not
+// only the source or the user).
+func (m SeriesMetadata) FromProviders() bool {
+	for _, from := range m.Provenance {
+		if from != "" && from != "source" && from != "user" {
+			return true
+		}
+	}
+	return false
 }
 
 func (m SeriesMetadata) Locked(field string) bool {

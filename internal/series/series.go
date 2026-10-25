@@ -21,6 +21,7 @@ import (
 	"github.com/Asion001/mangarr/internal/metadataagg"
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/modules"
+	"github.com/Asion001/mangarr/internal/modules/metadata"
 	"github.com/Asion001/mangarr/internal/modules/source"
 	"github.com/Asion001/mangarr/internal/naming"
 	"github.com/Asion001/mangarr/internal/readstate"
@@ -107,6 +108,9 @@ type AddRequest struct {
 	RequestID int64 `json:"requestId,omitempty"`
 	// Preview adds the title as a preview (see Preview), not to the library.
 	Preview bool `json:"-"`
+	// MetadataLater adds the series while its metadata provider is down,
+	// keeping the reference so RetryMetadata fills it in once it is back.
+	MetadataLater bool `json:"-"`
 }
 
 // Add creates a series, links its sources and queues the first refresh.
@@ -162,6 +166,12 @@ func (s *Service) Add(ctx context.Context, req AddRequest) (*model.Series, error
 	}
 	if req.Metadata != nil {
 		resolved, err := s.agg.ResolveLanguage(ctx, *req.Metadata, nil, ser.Language)
+		if err != nil && req.MetadataLater && metadata.Retryable(err) {
+			s.log.Warn("metadata later: provider unavailable", "provider", req.Metadata.Provider, "id", req.Metadata.ID, "err", err)
+			ids := map[string]string{req.Metadata.Provider: req.Metadata.ID}
+			ser.Metadata.ExternalIDs = ids
+			resolved, err = &metadataagg.Resolved{Metadata: metadata.SeriesMetadata{ExternalIDs: ids}}, nil
+		}
 		if err != nil {
 			return nil, fmt.Errorf("metadata: %w", err)
 		}
@@ -787,6 +797,23 @@ func (s *Service) RefreshMetadata(ctx context.Context, id int64) (bool, error) {
 	}
 	_, _ = s.ShareMetadata(ctx, ser.WorkID)
 	return changed, nil
+}
+
+// PendingMetadata lists series added since then that know their metadata
+// ids but never got fields from a provider (added while it was down).
+func (s *Service) PendingMetadata(ctx context.Context, since time.Time) ([]int64, error) {
+	var list []model.Series
+	if err := s.db.NewSelect().Model(&list).Column("id", "metadata").
+		Where("preview = ? AND added_at >= ?", false, since).Scan(ctx); err != nil {
+		return nil, err
+	}
+	var out []int64
+	for _, ser := range list {
+		if len(ser.Metadata.ExternalIDs) > 0 && !ser.Metadata.FromProviders() {
+			out = append(out, ser.ID)
+		}
+	}
+	return out, nil
 }
 
 // LinkMetadata replaces the metadata match of a series (fix a wrong match).

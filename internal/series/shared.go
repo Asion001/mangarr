@@ -56,6 +56,15 @@ func overlayShared(dst, first *model.Series) bool {
 	if len(f.Adaptations) > 0 {
 		d.Adaptations = slices.Clone(f.Adaptations)
 	}
+	// the title's names by language fill in those the edition lacks
+	for k, v := range f.Titles {
+		if d.Titles[k] == "" {
+			if d.Titles == nil {
+				d.Titles = map[string]string{}
+			}
+			d.Titles[k] = v
+		}
+	}
 	for _, field := range sharedFields {
 		if from, ok := f.Provenance[field]; ok && !d.Locked(field) {
 			if d.Provenance == nil {

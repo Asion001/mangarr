@@ -377,7 +377,7 @@ export function SeriesIndex() {
                       {on && <Check className="size-4" />}
                     </span>
                   )}
-                  <Cover src={apiUrl(s.coverUrl)} alt={s.title} className="aspect-[2/3] w-full ring-accent/60 transition group-hover:ring-2" />
+                  <Cover src={apiUrl(s.coverUrl)} alt={s.displayTitle || s.title} className="aspect-[2/3] w-full ring-accent/60 transition group-hover:ring-2" />
                   {manage && !s.monitored && <div className={`absolute top-1.5 ${selecting ? "left-9" : "left-1.5"}`}><Badge>{t("unmonitored")}</Badge></div>}
                   {manage && s.stats.missingCount > 0 && (
                     <div className="absolute right-1.5 top-1.5">
@@ -387,7 +387,7 @@ export function SeriesIndex() {
                 </div>
                 <Progress value={p.pct} tone={p.tone} />
                 {s.stats.readCount > 0 && <ReadBar s={s} />}
-                <div className="line-clamp-2 text-sm font-medium leading-tight">{s.title}</div>
+                <div className="line-clamp-2 text-sm font-medium leading-tight">{s.displayTitle || s.title}</div>
                 {(s.editions?.length ?? 0) > 0 && (
                   <div className="flex flex-wrap gap-1">
                     {(s.editions ?? []).map((edition) => <Badge key={edition.id}>{edition.language ? languageName(edition.language) : "—"}</Badge>)}
@@ -423,7 +423,7 @@ export function SeriesIndex() {
                 )}
                 <Td>
                   <Link to={`/series/${s.id}`} className="font-medium hover:text-accent-2">
-                    {s.title}
+                    {s.displayTitle || s.title}
                   </Link>
                   {(s.editions?.length ?? 0) > 0 && (
                     <span className="ml-2 inline-flex gap-1">

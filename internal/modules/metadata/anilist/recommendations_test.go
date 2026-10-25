@@ -37,7 +37,7 @@ func TestRecommendations(t *testing.T) {
 ]}}}}`))
 	}))
 	defer server.Close()
-	m := &Module{s: &Settings{TitleLanguage: "english", Endpoint: server.URL}, http: server.Client()}
+	m := &Module{s: &Settings{Endpoint: server.URL}, http: server.Client()}
 	got, err := m.Recommendations(context.Background(), "1")
 	if err != nil {
 		t.Fatal(err)

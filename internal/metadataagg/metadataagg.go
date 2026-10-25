@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"reflect"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -118,6 +119,9 @@ type Resolved struct {
 	Metadata   metadata.SeriesMetadata
 	Provenance map[string]string
 	Refs       []Ref
+	// Missing are providers of known refs that could not be reached: what
+	// they supplied before stays, rather than going to a lower provider.
+	Missing []string
 }
 
 // Resolve fetches the primary series and enriches it from the other modules.
@@ -151,10 +155,12 @@ func (a *Aggregator) ResolveLanguage(ctx context.Context, primary Ref, fallback 
 	if first == nil {
 		return nil, errors.New("metadata module not found or disabled")
 	}
-	parts = append(parts, *first)
+	// the others fill in by module priority, like a refresh does, so an add
+	// from a lower provider's match ends up as the refresh would leave it
 	refs = append(refs, Ref{ModuleID: primary.ModuleID, Provider: first.Provider, ID: first.ID})
 	for _, m := range mods {
 		if m.Def.ID == primary.ModuleID {
+			parts = append(parts, *first)
 			continue
 		}
 		md := a.enrichFrom(ctx, m, *first)
@@ -167,6 +173,12 @@ func (a *Aggregator) ResolveLanguage(ctx context.Context, primary Ref, fallback 
 		parts = append(parts, FromSource(fallback))
 	}
 	merged, prov := Merge(parts)
+	if strings.TrimSpace(first.Title) != "" && merged.Title != first.Title {
+		// the edition keeps the name its match gave, in its language
+		merged.AltTitles = slices.DeleteFunc(merged.AltTitles, func(t string) bool { return t == first.Title })
+		merged.AltTitles = append(merged.AltTitles, merged.Title)
+		merged.Title, prov["title"] = first.Title, first.Provider
+	}
 	return &Resolved{Metadata: merged, Provenance: prov, Refs: refs}, nil
 }
 
@@ -185,6 +197,7 @@ func (a *Aggregator) RefFor(ids map[string]string) *Ref {
 func (a *Aggregator) ResolveRefs(ctx context.Context, refs []Ref, fallback *source.MangaDetails) (*Resolved, error) {
 	var parts []metadata.SeriesMetadata
 	var got []Ref
+	var missing []string
 	for _, m := range modules.ActiveAs[metadata.Module](a.mods, modules.KindMetadata) {
 		for _, r := range refs {
 			if r.Provider != m.Def.Implementation {
@@ -193,6 +206,7 @@ func (a *Aggregator) ResolveRefs(ctx context.Context, refs []Ref, fallback *sour
 			md, err := m.Instance.Get(ctx, r.ID)
 			if err != nil {
 				a.log.Warn("metadata refresh failed", "provider", r.Provider, "id", r.ID, "err", err)
+				missing = append(missing, r.Provider)
 				continue
 			}
 			parts = append(parts, *md)
@@ -207,7 +221,7 @@ func (a *Aggregator) ResolveRefs(ctx context.Context, refs []Ref, fallback *sour
 		parts = append(parts, FromSource(fallback))
 	}
 	merged, prov := Merge(parts)
-	return &Resolved{Metadata: merged, Provenance: prov, Refs: got}, nil
+	return &Resolved{Metadata: merged, Provenance: prov, Refs: got, Missing: missing}, nil
 }
 
 func (a *Aggregator) enrichFrom(ctx context.Context, m modules.Typed[metadata.Module], primary metadata.SeriesMetadata) *metadata.SeriesMetadata {
@@ -293,7 +307,7 @@ func splitPeople(s string) []string {
 // non-empty value, lists are unioned. It returns the merged metadata and a
 // field -> provider provenance map.
 func Merge(parts []metadata.SeriesMetadata) (metadata.SeriesMetadata, map[string]string) {
-	out := metadata.SeriesMetadata{Links: map[string]string{}, ExternalIDs: map[string]string{}}
+	out := metadata.SeriesMetadata{Links: map[string]string{}, ExternalIDs: map[string]string{}, Titles: map[string]string{}}
 	prov := map[string]string{}
 	str := func(field string, dst *string, v, p string) {
 		if *dst == "" && strings.TrimSpace(v) != "" {
@@ -354,6 +368,11 @@ func Merge(parts []metadata.SeriesMetadata) (metadata.SeriesMetadata, map[string
 				out.Links[k] = v
 			}
 		}
+		for k, v := range p.Titles {
+			if _, ok := out.Titles[k]; !ok && strings.TrimSpace(v) != "" {
+				out.Titles[k] = v
+			}
+		}
 		for k, v := range p.ExternalIDs {
 			if _, ok := out.ExternalIDs[k]; !ok && v != "" {
 				out.ExternalIDs[k] = v
@@ -374,22 +393,26 @@ func Apply(s *model.Series, r *Resolved) bool {
 	md := r.Metadata
 	cur := &s.Metadata
 	changed := false
+	// kept: the field is the user's, or came from a provider that is down
+	kept := func(field string) bool {
+		return cur.Locked(field) || slices.Contains(r.Missing, cur.Provenance[field])
+	}
 	setStr := func(field string, dst *string, v string) {
-		if cur.Locked(field) || v == "" || *dst == v {
+		if kept(field) || v == "" || *dst == v {
 			return
 		}
 		*dst = v
 		changed = true
 	}
 	setList := func(field string, dst *[]string, v []string) {
-		if cur.Locked(field) || len(v) == 0 || equalStrings(*dst, v) {
+		if kept(field) || len(v) == 0 || equalStrings(*dst, v) {
 			return
 		}
 		*dst = v
 		changed = true
 	}
 	setStr("title", &s.Title, md.Title)
-	if md.Status != "" && !cur.Locked("status") && s.Status != md.Status {
+	if md.Status != "" && !kept("status") && s.Status != md.Status {
 		s.Status = md.Status
 		changed = true
 	}
@@ -402,10 +425,10 @@ func Apply(s *model.Series, r *Resolved) bool {
 	setList("genres", &cur.Genres, md.Genres)
 	setList("tags", &cur.Tags, md.Tags)
 	setList("altTitles", &cur.AltTitles, md.AltTitles)
-	if !cur.Locked("year") && md.Year > 0 && cur.Year != md.Year {
+	if !kept("year") && md.Year > 0 && cur.Year != md.Year {
 		cur.Year, changed = md.Year, true
 	}
-	if md.TotalChapters > 0 && cur.TotalChapters != md.TotalChapters {
+	if !kept("totalChapters") && md.TotalChapters > 0 && cur.TotalChapters != md.TotalChapters {
 		cur.TotalChapters, changed = md.TotalChapters, true
 	}
 	if rating := ageRating(md); rating != "" && !cur.Locked("ageRating") && cur.AgeRating != rating {
@@ -419,6 +442,14 @@ func Apply(s *model.Series, r *Resolved) bool {
 		}
 		if md.Adaptations == nil {
 			delete(cur.Provenance, "adaptations")
+		}
+	}
+	for k, v := range md.Titles {
+		if cur.Titles == nil {
+			cur.Titles = map[string]string{}
+		}
+		if cur.Titles[k] != v && (cur.Titles[k] == "" || len(r.Missing) == 0) {
+			cur.Titles[k], changed = v, true
 		}
 	}
 	if cur.Links == nil {
@@ -441,7 +472,7 @@ func Apply(s *model.Series, r *Resolved) bool {
 		cur.Provenance = map[string]string{}
 	}
 	for k, v := range r.Provenance {
-		if !cur.Locked(k) {
+		if !kept(k) {
 			cur.Provenance[k] = v
 		}
 	}

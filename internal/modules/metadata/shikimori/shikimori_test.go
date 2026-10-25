@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 
 	"github.com/Asion001/mangarr/internal/modules"
@@ -25,7 +26,7 @@ func TestSearchLanguageReturnsRussianTitles(t *testing.T) {
 	}))
 	defer server.Close()
 
-	m := &Module{s: &Settings{TitleLanguage: "english", Endpoint: server.URL, UserAgent: "mangarr-test"}, http: server.Client()}
+	m := &Module{s: &Settings{Endpoint: server.URL, UserAgent: "mangarr-test"}, http: server.Client()}
 	list, err := m.SearchLanguage(context.Background(), "Атака титанов", "ru", 10)
 	if err != nil {
 		t.Fatal(err)
@@ -45,12 +46,16 @@ func TestGetMapsDetailedMetadata(t *testing.T) {
 	}))
 	defer server.Close()
 
-	m := &Module{s: &Settings{TitleLanguage: "russian", Endpoint: server.URL, UserAgent: "mangarr-test"}, http: server.Client()}
+	m := &Module{s: &Settings{Endpoint: server.URL, UserAgent: "mangarr-test"}, http: server.Client()}
 	got, err := m.Get(context.Background(), "23390")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Title != "Атака титанов" || got.Description != "Описание" || got.Publisher != "Kodansha" || got.Genres[0] != "Action" || got.TotalChapters != 141 || got.Status != "completed" {
+	want := map[string]string{"ru": "Атака титанов", "en": "Attack on Titan", "romanized": "Shingeki no Kyojin", "native": "進撃の巨人"}
+	if !reflect.DeepEqual(got.Titles, want) {
+		t.Fatalf("titles %v", got.Titles)
+	}
+	if got.Title != "Attack on Titan" || got.Description != "Описание" || got.Publisher != "Kodansha" || got.Genres[0] != "Action" || got.TotalChapters != 141 || got.Status != "completed" {
 		t.Fatalf("unexpected metadata: %+v", got)
 	}
 	if len(got.AltTitles) != 4 {

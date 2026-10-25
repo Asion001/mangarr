@@ -13,10 +13,13 @@ import (
 
 // SeriesMetadata is what a provider knows about a series.
 type SeriesMetadata struct {
-	Provider      string            `json:"provider"` // implementation name, e.g. "anilist"
-	ID            string            `json:"id"`
-	Title         string            `json:"title"`
-	AltTitles     []string          `json:"altTitles,omitempty"`
+	Provider  string   `json:"provider"` // implementation name, e.g. "anilist"
+	ID        string   `json:"id"`
+	Title     string   `json:"title"`
+	AltTitles []string `json:"altTitles,omitempty"`
+	// Titles are the provider's names by language ("en", "ru"), plus
+	// model.TitleRomanized and model.TitleNative for the original's.
+	Titles        map[string]string `json:"titles,omitempty"`
 	Description   string            `json:"description,omitempty"`
 	Status        string            `json:"status,omitempty"` // ongoing/completed/hiatus/cancelled/unknown
 	Year          int               `json:"year,omitempty"`

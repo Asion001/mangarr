@@ -52,7 +52,7 @@ func TestAdaptations(t *testing.T) {
 				}
 			}))
 			defer server.Close()
-			m := &Module{s: &Settings{TitleLanguage: "english", Endpoint: server.URL}, http: server.Client()}
+			m := &Module{s: &Settings{Endpoint: server.URL}, http: server.Client()}
 			var got *metadata.SeriesMetadata
 			var err error
 			switch method {
@@ -105,14 +105,18 @@ func TestAdaptations(t *testing.T) {
 	}
 }
 
-func TestAdaptationsEmptyAndTitleLanguage(t *testing.T) {
-	m := &Module{s: &Settings{TitleLanguage: "native"}}
+func TestAdaptationsEmptyAndTitles(t *testing.T) {
+	m := &Module{s: &Settings{}}
 	var md media
-	if err := json.Unmarshal([]byte(`{"relations":{"edges":[{"relationType":"ADAPTATION","node":{"id":700002,"type":"ANIME","format":"TV","title":{"native":"Lantern Native","romaji":"Lantern Romaji"}}}]}}`), &md); err != nil {
+	if err := json.Unmarshal([]byte(`{"title":{"romaji":"Kumo no Rantan","native":"雲のランタン"},"relations":{"edges":[{"relationType":"ADAPTATION","node":{"id":700002,"type":"ANIME","format":"TV","title":{"native":"Lantern Native","romaji":"Lantern Romaji"}}}]}}`), &md); err != nil {
 		t.Fatal(err)
 	}
 	got := m.convert(md)
-	if len(got.Adaptations) != 1 || got.Adaptations[0].Title != "Lantern Native" {
+	// no English name: the romaji one, and every name by language
+	if got.Title != "Kumo no Rantan" || !reflect.DeepEqual(got.Titles, map[string]string{"romanized": "Kumo no Rantan", "native": "雲のランタン"}) {
+		t.Fatal(got.Title, got.Titles)
+	}
+	if len(got.Adaptations) != 1 || got.Adaptations[0].Title != "Lantern Romaji" {
 		t.Fatal(got.Adaptations)
 	}
 	for raw, fetched := range map[string]bool{`{}`: false, `{"relations":null}`: false, `{"relations":{"edges":[]}}`: true} {

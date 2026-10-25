@@ -24,10 +24,9 @@ import (
 const defaultEndpoint = "https://graphql.anilist.co"
 
 type Settings struct {
-	TitleLanguage  string `json:"titleLanguage" label:"Title language" options:"english:English (fallback romaji),romaji:Romaji,native:Native,userPreferred:AniList default" order:"1"`
-	MinTagRank     int    `json:"minTagRank" label:"Minimum tag rank" order:"2" help:"Only AniList tags with at least this relevance (0-100) are imported." advanced:"true"`
-	IncludeSpoiler bool   `json:"includeSpoilerTags" label:"Include spoiler tags" order:"3" advanced:"true"`
-	Endpoint       string `json:"endpoint" label:"API endpoint" type:"url" order:"4" advanced:"true"`
+	MinTagRank     int    `json:"minTagRank" label:"Minimum tag rank" order:"1" help:"Only AniList tags with at least this relevance (0-100) are imported." advanced:"true"`
+	IncludeSpoiler bool   `json:"includeSpoilerTags" label:"Include spoiler tags" order:"2" advanced:"true"`
+	Endpoint       string `json:"endpoint" label:"API endpoint" type:"url" order:"3" advanced:"true"`
 }
 
 func init() {
@@ -38,7 +37,7 @@ func init() {
 		Description: "Series metadata from AniList: titles, synonyms, synopsis, staff, genres, tags, cover and status.",
 		InfoURL:     "https://anilist.co",
 		Settings: func() any {
-			return &Settings{TitleLanguage: "english", MinTagRank: 60, Endpoint: defaultEndpoint}
+			return &Settings{MinTagRank: 60, Endpoint: defaultEndpoint}
 		},
 		New: func(deps modules.Deps, s any) (modules.Instance, error) {
 			hc := deps.HTTP
@@ -284,17 +283,20 @@ func cleanDescription(s string) string {
 	return strings.TrimSpace(blankLines.ReplaceAllString(s, "\n\n"))
 }
 
+// title is the English name, else the romaji one; the others go to titles.
 func (m *Module) title(md media) string {
-	title := md.Title.UserPreferred
-	switch m.s.TitleLanguage {
-	case "english":
-		title = firstNonEmpty(md.Title.English, md.Title.Romaji, md.Title.UserPreferred)
-	case "romaji":
-		title = firstNonEmpty(md.Title.Romaji, md.Title.UserPreferred)
-	case "native":
-		title = firstNonEmpty(md.Title.Native, md.Title.Romaji)
+	return firstNonEmpty(md.Title.English, md.Title.Romaji, md.Title.UserPreferred)
+}
+
+// titles are a media's names by language.
+func titles(md media) map[string]string {
+	out := map[string]string{}
+	for k, v := range map[string]string{"en": md.Title.English, model.TitleRomanized: md.Title.Romaji, model.TitleNative: md.Title.Native} {
+		if v = strings.TrimSpace(v); v != "" {
+			out[k] = v
+		}
 	}
-	return title
+	return out
 }
 
 func (m *Module) convert(md media) metadata.SeriesMetadata {
@@ -306,7 +308,7 @@ func (m *Module) convert(md media) metadata.SeriesMetadata {
 		}
 	}
 	out := metadata.SeriesMetadata{
-		Provider: "anilist", ID: strconv.Itoa(md.ID), Title: title, AltTitles: dedupe(alt),
+		Provider: "anilist", ID: strconv.Itoa(md.ID), Title: title, AltTitles: dedupe(alt), Titles: titles(md),
 		Description: cleanDescription(md.Description), Year: md.StartDate.Year, Genres: md.Genres,
 		CoverURL: firstNonEmpty(md.CoverImage.ExtraLarge, md.CoverImage.Large), URL: md.SiteURL,
 		Adult: md.IsAdult, TotalChapters: md.Chapters, Country: md.CountryOfOrigin,

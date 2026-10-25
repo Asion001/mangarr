@@ -55,7 +55,7 @@ func TestSeriesAdaptationsRefreshAndAPI(t *testing.T) {
 			}))
 			defer upstream.Close()
 			def := &model.ProviderDefinition{Kind: "metadata", Implementation: "anilist", Name: "Test metadata", Enabled: true,
-				Settings: map[string]any{"endpoint": upstream.URL, "titleLanguage": "english"}}
+				Settings: map[string]any{"endpoint": upstream.URL}}
 			if err := a.Modules.Create(ctx, def); err != nil {
 				t.Fatal(err)
 			}

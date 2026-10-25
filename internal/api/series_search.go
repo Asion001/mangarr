@@ -100,7 +100,7 @@ func matchesSeriesQuery(item SeriesResource, query SeriesSearchQuery) bool {
 	needle := strings.ToLower(strings.TrimSpace(query.Query))
 	if needle != "" {
 		// a genre's name, in any language, finds the series with it
-		matched := titleMatches(item.Title, needle) || hasGenre(item.Metadata, needle)
+		matched := titleMatches(item.Title, needle) || titleMatches(item.DisplayTitle, needle) || hasGenre(item.Metadata, needle)
 		for _, title := range item.Metadata.AltTitles {
 			matched = matched || titleMatches(title, needle)
 		}
@@ -205,6 +205,9 @@ func (s *Server) registerSeriesSearch() {
 			for _, series := range visible {
 				matched := titleMatches(series.Title, needle)
 				for _, title := range series.Metadata.AltTitles {
+					matched = matched || titleMatches(title, needle)
+				}
+				for _, title := range series.Metadata.Titles {
 					matched = matched || titleMatches(title, needle)
 				}
 				if matched && needle != "" {

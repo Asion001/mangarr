@@ -102,7 +102,8 @@ func (s *Server) registerReading() {
 			out := Shelf{UserID: uid, User: name, Items: []ShelfItem{}}
 			for _, n := range next[:min(in.Limit, len(next))] {
 				ser, ch := n.Series.Series, n.Book.Chapter
-				it := ShelfItem{SeriesID: ser.ID, Title: ser.Title,
+				title, _ := displayTitle(ser, uiLanguageFrom(ctx))
+				it := ShelfItem{SeriesID: ser.ID, Title: title,
 					CoverURL: seriesCoverURL(ser),
 					Next:     NextChapter{ChapterID: ch.ID, Number: ch.NumberKey, Title: ch.Title, Available: n.Book.File != nil},
 					Read:     n.Series.Read, Total: n.Series.Books, LastReadAt: n.Series.LastRead}

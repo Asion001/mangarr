@@ -247,14 +247,12 @@ MANGARR_MODULE_KOMGA_API_KEY=...
 | `_ENDPOINT` | string | API endpoint |
 | `_INCLUDE_SPOILER_TAGS` | bool | Include spoiler tags |
 | `_MIN_TAG_RANK` | int | Minimum tag rank. Only AniList tags with at least this relevance (0-100) are imported |
-| `_TITLE_LANGUAGE` | string | Title language |
 
 ### `metadata/shikimori` — Shikimori
 
 | Suffix | Type | Description |
 |---|---|---|
 | `_ENDPOINT` | string | API endpoint |
-| `_TITLE_LANGUAGE` | string | Title language |
 | `_USER_AGENT` | string | User-Agent. Shikimori requires an identifiable application User-Agent |
 
 ### `library/kavita` — Kavita

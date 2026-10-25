@@ -244,7 +244,7 @@ func (s *Service) runEntry(ctx context.Context, imp *model.Import, e *model.Impo
 
 	d := e.Data
 	req := series.AddRequest{Title: d.Title, RootFolderID: opts.RootFolderID, ProfileID: opts.ProfileID, MonitorNew: opts.MonitorNew,
-		SearchMissing: opts.SearchMissing, Tags: []int64{}, NoRefresh: true,
+		SearchMissing: opts.SearchMissing, Tags: []int64{}, NoRefresh: true, MetadataLater: true,
 		Sources: []series.SourceLink{{ModuleID: e.Source.ModuleID, SourceID: e.Source.SourceID, URL: e.Source.URL, Title: e.Source.Title,
 			SourceName: e.Source.SourceName, Lang: e.Source.Lang}}}
 	for _, c := range d.Categories {

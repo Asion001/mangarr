@@ -1,6 +1,7 @@
 package metadataagg
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/Asion001/mangarr/internal/model"
@@ -53,6 +54,32 @@ func TestApplyRespectsLocks(t *testing.T) {
 	}
 	if s.Metadata.Provenance["title"] != "" || s.Metadata.Provenance["genres"] != "anilist" {
 		t.Fatalf("provenance: %v", s.Metadata.Provenance)
+	}
+}
+
+// While the main provider is down, a lower one fills only what the main one
+// never gave: its title, description and names stay.
+func TestApplyKeepsFieldsOfMissingProvider(t *testing.T) {
+	s := &model.Series{Title: "Attack on Titan", Metadata: model.SeriesMetadata{Description: "English text",
+		Titles:     map[string]string{"en": "Attack on Titan", "romanized": "Shingeki no Kyojin"},
+		Provenance: map[string]string{"title": "anilist", "description": "anilist"}}}
+	md, prov := Merge([]metadata.SeriesMetadata{{Provider: "shikimori", ID: "1", Title: "Атака титанов", Description: "Описание",
+		Publisher: "Kodansha", Titles: map[string]string{"ru": "Атака титанов", "romanized": "Shingeki no Kyojin!"}}})
+	Apply(s, &Resolved{Metadata: md, Provenance: prov, Missing: []string{"anilist"}})
+	if s.Title != "Attack on Titan" || s.Metadata.Description != "English text" || s.Metadata.Provenance["title"] != "anilist" {
+		t.Fatalf("main provider's fields changed: %q %q %v", s.Title, s.Metadata.Description, s.Metadata.Provenance)
+	}
+	if s.Metadata.Publisher != "Kodansha" || s.Metadata.Provenance["publisher"] != "shikimori" {
+		t.Fatalf("missing field not filled: %+v", s.Metadata)
+	}
+	want := map[string]string{"en": "Attack on Titan", "romanized": "Shingeki no Kyojin", "ru": "Атака титанов"}
+	if !reflect.DeepEqual(s.Metadata.Titles, want) {
+		t.Fatalf("titles %v", s.Metadata.Titles)
+	}
+	// once it answers again, it updates as usual
+	Apply(s, &Resolved{Metadata: md, Provenance: prov})
+	if s.Title != "Атака титанов" || s.Metadata.Titles["romanized"] != "Shingeki no Kyojin!" {
+		t.Fatalf("refresh with every provider: %q %v", s.Title, s.Metadata.Titles)
 	}
 }
 

@@ -10,6 +10,7 @@ import (
 
 	"github.com/Asion001/mangarr/internal/access"
 	"github.com/Asion001/mangarr/internal/model"
+	"github.com/Asion001/mangarr/internal/naming"
 )
 
 func init() { register((*Server).registerSeriesWorks) }
@@ -54,6 +55,52 @@ func uiLanguage(acceptLanguage string) string {
 		return lang
 	}
 	return ""
+}
+
+type uiLanguageKey struct{}
+
+// uiLanguageMiddleware keeps the request's interface language, which
+// names titles in the series resources.
+func uiLanguageMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if lang := uiLanguage(r.Header.Get("Accept-Language")); lang != "" {
+			r = r.WithContext(context.WithValue(r.Context(), uiLanguageKey{}, lang))
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func uiLanguageFrom(ctx context.Context) string {
+	lang, _ := ctx.Value(uiLanguageKey{}).(string)
+	return lang
+}
+
+// titleLanguages are the metadata names tried, in order, for an interface
+// language: Ukrainian falls back to Russian, which Shikimori has.
+func titleLanguages(lang string) []string {
+	switch lang {
+	case "":
+		return []string{"en"}
+	case "uk":
+		return []string{"uk", "ru"}
+	}
+	return []string{lang}
+}
+
+// displayTitle is a series' name in the interface language, else its
+// romanized original. ok is false when the metadata names none and the
+// series' own title is returned; a title the user set always wins.
+func displayTitle(ser model.Series, lang string) (title string, ok bool) {
+	md := ser.Metadata
+	if md.Locked("title") || len(md.Titles) == 0 {
+		return ser.Title, false
+	}
+	for _, key := range append(titleLanguages(lang), model.TitleRomanized) {
+		if t := strings.TrimSpace(md.Titles[key]); t != "" {
+			return t, true
+		}
+	}
+	return ser.Title, false
 }
 
 // localEdition is the edition in the reader's language, or nil when the
@@ -140,8 +187,12 @@ func (s *Server) groupedSeriesResources(ctx context.Context, list []model.Series
 			r.WorkTitle = work.Title
 			if local == nil {
 				r.Title, r.SortTitle = work.Title, work.SortTitle
+				if _, named := displayTitle(representative, lang); !named {
+					r.DisplayTitle = work.Title
+				}
 			}
 		}
+		r.SortTitle = naming.SortTitle(r.DisplayTitle)
 		if t, ok := titles[key]; ok {
 			// a chapter in two languages is one chapter of the title
 			r.Stats.ChapterCount, r.Stats.FileCount, r.Stats.ReadCount, r.Stats.InProgressCount = t.Chapters, t.Files, t.Read, t.InProgress

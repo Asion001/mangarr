@@ -224,10 +224,40 @@ func (a *App) wire(ctx context.Context) error {
 			return bulkError(failed, len(ids), "refresh metadata", lastErr)
 		}})
 
+	a.Queue.Register(jobs.Definition{Name: "RetryMetadata", Description: "Fill in the metadata of series added while their metadata provider was down",
+		Handler: func(ctx context.Context, r *jobs.Run) error {
+			ids, err := a.Series.PendingMetadata(ctx, time.Now().Add(-7*24*time.Hour))
+			if err != nil {
+				return err
+			}
+			changed := 0
+			for _, id := range ids {
+				ok, err := a.Series.RefreshMetadata(ctx, id)
+				if ctx.Err() != nil {
+					return ctx.Err()
+				}
+				if err != nil {
+					a.Log.Debug("metadata retry", "series", id, "err", err)
+					continue
+				}
+				if ok {
+					changed++
+					if s, err := a.Series.Get(ctx, id); err == nil {
+						a.Refresher.WriteSidecars(ctx, s)
+					}
+				}
+			}
+			r.Progress("%d/%d series filled in", changed, len(ids))
+			return nil
+		}})
+
 	if err := a.Scheduler.Add(ctx, jobs.Task{Name: "RefreshSources", Interval: 10 * time.Minute, RunOnStart: true}); err != nil {
 		return err
 	}
 	if err := a.Scheduler.Add(ctx, jobs.Task{Name: "RefreshMetadata", Interval: 24 * time.Hour}); err != nil {
+		return err
+	}
+	if err := a.Scheduler.Add(ctx, jobs.Task{Name: "RetryMetadata", Interval: 15 * time.Minute}); err != nil {
 		return err
 	}
 	return a.wireMore(ctx)

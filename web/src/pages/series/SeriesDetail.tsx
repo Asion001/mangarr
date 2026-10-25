@@ -31,7 +31,7 @@ export function SeriesDetail() {
   const { data: s, isLoading, error } = useSeries(id);
   const { data: library } = useSeriesList();
   const { data: chapters } = useChapters(id);
-  useDocumentTitle(s?.title);
+  useDocumentTitle(s?.displayTitle || s?.title);
   const back = useBack("/");
   const push = usePushCommand();
   const { can, account } = useAccount();
@@ -113,6 +113,8 @@ export function SeriesDetail() {
     { label: t("Delete series…"), icon: <Trash2 className="size-4" />, onSelect: () => setDel(true), danger: true, hidden: !deletes },
   ];
   const editions = s.editions ?? [];
+  // the name in the interface language; title stays the edition's own
+  const name = s.displayTitle || s.title;
   const current = editions.find((edition) => edition.id === id);
   const langName = current?.language ? languageName(current.language) : s.language ? languageName(s.language) : "";
   const credits = [...new Set([...(md.authors ?? []), ...(md.artists ?? [])])];
@@ -124,11 +126,11 @@ export function SeriesDetail() {
       {s.preview && <PreviewBanner series={s} />}
       {/* on a phone the cover sits beside the title and everything else runs full width under them */}
       <div className="mb-6 grid grid-cols-[6.5rem_minmax(0,1fr)] gap-4 sm:flex sm:items-start sm:gap-9">
-        <Cover src={apiUrl(s.coverUrl)} alt={s.title} className="aspect-[2/3] w-full rounded-lg sm:w-50 sm:flex-none" />
+        <Cover src={apiUrl(s.coverUrl)} alt={name} className="aspect-[2/3] w-full rounded-lg sm:w-50 sm:flex-none" />
         <div className="contents sm:flex sm:min-w-0 sm:flex-1 sm:flex-col sm:gap-4 sm:pt-1">
           <div className="flex min-w-0 flex-col gap-2 self-end sm:self-auto">
-            <h1 className="text-xl font-bold leading-tight sm:text-3xl">{s.title}</h1>
-            {s.workTitle && s.workTitle !== s.title && <p className="text-sm text-muted">{s.workTitle}</p>}
+            <h1 className="text-xl font-bold leading-tight sm:text-3xl">{name}</h1>
+            {editions.length > 1 && s.workTitle && s.workTitle !== name && <p className="text-sm text-muted">{s.workTitle}</p>}
             <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-sm text-muted">
               {s.status && (
                 <span className={`inline-flex items-center gap-1.5 ${statusClass[s.status] ?? ""}`}>

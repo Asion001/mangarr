@@ -5256,6 +5256,12 @@
           "title": {
             "type": "string"
           },
+          "titles": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
           "totalChapters": {
             "format": "int64",
             "type": "integer"
@@ -8470,6 +8476,12 @@
           "title": {
             "type": "string"
           },
+          "titles": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
           "totalChapters": {
             "format": "int64",
             "type": "integer"
@@ -9965,6 +9977,12 @@
             },
             "type": "array"
           },
+          "titles": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
           "totalChapters": {
             "format": "int64",
             "type": "integer"
@@ -10059,6 +10077,9 @@
             "type": "array"
           },
           "coverUrl": {
+            "type": "string"
+          },
+          "displayTitle": {
             "type": "string"
           },
           "editions": {
@@ -10158,6 +10179,7 @@
           }
         },
         "required": [
+          "displayTitle",
           "adaptations",
           "stats",
           "coverUrl",

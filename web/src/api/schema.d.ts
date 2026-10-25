@@ -5517,6 +5517,9 @@ export interface components {
             status?: string;
             tags?: string[];
             title: string;
+            titles?: {
+                [key: string]: string;
+            };
             /** Format: int64 */
             totalChapters?: number;
             url?: string;
@@ -6484,6 +6487,9 @@ export interface components {
             status?: string;
             tags?: string[];
             title: string;
+            titles?: {
+                [key: string]: string;
+            };
             /** Format: int64 */
             totalChapters?: number;
             url?: string;
@@ -6919,6 +6925,9 @@ export interface components {
             };
             publisher?: string;
             tags?: string[];
+            titles?: {
+                [key: string]: string;
+            };
             /** Format: int64 */
             totalChapters?: number;
             /** Format: int64 */
@@ -6944,6 +6953,7 @@ export interface components {
             addedAt: string;
             blockedScanlators?: string[];
             coverUrl: string;
+            displayTitle: string;
             editions?: components["schemas"]["EditionSummary"][];
             following: boolean;
             fullPath?: string;

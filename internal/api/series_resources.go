@@ -59,12 +59,15 @@ type UserProgress struct {
 
 type SeriesResource struct {
 	model.Series
-	Adaptations []AdaptationResource `json:"adaptations" nullable:"false"`
-	Stats       SeriesStats          `json:"stats"`
-	Sources     []model.SeriesSource `json:"sources,omitempty"`
-	CoverURL    string               `json:"coverUrl"`
-	FullPath    string               `json:"fullPath,omitempty"`
-	Reading     *ReadingInfo         `json:"reading,omitempty"`
+	// DisplayTitle is the name to show in the interface language (see
+	// displayTitle); Title stays the edition's own, for editing.
+	DisplayTitle string               `json:"displayTitle"`
+	Adaptations  []AdaptationResource `json:"adaptations" nullable:"false"`
+	Stats        SeriesStats          `json:"stats"`
+	Sources      []model.SeriesSource `json:"sources,omitempty"`
+	CoverURL     string               `json:"coverUrl"`
+	FullPath     string               `json:"fullPath,omitempty"`
+	Reading      *ReadingInfo         `json:"reading,omitempty"`
 	// Following: you follow it (new chapters on your notification targets).
 	Following bool `json:"following"`
 	// WorkTitle is the canonical list title; Editions are independently
@@ -316,6 +319,7 @@ func (s *Server) sourceCounts(ctx context.Context, links []model.SeriesSource) {
 func (s *Server) seriesResource(ctx context.Context, ser model.Series, stats map[int64]SeriesStats, detail bool) SeriesResource {
 	r := SeriesResource{Series: ser, Stats: stats[ser.ID],
 		CoverURL: seriesCoverURL(ser)}
+	r.DisplayTitle, _ = displayTitle(ser, uiLanguageFrom(ctx))
 	r.Adaptations = make([]AdaptationResource, len(ser.Metadata.Adaptations))
 	for i, a := range ser.Metadata.Adaptations {
 		r.Adaptations[i] = AdaptationResource{Adaptation: a, WatchLinks: []WatchLink{}}

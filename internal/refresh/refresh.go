@@ -134,14 +134,10 @@ func (r *Refresher) SyncSeries(ctx context.Context, seriesID int64, onlyDue bool
 	return res, err
 }
 
-// sourceOnlyMetadata reports whether no metadata provider is linked.
+// sourceOnlyMetadata reports whether no metadata provider filled the
+// series in: none is linked, or the linked one was down when it was added.
 func sourceOnlyMetadata(s *model.Series) bool {
-	for k := range s.Metadata.ExternalIDs {
-		if k != "" {
-			return false
-		}
-	}
-	return true
+	return !s.Metadata.FromProviders()
 }
 
 func (r *Refresher) lockSource(sourceID string) func() {

@@ -13,8 +13,8 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"unicode"
 
+	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/modules"
 	"github.com/Asion001/mangarr/internal/modules/metadata"
 )
@@ -29,9 +29,8 @@ const (
 var oldEndpoints = map[string]bool{"https://shikimori.one": true, "https://shikimori.me": true}
 
 type Settings struct {
-	TitleLanguage string `json:"titleLanguage" label:"Title language" options:"russian:Russian (fallback romanized),english:English (fallback romanized),romanized:Romanized" order:"1"`
-	Endpoint      string `json:"endpoint" label:"API endpoint" type:"url" order:"2" advanced:"true"`
-	UserAgent     string `json:"userAgent" label:"User-Agent" order:"3" help:"Shikimori requires an identifiable application User-Agent." advanced:"true"`
+	Endpoint  string `json:"endpoint" label:"API endpoint" type:"url" order:"1" advanced:"true"`
+	UserAgent string `json:"userAgent" label:"User-Agent" order:"2" help:"Shikimori requires an identifiable application User-Agent." advanced:"true"`
 }
 
 func init() {
@@ -42,7 +41,7 @@ func init() {
 		Description: "Russian and international manga metadata from Shikimori: localized titles, synonyms, synopsis, genres, cover and status.",
 		InfoURL:     "https://shikimori.io/api/doc",
 		Settings: func() any {
-			return &Settings{TitleLanguage: "russian", Endpoint: defaultEndpoint, UserAgent: defaultUserAgent}
+			return &Settings{Endpoint: defaultEndpoint, UserAgent: defaultUserAgent}
 		},
 		New: func(deps modules.Deps, raw any) (modules.Instance, error) {
 			hc := deps.HTTP
@@ -206,22 +205,22 @@ func (m *Module) fetch(ctx context.Context, path string, out any) error {
 	return nil
 }
 
+// convert names the series in the requested language (an edition's), or in
+// English when none is asked for; every name it has goes to Titles.
 func (m *Module) convert(item manga, requestedLanguage string) metadata.SeriesMetadata {
-	language := strings.ToLower(strings.TrimSpace(requestedLanguage))
-	if language == "" {
-		language = m.s.TitleLanguage
-	}
-	title := item.Name
-	switch language {
+	var title string
+	switch strings.ToLower(strings.TrimSpace(requestedLanguage)) {
 	case "ru", "rus", "russian":
 		title = firstNonEmpty(item.Russian, first(item.English), item.Name)
-	case "en", "eng", "english":
-		title = firstNonEmpty(first(item.English), item.Name, item.Russian)
 	case "romanized":
 		title = firstNonEmpty(item.Name, first(item.English), item.Russian)
 	default:
-		if containsCyrillic(title) || containsCyrillic(item.Russian) && containsCyrillic(requestedLanguage) {
-			title = firstNonEmpty(item.Russian, item.Name)
+		title = firstNonEmpty(first(item.English), item.Name, item.Russian)
+	}
+	titles := map[string]string{}
+	for k, v := range map[string]string{"ru": item.Russian, "en": first(item.English), model.TitleRomanized: item.Name, model.TitleNative: first(item.Japanese)} {
+		if v = strings.TrimSpace(v); v != "" {
+			titles[k] = v
 		}
 	}
 	alt := append([]string{item.Name, item.Russian}, item.English...)
@@ -234,7 +233,7 @@ func (m *Module) convert(item manga, requestedLanguage string) metadata.SeriesMe
 	base := strings.TrimRight(m.s.Endpoint, "/")
 	pageURL := absolute(base, item.URL)
 	out := metadata.SeriesMetadata{
-		Provider: "shikimori", ID: strconv.Itoa(item.ID), Title: title, AltTitles: dedupeExcept(alt, title),
+		Provider: "shikimori", ID: strconv.Itoa(item.ID), Title: title, AltTitles: dedupeExcept(alt, title), Titles: titles,
 		Description: item.Description, Status: status(item.Status), Year: year(item.AiredOn),
 		Genres: genres(item.Genres), CoverURL: absolute(base, firstNonEmpty(item.Image.Original, item.Image.Preview)),
 		Links:         map[string]string{"Shikimori": pageURL, "MyAnimeList": "https://myanimelist.net/manga/" + strconv.Itoa(malID)},
@@ -347,15 +346,6 @@ func dedupeExcept(values []string, except string) []string {
 		}
 	}
 	return out
-}
-
-func containsCyrillic(value string) bool {
-	for _, r := range value {
-		if unicode.In(r, unicode.Cyrillic) {
-			return true
-		}
-	}
-	return false
 }
 
 var _ metadata.ExternalLookup = (*Module)(nil)
