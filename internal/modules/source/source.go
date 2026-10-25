@@ -166,6 +166,8 @@ var (
 	ErrUnsupported = errors.New("operation not supported by this source module")
 	// ErrUnauthorized means the site turned an account's sign-in token away.
 	ErrUnauthorized = errors.New("the site didn't accept the sign-in token; copy a fresh one")
+	// ErrAccount means the account asked for can't be read; the error says why.
+	ErrAccount = errors.New("the account can't be read")
 )
 
 // PageRequest is everything needed to fetch a page image, so another
@@ -222,6 +224,8 @@ type AccountSource struct {
 	Lang     string `json:"lang"`
 	// Field names what is pasted to sign in ("Sign-in token").
 	Field string `json:"field"`
+	// Secret: what is pasted signs in as the person (typed as a password).
+	Secret bool `json:"secret"`
 	// Steps say where to find it.
 	Steps []string `json:"steps"`
 }
@@ -253,7 +257,8 @@ type AccountList struct {
 // AccountEntry is one manga of an account with how far it was read.
 type AccountEntry struct {
 	Manga
-	Status string `json:"status"`
+	Status    string   `json:"status"`
+	AltTitles []string `json:"altTitles,omitempty"`
 	// Lists are the ids of the lists it is in.
 	Lists []string `json:"lists,omitempty"`
 	// Chapter is the number of the chapter reached (-1 when not started):
@@ -261,4 +266,7 @@ type AccountEntry struct {
 	// 0 when not started).
 	Chapter float64 `json:"chapter"`
 	Page    int     `json:"page,omitempty"`
+	// ChapterRef is the site's id of the chapter reached, when the site keeps
+	// that instead of its number (Chapter is then -1).
+	ChapterRef string `json:"chapterRef,omitempty"`
 }

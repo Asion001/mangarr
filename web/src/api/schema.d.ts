@@ -733,6 +733,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/data/accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Sites whose accounts you can bring your lists and progress from */
+        get: operations["me-data-accounts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/data/from-account": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Read a manga site account's lists and progress as your data, to preview and import like an export. The token is used for this read only and isn't kept. */
+        post: operations["me-data-from-account"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/data/from-backup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Read another app's backup (Mihon, Tachiyomi, Suwayomi, Aidoku) as your data, to preview and import like an export */
+        post: operations["me-data-from-backup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/data/import": {
         parameters: {
             query?: never;
@@ -3916,12 +3967,20 @@ export interface components {
             /** Format: int64 */
             moduleId: number;
         };
+        AccountReadInputBody: {
+            /** Format: int64 */
+            moduleId?: number;
+            sourceId?: string;
+            /** @description The account's sign-in token; used for this read only and not kept */
+            token?: string;
+        };
         AccountSource: {
             field: string;
             lang: string;
             /** Format: int64 */
             moduleId: number;
             name: string;
+            secret: boolean;
             sourceId: string;
             steps: string[];
         };
@@ -4147,6 +4206,7 @@ export interface components {
         BackupManga: {
             /** Format: date-time */
             addedAt?: string;
+            altTitles?: string[];
             artist?: string;
             author?: string;
             categories?: string[];
@@ -4561,6 +4621,7 @@ export interface components {
                 [key: string]: number;
             };
             progress: boolean;
+            request?: number[];
             /** @description Reader and interface settings */
             settings: boolean;
         };
@@ -4585,6 +4646,8 @@ export interface components {
              */
             progress: number;
             /** Format: int64 */
+            requested?: number;
+            /** Format: int64 */
             sessions: number;
             /** Format: int64 */
             settings: number;
@@ -4597,6 +4660,8 @@ export interface components {
             following: boolean;
             /** Format: int64 */
             index: number;
+            lists?: string[];
+            reached?: components["schemas"]["ExportReached"];
             /**
              * Format: int64
              * @description Chapters read in the file
@@ -4605,6 +4670,7 @@ export interface components {
             /** Format: int64 */
             seriesId: number;
             seriesTitle?: string;
+            source?: string;
             title: string;
         };
         DatabaseInfo: {
@@ -4977,6 +5043,13 @@ export interface components {
             /** Format: date-time */
             readAt?: string;
         };
+        ExportReached: {
+            /** Format: double */
+            chapter: number;
+            chapterRef?: string;
+            /** Format: int64 */
+            page?: number;
+        };
         ExportSession: {
             number: string;
             /** Format: int64 */
@@ -5001,7 +5074,9 @@ export interface components {
                 [key: string]: string;
             };
             language?: string;
+            lists?: string[];
             progress?: components["schemas"]["ExportProgress"][];
+            reached?: components["schemas"]["ExportReached"];
             reader?: unknown;
             sessions?: components["schemas"]["ExportSession"][];
             sources?: components["schemas"]["ExportSource"][];
@@ -5278,13 +5353,6 @@ export interface components {
             thumbnailUrl?: string;
             title: string;
             url: string;
-        };
-        "Imports-account-createRequest": {
-            /** Format: int64 */
-            moduleId: number;
-            sourceId: string;
-            /** @description The account's sign-in token; used for this read only */
-            token: string;
         };
         "Imports-entries-updateResponse": {
             /** Format: int64 */
@@ -6318,6 +6386,7 @@ export interface components {
         ReadUpTo: {
             /** Format: double */
             chapter: number;
+            chapterRef?: string;
             /** Format: int64 */
             page?: number;
         };
@@ -9213,7 +9282,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Imports-account-createRequest"];
+                "application/json": components["schemas"]["AccountReadInputBody"];
             };
         };
         responses: {
@@ -9746,6 +9815,101 @@ export interface operations {
                 };
                 content: {
                     "application/json": string;
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "me-data-accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountSource"][];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "me-data-from-account": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AccountReadInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Export"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "me-data-from-backup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/octet-stream": string;
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Export"];
                 };
             };
             /** @description Error */

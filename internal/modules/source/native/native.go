@@ -545,7 +545,7 @@ func (m *Module) AccountSources(ctx context.Context) ([]source.AccountSource, er
 			continue
 		}
 		i, h := s.Info(), a.AccountHelp()
-		out = append(out, source.AccountSource{SourceID: i.ID, Name: i.Name, Lang: i.Lang, Field: h.Field, Steps: h.Steps})
+		out = append(out, source.AccountSource{SourceID: i.ID, Name: i.Name, Lang: i.Lang, Field: h.Field, Secret: h.Secret, Steps: h.Steps})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	return out, nil
@@ -564,6 +564,9 @@ func (m *Module) ReadAccount(ctx context.Context, sourceID, token string) (*sour
 	if errors.Is(err, sourcekit.ErrUnauthorized) {
 		return nil, source.ErrUnauthorized
 	}
+	if errors.Is(err, sourcekit.ErrAccount) {
+		return nil, fmt.Errorf("%w%s", source.ErrAccount, strings.TrimPrefix(err.Error(), sourcekit.ErrAccount.Error()))
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -575,7 +578,7 @@ func (m *Module) ReadAccount(ctx context.Context, sourceID, token string) (*sour
 		out.Entries = append(out.Entries, source.AccountEntry{
 			Manga: source.Manga{MangaRef: source.MangaRef{SourceID: sourceID, URL: e.URL, EngineRef: e.ID, TitleHint: e.Title},
 				Title: e.Title, ThumbnailURL: publicURL(s.Info().BaseURL, e.CoverURL)},
-			Status: status(e.Status), Lists: e.Lists, Chapter: e.Chapter, Page: e.Page})
+			Status: status(e.Status), AltTitles: e.AltTitles, Lists: e.Lists, Chapter: e.Chapter, Page: e.Page, ChapterRef: e.ChapterRef})
 	}
 	return out, nil
 }

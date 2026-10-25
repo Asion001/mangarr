@@ -10574,5 +10574,65 @@
   "Go to chapter {number}": {
     "ru": "Перейти к главе {number}",
     "uk": "Перейти до розділу {number}"
+  },
+  "Ask for it": {
+    "ru": "Попросить",
+    "uk": "Попросити"
+  },
+  "Bring my library from another app or site": {
+    "ru": "Перенести мою библиотеку из другого приложения или с сайта",
+    "uk": "Перенести мою бібліотеку з іншого застосунку або з сайту"
+  },
+  "Titles on this server get your progress right away. The ones that aren't can be asked for: each becomes a request, and your progress is written once it's added.": {
+    "ru": "Тайтлы, которые есть на этом сервере, сразу получают ваш прогресс. Тех, которых нет, можно попросить: каждый станет запросом, и прогресс запишется, когда его добавят.",
+    "uk": "Тайтли, які є на цьому сервері, одразу отримують ваш прогрес. Тих, яких немає, можна попросити: кожен стане запитом, і прогрес запишеться, коли його додадуть."
+  },
+  "Choose a backup…": {
+    "ru": "Выбрать резервную копию…",
+    "uk": "Вибрати резервну копію…"
+  },
+  "From {from} · {count} titles": {
+    "ru": "Из {from} · тайтлов: {count}",
+    "uk": "З {from} · тайтлів: {count}"
+  },
+  "Mihon, Tachiyomi and forks, Suwayomi:": {
+    "ru": "Mihon, Tachiyomi и форки, Suwayomi:",
+    "uk": "Mihon, Tachiyomi та форки, Suwayomi:"
+  },
+  "ch. {n}": {
+    "ru": "гл. {n}",
+    "uk": "розд. {n}"
+  },
+  "p. {n}": {
+    "ru": "стр. {n}",
+    "uk": "стор. {n}"
+  },
+  "started": {
+    "ru": "начато",
+    "uk": "розпочато"
+  },
+  "{count} titles asked for": {
+    "ru": "запрошено тайтлов: {count}",
+    "uk": "запитано тайтлів: {count}"
+  },
+  "{count} titles not here will be asked for.": {
+    "ru": "Тайтлов, которых здесь нет, будет запрошено: {count}.",
+    "uk": "Тайтлів, яких тут немає, буде запитано: {count}."
+  },
+  "{site} account": {
+    "ru": "аккаунта {site}",
+    "uk": "акаунта {site}"
+  },
+  "Profile link": {
+    "ru": "Ссылка на профиль",
+    "uk": "Посилання на профіль"
+  },
+  "Open your profile on mangalib.me and copy its address.": {
+    "ru": "Откройте свой профиль на mangalib.me и скопируйте его адрес.",
+    "uk": "Відкрийте свій профіль на mangalib.me і скопіюйте його адресу."
+  },
+  "Lists you made private aren't read: make them public in the list's settings first.": {
+    "ru": "Скрытые списки не читаются: сначала сделайте их публичными в настройках списка.",
+    "uk": "Приховані списки не читаються: спершу зробіть їх публічними в налаштуваннях списку."
   }
 }

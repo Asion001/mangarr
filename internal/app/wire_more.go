@@ -21,6 +21,7 @@ import (
 	"github.com/Asion001/mangarr/internal/requests"
 	"github.com/Asion001/mangarr/internal/series"
 	"github.com/Asion001/mangarr/internal/sso"
+	"github.com/Asion001/mangarr/internal/userimport"
 )
 
 // MoreServices are created by wireMore.
@@ -29,10 +30,12 @@ type MoreServices struct {
 	// Messenger links people's Telegram and Discord accounts to the bots.
 	Messenger *messenger.Service
 	Requests  *requests.Service
-	SSO       *sso.Service
-	Rescanner *libsync.Rescanner
-	Health    *health.Checker
-	Backups   *backup.Service
+	// UserImport asks for titles of users' imports that aren't here.
+	UserImport *userimport.Service
+	SSO        *sso.Service
+	Rescanner  *libsync.Rescanner
+	Health     *health.Checker
+	Backups    *backup.Service
 }
 
 // wireMore registers library sync, notifications, health, backups and

@@ -3,6 +3,7 @@ package sites
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -40,7 +41,7 @@ const senkuroBookmarksQuery = `query fetchUserBookmarks($after: String, $userId:
 const senkuroMaxBookmarks = 20000
 
 func (s *senkuro) AccountHelp() sourcekit.AccountHelp {
-	return sourcekit.AccountHelp{Field: "Sign-in token", Steps: []string{
+	return sourcekit.AccountHelp{Field: "Sign-in token", Secret: true, Steps: []string{
 		"Sign in at " + strings.TrimPrefix(senkuroWeb, "https://") + " in a computer browser.",
 		"Open the developer tools (F12), then Application (Storage in Firefox), then Cookies, then the site.",
 		"Copy the value of access_token and paste it here.",
@@ -131,6 +132,11 @@ func (s *senkuro) ReadAccount(ctx context.Context, token string) (sourcekit.Acco
 				continue // an anime or a title that is gone
 			}
 			entry := sourcekit.AccountEntry{Manga: s.manga(n.Entity.senkuroManga), Status: senkuroStatus(n.Entity.Status), Chapter: -1}
+			for _, t := range append([]senkuroText{n.Entity.OriginalName}, n.Entity.Titles...) {
+				if t.Content != "" && t.Content != entry.Title && !slices.Contains(entry.AltTitles, t.Content) {
+					entry.AltTitles = append(entry.AltTitles, t.Content)
+				}
+			}
 			if n.CollectionID != "" {
 				entry.Lists = []string{n.CollectionID}
 			}

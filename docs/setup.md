@@ -807,8 +807,14 @@ entries that aren't imported yet (and retries failed ones).
 ### From a manga site account
 
 Import library → **From a site account** reads your lists and progress from a
-site's account instead of a backup. Sites that support it: **Senkuro** (the
-built-in *mangarr sources* module must be enabled).
+site's account instead of a backup. Sites that support it (the built-in
+*mangarr sources* module must be enabled):
+
+- **Senkuro**: paste the account's sign-in token (below).
+- **MangaLib**: paste your profile's address. MangaLib shows lists to anyone,
+  so no sign-in is needed; lists you made private aren't read. The site keeps
+  the chapter reached by its id, so the number is looked up from the title's
+  chapter list while matching.
 
 The site only signs you in on its own pages, so paste the account's sign-in
 token: sign in at senkuro.me in a computer browser, open the developer tools
@@ -820,7 +826,20 @@ directly; the account's lists (Reading, Planned, Completed, Favourites, On
 hold, Dropped and your own) work like backup categories, and Dropped starts
 skipped. The site keeps only the chapter you reached in each title, so every
 chapter numbered below it is marked read, and the page you stopped on is kept
-for that chapter.
+for that chapter. A chapter left open at its last page counts as read once its
+page count is known (when it's downloaded).
+
+### Users bringing their own library
+
+Every signed-in user can do the same for themselves under **My account → Your
+data → Bring my library**, from an app backup or a site account. The review
+shows which titles are on this server: those get the user's progress (and a
+follow) at once, never lowering progress that's further along. Titles that
+aren't here can be ticked to **ask for them**: each becomes an ordinary
+request (matched to AniList or another metadata provider), so the usual
+approval applies, and groups that auto-approve requests add them right away.
+The user's progress for a requested title is kept and written once the title
+is added and its chapters are listed.
 
 ## 15. PostgreSQL (optional)
 

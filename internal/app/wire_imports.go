@@ -11,6 +11,7 @@ import (
 	"github.com/Asion001/mangarr/internal/imports"
 	"github.com/Asion001/mangarr/internal/jobs"
 	"github.com/Asion001/mangarr/internal/model"
+	"github.com/Asion001/mangarr/internal/readstate"
 )
 
 // PushProgressDelay batches chapter imports before imported read state is
@@ -71,6 +72,24 @@ func (a *App) wireImports(ctx context.Context) error {
 			}
 			return err
 		}})
+
+	// progress imported at a chapter's last page is read once the chapter's
+	// page count is known: now for chapters on disk, later as they arrive
+	if n, err := readstate.FinishLastPages(ctx, a.DB, 0, time.Now().UTC()); err != nil {
+		a.Log.Warn("finish imported last pages", "err", err)
+	} else if n > 0 {
+		a.Log.Info("imported chapters read to their last page marked read", "chapters", n)
+	}
+	a.Bus.Subscribe(func(e events.Event) {
+		if e.SeriesID == 0 {
+			return
+		}
+		go func(id int64) {
+			if _, err := readstate.FinishLastPages(context.Background(), a.DB, id, time.Now().UTC()); err != nil {
+				a.Log.Warn("finish imported last pages", "series", id, "err", err)
+			}
+		}(e.SeriesID)
+	}, events.ChapterImported)
 
 	remap, err := a.Imports.Recover(ctx)
 	if err != nil {

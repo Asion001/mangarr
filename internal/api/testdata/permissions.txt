@@ -64,7 +64,10 @@ invites-create POST /api/v1/invites -> admin
 invites-delete DELETE /api/v1/invites/{id} -> admin
 invites-list GET /api/v1/invites -> admin
 languages-list GET /api/v1/languages -> signedin
+me-data-accounts GET /api/v1/me/data/accounts -> signedin
 me-data-export GET /api/v1/me/data -> signedin
+me-data-from-account POST /api/v1/me/data/from-account -> signedin
+me-data-from-backup POST /api/v1/me/data/from-backup -> signedin
 me-data-import POST /api/v1/me/data/import -> signedin
 me-data-preview POST /api/v1/me/data/preview -> signedin
 me-data-summary GET /api/v1/me/data/summary -> signedin

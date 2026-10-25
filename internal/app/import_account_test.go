@@ -23,7 +23,7 @@ func TestImportSiteAccount(t *testing.T) {
 			sc.Sources = []source.SourceInfo{{ID: "8010", Name: "Site", Lang: "ru"}}
 			var chs []fakesource.Chapter
 			for i := 1; i <= 4; i++ {
-				chs = append(chs, fakesource.Chapter{URL: "/manga/a/chapters/" + string(rune('0'+i)), Name: "Chapter", Number: float64(i), Uploaded: time.Now(), Pages: 1})
+				chs = append(chs, fakesource.Chapter{URL: "/manga/a/chapters/" + string(rune('0'+i)), Name: "Chapter", Number: float64(i), Uploaded: time.Now(), Pages: 2})
 			}
 			sc.AddManga(&fakesource.Manga{SourceID: "8010", URL: "/manga/a", Title: "Reading one", Status: source.StatusOngoing, Chapters: chs})
 			sc.AddManga(&fakesource.Manga{SourceID: "8010", URL: "/manga/b", Title: "Dropped one", Status: source.StatusOngoing, Chapters: chs[:1]})
@@ -90,6 +90,14 @@ func TestImportSiteAccount(t *testing.T) {
 				got[series[2].ID].Completed || got[series[2].ID].Page != 2 {
 				t.Fatalf("read states = %+v", states)
 			}
+
+			// the chapter reached was open at its last page (its two pages):
+			// read once it is downloaded and its page count is known
+			waitFor(t, 20*time.Second, "chapter 3 read once downloaded", func() bool {
+				var st model.ChapterReadState
+				err := e.App.DB.NewSelect().Model(&st).Where("reader_id = ? AND chapter_id = ?", r.ID, series[2].ID).Scan(e.Ctx)
+				return err == nil && st.Completed && st.Page == 0
+			})
 		})
 	}
 }

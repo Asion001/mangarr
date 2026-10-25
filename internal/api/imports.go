@@ -7,10 +7,12 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"github.com/Asion001/mangarr/internal/backupimport"
 	"github.com/Asion001/mangarr/internal/imports"
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/modules"
@@ -60,13 +62,45 @@ type ImportEntriesPatch struct {
 	imports.EntryPatch
 }
 
+// accountReadInput names the site account to read. Its fields are checked
+// here, not by the schema, so a rejected request never echoes the token.
+type accountReadInput struct {
+	Body struct {
+		ModuleID int64  `json:"moduleId,omitempty"`
+		SourceID string `json:"sourceId,omitempty"`
+		Token    string `json:"token,omitempty" doc:"The account's sign-in token; used for this read only and not kept"`
+	}
+}
+
+func (in *accountReadInput) check() error {
+	if in.Body.ModuleID <= 0 || strings.TrimSpace(in.Body.SourceID) == "" {
+		return huma.Error400BadRequest("choose the site")
+	}
+	if strings.TrimSpace(in.Body.Token) == "" {
+		return huma.Error400BadRequest("paste the account's sign-in token")
+	}
+	return nil
+}
+
+// readAccount reads a site account for the caller.
+func (s *Server) readAccount(ctx context.Context, in *accountReadInput) (*backupimport.Backup, error) {
+	if err := in.check(); err != nil {
+		return nil, err
+	}
+	b, _, _, err := s.app.Imports.ReadAccount(ctx, in.Body.ModuleID, in.Body.SourceID, in.Body.Token)
+	if err != nil {
+		return nil, importError(err)
+	}
+	return b, nil
+}
+
 func importError(err error) error {
 	switch {
 	case errors.Is(err, imports.ErrNotFound):
 		return huma.Error404NotFound(err.Error())
 	case errors.Is(err, imports.ErrBusy):
 		return huma.Error409Conflict(err.Error())
-	case errors.Is(err, imports.ErrUnauthorized):
+	case errors.Is(err, imports.ErrUnauthorized), errors.Is(err, source.ErrAccount):
 		return huma.Error422UnprocessableEntity(err.Error())
 	case errors.Is(err, source.ErrUnsupported):
 		return huma.Error400BadRequest(err.Error())
@@ -116,13 +150,10 @@ func (s *Server) registerImports() {
 	huma.Register(s.api, huma.Operation{OperationID: "imports-account-create", Method: http.MethodPost, Path: "/api/v1/imports/accounts", Tags: tags,
 		Summary:       "Read a site account's manga lists and progress into a new import; its manga are matched in the background. The token is not kept.",
 		DefaultStatus: http.StatusCreated},
-		func(ctx context.Context, in *struct {
-			Body struct {
-				ModuleID int64  `json:"moduleId"`
-				SourceID string `json:"sourceId" minLength:"1"`
-				Token    string `json:"token" minLength:"1" doc:"The account's sign-in token; used for this read only"`
+		func(ctx context.Context, in *accountReadInput) (*struct{ Body *ImportResource }, error) {
+			if err := in.check(); err != nil {
+				return nil, err
 			}
-		}) (*struct{ Body *ImportResource }, error) {
 			imp, err := s.app.Imports.CreateFromAccount(ctx, in.Body.ModuleID, in.Body.SourceID, in.Body.Token)
 			if err != nil {
 				return nil, importError(err)

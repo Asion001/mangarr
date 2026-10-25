@@ -11,13 +11,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/uptrace/bun"
 
 	"github.com/Asion001/mangarr/internal/access"
+	"github.com/Asion001/mangarr/internal/backupimport"
+	"github.com/Asion001/mangarr/internal/chapternum"
 	"github.com/Asion001/mangarr/internal/db"
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/readstate"
@@ -61,8 +65,13 @@ type ExportTitle struct {
 	// Reader are the web reader's settings for this title.
 	Reader   json.RawMessage  `json:"reader,omitempty"`
 	Progress []ExportProgress `json:"progress,omitempty"`
-	History  []ExportEvent    `json:"history,omitempty"`
-	Sessions []ExportSession  `json:"sessions,omitempty"`
+	// Reached is how far the title was read, from apps and sites that keep
+	// only that: chapters numbered below it are read.
+	Reached *ExportReached `json:"reached,omitempty"`
+	// Lists are the app's categories or the site's lists the title was in.
+	Lists    []string        `json:"lists,omitempty"`
+	History  []ExportEvent   `json:"history,omitempty"`
+	Sessions []ExportSession `json:"sessions,omitempty"`
 }
 
 type ExportSource struct {
@@ -79,6 +88,16 @@ type ExportProgress struct {
 	Page      int        `json:"page,omitempty"`
 	ReadAt    *time.Time `json:"readAt,omitempty"`
 	At        time.Time  `json:"at"`
+}
+
+// Reached is a reading position: chapters numbered below Chapter are read,
+// and Chapter is open at Page (1-based, 0 when not started).
+type ExportReached struct {
+	Chapter float64 `json:"chapter"`
+	Page    int     `json:"page,omitempty"`
+	// ChapterRef is the source's id of the chapter reached when the file
+	// knows only that (Chapter is then -1).
+	ChapterRef string `json:"chapterRef,omitempty"`
 }
 
 // Event is an entry of the reading history.
@@ -272,6 +291,11 @@ type DataTitleMatch struct {
 	By          string `json:"by,omitempty" enum:"source,id,title,picked,"`
 	Read        int    `json:"read" doc:"Chapters read in the file"`
 	Following   bool   `json:"following"`
+	// Reached and Lists are the file's, for titles from apps and sites.
+	Reached *ExportReached `json:"reached,omitempty"`
+	Lists   []string       `json:"lists,omitempty"`
+	// Source names where the title came from (titles not on this server).
+	Source string `json:"source,omitempty"`
 }
 
 // library indexes this server's series for matching.
@@ -375,7 +399,10 @@ func (l *library) matches(d *Export, picked map[int]int64) []DataTitleMatch {
 	out := make([]DataTitleMatch, 0, len(d.Titles))
 	for i := range d.Titles {
 		t := &d.Titles[i]
-		m := DataTitleMatch{Index: i, Title: t.Title, Following: t.Following}
+		m := DataTitleMatch{Index: i, Title: t.Title, Following: t.Following, Reached: t.Reached, Lists: t.Lists}
+		if len(t.Sources) > 0 {
+			m.Source = firstNonBlank(t.Sources[0].Name, t.Sources[0].SourceID)
+		}
 		for _, p := range t.Progress {
 			if p.Completed {
 				m.Read++
@@ -404,6 +431,9 @@ type DataImportOptions struct {
 	Settings bool `json:"settings" doc:"Reader and interface settings"`
 	// Picked overrides matches: title index → series id (0: skip the title).
 	Picked map[int]int64 `json:"picked,omitempty"`
+	// Request asks the admins for titles that aren't on this server, by
+	// index; their progress is written once they are added.
+	Request []int `json:"request,omitempty"`
 }
 
 // Result counts what an import wrote.
@@ -416,6 +446,8 @@ type DataImportResult struct {
 	Sessions int `json:"sessions"`
 	Follows  int `json:"follows"`
 	Settings int `json:"settings"`
+	// Requested are titles not on this server asked for (in the background).
+	Requested int `json:"requested,omitempty"`
 }
 
 // Import writes the file's data for the matched titles. It never lowers
@@ -443,7 +475,10 @@ func (s *Service) Import(ctx context.Context, acc Account, d *Export, opts DataI
 				return err
 			}
 			if opts.Progress {
-				if err := importProgress(ctx, tx, acc.ReaderID, lib.series[m.SeriesID], chapters, t.Progress, res); err != nil {
+				if err := importProgress(ctx, tx, acc.ReaderID, lib.series[m.SeriesID], chapters, withReached(ctx, tx, m.SeriesID, t, chapters), res); err != nil {
+					return err
+				}
+				if _, err := readstate.FinishLastPages(ctx, tx, m.SeriesID, now); err != nil {
 					return err
 				}
 			}
@@ -632,4 +667,79 @@ func Summarize(d *Export) Summary {
 		out.Settings = out.Settings || len(t.Reader) > 0
 	}
 	return out
+}
+
+// withReached adds the chapters a title's reading position covers to its
+// progress: every chapter numbered below it read, the page in it kept.
+func withReached(ctx context.Context, tx bun.IDB, seriesID int64, t *ExportTitle, chapters map[string]int64) []ExportProgress {
+	r := t.Reached
+	if r == nil {
+		return t.Progress
+	}
+	if r.Chapter < 0 {
+		n, ok := readstate.ChapterNumberByRef(ctx, tx, seriesID, r.ChapterRef)
+		if !ok {
+			return t.Progress
+		}
+		resolved := *r
+		resolved.Chapter = n
+		r = &resolved
+	}
+	out := append([]ExportProgress(nil), t.Progress...)
+	now := time.Now().UTC()
+	for key := range chapters {
+		n, err := strconv.ParseFloat(key, 64)
+		switch {
+		case err != nil || n < 0:
+		case n < r.Chapter-0.0005:
+			out = append(out, ExportProgress{Number: key, Completed: true, At: now})
+		case r.Page > 0 && math.Abs(n-r.Chapter) < 0.001:
+			out = append(out, ExportProgress{Number: key, Page: r.Page, At: now})
+		}
+	}
+	return out
+}
+
+func firstNonBlank(values ...string) string {
+	for _, v := range values {
+		if strings.TrimSpace(v) != "" {
+			return strings.TrimSpace(v)
+		}
+	}
+	return ""
+}
+
+// FromBackup turns an app backup or a site account (read into the same
+// shape) into an export of the user's own data: titles with their sources,
+// tracker ids, lists, follows and progress.
+func FromBackup(b *backupimport.Backup, user string) *Export {
+	d := &Export{Format: Format, Version: Version, Exported: b.CreatedAt, User: user, Titles: []ExportTitle{}}
+	if d.Exported.IsZero() {
+		d.Exported = time.Now().UTC()
+	}
+	for _, e := range b.Entries {
+		t := ExportTitle{Title: e.Title, AltTitles: e.AltTitles, Following: e.Favorite, Lists: e.Categories,
+			Sources: []ExportSource{{SourceID: e.SourceID, Name: firstNonBlank(e.SourceName, b.Sources[e.SourceID]), URL: e.URL}}}
+		if len(e.Trackers) > 0 {
+			t.IDs = map[string]string{}
+			for k, v := range e.Trackers {
+				t.IDs[k] = v
+			}
+		}
+		for _, c := range e.Chapters {
+			if c.Number < 0 || (!c.Read && c.LastPageRead <= 0) {
+				continue
+			}
+			p := ExportProgress{Number: chapternum.Key(c.Number), Completed: c.Read, ReadAt: c.ReadAt, At: d.Exported}
+			if !c.Read {
+				p.Page = c.LastPageRead + 1 // 1-based like the reader
+			}
+			t.Progress = append(t.Progress, p)
+		}
+		if e.ReadUpTo != nil {
+			t.Reached = &ExportReached{Chapter: e.ReadUpTo.Chapter, Page: e.ReadUpTo.Page, ChapterRef: e.ReadUpTo.ChapterRef}
+		}
+		d.Titles = append(d.Titles, t)
+	}
+	return d
 }

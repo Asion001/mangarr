@@ -42,7 +42,7 @@ test('imports your data after a review of what matches here',async({page})=>{
   await expect(card.getByText('Progress in 312 titles, down to the page')).toBeVisible();
   await expect(card.getByRole('link',{name:'Export my data'})).toHaveAttribute('href',/api\/v1\/me\/data$/);
 
-  await card.locator('input[type=file]').setInputFiles({name:'data.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(exported))});
+  await card.locator('input[type=file]').first().setInputFiles({name:'data.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(exported))});
   const dialog=page.getByRole('dialog',{name:'Import your data'});
   await expect(dialog.getByText('Exported by anna')).toBeVisible();
   await expect(dialog.getByRole('row',{name:/Dandadan/}).getByText('Not on this server')).toBeVisible();
@@ -64,6 +64,6 @@ test('says so when the file is not an export',async({page})=>{
   await mockAccount(page);
   await page.goto('/account');
   const card=page.locator('section',{has:page.getByRole('heading',{name:'Your data',exact:true})});
-  await card.locator('input[type=file]').setInputFiles({name:'x.json',mimeType:'application/json',buffer:Buffer.from('{"hello":1}')});
+  await card.locator('input[type=file]').first().setInputFiles({name:'x.json',mimeType:'application/json',buffer:Buffer.from('{"hello":1}')});
   await expect(card.getByText("This isn't a mangarr data export.")).toBeVisible();
 });

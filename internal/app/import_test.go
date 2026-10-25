@@ -27,7 +27,7 @@ func TestImportMihonBackup(t *testing.T) {
 			chapters := func(n int) []fakesource.Chapter {
 				var out []fakesource.Chapter
 				for i := 1; i <= n; i++ {
-					out = append(out, fakesource.Chapter{URL: "/c" + string(rune('0'+i)), Name: "Chapter", Number: float64(i), Uploaded: time.Now(), Pages: 1})
+					out = append(out, fakesource.Chapter{URL: "/c" + string(rune('0'+i)), Name: "Chapter", Number: float64(i), Uploaded: time.Now(), Pages: 6})
 				}
 				return out
 			}

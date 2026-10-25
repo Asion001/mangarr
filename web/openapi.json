@@ -71,6 +71,23 @@
         ],
         "type": "object"
       },
+      "AccountReadInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "moduleId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "sourceId": {
+            "type": "string"
+          },
+          "token": {
+            "description": "The account's sign-in token; used for this read only and not kept",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "AccountSource": {
         "additionalProperties": false,
         "properties": {
@@ -86,6 +103,9 @@
           },
           "name": {
             "type": "string"
+          },
+          "secret": {
+            "type": "boolean"
           },
           "sourceId": {
             "type": "string"
@@ -103,6 +123,7 @@
           "name",
           "lang",
           "field",
+          "secret",
           "steps"
         ],
         "type": "object"
@@ -829,6 +850,12 @@
           "addedAt": {
             "format": "date-time",
             "type": "string"
+          },
+          "altTitles": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "artist": {
             "type": "string"
@@ -2144,6 +2171,13 @@
           "progress": {
             "type": "boolean"
           },
+          "request": {
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "type": "array"
+          },
           "settings": {
             "description": "Reader and interface settings",
             "type": "boolean"
@@ -2180,6 +2214,10 @@
           },
           "progress": {
             "description": "Chapters whose progress was set",
+            "format": "int64",
+            "type": "integer"
+          },
+          "requested": {
             "format": "int64",
             "type": "integer"
           },
@@ -2228,6 +2266,15 @@
             "format": "int64",
             "type": "integer"
           },
+          "lists": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "reached": {
+            "$ref": "#/components/schemas/ExportReached"
+          },
           "read": {
             "description": "Chapters read in the file",
             "format": "int64",
@@ -2238,6 +2285,9 @@
             "type": "integer"
           },
           "seriesTitle": {
+            "type": "string"
+          },
+          "source": {
             "type": "string"
           },
           "title": {
@@ -3455,6 +3505,26 @@
         ],
         "type": "object"
       },
+      "ExportReached": {
+        "additionalProperties": false,
+        "properties": {
+          "chapter": {
+            "format": "double",
+            "type": "number"
+          },
+          "chapterRef": {
+            "type": "string"
+          },
+          "page": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "chapter"
+        ],
+        "type": "object"
+      },
       "ExportSession": {
         "additionalProperties": false,
         "properties": {
@@ -3532,11 +3602,20 @@
           "language": {
             "type": "string"
           },
+          "lists": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "progress": {
             "items": {
               "$ref": "#/components/schemas/ExportProgress"
             },
             "type": "array"
+          },
+          "reached": {
+            "$ref": "#/components/schemas/ExportReached"
           },
           "reader": {},
           "sessions": {
@@ -4527,30 +4606,6 @@
           "url",
           "title",
           "how"
-        ],
-        "type": "object"
-      },
-      "Imports-account-createRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "moduleId": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "sourceId": {
-            "minLength": 1,
-            "type": "string"
-          },
-          "token": {
-            "description": "The account's sign-in token; used for this read only",
-            "minLength": 1,
-            "type": "string"
-          }
-        },
-        "required": [
-          "moduleId",
-          "sourceId",
-          "token"
         ],
         "type": "object"
       },
@@ -7905,6 +7960,9 @@
           "chapter": {
             "format": "double",
             "type": "number"
+          },
+          "chapterRef": {
+            "type": "string"
           },
           "page": {
             "format": "int64",
@@ -15417,7 +15475,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/Imports-account-createRequest"
+                "$ref": "#/components/schemas/AccountReadInputBody"
               }
             }
           },
@@ -16226,6 +16284,124 @@
           }
         },
         "summary": "Download your own data (progress, reading history and time, follows, reader and interface settings) to import on another server",
+        "tags": [
+          "Account"
+        ]
+      }
+    },
+    "/api/v1/me/data/accounts": {
+      "get": {
+        "operationId": "me-data-accounts",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AccountSource"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Sites whose accounts you can bring your lists and progress from",
+        "tags": [
+          "Account"
+        ]
+      }
+    },
+    "/api/v1/me/data/from-account": {
+      "post": {
+        "operationId": "me-data-from-account",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountReadInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Export"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Read a manga site account's lists and progress as your data, to preview and import like an export. The token is used for this read only and isn't kept.",
+        "tags": [
+          "Account"
+        ]
+      }
+    },
+    "/api/v1/me/data/from-backup": {
+      "post": {
+        "operationId": "me-data-from-backup",
+        "requestBody": {
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "contentMediaType": "application/octet-stream",
+                "format": "binary",
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Export"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Read another app's backup (Mihon, Tachiyomi, Suwayomi, Aidoku) as your data, to preview and import like an export",
         "tags": [
           "Account"
         ]

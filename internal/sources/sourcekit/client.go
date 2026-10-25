@@ -92,7 +92,16 @@ type Request struct {
 	Headers map[string]string
 	Query   url.Values
 	Body    []byte
+	// Private requests are signed in as a person (an account's token): the
+	// site's cookies are sent, but none it sets in answer is kept, so the
+	// sign-in never outlives the request.
+	Private bool
 }
+
+// readOnlyJar sends a jar's cookies and keeps none of the answer's.
+type readOnlyJar struct{ http.CookieJar }
+
+func (readOnlyJar) SetCookies(*url.URL, []*http.Cookie) {}
 
 // Do performs a request, retrying once through the challenge solver when the
 // site turns it away. Some sites refuse the solver's cookies to anything
@@ -172,7 +181,15 @@ func (c *Client) do(ctx context.Context, r Request) ([]byte, error) {
 	for k, v := range r.Headers {
 		req.Header.Set(k, v)
 	}
-	resp, err := c.HTTP.Do(req)
+	hc := c.HTTP
+	if r.Private {
+		private := *c.HTTP
+		if private.Jar != nil {
+			private.Jar = readOnlyJar{private.Jar}
+		}
+		hc = &private
+	}
+	resp, err := hc.Do(req)
 	if err != nil {
 		return nil, err
 	}

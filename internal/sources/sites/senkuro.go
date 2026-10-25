@@ -145,6 +145,7 @@ func (s *senkuro) queryAs(ctx context.Context, token, op, query string, vars map
 		"Content-Type": "application/json", "App-Id": senkuroApp, "App-Version": senkuroAppVersion}}
 	if token != "" {
 		req.Headers["Authorization"] = "Bearer " + token
+		req.Private = true
 	}
 	if err := s.c.JSON(ctx, req, &env); err != nil {
 		var se *sourcekit.StatusError

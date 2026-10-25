@@ -191,6 +191,10 @@ type Polite interface {
 // ErrUnauthorized means the site turned an account's sign-in token away.
 var ErrUnauthorized = errors.New("the site didn't accept the sign-in token")
 
+// ErrAccount means the account asked for can't be read (no such user, an
+// address that isn't a profile); the error says why.
+var ErrAccount = errors.New("the account can't be read")
+
 // AccountReader is implemented by sites whose accounts keep manga lists and
 // reading progress that can be brought into a library.
 type AccountReader interface {
@@ -205,6 +209,9 @@ type AccountReader interface {
 type AccountHelp struct {
 	// Field names what is pasted ("Sign-in token").
 	Field string
+	// Secret is set when what is pasted signs in as the person (a token),
+	// so it is typed in a password field.
+	Secret bool
 	// Steps say where to find it, one step each.
 	Steps []string
 }
@@ -240,6 +247,8 @@ type AccountEntry struct {
 	Manga
 	// Status is the manga's status (Status*).
 	Status string
+	// AltTitles are its other titles (other languages, the original).
+	AltTitles []string
 	// Lists are the ids of the lists it is in.
 	Lists []string
 	// Chapter is the number of the chapter reached (-1 when not started):
@@ -247,6 +256,9 @@ type AccountEntry struct {
 	// 0 when not started).
 	Chapter float64
 	Page    int
+	// ChapterRef is the site's id of the chapter reached, for sites that
+	// keep that instead of its number (Chapter is then -1).
+	ChapterRef string
 }
 
 // KeiyoushiID is the id Mihon and Tachiyomi give an extension: the first

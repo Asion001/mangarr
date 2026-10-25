@@ -53,8 +53,10 @@ type BackupManga struct {
 	// manga id for Aidoku.
 	URL string `json:"url"`
 	// WebURL is the full web address when the app stores it (Aidoku).
-	WebURL       string    `json:"webUrl,omitempty"`
-	Title        string    `json:"title"`
+	WebURL string `json:"webUrl,omitempty"`
+	Title  string `json:"title"`
+	// AltTitles are other titles the source knows (a site account).
+	AltTitles    []string  `json:"altTitles,omitempty"`
 	Author       string    `json:"author,omitempty"`
 	Artist       string    `json:"artist,omitempty"`
 	Description  string    `json:"description,omitempty"`
@@ -78,6 +80,9 @@ type BackupManga struct {
 type ReadUpTo struct {
 	Chapter float64 `json:"chapter"`
 	Page    int     `json:"page,omitempty"`
+	// ChapterRef is the source's id of the chapter reached when only that is
+	// known (Chapter is then -1 until the chapter list resolves it).
+	ChapterRef string `json:"chapterRef,omitempty"`
 }
 
 // readBelow is whether n counts as read under u.
@@ -171,7 +176,7 @@ func Parse(data []byte) (*Backup, error) {
 func (e BackupManga) ResumeFrom() (from float64, ok bool) {
 	if u := e.ReadUpTo; len(e.Chapters) == 0 && u != nil {
 		// the chapter reached is unread or half read: monitor from it
-		if u.Chapter <= 1 && u.Page == 0 {
+		if u.Chapter < 0 || (u.Chapter <= 1 && u.Page == 0) {
 			return 0, false
 		}
 		return u.Chapter - 0.001, true

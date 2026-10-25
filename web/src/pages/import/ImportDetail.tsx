@@ -316,7 +316,7 @@ function EntryRow({
               )}
               {e.data.readUpTo && (
                 <span>
-                  · {t("reached ch.") + " "}{e.data.readUpTo.chapter}{e.data.readUpTo.page ? ", " + t("page") + " " + e.data.readUpTo.page : ""}</span>
+                  · {e.data.readUpTo.chapter >= 0 ? t("reached ch.") + " " + e.data.readUpTo.chapter : t("started")}{e.data.readUpTo.page ? ", " + t("page") + " " + e.data.readUpTo.page : ""}</span>
               )}
               {!e.data.favorite && <Badge>{t("history only")}</Badge>}
               {(e.data.categories ?? []).map((c) => (

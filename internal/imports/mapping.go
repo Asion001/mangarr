@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"sort"
+	"slices"
 	"strings"
 	"time"
 
@@ -12,6 +12,7 @@ import (
 
 	"github.com/Asion001/mangarr/internal/backupimport"
 	"github.com/Asion001/mangarr/internal/catalogs"
+	"github.com/Asion001/mangarr/internal/metadataagg"
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/modules"
 	"github.com/Asion001/mangarr/internal/modules/metadata"
@@ -183,7 +184,7 @@ func (m *mapper) mapEntry(ctx context.Context, e *model.ImportEntry) {
 		case backupimport.FormatAidoku:
 			m.mapAidoku(ctx, e)
 		case backupimport.FormatAccount:
-			m.mapAccount(e)
+			m.mapAccount(ctx, e)
 		default:
 			m.mapMihon(e)
 		}
@@ -254,15 +255,44 @@ func (m *mapper) mapMihon(e *model.ImportEntry) {
 
 // mapAccount links a title of a site account to that site's catalog in the
 // module that read the account.
-func (m *mapper) mapAccount(e *model.ImportEntry) {
+func (m *mapper) mapAccount(ctx context.Context, e *model.ImportEntry) {
 	d := e.Data
 	for _, c := range m.byID[d.SourceID] {
 		if c.ModuleID == m.account {
 			e.Source = m.source(c, d, d.URL, model.MatchExact)
+			break
+		}
+	}
+	if e.Source == nil {
+		m.mapMihon(e)
+	}
+	if u := e.Data.ReadUpTo; e.Source != nil && u != nil && u.Chapter < 0 && u.ChapterRef != "" {
+		m.resolveChapter(ctx, e)
+	}
+}
+
+// resolveChapter finds the number of the chapter an account reached when
+// the site keeps only its id, from the source's chapter list.
+func (m *mapper) resolveChapter(ctx context.Context, e *model.ImportEntry) {
+	mod, _, err := modules.GetAs[source.Module](m.s.Mods, e.Source.ModuleID)
+	if err != nil {
+		return
+	}
+	cctx, cancel := context.WithTimeout(ctx, time.Minute)
+	defer cancel()
+	_, chapters, err := mod.Manga(cctx, source.MangaRef{SourceID: e.Source.SourceID, URL: e.Source.URL, TitleHint: e.Title}, true)
+	if err != nil {
+		m.s.Log.Warn("list chapters for the chapter reached", "title", e.Title, "err", err)
+		return
+	}
+	for _, c := range chapters {
+		if c.EngineRef == e.Data.ReadUpTo.ChapterRef && c.Number >= 0 {
+			u := *e.Data.ReadUpTo
+			u.Chapter = c.Number
+			e.Data.ReadUpTo = &u
 			return
 		}
 	}
-	m.mapMihon(e)
 }
 
 // aidokuRule converts an Aidoku source's manga key to a Keiyoushi url.
@@ -476,27 +506,44 @@ func (m *mapper) matchMetadata(ctx context.Context, d backupimport.BackupManga) 
 			}
 		}
 	}
-	if strings.TrimSpace(d.Title) == "" || len(m.meta) == 0 {
+	if len(m.meta) == 0 {
 		return nil
 	}
-	sctx, cancel := context.WithTimeout(ctx, 45*time.Second)
-	cands, _ := m.s.Metadata.Search(sctx, d.Title, 5)
-	cancel()
-	type scored struct {
-		i     int
-		score float64
+	return MatchTitleMetadata(ctx, m.s.Metadata, d.Title, d.AltTitles)
+}
+
+// MatchTitleMetadata finds the metadata series for a title by searching its
+// title, then up to two other titles, and keeping a confident match.
+func MatchTitleMetadata(ctx context.Context, agg *metadataagg.Aggregator, title string, alts []string) *model.ImportMetadata {
+	names := []string{}
+	for _, n := range append([]string{title}, alts...) {
+		if n = strings.TrimSpace(n); n != "" && !slices.Contains(names, n) {
+			names = append(names, n)
+		}
 	}
-	var list []scored
-	for i, c := range cands {
-		list = append(list, scored{i, titlematch.Best(append([]string{c.Title}, c.AltTitles...), d.Title)})
-	}
-	sort.SliceStable(list, func(a, b int) bool { return list[a].score > list[b].score })
-	if len(list) == 0 || list[0].score < MetadataThreshold {
+	if agg == nil || len(names) == 0 {
 		return nil
 	}
-	c := cands[list[0].i]
-	return &model.ImportMetadata{ModuleID: c.ModuleID, Provider: c.Provider, ID: c.ID, Title: c.Title, CoverURL: c.CoverURL,
-		How: model.MatchTitle, Score: list[0].score}
+	for _, q := range names[:min(len(names), 3)] {
+		sctx, cancel := context.WithTimeout(ctx, 45*time.Second)
+		cands, _ := agg.Search(sctx, q, 5)
+		cancel()
+		best, score := -1, 0.0
+		for i, c := range cands {
+			cn := append([]string{c.Title}, c.AltTitles...)
+			for _, n := range names {
+				if sc := titlematch.Best(cn, n); sc > score {
+					best, score = i, sc
+				}
+			}
+		}
+		if best >= 0 && score >= MetadataThreshold {
+			c := cands[best]
+			return &model.ImportMetadata{ModuleID: c.ModuleID, Provider: c.Provider, ID: c.ID, Title: c.Title, CoverURL: c.CoverURL,
+				How: model.MatchTitle, Score: score}
+		}
+	}
+	return nil
 }
 
 func firstNonEmpty(xs ...string) string {

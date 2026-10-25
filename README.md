@@ -132,8 +132,10 @@ draws them).
   review how each manga maps to your catalogs (exact for Keiyoushi sources,
   missing extensions installed for you), and import it with read chapters,
   categories and trackers; monitoring starts after the last chapter you read.
-- **Import from a manga site account** (Senkuro for now) — the account's
-  lists and how far you read each title, through the same review.
+- **Import from a manga site account** (Senkuro, MangaLib) — the account's
+  lists and how far you read each title, through the same review. Users bring
+  their own library too: progress for titles on the server at once, the rest
+  as requests for an admin to approve.
 - **UI in English, Russian and Ukrainian**, chosen per account, with a
   reading mode that keeps the editing controls out of the way.
 - SQLite by default, **PostgreSQL** with one button (System → Database

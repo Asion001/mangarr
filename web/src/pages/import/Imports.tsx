@@ -4,7 +4,7 @@ import { Link, useNavigate } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileUp, Trash2 } from "lucide-react";
 import { api, unwrap, type S } from "../../api/client";
-import { Badge, Button, Card, Confirm, EmptyState, ErrorBox, Field, IconButton, Loading, PageHeader, SecretInput, Select, Spinner, Table, Td, Th } from "../../components/ui";
+import { Badge, Button, Card, Confirm, EmptyState, ErrorBox, Field, IconButton, Input, Loading, PageHeader, SecretInput, Select, Spinner, Table, Td, Th } from "../../components/ui";
 import { date, relative } from "../../lib/format";
 import { useToast } from "../../lib/toast";
 
@@ -152,7 +152,7 @@ function AccountCard() {
   const sources = useQuery({ queryKey: ["imports", "accounts"], queryFn: () => unwrap(api.GET("/api/v1/imports/accounts")) });
   const [picked, setPicked] = useState("");
   const [token, setToken] = useState("");
-  const list = sources.data ?? [];
+  const list = Array.isArray(sources.data) ? sources.data : [];
   const key = (a: (typeof list)[number]) => `${a.moduleId}:${a.sourceId}`;
   const site = list.find((a) => key(a) === picked) ?? list[0];
 
@@ -189,8 +189,8 @@ function AccountCard() {
                 ))}
               </Select>
             </Field>
-            <Field label={label(site.field)} help={t("Used once to read your lists and progress, then forgotten. It isn't saved on this server.")}>
-              <SecretInput value={token} onChange={setToken} />
+            <Field label={label(site.field)} help={site.secret ? t("Used once to read your lists and progress, then forgotten. It isn't saved on this server.") : undefined}>
+              {site.secret ? <SecretInput value={token} onChange={setToken} /> : <Input value={token} onChange={(e) => setToken(e.target.value)} />}
             </Field>
             {site.steps.length > 0 && (
               <details className="rounded-md border border-border bg-panel-2/40 px-3 py-2 text-sm">

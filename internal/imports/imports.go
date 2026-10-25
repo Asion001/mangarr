@@ -399,7 +399,7 @@ func (s *Service) setStatus(ctx context.Context, imp *model.Import, status, prog
 
 func (s *Service) saveEntry(ctx context.Context, e *model.ImportEntry) error {
 	e.UpdatedAt = time.Now().UTC()
-	_, err := s.DB.NewUpdate().Model(e).Column("state", "selected", "source", "metadata", "extension", "series_id", "message", "updated_at").
+	_, err := s.DB.NewUpdate().Model(e).Column("state", "selected", "data", "source", "metadata", "extension", "series_id", "message", "updated_at").
 		WherePK().Exec(ctx)
 	return err
 }

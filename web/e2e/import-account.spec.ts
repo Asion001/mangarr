@@ -29,7 +29,7 @@ async function mockImports(page: Page) {
       return route.fulfill({ status: 201, json: account });
     }
     if (path.endsWith("/imports/accounts"))
-      return route.fulfill({ json: [{ moduleId: 3, sourceId: "8010", name: "Senkuro", lang: "ru", field: "Sign-in token",
+      return route.fulfill({ json: [{ moduleId: 3, sourceId: "8010", name: "Senkuro", lang: "ru", field: "Sign-in token", secret: true,
         steps: ["Sign in at senkuro.me in a computer browser.", "Copy the value of access_token and paste it here."] }] });
     if (path.endsWith("/imports/7/entries")) return route.fulfill({ json: { items: [entry], total: 1, page: 1, pageSize: 50 } });
     if (path.endsWith("/imports/7")) return route.fulfill({ json: account });

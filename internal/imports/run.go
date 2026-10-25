@@ -441,6 +441,9 @@ func (s *Service) readState(ctx context.Context, opts model.ImportOptions, serie
 		return 0, nil
 	}
 	n, err := ImportReadState(ctx, s.DB, opts.ReaderID, seriesID, d, time.Now().UTC())
+	if err == nil {
+		_, err = readstate.FinishLastPages(ctx, s.DB, seriesID, time.Now().UTC())
+	}
 	if err != nil || n == 0 {
 		return n, err
 	}
@@ -509,6 +512,15 @@ func ImportReadState(ctx context.Context, idb bun.IDB, readerID, seriesID int64,
 		wanted[id] = w
 	}
 	if u := d.ReadUpTo; u != nil && len(d.Chapters) == 0 {
+		if u.Chapter < 0 {
+			n, ok := readstate.ChapterNumberByRef(ctx, idb, seriesID, u.ChapterRef)
+			if !ok {
+				return 0, nil
+			}
+			resolved := *u
+			resolved.Chapter = n
+			d.ReadUpTo, u = &resolved, &resolved
+		}
 		for _, c := range chapters {
 			switch {
 			case d.ReadsChapter(c.NumberSort):

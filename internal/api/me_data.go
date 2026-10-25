@@ -10,6 +10,8 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/Asion001/mangarr/internal/access"
+	"github.com/Asion001/mangarr/internal/backupimport"
+	"github.com/Asion001/mangarr/internal/imports"
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/userdata"
 )
@@ -100,11 +102,65 @@ func (s *Server) registerMyData() {
 			if err := userdata.Check(&in.Body.Data); err != nil {
 				return nil, huma.Error422UnprocessableEntity(err.Error())
 			}
-			res, err := (&userdata.Service{DB: s.app.DB}).Import(ctx, acc, &in.Body.Data, in.Body.Options)
+			svc := &userdata.Service{DB: s.app.DB}
+			var ask []userdata.ExportTitle
+			if len(in.Body.Options.Request) > 0 {
+				p := access.From(ctx)
+				if p == nil || p.Kind != access.KindUser || !p.Can(access.RequestsCreate) {
+					return nil, huma.Error403Forbidden("you can't request titles on this server")
+				}
+				// only titles that really aren't here are asked for
+				matches, err := svc.Preview(ctx, &in.Body.Data, in.Body.Options.Picked)
+				if err != nil {
+					return nil, huma.Error422UnprocessableEntity(err.Error())
+				}
+				for _, i := range in.Body.Options.Request {
+					if i >= 0 && i < len(matches) && matches[i].SeriesID == 0 {
+						ask = append(ask, in.Body.Data.Titles[i])
+					}
+				}
+			}
+			res, err := svc.Import(ctx, acc, &in.Body.Data, in.Body.Options)
 			if err != nil {
 				return nil, toHTTPError(err)
 			}
+			if len(ask) > 0 {
+				if _, err := s.app.Queue.Push(ctx, "RequestImportedTitles", map[string]any{"userId": acc.UserID, "titles": ask}, "import"); err != nil {
+					return nil, toHTTPError(err)
+				}
+				res.Requested = len(ask)
+			}
 			s.app.Bus.Changed("reading", "imported", 0)
 			return &struct{ Body *userdata.DataImportResult }{res}, nil
+		})
+
+	huma.Register(s.api, huma.Operation{OperationID: "me-data-accounts", Method: http.MethodGet, Path: "/api/v1/me/data/accounts", Tags: tags,
+		Summary: "Sites whose accounts you can bring your lists and progress from"},
+		func(ctx context.Context, _ *struct{}) (*struct{ Body []imports.AccountSource }, error) {
+			list, err := s.app.Imports.AccountSources(ctx)
+			return &struct{ Body []imports.AccountSource }{list}, toHTTPError(err)
+		})
+	huma.Register(s.api, huma.Operation{OperationID: "me-data-from-backup", Method: http.MethodPost, Path: "/api/v1/me/data/from-backup", Tags: tags,
+		Summary:      "Read another app's backup (Mihon, Tachiyomi, Suwayomi, Aidoku) as your data, to preview and import like an export",
+		MaxBodyBytes: 128 << 20},
+		func(ctx context.Context, in *struct {
+			RawBody []byte `contentType:"application/octet-stream"`
+		}) (*struct{ Body *userdata.Export }, error) {
+			b, err := backupimport.Parse(in.RawBody)
+			if err != nil {
+				return nil, huma.Error400BadRequest(err.Error())
+			}
+			acc, _ := s.myAccount(ctx)
+			return &struct{ Body *userdata.Export }{userdata.FromBackup(b, acc.Username)}, nil
+		})
+	huma.Register(s.api, huma.Operation{OperationID: "me-data-from-account", Method: http.MethodPost, Path: "/api/v1/me/data/from-account", Tags: tags,
+		Summary: "Read a manga site account's lists and progress as your data, to preview and import like an export. The token is used for this read only and isn't kept."},
+		func(ctx context.Context, in *accountReadInput) (*struct{ Body *userdata.Export }, error) {
+			b, err := s.readAccount(ctx, in)
+			if err != nil {
+				return nil, err
+			}
+			acc, _ := s.myAccount(ctx)
+			return &struct{ Body *userdata.Export }{userdata.FromBackup(b, acc.Username)}, nil
 		})
 }

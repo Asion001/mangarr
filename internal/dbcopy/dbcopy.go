@@ -25,7 +25,7 @@ var Tables = []string{
 	"recycled_files", "download_queue_order", "download_jobs", "history", "blocklist", "commands", "scheduled_tasks",
 	"reader_accounts", "title_read_states", "koreader_documents",
 	"imports", "import_entries", "reading_keys", "read_events", "reading_sessions", "reader_prefs",
-	"requests", "request_users", "follows",
+	"requests", "request_users", "follows", "requested_progress",
 	"workers", "worker_tasks",
 }
 

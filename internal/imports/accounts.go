@@ -37,18 +37,18 @@ func (s *Service) AccountSources(ctx context.Context) ([]AccountSource, error) {
 	return out, nil
 }
 
-// CreateFromAccount reads a site account's lists and progress and stores
-// them as an import, like an uploaded backup. The token is used for this
-// read only and isn't kept.
-func (s *Service) CreateFromAccount(ctx context.Context, moduleID int64, sourceID, token string) (*model.Import, error) {
+// ReadAccount reads a site account's lists and progress into the entries a
+// backup gives. It returns the site's name and the lists with their
+// statuses. The token is used for this read only and isn't kept.
+func (s *Service) ReadAccount(ctx context.Context, moduleID int64, sourceID, token string) (*backupimport.Backup, map[string]string, string, error) {
 	acc, _, err := modules.GetAs[source.Accounts](s.Mods, moduleID)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", source.ErrUnsupported, err)
+		return nil, nil, "", fmt.Errorf("%w: %v", source.ErrUnsupported, err)
 	}
 	var name string
 	list, err := acc.AccountSources(ctx)
 	if err != nil {
-		return nil, err
+		return nil, nil, "", err
 	}
 	for _, a := range list {
 		if a.SourceID == sourceID {
@@ -56,16 +56,29 @@ func (s *Service) CreateFromAccount(ctx context.Context, moduleID int64, sourceI
 		}
 	}
 	if name == "" {
-		return nil, fmt.Errorf("%w: this source's accounts can't be read", source.ErrUnsupported)
+		return nil, nil, "", fmt.Errorf("%w: this source's accounts can't be read", source.ErrUnsupported)
 	}
 	a, err := acc.ReadAccount(ctx, sourceID, token)
 	if err != nil {
 		if errors.Is(err, source.ErrUnauthorized) {
-			return nil, ErrUnauthorized
+			return nil, nil, "", ErrUnauthorized
 		}
-		return nil, fmt.Errorf("read the %s account: %w", name, err)
+		if errors.Is(err, source.ErrAccount) {
+			return nil, nil, "", err
+		}
+		return nil, nil, "", fmt.Errorf("read the %s account: %w", name, err)
 	}
 	b, lists := accountBackup(a, sourceID, name, time.Now().UTC())
+	return b, lists, name, nil
+}
+
+// CreateFromAccount reads a site account's lists and progress and stores
+// them as an import, like an uploaded backup.
+func (s *Service) CreateFromAccount(ctx context.Context, moduleID int64, sourceID, token string) (*model.Import, error) {
+	b, lists, name, err := s.ReadAccount(ctx, moduleID, sourceID, token)
+	if err != nil {
+		return nil, err
+	}
 	return s.create(ctx, name+" account", b, nil, func(imp *model.Import) {
 		imp.Info.ModuleID, imp.Info.Lists = moduleID, lists
 		// all of an account's titles are in its lists, so none is history only
@@ -104,14 +117,14 @@ func accountBackup(a *source.Account, sourceID, name string, now time.Time) (*ba
 	}
 	for _, e := range a.Entries {
 		m := backupimport.BackupManga{SourceID: sourceID, SourceName: name, URL: e.URL, Title: e.Title, Status: e.Status,
-			ThumbnailURL: e.ThumbnailURL, Favorite: true}
+			ThumbnailURL: e.ThumbnailURL, Favorite: true, AltTitles: e.AltTitles}
 		for _, id := range e.Lists {
 			if n, ok := names[id]; ok {
 				m.Categories = append(m.Categories, n)
 			}
 		}
-		if e.Chapter >= 0 {
-			m.ReadUpTo = &backupimport.ReadUpTo{Chapter: e.Chapter, Page: e.Page}
+		if e.Chapter >= 0 || e.ChapterRef != "" {
+			m.ReadUpTo = &backupimport.ReadUpTo{Chapter: e.Chapter, Page: e.Page, ChapterRef: e.ChapterRef}
 		}
 		b.Entries = append(b.Entries, m)
 	}

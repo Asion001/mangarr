@@ -8,6 +8,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"slices"
+	"time"
 
 	"github.com/uptrace/bun"
 
@@ -81,4 +83,70 @@ func TitleID(ser *model.Series) int64 {
 		return ser.WorkID
 	}
 	return -ser.ID
+}
+
+// FinishLastPages marks imported progress that stopped on a chapter's last
+// page as read (in seriesID, or everywhere when 0): a site keeps a chapter
+// read to the end as "open at its last page" until the next one is opened.
+// Chapters without a file yet are checked again once they are downloaded.
+func FinishLastPages(ctx context.Context, idb bun.IDB, seriesID int64, now time.Time) (int, error) {
+	var states []model.ChapterReadState
+	q := idb.NewSelect().Model(&states).Where("completed = ? AND page > 0 AND origin = ?", false, model.ReadOriginBackup)
+	if seriesID > 0 {
+		q = q.Where("series_id = ?", seriesID)
+	}
+	if err := q.Scan(ctx); err != nil || len(states) == 0 {
+		return 0, err
+	}
+	ids := make([]int64, 0, len(states))
+	for _, st := range states {
+		ids = append(ids, st.ChapterID)
+	}
+	var files []model.ChapterFile
+	if err := idb.NewSelect().Model(&files).Column("chapter_id", "page_count", "source_pages").Where("chapter_id IN (?)", bun.In(ids)).
+		Scan(ctx); err != nil {
+		return 0, err
+	}
+	pages := map[int64]int{}
+	for _, f := range files {
+		n := f.PageCount
+		if len(f.SourcePages) > 0 { // pages split while processing count as the page they came from
+			n = slices.Max(f.SourcePages) + 1
+		}
+		pages[f.ChapterID] = n
+	}
+	done := map[int64]bool{} // editions share a state
+	changed := 0
+	for i := range states {
+		st := &states[i]
+		n := pages[st.ChapterID]
+		if n == 0 || st.Page < n || done[st.ID] {
+			continue
+		}
+		done[st.ID] = true
+		st.Completed, st.Page, st.SyncedAt = true, 0, now
+		if st.ReadAt == nil {
+			st.ReadAt = &now
+		}
+		if err := Save(ctx, idb, st); err != nil {
+			return changed, err
+		}
+		changed++
+	}
+	return changed, nil
+}
+
+// ChapterNumberByRef finds the number of a series' chapter by the source's
+// own id for it (a release's engine ref), for progress kept by that id.
+func ChapterNumberByRef(ctx context.Context, idb bun.IDB, seriesID int64, ref string) (float64, bool) {
+	if ref == "" {
+		return 0, false
+	}
+	var n []float64
+	err := idb.NewSelect().TableExpr("chapter_releases AS r").ColumnExpr("c.number_sort").Join("JOIN chapters AS c ON c.id = r.chapter_id").
+		Where("r.series_id = ? AND r.engine_ref = ?", seriesID, ref).Limit(1).Scan(ctx, &n)
+	if err != nil || len(n) == 0 {
+		return 0, false
+	}
+	return n[0], true
 }
