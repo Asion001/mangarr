@@ -37,7 +37,7 @@ func TestKomgaAPIProgress(t *testing.T) {
 			}
 			state := func(i int) *model.ChapterReadState {
 				var st model.ChapterReadState
-				if err := f.e.App.DB.NewSelect().Model(&st).Where("reader_id = ? AND chapter_id = ?", f.reader, f.chs[i].ID).Scan(f.e.Ctx); err != nil {
+				if err := f.e.App.DB.NewSelect().Model(&st).Where("user_id = ? AND chapter_id = ?", f.reader, f.chs[i].ID).Scan(f.e.Ctx); err != nil {
 					return nil
 				}
 				return &st
@@ -150,10 +150,10 @@ func TestKomgaAPIProgress(t *testing.T) {
 			if err := f.e.App.Modules.Create(f.e.Ctx, libDef); err != nil {
 				t.Fatal(err)
 			}
-			acc := &model.ReaderAccount{ReaderID: f.reader, ModuleID: libDef.ID, Credentials: map[string]string{"apiKey": "k"}, CreatedAt: time.Now().UTC()}
+			acc := &model.LibraryAccount{UserID: f.reader, ModuleID: libDef.ID, Credentials: map[string]string{"apiKey": "k"}, CreatedAt: time.Now().UTC()}
 			_, _ = f.e.App.DB.NewInsert().Model(acc).Exec(f.e.Ctx)
 			var server model.ChapterReadState
-			_ = f.e.App.DB.NewSelect().Model(&server).Where("reader_id = ? AND chapter_id = ?", f.reader, f.chs[0].ID).Scan(f.e.Ctx)
+			_ = f.e.App.DB.NewSelect().Model(&server).Where("user_id = ? AND chapter_id = ?", f.reader, f.chs[0].ID).Scan(f.e.Ctx)
 			_, _ = f.e.App.DB.NewUpdate().Model((*model.TitleReadState)(nil)).Set("origin = ''").Where("id = ?", server.ID).Exec(f.e.Ctx)
 			lib.SetProgress("k", []library.BookProgress{})
 			if _, err := f.e.App.ReadSync.SyncAccount(f.e.Ctx, acc); err != nil {

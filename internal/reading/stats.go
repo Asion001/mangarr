@@ -48,9 +48,9 @@ type ReadingStatsGenre struct {
 }
 
 // Stats aggregates active time and current completed progress for one reader.
-func (s *Service) Stats(ctx context.Context, readerID int64) (ReadingStats, error) {
+func (s *Service) Stats(ctx context.Context, userID int64) (ReadingStats, error) {
 	out := ReadingStats{Languages: []ReadingStatsLanguage{}, Genres: []ReadingStatsGenre{}}
-	visible, err := s.AllSeries(ctx, readerID, 0)
+	visible, err := s.AllSeries(ctx, userID, 0)
 	if err != nil {
 		return out, err
 	}
@@ -67,7 +67,7 @@ func (s *Service) Stats(ctx context.Context, readerID int64) (ReadingStats, erro
 	var sessions []model.ReadingSession
 	if err := s.DB.NewSelect().Model(&sessions).
 		Column("series_id", "active_seconds", "updated_at").
-		Where("reader_id = ?", readerID).Where("series_id IN (?)", bun.In(ids)).Scan(ctx); err != nil {
+		Where("user_id = ?", userID).Where("series_id IN (?)", bun.In(ids)).Scan(ctx); err != nil {
 		return out, err
 	}
 	type totals struct {
@@ -95,7 +95,7 @@ func (s *Service) Stats(ctx context.Context, readerID int64) (ReadingStats, erro
 	}
 	if err := s.DB.NewSelect().TableExpr("chapter_read_states").
 		ColumnExpr("series_id, COUNT(*) AS count").
-		Where("reader_id = ? AND completed = ?", readerID, true).
+		Where("user_id = ? AND completed = ?", userID, true).
 		Where("series_id IN (?)", bun.In(ids)).GroupExpr("series_id").Scan(ctx, &completed); err != nil {
 		return out, err
 	}
@@ -105,7 +105,7 @@ func (s *Service) Stats(ctx context.Context, readerID int64) (ReadingStats, erro
 	// a chapter finished in a title with several language editions is one
 	// chapter (the editions share the state)
 	if err := s.DB.NewSelect().TableExpr("chapter_read_states").ColumnExpr("COUNT(DISTINCT id)").
-		Where("reader_id = ? AND completed = ?", readerID, true).
+		Where("user_id = ? AND completed = ?", userID, true).
 		Where("series_id IN (?)", bun.In(ids)).Scan(ctx, &out.CompletedChapters); err != nil {
 		return out, err
 	}

@@ -308,7 +308,7 @@ func TestKOReaderFeedsAndSync(t *testing.T) {
 				t.Fatalf("kosync update: %d %s", got.Code, got.Body.String())
 			}
 			var state model.ChapterReadState
-			if err := e.App.DB.NewSelect().Model(&state).Where("reader_id = ? AND chapter_id = ?", user.ReaderID, chapter.ID).Scan(e.Ctx); err != nil {
+			if err := e.App.DB.NewSelect().Model(&state).Where("user_id = ? AND chapter_id = ?", user.ID, chapter.ID).Scan(e.Ctx); err != nil {
 				t.Fatal(err)
 			}
 			if state.Page != 2 || state.Completed {

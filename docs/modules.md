@@ -49,7 +49,7 @@ Then add a blank import to `internal/modules/all/all.go`.
 |---|---|---|
 | `source` | `source.Module`: `Sources`, `Search`, `Manga`, `Pages`, `FetchPage` | `Latest` (latest/popular), `ExtensionManager`, `Preferences`, `Thumbnails`, `Assets`, `Maintainer`, `AutoUpdater`, `Fetchable` (hand a page to another machine) |
 | `metadata` | `metadata.Module`: `Search`, `Get` | `ExternalLookup` (join by another provider's id) |
-| `library` | `library.Module`: `Rescan` | `ProgressReader` (per-reader credentials + progress) |
+| `library` | `library.Module`: `Rescan` | `ProgressReader` (per-user credentials + progress) |
 | `notify` | `notify.Module`: `Send` | — |
 | `upscale` | `upscale.Module`: `Info`, `Upscale` | — |
 | `mediaserver` | `mediaserver.Module`: `Find` (adaptation → web URL) | — |

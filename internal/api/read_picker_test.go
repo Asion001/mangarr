@@ -43,11 +43,11 @@ func TestReadChapterPickerCentersAndSearches(t *testing.T) {
 			readID = chapter.ID
 		}
 	}
-	readerID, err := app.Reading.ReaderID(ctx)
+	userID, err := app.Reading.DefaultUserID(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := readstate.Save(ctx, app.DB, &model.ChapterReadState{ReaderID: readerID, ChapterID: readID, SeriesID: series.ID, Completed: true, ReadAt: &now, SyncedAt: now}); err != nil {
+	if err := readstate.Save(ctx, app.DB, &model.ChapterReadState{UserID: userID, ChapterID: readID, SeriesID: series.ID, Completed: true, ReadAt: &now, SyncedAt: now}); err != nil {
 		t.Fatal(err)
 	}
 

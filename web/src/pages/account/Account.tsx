@@ -19,6 +19,7 @@ import { useToast } from "../../lib/toast";
 import { ReadingStatsCard } from "./ReadingStats";
 import { MessengerCard } from "./MessengerCard";
 import { YourDataCard } from "./YourDataCard";
+import { ProgressSyncPanel } from "../settings/ProgressSync";
 
 const permLabel: Record<string, string> = {
   admin: "Administrator",
@@ -172,6 +173,9 @@ function ReadingAppsCard() {
             <p className="mt-2 text-xs text-muted">{t("Install the Komga extension, then restore this file in Mihon under More → Backup and restore. Select library entries and source settings during restore.")}</p>
           </div>
         )}
+        <div className="mt-4">
+          <ProgressSyncPanel />
+        </div>
       </Card>
       <DevicesCard />
     </>
@@ -331,6 +335,12 @@ function LibraryAccountsCard() {
                   {srv.linked ? (
                     <>{t("Linked as") + " "}{srv.linked.externalUser || tr("you")}
                       {srv.linked.lastSyncAt && ` · synced ${relative(srv.linked.lastSyncAt)}`}
+                      {srv.linked.live && " · "}
+                      {srv.linked.live && (srv.linked.live.connected ? (
+                        <Badge tone="ok" title={srv.linked.live.lastEventAt ? `last change ${relative(srv.linked.live.lastEventAt)}` : tr("connected")}>{t("live")}</Badge>
+                      ) : (
+                        <Badge tone="warn" title={srv.linked.live.error || tr("connecting")}>{t("reconnecting")}</Badge>
+                      ))}
                     </>
                   ) : (
                     tr("Not linked")

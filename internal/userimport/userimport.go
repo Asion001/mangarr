@@ -45,8 +45,8 @@ type Result struct {
 }
 
 // Request asks the admins for each title (one request per title, the
-// usual approval applying) and keeps its progress for the user's reader.
-func (s *Service) Request(ctx context.Context, p *access.Principal, readerID int64, titles []userdata.ExportTitle) (Result, error) {
+// usual approval applying) and keeps its progress for the user.
+func (s *Service) Request(ctx context.Context, p *access.Principal, titles []userdata.ExportTitle) (Result, error) {
 	var res Result
 	for i := range titles {
 		if err := ctx.Err(); err != nil {
@@ -62,7 +62,7 @@ func (s *Service) Request(ctx context.Context, p *access.Principal, readerID int
 		var avail requests.AvailableError
 		switch {
 		case errors.As(err, &avail):
-			if err := s.write(ctx, p.UserID, readerID, avail.SeriesID, t); err != nil {
+			if err := s.write(ctx, p.UserID, avail.SeriesID, t); err != nil {
 				return res, err
 			}
 			res.Here++
@@ -77,7 +77,7 @@ func (s *Service) Request(ctx context.Context, p *access.Principal, readerID int
 		if err != nil {
 			return res, err
 		}
-		row := &model.RequestedProgress{UserID: p.UserID, ReaderID: readerID, RequestID: r.ID, Title: string(data), CreatedAt: time.Now().UTC()}
+		row := &model.RequestedProgress{UserID: p.UserID, RequestID: r.ID, Title: string(data), CreatedAt: time.Now().UTC()}
 		if _, err := s.DB.NewInsert().Model(row).Exec(ctx); err != nil {
 			return res, err
 		}
@@ -100,9 +100,9 @@ func (s *Service) metadataFor(ctx context.Context, t *userdata.ExportTitle) *mod
 }
 
 // write imports one title's progress (and follow) into a series.
-func (s *Service) write(ctx context.Context, userID, readerID, seriesID int64, t *userdata.ExportTitle) error {
+func (s *Service) write(ctx context.Context, userID, seriesID int64, t *userdata.ExportTitle) error {
 	d := &userdata.Export{Format: userdata.Format, Version: userdata.Version, Exported: time.Now().UTC(), Titles: []userdata.ExportTitle{*t}}
-	_, err := (&userdata.Service{DB: s.DB}).Import(ctx, userdata.Account{ReaderID: readerID, UserID: userID}, d,
+	_, err := (&userdata.Service{DB: s.DB}).Import(ctx, userdata.Account{UserID: userID}, d,
 		userdata.DataImportOptions{Progress: true, Follows: true, Picked: map[int]int64{0: seriesID}})
 	return err
 }
@@ -130,7 +130,7 @@ func (s *Service) ApplyReady(ctx context.Context) error {
 		}
 		var t userdata.ExportTitle
 		if err := json.Unmarshal([]byte(row.Title), &t); err == nil {
-			if err := s.write(ctx, row.UserID, row.ReaderID, row.SeriesID, &t); err != nil {
+			if err := s.write(ctx, row.UserID, row.SeriesID, &t); err != nil {
 				s.Log.Warn("write requested progress", "series", row.SeriesID, "err", err)
 				continue
 			}

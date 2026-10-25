@@ -46,9 +46,9 @@ func TestMoveRestoreAndRename(t *testing.T) {
 	oldDir := filepath.Join(e.Root, "Mover")
 	ch1 := e.chapterFiles(t, ser.ID)["1"].RelativePath
 	lib.SetProgress("k", []library.BookProgress{{LocalPath: filepath.Join(oldDir, ch1), Completed: true}})
-	r := &model.Reader{Name: "ann", CountForCleanup: true, CreatedAt: time.Now().UTC()}
+	r := &model.User{Username: "ann", CountForCleanup: true, CreatedAt: time.Now().UTC()}
 	_, _ = e.App.DB.NewInsert().Model(r).Exec(e.Ctx)
-	acc := &model.ReaderAccount{ReaderID: r.ID, ModuleID: libDef.ID, Credentials: map[string]string{"apiKey": "k"}, CreatedAt: time.Now().UTC()}
+	acc := &model.LibraryAccount{UserID: r.ID, ModuleID: libDef.ID, Credentials: map[string]string{"apiKey": "k"}, CreatedAt: time.Now().UTC()}
 	_, _ = e.App.DB.NewInsert().Model(acc).Exec(e.Ctx)
 
 	// second root folder

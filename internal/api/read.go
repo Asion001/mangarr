@@ -86,13 +86,13 @@ type ReaderSettingsView struct {
 	Series   json.RawMessage `json:"series,omitempty"`
 }
 
-// readerOf is whose progress the web reader shows: the account's, or (API
-// key, logins off) the reader apps use.
-func (s *Server) readerOf(ctx context.Context) (int64, error) {
-	if p := access.From(ctx); p != nil && p.ReaderID > 0 {
-		return p.ReaderID, nil
+// userOf is whose progress the web reader shows: the account's, or (API
+// key, logins off) the default account's.
+func (s *Server) userOf(ctx context.Context) (int64, error) {
+	if p := access.From(ctx); p != nil && p.UserID > 0 {
+		return p.UserID, nil
 	}
-	return s.app.Reading.ReaderID(ctx)
+	return s.app.Reading.DefaultUserID(ctx)
 }
 
 func readError(err error) error {
@@ -144,7 +144,7 @@ func (s *Server) registerRead() {
 	huma.Register(s.api, huma.Operation{OperationID: "read-chapter", Method: http.MethodGet, Path: "/api/v1/read/chapters/{id}", Tags: tags,
 		Summary: "A chapter for the web reader: pages, neighbours and your progress"},
 		func(ctx context.Context, in *IDPath) (*struct{ Body ReadChapter }, error) {
-			rid, err := s.readerOf(ctx)
+			rid, err := s.userOf(ctx)
 			if err != nil {
 				return nil, toHTTPError(err)
 			}
@@ -291,7 +291,7 @@ func (s *Server) registerRead() {
 				Completed bool `json:"completed,omitempty"`
 			}
 		}) (*struct{}, error) {
-			rid, err := s.readerOf(ctx)
+			rid, err := s.userOf(ctx)
 			if err != nil {
 				return nil, toHTTPError(err)
 			}
@@ -319,7 +319,7 @@ func (s *Server) registerRead() {
 				ActiveSeconds int    `json:"activeSeconds" minimum:"1" maximum:"43200"`
 			}
 		}) (*struct{}, error) {
-			rid, err := s.readerOf(ctx)
+			rid, err := s.userOf(ctx)
 			if err != nil {
 				return nil, toHTTPError(err)
 			}
@@ -345,7 +345,7 @@ func (s *Server) registerRead() {
 				Changed int `json:"changed"`
 			}
 		}, error) {
-			rid, err := s.readerOf(ctx)
+			rid, err := s.userOf(ctx)
 			if err != nil {
 				return nil, toHTTPError(err)
 			}

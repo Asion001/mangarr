@@ -167,13 +167,13 @@ func (s *Server) storageSummary(ctx context.Context) (StorageSummary, error) {
 		out.Roots = append(out.Roots, sr)
 	}
 
-	if readers := s.statsReaders(ctx); len(readers) > 0 {
+	if readers := s.statsUsers(ctx); len(readers) > 0 {
 		var read struct {
 			Files int   `bun:"files"`
 			Size  int64 `bun:"size"`
 		}
 		readChapters := s.app.DB.NewSelect().TableExpr("chapter_read_states").ColumnExpr("chapter_id").
-			Where("completed = ?", true).Where("reader_id IN (?)", bun.In(readers))
+			Where("completed = ?", true).Where("user_id IN (?)", bun.In(readers))
 		err := s.app.DB.NewSelect().TableExpr("chapter_files AS cf").
 			ColumnExpr("COUNT(*) AS files, COALESCE(SUM(cf.size), 0) AS size").
 			Where("cf.series_id IN (SELECT id FROM series WHERE preview = ?)", false).

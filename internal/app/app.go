@@ -199,18 +199,9 @@ func (a *App) Close() error {
 }
 
 // upgradeAccounts creates the built-in groups and brings users from before
-// groups up to date. The first user gets the reader reading apps used.
+// groups up to date.
 func (a *App) upgradeAccounts(ctx context.Context) error {
-	preferred := int64(0)
-	if rs, err := a.Settings.Reading(ctx); err == nil && rs.ReaderID > 0 {
-		preferred = rs.ReaderID
-	} else {
-		var r model.Reader
-		if err := a.DB.NewSelect().Model(&r).Order("id").Limit(1).Scan(ctx); err == nil {
-			preferred = r.ID
-		}
-	}
-	return a.Auth.Upgrade(ctx, preferred)
+	return a.Auth.Upgrade(ctx)
 }
 
 // ensureDefaults creates the default profile on first start.

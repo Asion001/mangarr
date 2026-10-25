@@ -48,12 +48,12 @@ func TestCleanupPlanEditions(t *testing.T) {
 		}
 	}
 	// one reader, not marked as counting for cleanup, read 1-4 in English
-	reader := &model.Reader{Name: "only", CreatedAt: now}
+	reader := &model.User{Username: "only", CreatedAt: now}
 	insert(reader)
 	for _, id := range chapterIDs["en"] {
 		var ch model.Chapter
 		_ = a.DB.NewSelect().Model(&ch).Where("id = ?", id).Scan(ctx)
-		st := model.ChapterReadState{ReaderID: reader.ID, SeriesID: ch.SeriesID, ChapterID: id, Completed: true, ReadAt: &old, SyncedAt: old}
+		st := model.ChapterReadState{UserID: reader.ID, SeriesID: ch.SeriesID, ChapterID: id, Completed: true, ReadAt: &old, SyncedAt: old}
 		if err := readstate.Save(ctx, a.DB, &st); err != nil {
 			t.Fatal(err)
 		}

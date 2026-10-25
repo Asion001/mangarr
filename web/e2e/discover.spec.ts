@@ -21,7 +21,7 @@ async function mockDiscover(page: Page) {
       return;
     }
     if (path.endsWith("/reading/shelf")) {
-      await route.fulfill({ json: { reader: "reader", items: [] } });
+      await route.fulfill({ json: { user: "reader", items: [] } });
       return;
     }
     if (path.endsWith("/tags")) {

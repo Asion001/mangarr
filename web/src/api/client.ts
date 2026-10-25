@@ -91,7 +91,6 @@ export type Tag = S["Tag"];
 export type Job = S["JobView"];
 export type History = S["History"];
 export type Command = S["Command"];
-export type Reader = S["ReaderResource"];
 export type SourceInfo = S["Catalog"];
 export type Catalog = S["Catalog"];
 export type ThrottleConfig = S["ThrottleConfig"];

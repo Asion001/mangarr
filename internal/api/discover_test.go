@@ -49,12 +49,12 @@ func TestDiscoverAggregatesPersonalLibraryAndCachedSources(t *testing.T) {
 	readSeries, readChapter := addSeries("Read Action", []string{"Action"}, now.Add(-3*time.Hour))
 	recommended, _ := addSeries("Suggested Action", []string{"Action", "Adventure"}, now.Add(-2*time.Hour))
 	recent, _ := addSeries("Recent Drama", []string{"Drama"}, now.Add(-time.Hour))
-	readerID, err := app.Reading.ReaderID(ctx)
+	userID, err := app.Reading.DefaultUserID(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
 	readAt := now.Add(-2 * time.Hour)
-	if err := readstate.Save(ctx, app.DB, &model.ChapterReadState{ReaderID: readerID, ChapterID: readChapter.ID,
+	if err := readstate.Save(ctx, app.DB, &model.ChapterReadState{UserID: userID, ChapterID: readChapter.ID,
 		SeriesID: readSeries.ID, Completed: true, ReadAt: &readAt, SyncedAt: readAt}); err != nil {
 		t.Fatal(err)
 	}

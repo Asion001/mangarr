@@ -312,7 +312,11 @@ func migrationProvider(t *testing.T, d *DB) *goose.Provider {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return gooseProvider(t, d, sub)
+	p, err := newProvider(d.Kind, d.DB.DB, sub)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return p
 }
 
 // premigrationProvider runs the migrations from before the 1.0 baseline,
@@ -530,4 +534,112 @@ func schemaDefinition(t *testing.T, d *DB) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// TestProgressPerUserMigration moves progress from readers to the accounts
+// that used them; a reader no account used becomes a disabled account.
+func TestProgressPerUserMigration(t *testing.T) {
+	for _, dialect := range []Dialect{SQLite, Postgres} {
+		t.Run(string(dialect), func(t *testing.T) {
+			d := migrationTestDB(t, dialect)
+			p := migrationProvider(t, d)
+			ctx := t.Context()
+			if _, err := p.UpTo(ctx, 43); err != nil {
+				t.Fatal(err)
+			}
+			const at = "'2024-01-02T03:04:05Z'"
+			for _, q := range []string{
+				`INSERT INTO groups (id, name, builtin, created_at) VALUES (1, 'Admins', 'admins', ` + at + `), (2, 'Users', 'users', ` + at + `)`,
+				`INSERT INTO root_folders (id, path, language, created_at) VALUES (1, '/library', 'en', ` + at + `)`,
+				`INSERT INTO profiles (id, name, created_at, updated_at) VALUES (1, 'Default', ` + at + `, ` + at + `)`,
+				`INSERT INTO series (id, title, sort_title, root_folder_id, path, profile_id, added_at, updated_at) VALUES (1, 'Abyss', 'abyss', 1, 'abyss', 1, ` + at + `, ` + at + `)`,
+				`INSERT INTO chapters (id, series_id, number_key, number_sort, first_seen_at, updated_at) VALUES (1, 1, '1', 1, ` + at + `, ` + at + `), (2, 1, '2', 2, ` + at + `, ` + at + `)`,
+				`INSERT INTO readers (id, name, count_for_cleanup, created_at) VALUES (7, 'ann', TRUE, ` + at + `), (8, 'bob', FALSE, ` + at + `), (9, 'Old Kindle', TRUE, ` + at + `)`,
+				// reader-9 is taken, so the orphan reader's account is former-reader-9
+				`INSERT INTO users (id, username, password_hash, created_at, group_id, reader_id) VALUES
+					(1, 'ann', 'hash', ` + at + `, 1, 7), (2, 'bob', 'hash', ` + at + `, 2, 8), (3, 'Reader-9', 'hash', ` + at + `, 2, NULL)`,
+				`INSERT INTO sessions (id, user_id, created_at, last_seen_at, expires_at) VALUES ('s1', 1, ` + at + `, ` + at + `, ` + at + `)`,
+				`INSERT INTO title_read_states (reader_id, title_id, number_key, chapter_id, completed, page, synced_at) VALUES
+					(7, -1, '1', 1, TRUE, 0, ` + at + `), (8, -1, '1', 1, FALSE, 3, ` + at + `), (9, -1, '2', 2, TRUE, 0, ` + at + `)`,
+				`INSERT INTO read_events (reader_id, series_id, chapter_id, origin, at) VALUES (7, 1, 1, 'app', ` + at + `), (9, 1, 2, 'app', ` + at + `)`,
+				`INSERT INTO reading_sessions (id, reader_id, series_id, chapter_id, active_seconds, started_at, updated_at) VALUES ('r1', 8, 1, 1, 60, ` + at + `, ` + at + `)`,
+				`INSERT INTO koreader_documents (reader_id, document, chapter_id) VALUES (7, 'abc', 1)`,
+				`INSERT INTO reader_accounts (reader_id, module_id, external_user, created_at) VALUES (8, 4, 'bob@komga', ` + at + `)`,
+				`INSERT INTO requested_progress (user_id, reader_id, request_id, title, created_at) VALUES (2, 8, 1, '{}', ` + at + `)`,
+				`INSERT INTO settings (key, value, updated_at) VALUES
+					('cleanup', '{"enabled":true,"readerIds":[9,7]}', ` + at + `), ('reading', '{"enabled":true,"readerId":7}', ` + at + `)`,
+			} {
+				if _, err := d.ExecContext(ctx, q); err != nil {
+					t.Fatalf("seed: %v\n%s", err, q)
+				}
+			}
+			if dialect == Postgres {
+				if _, err := d.ExecContext(ctx, `SELECT setval('users_id_seq', 3)`); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := d.Migrate(ctx); err != nil {
+				t.Fatal(err)
+			}
+			var orphan struct {
+				ID       int64
+				Username string
+				Display  string
+				Disabled bool
+				Counts   bool
+				Group    int64
+			}
+			if err := d.QueryRowContext(ctx, `SELECT id, username, display_name, disabled, count_for_cleanup, group_id FROM users WHERE id > 3`).
+				Scan(&orphan.ID, &orphan.Username, &orphan.Display, &orphan.Disabled, &orphan.Counts, &orphan.Group); err != nil {
+				t.Fatal(err)
+			}
+			if orphan.Username != "former-reader-9" || orphan.Display != "Old Kindle" || !orphan.Disabled || !orphan.Counts || orphan.Group != 2 {
+				t.Fatalf("orphan reader became %+v", orphan)
+			}
+			count := func(q string) int {
+				t.Helper()
+				var n int
+				if err := d.QueryRowContext(ctx, q).Scan(&n); err != nil {
+					t.Fatalf("%s: %v", q, err)
+				}
+				return n
+			}
+			o := fmt.Sprint(orphan.ID)
+			for q, want := range map[string]int{
+				`SELECT COUNT(*) FROM users WHERE id = 1 AND count_for_cleanup`:                               1,
+				`SELECT COUNT(*) FROM users WHERE id = 2 AND NOT count_for_cleanup`:                           1,
+				`SELECT COUNT(*) FROM sessions WHERE user_id = 1`:                                             1,
+				`SELECT COUNT(*) FROM chapter_read_states WHERE user_id = 1 AND chapter_id = 1 AND completed`: 1,
+				`SELECT COUNT(*) FROM chapter_read_states WHERE user_id = 2 AND chapter_id = 1 AND page = 3`:  1,
+				`SELECT COUNT(*) FROM chapter_read_states WHERE user_id = ` + o + ` AND chapter_id = 2`:       1,
+				`SELECT COUNT(*) FROM read_events WHERE user_id = 1`:                                          1,
+				`SELECT COUNT(*) FROM read_events WHERE user_id = ` + o:                                       1,
+				`SELECT COUNT(*) FROM reading_sessions WHERE user_id = 2 AND active_seconds = 60`:             1,
+				`SELECT COUNT(*) FROM koreader_documents WHERE user_id = 1 AND document = 'abc'`:              1,
+				`SELECT COUNT(*) FROM library_accounts WHERE user_id = 2 AND external_user = 'bob@komga'`:     1,
+				`SELECT COUNT(*) FROM requested_progress WHERE user_id = 2`:                                   1,
+			} {
+				if got := count(q); got != want {
+					t.Errorf("%s = %d, want %d", q, got, want)
+				}
+			}
+			var cleanup, reading string
+			if err := d.QueryRowContext(ctx, `SELECT value FROM settings WHERE key = 'cleanup'`).Scan(&cleanup); err != nil {
+				t.Fatal(err)
+			}
+			if err := d.QueryRowContext(ctx, `SELECT value FROM settings WHERE key = 'reading'`).Scan(&reading); err != nil {
+				t.Fatal(err)
+			}
+			if strings.ReplaceAll(cleanup, " ", "") != `{"enabled":true,"userIds":[1,`+o+`]}` || strings.ReplaceAll(reading, " ", "") != `{"enabled":true}` {
+				t.Fatalf("settings: cleanup %s, reading %s", cleanup, reading)
+			}
+			// deleting an account takes its progress with it
+			if _, err := d.ExecContext(ctx, `DELETE FROM users WHERE id = 2`); err != nil {
+				t.Fatal(err)
+			}
+			if n := count(`SELECT COUNT(*) FROM title_read_states WHERE user_id = 2`) + count(`SELECT COUNT(*) FROM library_accounts`); n != 0 {
+				t.Fatalf("%d rows left after deleting the account", n)
+			}
+		})
+	}
 }

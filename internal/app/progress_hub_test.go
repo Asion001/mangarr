@@ -31,7 +31,7 @@ func TestProgressHub(t *testing.T) {
 			if err := f.e.App.Modules.Create(f.e.Ctx, libDef); err != nil {
 				t.Fatal(err)
 			}
-			acc := &model.ReaderAccount{ReaderID: f.reader, ModuleID: libDef.ID, Credentials: map[string]string{"apiKey": "k"}, CreatedAt: time.Now().UTC()}
+			acc := &model.LibraryAccount{UserID: f.reader, ModuleID: libDef.ID, Credentials: map[string]string{"apiKey": "k"}, CreatedAt: time.Now().UTC()}
 			if _, err := f.e.App.DB.NewInsert().Model(acc).Exec(f.e.Ctx); err != nil {
 				t.Fatal(err)
 			}
@@ -108,16 +108,16 @@ func TestProgressHub(t *testing.T) {
 			srv := httptest.NewServer(api.New(f.e.App))
 			defer srv.Close()
 			g, _ := f.e.App.Settings.General(f.e.Ctx)
-			req, _ := http.NewRequest("GET", srv.URL+"/api/v1/readers/"+sid(f.reader)+"/sync", nil)
+			req, _ := http.NewRequest("GET", srv.URL+"/api/v1/users/"+sid(f.reader)+"/sync", nil)
 			req.Header.Set("X-Api-Key", g.APIKey)
 			resp, err := http.DefaultClient.Do(req)
 			if err != nil || resp.StatusCode != 200 {
 				t.Fatalf("sync health: %v", err)
 			}
-			var health api.ReaderSync
+			var health api.ProgressSync
 			_ = json.NewDecoder(resp.Body).Decode(&health)
 			resp.Body.Close()
-			if !health.ReadingApps || len(health.Keys) != 1 || len(health.Devices) != 2 || len(health.Events) == 0 {
+			if len(health.Keys) != 1 || len(health.Devices) != 2 || len(health.Events) == 0 {
 				t.Fatalf("health %+v", health)
 			}
 			byClient := map[string]int{}

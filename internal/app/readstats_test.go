@@ -35,17 +35,17 @@ func TestSeriesReadStats(t *testing.T) {
 				}
 				chs = append(chs, c)
 			}
-			ann := &model.Reader{Name: "ann", CountForCleanup: true, CreatedAt: now}
-			bob := &model.Reader{Name: "bob", CreatedAt: now}
+			ann := &model.User{Username: "ann", CountForCleanup: true, CreatedAt: now}
+			bob := &model.User{Username: "bob", CreatedAt: now}
 			_, _ = e.App.DB.NewInsert().Model(ann).Exec(e.Ctx)
 			_, _ = e.App.DB.NewInsert().Model(bob).Exec(e.Ctx)
 			read := now.Add(-time.Hour)
 			for _, st := range []*model.ChapterReadState{
-				{ReaderID: ann.ID, ChapterID: chs[0].ID, SeriesID: ser.ID, Completed: true, ReadAt: &read, SyncedAt: now},
-				{ReaderID: ann.ID, ChapterID: chs[1].ID, SeriesID: ser.ID, Completed: true, ReadAt: &now, SyncedAt: now},
-				{ReaderID: ann.ID, ChapterID: chs[2].ID, SeriesID: ser.ID, Page: 7, SyncedAt: now},
+				{UserID: ann.ID, ChapterID: chs[0].ID, SeriesID: ser.ID, Completed: true, ReadAt: &read, SyncedAt: now},
+				{UserID: ann.ID, ChapterID: chs[1].ID, SeriesID: ser.ID, Completed: true, ReadAt: &now, SyncedAt: now},
+				{UserID: ann.ID, ChapterID: chs[2].ID, SeriesID: ser.ID, Page: 7, SyncedAt: now},
 				// bob doesn't count for cleanup, so he doesn't count here
-				{ReaderID: bob.ID, ChapterID: chs[3].ID, SeriesID: ser.ID, Completed: true, ReadAt: &now, SyncedAt: now},
+				{UserID: bob.ID, ChapterID: chs[3].ID, SeriesID: ser.ID, Completed: true, ReadAt: &now, SyncedAt: now},
 			} {
 				if err := readstate.Save(e.Ctx, e.App.DB, st); err != nil {
 					t.Fatal(err)
@@ -78,7 +78,7 @@ func TestSeriesReadStats(t *testing.T) {
 			if rd == nil || rd.NextUnread == nil || rd.NextUnread.Number != "3" || rd.NextUnread.Available || len(rd.Readers) != 2 {
 				t.Fatalf("reading %+v", rd)
 			}
-			if rd.Readers[0].Reader != "ann" || rd.Readers[0].Read != 2 || rd.Readers[0].InProgress != 1 || rd.Readers[1].Read != 1 {
+			if rd.Readers[0].Name != "ann" || rd.Readers[0].Read != 2 || rd.Readers[0].InProgress != 1 || rd.Readers[1].Read != 1 {
 				t.Fatalf("readers %+v", rd.Readers)
 			}
 		})

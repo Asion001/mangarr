@@ -15,7 +15,7 @@ import (
 type catalogHandlers struct{ s *Service }
 
 func (h *catalogHandlers) allSeries(w http.ResponseWriter, r *http.Request) ([]reading.SeriesInfo, int64, bool) {
-	rid, ok := h.s.readerID(w, r)
+	rid, ok := h.s.userID(w, r)
 	if !ok {
 		return nil, 0, false
 	}
@@ -179,7 +179,7 @@ func (h *catalogHandlers) seriesCollections(w http.ResponseWriter, r *http.Reque
 const ContinueReadingID = "continue-reading"
 
 func (h *catalogHandlers) readList(w http.ResponseWriter, r *http.Request) (readListDTO, bool) {
-	rid, ok := h.s.readerID(w, r)
+	rid, ok := h.s.userID(w, r)
 	if !ok {
 		return readListDTO{}, false
 	}
@@ -224,7 +224,7 @@ func (h *catalogHandlers) readListBooks(w http.ResponseWriter, r *http.Request) 
 		writeError(w, r, http.StatusNotFound, "read list not found")
 		return
 	}
-	rid, ok := h.s.readerID(w, r)
+	rid, ok := h.s.userID(w, r)
 	if !ok {
 		return
 	}

@@ -9,12 +9,42 @@ import (
 	"database/sql"
 	"errors"
 	"slices"
+	"sync"
 	"time"
 
 	"github.com/uptrace/bun"
 
 	"github.com/Asion001/mangarr/internal/model"
 )
+
+// DefaultUserID is the account whose progress requests without one use (no
+// login, the API key, device keys from before accounts, backup imports
+// without a chosen account): the first admin, else the first account.
+// Without any, a stand-in account that can't sign in is made to hold it.
+func DefaultUserID(ctx context.Context, db bun.IDB) (int64, error) {
+	find := func() (int64, error) {
+		var u model.User
+		err := db.NewSelect().Model(&u).Column("id").
+			OrderExpr("CASE WHEN NOT disabled AND group_id IN (SELECT id FROM groups WHERE builtin = ?) THEN 0 ELSE 1 END, id", model.GroupAdmins).
+			Limit(1).Scan(ctx)
+		return u.ID, err
+	}
+	if id, err := find(); !errors.Is(err, sql.ErrNoRows) {
+		return id, err
+	}
+	// there is none yet: make it once, whoever asks first (a fresh install
+	// answering a burst of app requests would otherwise make several)
+	defaultMu.Lock()
+	defer defaultMu.Unlock()
+	if id, err := find(); !errors.Is(err, sql.ErrNoRows) {
+		return id, err
+	}
+	u := model.User{Username: "me", Disabled: true, CreatedAt: time.Now().UTC()}
+	_, err := db.NewInsert().Model(&u).Exec(ctx)
+	return u.ID, err
+}
+
+var defaultMu sync.Mutex
 
 // TitleKey is the SQL expression for a series' title id (series aliased s).
 const TitleKey = "COALESCE(s.work_id, -s.id)"
@@ -25,12 +55,12 @@ var ErrNoChapter = errors.New("chapter not found")
 // Save stores st as the progress of its chapter's number in the title,
 // replacing what the title had for it, and sets st.ID.
 func Save(ctx context.Context, db bun.IDB, st *model.ChapterReadState) error {
-	err := db.NewRaw(`INSERT INTO title_read_states (reader_id, title_id, number_key, chapter_id, completed, page, read_at, synced_at, origin)
+	err := db.NewRaw(`INSERT INTO title_read_states (user_id, title_id, number_key, chapter_id, completed, page, read_at, synced_at, origin)
 SELECT ?, `+TitleKey+`, c.number_key, c.id, ?, ?, ?, ?, ?
 FROM chapters AS c JOIN series AS s ON s.id = c.series_id WHERE c.id = ?
-ON CONFLICT (reader_id, title_id, number_key) DO UPDATE SET chapter_id = EXCLUDED.chapter_id, completed = EXCLUDED.completed,
+ON CONFLICT (user_id, title_id, number_key) DO UPDATE SET chapter_id = EXCLUDED.chapter_id, completed = EXCLUDED.completed,
   page = EXCLUDED.page, read_at = EXCLUDED.read_at, synced_at = EXCLUDED.synced_at, origin = EXCLUDED.origin
-RETURNING id`, st.ReaderID, st.Completed, st.Page, st.ReadAt, st.SyncedAt, st.Origin, st.ChapterID).Scan(ctx, &st.ID)
+RETURNING id`, st.UserID, st.Completed, st.Page, st.ReadAt, st.SyncedAt, st.Origin, st.ChapterID).Scan(ctx, &st.ID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return ErrNoChapter
 	}
@@ -61,11 +91,11 @@ func Retitle(ctx context.Context, db bun.IDB, seriesID, from, to int64) error {
 	if from == to {
 		return nil
 	}
-	_, err := db.NewRaw(`INSERT INTO title_read_states (reader_id, title_id, number_key, chapter_id, completed, page, read_at, synced_at, origin)
-SELECT t.reader_id, ?, t.number_key, t.chapter_id, t.completed, t.page, t.read_at, t.synced_at, t.origin
+	_, err := db.NewRaw(`INSERT INTO title_read_states (user_id, title_id, number_key, chapter_id, completed, page, read_at, synced_at, origin)
+SELECT t.user_id, ?, t.number_key, t.chapter_id, t.completed, t.page, t.read_at, t.synced_at, t.origin
 FROM title_read_states AS t
 WHERE t.title_id = ? AND t.number_key IN (SELECT number_key FROM chapters WHERE series_id = ?)
-ON CONFLICT (reader_id, title_id, number_key) DO UPDATE SET chapter_id = EXCLUDED.chapter_id, completed = EXCLUDED.completed,
+ON CONFLICT (user_id, title_id, number_key) DO UPDATE SET chapter_id = EXCLUDED.chapter_id, completed = EXCLUDED.completed,
   page = EXCLUDED.page, read_at = EXCLUDED.read_at, synced_at = EXCLUDED.synced_at, origin = EXCLUDED.origin
 WHERE EXCLUDED.completed AND NOT title_read_states.completed`, to, from, seriesID).Exec(ctx)
 	return err

@@ -32,10 +32,6 @@
             },
             "type": "array"
           },
-          "readerId": {
-            "format": "int64",
-            "type": "integer"
-          },
           "username": {
             "type": "string"
           }
@@ -46,7 +42,6 @@
           "groupId",
           "group",
           "permissions",
-          "readerId",
           "kind"
         ],
         "type": "object"
@@ -1812,13 +1807,6 @@
             "format": "int64",
             "type": "integer"
           },
-          "readerIds": {
-            "items": {
-              "format": "int64",
-              "type": "integer"
-            },
-            "type": "array"
-          },
           "statuses": {
             "items": {
               "type": "string"
@@ -1827,13 +1815,20 @@
           },
           "useRecycleBin": {
             "type": "boolean"
+          },
+          "userIds": {
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "type": "array"
           }
         },
         "required": [
           "enabled",
           "dryRun",
           "statuses",
-          "readerIds",
+          "userIds",
           "ignoreReadersNotStarted",
           "keepLastRead",
           "graceDays",
@@ -3365,23 +3360,23 @@
             "format": "int64",
             "type": "integer"
           },
-          "readerId": {
-            "format": "int64",
-            "type": "integer"
-          },
           "seriesId": {
             "format": "int64",
             "type": "integer"
           },
           "seriesTitle": {
             "type": "string"
+          },
+          "userId": {
+            "format": "int64",
+            "type": "integer"
           }
         },
         "required": [
           "seriesTitle",
           "chapter",
           "id",
-          "readerId",
+          "userId",
           "seriesId",
           "chapterId",
           "chapters",
@@ -4466,16 +4461,16 @@
           "readState": {
             "type": "boolean"
           },
-          "readerId": {
-            "format": "int64",
-            "type": "integer"
-          },
           "rootFolderId": {
             "format": "int64",
             "type": "integer"
           },
           "searchMissing": {
             "type": "boolean"
+          },
+          "userId": {
+            "format": "int64",
+            "type": "integer"
           }
         },
         "required": [
@@ -4487,7 +4482,7 @@
           "searchMissing",
           "categoryTags",
           "readState",
-          "readerId",
+          "userId",
           "pushProgress",
           "matchMetadata",
           "findByTitle",
@@ -4967,6 +4962,9 @@
           "lastSyncAt": {
             "format": "date-time",
             "type": "string"
+          },
+          "live": {
+            "$ref": "#/components/schemas/WatchStatus"
           }
         },
         "required": [
@@ -7203,6 +7201,35 @@
         ],
         "type": "object"
       },
+      "ProgressSync": {
+        "additionalProperties": false,
+        "properties": {
+          "devices": {
+            "items": {
+              "$ref": "#/components/schemas/DeviceSync"
+            },
+            "type": "array"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/EventView"
+            },
+            "type": "array"
+          },
+          "keys": {
+            "items": {
+              "$ref": "#/components/schemas/ReadingKey"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "keys",
+          "devices",
+          "events"
+        ],
+        "type": "object"
+      },
       "PublicAppearance": {
         "additionalProperties": false,
         "properties": {
@@ -7917,6 +7944,9 @@
           "completed": {
             "type": "boolean"
           },
+          "name": {
+            "type": "string"
+          },
           "page": {
             "format": "int64",
             "type": "integer"
@@ -7925,17 +7955,14 @@
             "format": "date-time",
             "type": "string"
           },
-          "reader": {
-            "type": "string"
-          },
-          "readerId": {
+          "userId": {
             "format": "int64",
             "type": "integer"
           }
         },
         "required": [
-          "readerId",
-          "reader",
+          "userId",
+          "name",
           "completed",
           "page"
         ],
@@ -7974,192 +8001,6 @@
         ],
         "type": "object"
       },
-      "Reader": {
-        "additionalProperties": false,
-        "properties": {
-          "countForCleanup": {
-            "type": "boolean"
-          },
-          "createdAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "id": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "name": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "countForCleanup",
-          "createdAt"
-        ],
-        "type": "object"
-      },
-      "ReaderAccount": {
-        "additionalProperties": false,
-        "properties": {
-          "createdAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "externalUser": {
-            "type": "string"
-          },
-          "id": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "lastError": {
-            "type": "string"
-          },
-          "lastSyncAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "moduleId": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "readerId": {
-            "format": "int64",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "id",
-          "readerId",
-          "moduleId",
-          "externalUser",
-          "lastError",
-          "createdAt"
-        ],
-        "type": "object"
-      },
-      "ReaderAccountView": {
-        "additionalProperties": false,
-        "properties": {
-          "createdAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "externalUser": {
-            "type": "string"
-          },
-          "id": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "lastError": {
-            "type": "string"
-          },
-          "lastSyncAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "live": {
-            "$ref": "#/components/schemas/WatchStatus"
-          },
-          "liveCapable": {
-            "type": "boolean"
-          },
-          "moduleId": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "moduleName": {
-            "type": "string"
-          },
-          "readerId": {
-            "format": "int64",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "moduleName",
-          "liveCapable",
-          "id",
-          "readerId",
-          "moduleId",
-          "externalUser",
-          "lastError",
-          "createdAt"
-        ],
-        "type": "object"
-      },
-      "ReaderProgress": {
-        "additionalProperties": false,
-        "properties": {
-          "inProgress": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "lastReadAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "read": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "reader": {
-            "type": "string"
-          },
-          "readerId": {
-            "format": "int64",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "readerId",
-          "reader",
-          "read",
-          "inProgress"
-        ],
-        "type": "object"
-      },
-      "ReaderResource": {
-        "additionalProperties": false,
-        "properties": {
-          "accounts": {
-            "items": {
-              "$ref": "#/components/schemas/ReaderAccountView"
-            },
-            "type": "array"
-          },
-          "completedCount": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "countForCleanup": {
-            "type": "boolean"
-          },
-          "createdAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "id": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "name": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "accounts",
-          "completedCount",
-          "id",
-          "name",
-          "countForCleanup",
-          "createdAt"
-        ],
-        "type": "object"
-      },
       "ReaderSettingsView": {
         "additionalProperties": false,
         "properties": {
@@ -8168,73 +8009,6 @@
         },
         "required": [
           "defaults"
-        ],
-        "type": "object"
-      },
-      "ReaderSync": {
-        "additionalProperties": false,
-        "properties": {
-          "devices": {
-            "items": {
-              "$ref": "#/components/schemas/DeviceSync"
-            },
-            "type": "array"
-          },
-          "events": {
-            "items": {
-              "$ref": "#/components/schemas/EventView"
-            },
-            "type": "array"
-          },
-          "keys": {
-            "items": {
-              "$ref": "#/components/schemas/ReadingKey"
-            },
-            "type": "array"
-          },
-          "readingApps": {
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "readingApps",
-          "keys",
-          "devices",
-          "events"
-        ],
-        "type": "object"
-      },
-      "Readers-createRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "countForCleanup": {
-            "type": "boolean"
-          },
-          "name": {
-            "minLength": 1,
-            "type": "string"
-          }
-        },
-        "required": [
-          "name",
-          "countForCleanup"
-        ],
-        "type": "object"
-      },
-      "Readers-updateRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "countForCleanup": {
-            "type": "boolean"
-          },
-          "name": {
-            "minLength": 1,
-            "type": "string"
-          }
-        },
-        "required": [
-          "name",
-          "countForCleanup"
         ],
         "type": "object"
       },
@@ -8256,17 +8030,12 @@
           "readAhead": {
             "$ref": "#/components/schemas/ReadAhead"
           },
-          "readerId": {
-            "format": "int64",
-            "type": "integer"
-          },
           "resizePages": {
             "type": "boolean"
           }
         },
         "required": [
           "enabled",
-          "readerId",
           "publicUrl",
           "downloadOnOpen",
           "resizePages",
@@ -8325,7 +8094,7 @@
           },
           "readers": {
             "items": {
-              "$ref": "#/components/schemas/ReaderProgress"
+              "$ref": "#/components/schemas/UserProgress"
             },
             "type": "array"
           },
@@ -10689,17 +10458,17 @@
             },
             "type": "array"
           },
-          "reader": {
+          "user": {
             "type": "string"
           },
-          "readerId": {
+          "userId": {
             "format": "int64",
             "type": "integer"
           }
         },
         "required": [
-          "readerId",
-          "reader",
+          "userId",
+          "user",
           "items"
         ],
         "type": "object"
@@ -12619,6 +12388,9 @@
       "User": {
         "additionalProperties": false,
         "properties": {
+          "countForCleanup": {
+            "type": "boolean"
+          },
           "createdAt": {
             "format": "date-time",
             "type": "string"
@@ -12645,10 +12417,6 @@
             "format": "date-time",
             "type": "string"
           },
-          "readerId": {
-            "format": "int64",
-            "type": "integer"
-          },
           "username": {
             "type": "string"
           }
@@ -12658,15 +12426,49 @@
           "username",
           "displayName",
           "groupId",
-          "readerId",
           "disabled",
-          "createdAt"
+          "createdAt",
+          "countForCleanup"
+        ],
+        "type": "object"
+      },
+      "UserProgress": {
+        "additionalProperties": false,
+        "properties": {
+          "inProgress": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "lastReadAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "read": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "userId": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "userId",
+          "name",
+          "read",
+          "inProgress"
         ],
         "type": "object"
       },
       "UserView": {
         "additionalProperties": false,
         "properties": {
+          "countForCleanup": {
+            "type": "boolean"
+          },
           "createdAt": {
             "format": "date-time",
             "type": "string"
@@ -12685,6 +12487,10 @@
           "displayName": {
             "type": "string"
           },
+          "finished": {
+            "format": "int64",
+            "type": "integer"
+          },
           "group": {
             "type": "string"
           },
@@ -12700,13 +12506,6 @@
             "format": "date-time",
             "type": "string"
           },
-          "readerId": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "readerName": {
-            "type": "string"
-          },
           "sessions": {
             "format": "int64",
             "type": "integer"
@@ -12717,16 +12516,16 @@
         },
         "required": [
           "group",
-          "readerName",
           "sessions",
           "devices",
+          "finished",
           "id",
           "username",
           "displayName",
           "groupId",
-          "readerId",
           "disabled",
-          "createdAt"
+          "createdAt",
+          "countForCleanup"
         ],
         "type": "object"
       },
@@ -12772,6 +12571,10 @@
       "Users-updateRequest": {
         "additionalProperties": false,
         "properties": {
+          "countForCleanup": {
+            "description": "Read-based cleanup waits for them (unchanged when left out)",
+            "type": "boolean"
+          },
           "disabled": {
             "type": "boolean"
           },
@@ -12779,11 +12582,6 @@
             "type": "string"
           },
           "groupId": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "readerId": {
-            "description": "The reader holding their progress",
             "format": "int64",
             "type": "integer"
           }
@@ -17014,6 +16812,51 @@
         ]
       }
     },
+    "/api/v1/me/sync": {
+      "get": {
+        "operationId": "me-sync",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "format": "int64",
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProgressSync"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Sync health: apps, devices and servers that reported your progress, and recent reports",
+        "tags": [
+          "Account"
+        ]
+      }
+    },
     "/api/v1/me/ui-preferences": {
       "get": {
         "operationId": "me-ui-preferences",
@@ -19182,302 +19025,6 @@
         ]
       }
     },
-    "/api/v1/readers": {
-      "get": {
-        "operationId": "readers-list",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/ReaderResource"
-                  },
-                  "type": "array"
-                }
-              }
-            },
-            "description": "OK"
-          },
-          "default": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorModel"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "tags": [
-          "Readers"
-        ]
-      },
-      "post": {
-        "operationId": "readers-create",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/Readers-createRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Reader"
-                }
-              }
-            },
-            "description": "OK"
-          },
-          "default": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorModel"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "tags": [
-          "Readers"
-        ]
-      }
-    },
-    "/api/v1/readers/{id}": {
-      "delete": {
-        "operationId": "readers-delete",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "format": "int64",
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "No Content"
-          },
-          "default": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorModel"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "tags": [
-          "Readers"
-        ]
-      },
-      "put": {
-        "operationId": "readers-update",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "format": "int64",
-              "type": "integer"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/Readers-updateRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "204": {
-            "description": "No Content"
-          },
-          "default": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorModel"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "tags": [
-          "Readers"
-        ]
-      }
-    },
-    "/api/v1/readers/{id}/accounts": {
-      "post": {
-        "operationId": "readers-account-save",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "format": "int64",
-              "type": "integer"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AccountInput"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ReaderAccount"
-                }
-              }
-            },
-            "description": "OK"
-          },
-          "default": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorModel"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "summary": "Add or replace the reader's account on a library module (credentials are tested first)",
-        "tags": [
-          "Readers"
-        ]
-      }
-    },
-    "/api/v1/readers/{id}/accounts/{accountId}": {
-      "delete": {
-        "operationId": "readers-account-delete",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "format": "int64",
-              "type": "integer"
-            }
-          },
-          {
-            "in": "path",
-            "name": "accountId",
-            "required": true,
-            "schema": {
-              "format": "int64",
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "No Content"
-          },
-          "default": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorModel"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "tags": [
-          "Readers"
-        ]
-      }
-    },
-    "/api/v1/readers/{id}/sync": {
-      "get": {
-        "operationId": "readers-sync",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "format": "int64",
-              "type": "integer"
-            }
-          },
-          {
-            "explode": false,
-            "in": "query",
-            "name": "limit",
-            "schema": {
-              "default": 50,
-              "format": "int64",
-              "maximum": 500,
-              "minimum": 1,
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ReaderSync"
-                }
-              }
-            },
-            "description": "OK"
-          },
-          "default": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorModel"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "summary": "Sync health: apps, devices and servers that reported the reader's progress, and recent reports",
-        "tags": [
-          "Readers"
-        ]
-      }
-    },
     "/api/v1/reading/keys": {
       "get": {
         "operationId": "reading-keys",
@@ -19712,12 +19259,12 @@
         "operationId": "reading-shelf",
         "parameters": [
           {
-            "description": "Reader (0 = the one reading apps act as)",
+            "description": "User (0 = you, or the default account without a login)",
             "explode": false,
             "in": "query",
-            "name": "readerId",
+            "name": "userId",
             "schema": {
-              "description": "Reader (0 = the one reading apps act as)",
+              "description": "User (0 = you, or the default account without a login)",
               "format": "int64",
               "type": "integer"
             }
@@ -19757,7 +19304,7 @@
             "description": "Error"
           }
         },
-        "summary": "Continue reading: the next chapter of each series the reader started, most recently read first",
+        "summary": "Continue reading: the next chapter of each series the user started, most recently read first",
         "tags": [
           "Reading apps"
         ]
@@ -25586,7 +25133,7 @@
             "description": "Error"
           }
         },
-        "summary": "Create a user (with their own reader for progress)",
+        "summary": "Create a user",
         "tags": [
           "Users"
         ]
@@ -25621,7 +25168,7 @@
             "description": "Error"
           }
         },
-        "summary": "Delete a user (their reader and its progress stay)",
+        "summary": "Delete a user and their reading progress",
         "tags": [
           "Users"
         ]
@@ -25664,7 +25211,7 @@
             "description": "Error"
           }
         },
-        "summary": "Change a user's name, group, reader, or disable them",
+        "summary": "Change a user's name or group, whether they count for cleanup, or disable them",
         "tags": [
           "Users"
         ]
@@ -25745,6 +25292,60 @@
           }
         },
         "summary": "Sign a user out of every web session",
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/api/v1/users/{id}/sync": {
+      "get": {
+        "operationId": "users-sync",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "format": "int64",
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProgressSync"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Sync health of a user's progress",
         "tags": [
           "Users"
         ]

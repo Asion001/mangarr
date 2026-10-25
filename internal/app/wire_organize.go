@@ -121,7 +121,7 @@ func (a *App) wireOrganize(ctx context.Context) error {
 // snapshotProgress captures the latest reader progress before files move
 // and keeps syncs from clearing it until it's restored.
 func (a *App) snapshotProgress(ctx context.Context, seriesID int64) {
-	n, _ := a.DB.NewSelect().Model((*model.ReaderAccount)(nil)).Count(ctx)
+	n, _ := a.DB.NewSelect().Model((*model.LibraryAccount)(nil)).Count(ctx)
 	if n == 0 {
 		return
 	}

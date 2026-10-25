@@ -29,7 +29,7 @@ func read(states map[int64]map[int64]model.ChapterReadState, reader int64, chapt
 	if !completed {
 		page = 3
 	}
-	states[chapter][reader] = model.ChapterReadState{ReaderID: reader, ChapterID: chapter, Completed: completed, Page: page, ReadAt: &at, SyncedAt: at}
+	states[chapter][reader] = model.ChapterReadState{UserID: reader, ChapterID: chapter, Completed: completed, Page: page, ReadAt: &at, SyncedAt: at}
 }
 
 func baseRules() Rules {
@@ -111,15 +111,15 @@ func TestScope(t *testing.T) {
 }
 
 func TestRequiredReaders(t *testing.T) {
-	readers := []model.Reader{{ID: 1}, {ID: 2, CountForCleanup: true}, {ID: 3}}
-	if got := requiredReaders(readers, nil); len(got) != 1 || got[0] != 2 {
+	readers := []model.User{{ID: 1}, {ID: 2, CountForCleanup: true}, {ID: 3}}
+	if got := requiredUsers(readers, nil); len(got) != 1 || got[0] != 2 {
 		t.Fatalf("counting readers: %v", got)
 	}
-	if got := requiredReaders(readers, []int64{3, 9}); len(got) != 1 || got[0] != 3 {
+	if got := requiredUsers(readers, []int64{3, 9}); len(got) != 1 || got[0] != 3 {
 		t.Fatalf("chosen readers, counting or not: %v", got)
 	}
 	readers[1].CountForCleanup = false
-	if got := requiredReaders(readers, nil); len(got) != 3 {
+	if got := requiredUsers(readers, nil); len(got) != 3 {
 		t.Fatalf("nobody counting means everyone: %v", got)
 	}
 }

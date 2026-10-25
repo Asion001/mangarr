@@ -165,15 +165,15 @@ const (
 
 // Cleanup holds global read-based cleanup rules (off by default).
 type Cleanup struct {
-	Enabled bool `json:"enabled" desc:"Delete chapters every reader has finished."`
+	Enabled bool `json:"enabled" desc:"Delete chapters every counted user has finished."`
 	DryRun  bool `json:"dryRun" desc:"Only report what cleanup would delete."`
 	// Statuses the rule applies to ("ongoing" by default).
 	Statuses []string `json:"statuses" desc:"Series statuses cleanup applies to (comma-separated)."`
-	// ReaderIDs restricts the required readers (empty = all readers counting for cleanup).
-	ReaderIDs               []int64  `json:"readerIds" desc:"Required reader IDs (empty = all)."`
-	IgnoreReadersNotStarted bool     `json:"ignoreReadersNotStarted" desc:"Readers who never opened a series don't block its cleanup."`
+	// UserIDs restricts the required users (empty = all users counting for cleanup).
+	UserIDs                 []int64  `json:"userIds" desc:"Required user IDs (empty = all)."`
+	IgnoreReadersNotStarted bool     `json:"ignoreReadersNotStarted" desc:"Users who never opened a series don't block its cleanup."`
 	KeepLastRead            int      `json:"keepLastRead" desc:"Keep the last N read chapters."`
-	GraceDays               int      `json:"graceDays" desc:"Days to wait after the last reader finished a chapter."`
+	GraceDays               int      `json:"graceDays" desc:"Days to wait after the last user finished a chapter."`
 	MinFreeSpaceGB          int      `json:"minFreeSpaceGb" desc:"Only clean up when free space is below this (GB, 0 = always)."`
 	ExcludeTags             []string `json:"excludeTags" desc:"Series with these tags are never cleaned up."`
 	UseRecycleBin           bool     `json:"useRecycleBin" desc:"Move cleaned files to the recycle bin."`
@@ -181,15 +181,13 @@ type Cleanup struct {
 
 // ReadSync controls progress polling from library servers.
 type ReadSync struct {
-	IntervalMinutes int `json:"intervalMinutes" desc:"Minutes between reader progress syncs."`
+	IntervalMinutes int `json:"intervalMinutes" desc:"Minutes between progress syncs with library servers."`
 }
 
 // Reading controls the Komga-compatible API that reading apps (Mihon's
 // Komga extension, KMReader, Paperback) use to read from mangarr directly.
 type Reading struct {
 	Enabled bool `json:"enabled" desc:"Allow Komga apps (Mihon's Komga extension, KMReader, Paperback) to connect."`
-	// ReaderID is the reader whose progress the apps read and write (0 = the first reader).
-	ReaderID int64 `json:"readerId" desc:"Reader whose progress Komga apps read and write (0 = the first reader)."`
 	// PublicURL is the address shown in setup guides.
 	PublicURL string `json:"publicUrl" desc:"Address Komga apps should use, e.g. https://manga.example.com:25600 (for the setup guides)."`
 	// DownloadOnOpen queues a download when a chapter that isn't downloaded is opened.

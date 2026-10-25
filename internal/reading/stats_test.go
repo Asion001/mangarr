@@ -48,7 +48,7 @@ func TestStatsScopesAndAggregates(t *testing.T) {
 		english, englishChapters := addSeries("English", "en", "Fantasy", visibleRoot.ID, 2)
 		russian, russianChapters := addSeries("Russian", "ru", "Sports", visibleRoot.ID, 3)
 		hidden, hiddenChapters := addSeries("Hidden", "uk", "Horror", hiddenRoot.ID, 1)
-		reader := &model.Reader{Name: "Reader", CreatedAt: now}
+		reader := &model.User{Username: "Reader", CreatedAt: now}
 		if _, err := database.NewInsert().Model(reader).Exec(ctx); err != nil {
 			t.Fatal(err)
 		}
@@ -60,20 +60,20 @@ func TestStatsScopesAndAggregates(t *testing.T) {
 			{russian, russianChapters[0]}, {russian, russianChapters[1]}, {russian, russianChapters[2]},
 			{hidden, hiddenChapters[0]},
 		} {
-			state := &model.ChapterReadState{ReaderID: reader.ID, SeriesID: pair.series.ID, ChapterID: pair.chapter.ID,
+			state := &model.ChapterReadState{UserID: reader.ID, SeriesID: pair.series.ID, ChapterID: pair.chapter.ID,
 				Completed: true, ReadAt: &now, SyncedAt: now}
 			if err := readstate.Save(ctx, database, state); err != nil {
 				t.Fatal(err)
 			}
 		}
 		for _, session := range []*model.ReadingSession{
-			{ID: "stats-english-jan", ReaderID: reader.ID, SeriesID: english.ID, ChapterID: englishChapters[0].ID, ActiveSeconds: 120,
+			{ID: "stats-english-jan", UserID: reader.ID, SeriesID: english.ID, ChapterID: englishChapters[0].ID, ActiveSeconds: 120,
 				StartedAt: time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC), UpdatedAt: time.Date(2026, 1, 2, 0, 2, 0, 0, time.UTC)},
-			{ID: "stats-english-feb", ReaderID: reader.ID, SeriesID: english.ID, ChapterID: englishChapters[1].ID, ActiveSeconds: 60,
+			{ID: "stats-english-feb", UserID: reader.ID, SeriesID: english.ID, ChapterID: englishChapters[1].ID, ActiveSeconds: 60,
 				StartedAt: time.Date(2026, 2, 2, 0, 0, 0, 0, time.UTC), UpdatedAt: time.Date(2026, 2, 2, 0, 1, 0, 0, time.UTC)},
-			{ID: "stats-russian-feb", ReaderID: reader.ID, SeriesID: russian.ID, ChapterID: russianChapters[0].ID, ActiveSeconds: 30,
+			{ID: "stats-russian-feb", UserID: reader.ID, SeriesID: russian.ID, ChapterID: russianChapters[0].ID, ActiveSeconds: 30,
 				StartedAt: time.Date(2026, 2, 3, 0, 0, 0, 0, time.UTC), UpdatedAt: time.Date(2026, 2, 3, 0, 0, 30, 0, time.UTC)},
-			{ID: "stats-hidden", ReaderID: reader.ID, SeriesID: hidden.ID, ChapterID: hiddenChapters[0].ID, ActiveSeconds: 1000,
+			{ID: "stats-hidden", UserID: reader.ID, SeriesID: hidden.ID, ChapterID: hiddenChapters[0].ID, ActiveSeconds: 1000,
 				StartedAt: now, UpdatedAt: now},
 		} {
 			if _, err := database.NewInsert().Model(session).Exec(ctx); err != nil {
@@ -81,7 +81,7 @@ func TestStatsScopesAndAggregates(t *testing.T) {
 			}
 		}
 
-		viewer := &access.Principal{Kind: access.KindUser, ReaderID: reader.ID, Perms: map[string]bool{},
+		viewer := &access.Principal{Kind: access.KindUser, UserID: reader.ID, Perms: map[string]bool{},
 			Scope: access.Scope{RootFolders: []int64{visibleRoot.ID}}}
 		stats, err := (&Service{DB: database}).Stats(access.With(ctx, viewer), reader.ID)
 		if err != nil {

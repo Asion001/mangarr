@@ -1056,6 +1056,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Sync health: apps, devices and servers that reported your progress, and recent reports */
+        get: operations["me-sync"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/ui-preferences": {
         parameters: {
             query?: never;
@@ -1729,88 +1746,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/readers": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["readers-list"];
-        put?: never;
-        post: operations["readers-create"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/readers/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put: operations["readers-update"];
-        post?: never;
-        delete: operations["readers-delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/readers/{id}/accounts": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Add or replace the reader's account on a library module (credentials are tested first) */
-        post: operations["readers-account-save"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/readers/{id}/accounts/{accountId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete: operations["readers-account-delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/readers/{id}/sync": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Sync health: apps, devices and servers that reported the reader's progress, and recent reports */
-        get: operations["readers-sync"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/reading/keys": {
         parameters: {
             query?: never;
@@ -1871,7 +1806,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Continue reading: the next chapter of each series the reader started, most recently read first */
+        /** Continue reading: the next chapter of each series the user started, most recently read first */
         get: operations["reading-shelf"];
         put?: never;
         post?: never;
@@ -3676,7 +3611,7 @@ export interface paths {
         };
         get: operations["users-list"];
         put?: never;
-        /** Create a user (with their own reader for progress) */
+        /** Create a user */
         post: operations["users-create"];
         delete?: never;
         options?: never;
@@ -3692,10 +3627,10 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Change a user's name, group, reader, or disable them */
+        /** Change a user's name or group, whether they count for cleanup, or disable them */
         put: operations["users-update"];
         post?: never;
-        /** Delete a user (their reader and its progress stay) */
+        /** Delete a user and their reading progress */
         delete: operations["users-delete"];
         options?: never;
         head?: never;
@@ -3730,6 +3665,23 @@ export interface paths {
         put?: never;
         /** Sign a user out of every web session */
         post: operations["users-signout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{id}/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Sync health of a user's progress */
+        get: operations["users-sync"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3956,8 +3908,6 @@ export interface components {
             /** @enum {string} */
             kind: "user" | "apikey" | "anonymous";
             permissions: string[];
-            /** Format: int64 */
-            readerId: number;
             username: string;
         };
         AccountInput: {
@@ -4506,9 +4456,9 @@ export interface components {
             keepLastRead: number;
             /** Format: int64 */
             minFreeSpaceGb: number;
-            readerIds: number[];
             statuses: string[];
             useRecycleBin: boolean;
+            userIds: number[];
         };
         CleanupCandidate: {
             chapter: string;
@@ -5001,10 +4951,10 @@ export interface components {
             /** Format: int64 */
             page: number;
             /** Format: int64 */
-            readerId: number;
-            /** Format: int64 */
             seriesId: number;
             seriesTitle: string;
+            /** Format: int64 */
+            userId: number;
         };
         Export: {
             /** Format: date-time */
@@ -5316,10 +5266,10 @@ export interface components {
             pushProgress: boolean;
             readState: boolean;
             /** Format: int64 */
-            readerId: number;
-            /** Format: int64 */
             rootFolderId: number;
             searchMissing: boolean;
+            /** Format: int64 */
+            userId: number;
         };
         ImportResource: {
             busy: boolean;
@@ -5480,6 +5430,7 @@ export interface components {
             lastError?: string;
             /** Format: date-time */
             lastSyncAt?: string;
+            live?: components["schemas"]["WatchStatus"];
         };
         ListFilter: {
             ids?: number[];
@@ -6155,6 +6106,11 @@ export interface components {
             processTiming?: "" | "background" | "inline";
             upscale: components["schemas"]["UpscaleConfig"];
         };
+        ProgressSync: {
+            devices: components["schemas"]["DeviceSync"][];
+            events: components["schemas"]["EventView"][];
+            keys: components["schemas"]["ReadingKey"][];
+        };
         PublicAppearance: {
             accent: string;
             instanceName: string;
@@ -6371,13 +6327,13 @@ export interface components {
         };
         ReadStateView: {
             completed: boolean;
+            name: string;
             /** Format: int64 */
             page: number;
             /** Format: date-time */
             readAt?: string;
-            reader: string;
             /** Format: int64 */
-            readerId: number;
+            userId: number;
         };
         ReadSync: {
             /** Format: int64 */
@@ -6390,84 +6346,9 @@ export interface components {
             /** Format: int64 */
             page?: number;
         };
-        Reader: {
-            countForCleanup: boolean;
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: int64 */
-            id: number;
-            name: string;
-        };
-        ReaderAccount: {
-            /** Format: date-time */
-            createdAt: string;
-            externalUser: string;
-            /** Format: int64 */
-            id: number;
-            lastError: string;
-            /** Format: date-time */
-            lastSyncAt?: string;
-            /** Format: int64 */
-            moduleId: number;
-            /** Format: int64 */
-            readerId: number;
-        };
-        ReaderAccountView: {
-            /** Format: date-time */
-            createdAt: string;
-            externalUser: string;
-            /** Format: int64 */
-            id: number;
-            lastError: string;
-            /** Format: date-time */
-            lastSyncAt?: string;
-            live?: components["schemas"]["WatchStatus"];
-            liveCapable: boolean;
-            /** Format: int64 */
-            moduleId: number;
-            moduleName: string;
-            /** Format: int64 */
-            readerId: number;
-        };
-        ReaderProgress: {
-            /** Format: int64 */
-            inProgress: number;
-            /** Format: date-time */
-            lastReadAt?: string;
-            /** Format: int64 */
-            read: number;
-            reader: string;
-            /** Format: int64 */
-            readerId: number;
-        };
-        ReaderResource: {
-            accounts: components["schemas"]["ReaderAccountView"][];
-            /** Format: int64 */
-            completedCount: number;
-            countForCleanup: boolean;
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: int64 */
-            id: number;
-            name: string;
-        };
         ReaderSettingsView: {
             defaults: unknown;
             series?: unknown;
-        };
-        ReaderSync: {
-            devices: components["schemas"]["DeviceSync"][];
-            events: components["schemas"]["EventView"][];
-            keys: components["schemas"]["ReadingKey"][];
-            readingApps: boolean;
-        };
-        "Readers-createRequest": {
-            countForCleanup: boolean;
-            name: string;
-        };
-        "Readers-updateRequest": {
-            countForCleanup: boolean;
-            name: string;
         };
         Reading: {
             cdnImages: boolean;
@@ -6475,8 +6356,6 @@ export interface components {
             enabled: boolean;
             publicUrl: string;
             readAhead: components["schemas"]["ReadAhead"];
-            /** Format: int64 */
-            readerId: number;
             resizePages: boolean;
         };
         "Reading-keys-createRequest": {
@@ -6493,7 +6372,7 @@ export interface components {
         };
         ReadingInfo: {
             nextUnread?: components["schemas"]["NextChapter"];
-            readers: components["schemas"]["ReaderProgress"][];
+            readers: components["schemas"]["UserProgress"][];
             webName?: string;
             webUrl?: string;
         };
@@ -7192,9 +7071,9 @@ export interface components {
         };
         Shelf: {
             items: components["schemas"]["ShelfItem"][];
-            reader: string;
+            user: string;
             /** Format: int64 */
-            readerId: number;
+            userId: number;
         };
         ShelfItem: {
             coverUrl: string;
@@ -7739,6 +7618,7 @@ export interface components {
             name: string;
         };
         User: {
+            countForCleanup: boolean;
             /** Format: date-time */
             createdAt: string;
             /** Format: int64 */
@@ -7751,11 +7631,21 @@ export interface components {
             id: number;
             /** Format: date-time */
             lastLoginAt?: string;
-            /** Format: int64 */
-            readerId: number;
             username: string;
         };
+        UserProgress: {
+            /** Format: int64 */
+            inProgress: number;
+            /** Format: date-time */
+            lastReadAt?: string;
+            name: string;
+            /** Format: int64 */
+            read: number;
+            /** Format: int64 */
+            userId: number;
+        };
         UserView: {
+            countForCleanup: boolean;
             /** Format: date-time */
             createdAt: string;
             /** Format: int64 */
@@ -7764,6 +7654,8 @@ export interface components {
             devices: number;
             disabled: boolean;
             displayName: string;
+            /** Format: int64 */
+            finished: number;
             group: string;
             /** Format: int64 */
             groupId: number;
@@ -7771,9 +7663,6 @@ export interface components {
             id: number;
             /** Format: date-time */
             lastLoginAt?: string;
-            /** Format: int64 */
-            readerId: number;
-            readerName: string;
             /** Format: int64 */
             sessions: number;
             username: string;
@@ -7792,15 +7681,12 @@ export interface components {
             password: string;
         };
         "Users-updateRequest": {
+            /** @description Read-based cleanup waits for them (unchanged when left out) */
+            countForCleanup?: boolean;
             disabled?: boolean;
             displayName?: string;
             /** Format: int64 */
             groupId: number;
-            /**
-             * Format: int64
-             * @description The reader holding their progress
-             */
-            readerId?: number;
         };
         Var: {
             default: string;
@@ -10430,6 +10316,37 @@ export interface operations {
             };
         };
     };
+    "me-sync": {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProgressSync"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "me-ui-preferences": {
         parameters: {
             query?: never;
@@ -11959,228 +11876,6 @@ export interface operations {
             };
         };
     };
-    "readers-list": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ReaderResource"][];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "readers-create": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["Readers-createRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Reader"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "readers-update": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["Readers-updateRequest"];
-            };
-        };
-        responses: {
-            /** @description No Content */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "readers-delete": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description No Content */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "readers-account-save": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AccountInput"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ReaderAccount"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "readers-account-delete": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-                accountId: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description No Content */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "readers-sync": {
-        parameters: {
-            query?: {
-                limit?: number;
-            };
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ReaderSync"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
     "reading-keys": {
         parameters: {
             query?: {
@@ -12349,8 +12044,8 @@ export interface operations {
     "reading-shelf": {
         parameters: {
             query?: {
-                /** @description Reader (0 = the one reading apps act as) */
-                readerId?: number;
+                /** @description User (0 = you, or the default account without a login) */
+                userId?: number;
                 limit?: number;
             };
             header?: never;
@@ -16829,6 +16524,39 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "users-sync": {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProgressSync"];
+                };
             };
             /** @description Error */
             default: {

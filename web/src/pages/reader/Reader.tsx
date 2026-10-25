@@ -194,7 +194,7 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
       if (!r.ok) throw new ApiError(r.status, r.statusText, proxyGap(r));
       // queued by the service worker while mangarr is away: it sends it later
       if (fromServer(r)) serverAnswered();
-      qc.invalidateQueries({ queryKey: ["readers"] });
+      qc.invalidateQueries({ queryKey: ["progress"] });
       qc.invalidateQueries({ queryKey: ["series"] });
     }).catch((e) => {
       // not saved (mangarr restarting): send it again once it's back,

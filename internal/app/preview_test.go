@@ -75,11 +75,11 @@ func TestPreviewStaysOutOfTheLibraryUntilAdded(t *testing.T) {
 				t.Fatalf("preview by id: %d %v", len(one), err)
 			}
 
-			reader := &model.Reader{Name: "ann", CreatedAt: time.Now().UTC()}
+			reader := &model.User{Username: "ann", CreatedAt: time.Now().UTC()}
 			if _, err := e.App.DB.NewInsert().Model(reader).Exec(e.Ctx); err != nil {
 				t.Fatal(err)
 			}
-			state := &model.ChapterReadState{ReaderID: reader.ID, ChapterID: chapters[0].ID, SeriesID: pv.ID, Page: 2, SyncedAt: time.Now().UTC()}
+			state := &model.ChapterReadState{UserID: reader.ID, ChapterID: chapters[0].ID, SeriesID: pv.ID, Page: 2, SyncedAt: time.Now().UTC()}
 			if err := readstate.Save(e.Ctx, e.App.DB, state); err != nil {
 				t.Fatal(err)
 			}

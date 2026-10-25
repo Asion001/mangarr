@@ -53,14 +53,14 @@ func TestMihonBackupExportsVisibleLibraryProgressAndDevice(t *testing.T) {
 	if _, err := app.DB.NewInsert().Model(&chapters).Exec(ctx); err != nil {
 		t.Fatal(err)
 	}
-	readerID, err := app.Reading.ReaderID(ctx)
+	userID, err := app.Reading.DefaultUserID(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
 	readAt := now.Add(-30 * time.Minute)
 	states := []model.ChapterReadState{
-		{ReaderID: readerID, SeriesID: series.ID, ChapterID: chapters[0].ID, Completed: true, ReadAt: &readAt, SyncedAt: readAt},
-		{ReaderID: readerID, SeriesID: series.ID, ChapterID: chapters[1].ID, Page: 5, SyncedAt: now},
+		{UserID: userID, SeriesID: series.ID, ChapterID: chapters[0].ID, Completed: true, ReadAt: &readAt, SyncedAt: readAt},
+		{UserID: userID, SeriesID: series.ID, ChapterID: chapters[1].ID, Page: 5, SyncedAt: now},
 	}
 	for i := range states {
 		if err := readstate.Save(ctx, app.DB, &states[i]); err != nil {

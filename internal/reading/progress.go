@@ -18,7 +18,7 @@ const ProgressChanged = "reading.progress"
 
 // ProgressPayload lists the chapters whose progress changed.
 type ProgressPayload struct {
-	ReaderID   int64   `json:"readerId"`
+	UserID     int64   `json:"userId"`
 	ChapterIDs []int64 `json:"chapterIds"`
 	Deleted    bool    `json:"deleted"` // marked unread
 	// Origin is where the change came from (model.EventOrigin*).
@@ -56,7 +56,7 @@ type Outcome struct {
 //     delete them until it reports the chapter itself;
 //   - progress belongs to the title, so a change shows in every language
 //     edition; the other editions are announced too (announceEditions).
-func (s *Service) Record(ctx context.Context, readerID int64, changes []Change, by By) ([]Outcome, error) {
+func (s *Service) Record(ctx context.Context, userID int64, changes []Change, by By) ([]Outcome, error) {
 	if len(changes) == 0 {
 		return nil, nil
 	}
@@ -67,7 +67,7 @@ func (s *Service) Record(ctx context.Context, readerID int64, changes []Change, 
 	cur := map[int64]*model.ChapterReadState{}
 	for start := 0; start < len(ids); start += 500 {
 		var states []model.ChapterReadState
-		if err := s.DB.NewSelect().Model(&states).Where("reader_id = ?", readerID).
+		if err := s.DB.NewSelect().Model(&states).Where("user_id = ?", userID).
 			Where("chapter_id IN (?)", bun.In(ids[start:min(start+500, len(ids))])).Scan(ctx); err != nil {
 			return nil, err
 		}
@@ -79,7 +79,7 @@ func (s *Service) Record(ctx context.Context, readerID int64, changes []Change, 
 	out := make([]Outcome, 0, len(changes))
 	err := s.DB.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
 		for _, c := range changes {
-			res, err := apply(ctx, tx, readerID, cur[c.ChapterID], c, now)
+			res, err := apply(ctx, tx, userID, cur[c.ChapterID], c, now)
 			if err != nil {
 				return err
 			}
@@ -96,22 +96,22 @@ func (s *Service) Record(ctx context.Context, readerID int64, changes []Change, 
 			changed[o.SeriesID] = true
 		}
 	}
-	s.logOutcomes(ctx, readerID, out, by, now)
-	s.announce(readerID, out, by)
-	for sid := range s.announceEditions(ctx, readerID, out) {
+	s.logOutcomes(ctx, userID, out, by, now)
+	s.announce(userID, out, by)
+	for sid := range s.announceEditions(ctx, userID, out) {
 		changed[sid] = true
 	}
 	for sid := range changed {
 		s.Bus.Changed("series", "updated", sid)
 	}
 	if len(changed) > 0 {
-		s.Bus.Changed("readers", "sync", 0)
+		s.Bus.Changed("progress", "sync", 0)
 		s.Log.Debug("reading progress recorded", "changes", len(changes), "series", len(changed), "client", by.Client, "device", by.Device)
 	}
 	return out, nil
 }
 
-func apply(ctx context.Context, tx bun.Tx, readerID int64, st *model.ChapterReadState, c Change, now time.Time) (string, error) {
+func apply(ctx context.Context, tx bun.Tx, userID int64, st *model.ChapterReadState, c Change, now time.Time) (string, error) {
 	switch {
 	case c.Unread:
 		if st == nil {
@@ -122,7 +122,7 @@ func apply(ctx context.Context, tx bun.Tx, readerID int64, st *model.ChapterRead
 		if !c.Completed && c.Page <= 0 {
 			return model.OutcomeUnchanged, nil
 		}
-		st = &model.ChapterReadState{ReaderID: readerID, ChapterID: c.ChapterID, SeriesID: c.SeriesID, Completed: c.Completed,
+		st = &model.ChapterReadState{UserID: userID, ChapterID: c.ChapterID, SeriesID: c.SeriesID, Completed: c.Completed,
 			Page: max(c.Page, 0), SyncedAt: now, Origin: model.ReadOriginApp}
 		if c.Completed {
 			st.ReadAt = &now
@@ -151,8 +151,8 @@ type chapterState struct {
 	State      *model.ChapterReadState
 }
 
-// seriesStates loads a series' chapters in reading order with readerID's states.
-func (s *Service) seriesStates(ctx context.Context, readerID, seriesID int64) ([]chapterState, error) {
+// seriesStates loads a series' chapters in reading order with userID's states.
+func (s *Service) seriesStates(ctx context.Context, userID, seriesID int64) ([]chapterState, error) {
 	if exists, err := s.DB.NewSelect().Model((*model.Series)(nil)).Where("id = ?", seriesID).Exists(ctx); err != nil {
 		return nil, err
 	} else if !exists || !s.CanSee(ctx, seriesID) {
@@ -164,7 +164,7 @@ func (s *Service) seriesStates(ctx context.Context, readerID, seriesID int64) ([
 		return nil, err
 	}
 	var states []model.ChapterReadState
-	if err := s.DB.NewSelect().Model(&states).Where("reader_id = ? AND series_id = ?", readerID, seriesID).Scan(ctx); err != nil &&
+	if err := s.DB.NewSelect().Model(&states).Where("user_id = ? AND series_id = ?", userID, seriesID).Scan(ctx); err != nil &&
 		!errors.Is(err, sql.ErrNoRows) {
 		return nil, err
 	}
@@ -180,8 +180,8 @@ func (s *Service) seriesStates(ctx context.Context, readerID, seriesID int64) ([
 }
 
 // MarkSeries marks every chapter of a series read (or unread).
-func (s *Service) MarkSeries(ctx context.Context, readerID, seriesID int64, read bool, by By) ([]Outcome, error) {
-	list, err := s.seriesStates(ctx, readerID, seriesID)
+func (s *Service) MarkSeries(ctx context.Context, userID, seriesID int64, read bool, by By) ([]Outcome, error) {
+	list, err := s.seriesStates(ctx, userID, seriesID)
 	if err != nil {
 		return nil, err
 	}
@@ -194,13 +194,13 @@ func (s *Service) MarkSeries(ctx context.Context, readerID, seriesID int64, read
 			changes = append(changes, Change{ChapterID: c.ID, SeriesID: seriesID, Unread: true})
 		}
 	}
-	return s.Record(ctx, readerID, changes, by)
+	return s.Record(ctx, userID, changes, by)
 }
 
 // MarkReadUpTo marks every chapter numbered up to numberSort as read (it
 // never lowers progress), as Komga does for Mihon's tracker.
-func (s *Service) MarkReadUpTo(ctx context.Context, readerID, seriesID int64, numberSort float64, by By) ([]Outcome, error) {
-	list, err := s.seriesStates(ctx, readerID, seriesID)
+func (s *Service) MarkReadUpTo(ctx context.Context, userID, seriesID int64, numberSort float64, by By) ([]Outcome, error) {
+	list, err := s.seriesStates(ctx, userID, seriesID)
 	if err != nil {
 		return nil, err
 	}
@@ -210,14 +210,14 @@ func (s *Service) MarkReadUpTo(ctx context.Context, readerID, seriesID int64, nu
 			changes = append(changes, Change{ChapterID: c.ID, SeriesID: seriesID, Completed: true})
 		}
 	}
-	return s.Record(ctx, readerID, changes, by)
+	return s.Record(ctx, userID, changes, by)
 }
 
 // MarkBeforeChapter marks every chapter before chapterID read or unread. It
 // uses the stable reading order, so duplicate/special chapter numbers behave
 // the same way as Previous in the reader.
-func (s *Service) MarkBeforeChapter(ctx context.Context, readerID, seriesID, chapterID int64, read bool, by By) ([]Outcome, error) {
-	list, err := s.seriesStates(ctx, readerID, seriesID)
+func (s *Service) MarkBeforeChapter(ctx context.Context, userID, seriesID, chapterID int64, read bool, by By) ([]Outcome, error) {
+	list, err := s.seriesStates(ctx, userID, seriesID)
 	if err != nil {
 		return nil, err
 	}
@@ -240,12 +240,12 @@ func (s *Service) MarkBeforeChapter(ctx context.Context, readerID, seriesID, cha
 			changes = append(changes, Change{ChapterID: chapter.ID, SeriesID: seriesID, Unread: true})
 		}
 	}
-	return s.Record(ctx, readerID, changes, by)
+	return s.Record(ctx, userID, changes, by)
 }
 
 // MarkReadUpToIndex is MarkReadUpTo by 1-based position (the v1 tracker API).
-func (s *Service) MarkReadUpToIndex(ctx context.Context, readerID, seriesID int64, index int, by By) ([]Outcome, error) {
-	list, err := s.seriesStates(ctx, readerID, seriesID)
+func (s *Service) MarkReadUpToIndex(ctx context.Context, userID, seriesID int64, index int, by By) ([]Outcome, error) {
+	list, err := s.seriesStates(ctx, userID, seriesID)
 	if err != nil {
 		return nil, err
 	}
@@ -255,7 +255,7 @@ func (s *Service) MarkReadUpToIndex(ctx context.Context, readerID, seriesID int6
 			changes = append(changes, Change{ChapterID: c.ID, SeriesID: seriesID, Completed: true})
 		}
 	}
-	return s.Record(ctx, readerID, changes, by)
+	return s.Record(ctx, userID, changes, by)
 }
 
 // SeriesProgress is a series' progress as Mihon's Komga tracker sees it.
@@ -274,8 +274,8 @@ type SeriesProgress struct {
 // (older, undownloaded ones), so the run starts at the first chapter with
 // any progress instead: reading 30–40 of a series whose 1–29 you never
 // touched reports 40, while a skipped 35 still stops the run at 34.
-func (s *Service) Progress(ctx context.Context, readerID, seriesID int64) (SeriesProgress, error) {
-	list, err := s.seriesStates(ctx, readerID, seriesID)
+func (s *Service) Progress(ctx context.Context, userID, seriesID int64) (SeriesProgress, error) {
+	list, err := s.seriesStates(ctx, userID, seriesID)
 	if err != nil {
 		return SeriesProgress{}, err
 	}

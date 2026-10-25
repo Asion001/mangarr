@@ -187,10 +187,10 @@ from a backup** downloads a backup that restores your library with the
 extension already configured. See [Reading in Mihon](mihon.md).
 
 Each device key belongs to the account that made it, so everyone's progress
-stays their own; keys made before accounts existed (and keys of the API key)
-use the reader under Settings → Reading apps. What every device reports is
-logged under Settings → Readers → *Devices & sync*, next to what Komga and
-Kavita report. mangarr passes every change on to
+stays their own; keys made before accounts existed (and the API key) use the
+first administrator's progress. What every device reports is logged under
+My account → *Devices & sync* (administrators see anyone's in Settings →
+Users), next to what Komga and Kavita report. mangarr passes every change on to
 the library servers, so Komga's own web reader stays up to date too. It
 never lowers progress, except when you mark a chapter unread in an app.
 
@@ -260,9 +260,10 @@ devices and their own notifications. The library itself is shared.
    without others, or in certain root folders. Series outside it don't exist
    for its members — not in the library, the web reader, the Komga API or the
    search.
-4. **Their own progress**: each account gets a reader of its own (Settings →
-   Readers). Progress from their apps, the web reader and their own
-   Komga/Kavita account (§10) all land there. On a series page an
+4. **Their own progress**: progress belongs to the account. Progress from
+   their apps, the web reader and their own Komga/Kavita account (§10) all
+   land there, and deleting the account deletes it (My account → *Your data*
+   exports it first). On a series page an
    administrator sees how far everyone got; others see only themselves.
 5. **Sessions**: My account lists where you're signed in, and signs other
    sessions out. Changing a password, disabling an account or *Sign out
@@ -416,26 +417,26 @@ OpenID Connect provider: **Settings → Single sign-on**.
 5. **Passwords**: turn *Keep password sign-in for everyone* off to make
    single sign-on the only way in. Administrators may still use a password,
    so you can get back in when the provider is down.
-## 10. Readers and cleanup (optional)
+## 10. Progress sync and cleanup (optional)
 
-Cleanup deletes chapters **every reader** has finished.
+Cleanup deletes chapters **every counted user** has finished.
 
-1. Settings → Readers → add each person, then **Link account** with *their
-   own* Komga API key (Komga only exposes progress to the user itself).
-   People with an account here can do it themselves under **My account →
-   Library servers**, for their own reader.
-2. Cleanup → enable, keep **Dry run** on at first, check the preview.
-3. Defaults: ongoing series only, keep the last read chapter (keeps Mihon's
-   tracker anchored), 7-day grace period, readers who never opened a series
+1. Each person links *their own* Komga or Kavita account under **My account
+   → Library servers** (Komga only exposes progress to the user itself).
+2. Settings → Users: **Counts for cleanup** picks whose progress cleanup waits
+   for (administrators count by default).
+3. Cleanup → enable, keep **Dry run** on at first, check the preview.
+4. Defaults: ongoing series only, keep the last read chapter (keeps Mihon's
+   tracker anchored), 7-day grace period, people who never opened a series
    don't block it, `keep` tag excludes a series, files go to the recycle bin.
-4. Cleaned chapters are never downloaded again; use **Restore** on a chapter
+5. Cleaned chapters are never downloaded again; use **Restore** on a chapter
    to get it back.
 
 Read progress arrives **live from Komga**: each linked account keeps Komga's
 event stream open, so a chapter read on any device shows up in mangarr within
-seconds (the Readers page shows *live*). Kavita is checked on a timer
-(Settings → Readers, every 30 minutes by default). Each series shows how far
-its readers got (*Continue: ch. N*, a read bar on the Series page, and a link
+seconds (My account → Library servers shows *live*). Kavita is checked on a
+timer (every 30 minutes by default). Each series shows how far its readers
+got (*Continue: ch. N*, a read bar on the Series page, and a link
 to open it in Komga).
 
 ## 11. Processing: upscaling and re-encoding (optional)

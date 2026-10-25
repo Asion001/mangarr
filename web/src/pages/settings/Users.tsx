@@ -4,19 +4,19 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Copy, KeyRound, Link2, LogOut, Pencil, Plus, Trash2, UserPlus } from "lucide-react";
 import clsx from "clsx";
 import { api, basePath, unwrap, type S } from "../../api/client";
-import { useReaders, useRootFolders, useTags } from "../../api/queries";
+import { useRootFolders, useTags, useUsers } from "../../api/queries";
 import { Badge, Button, Card, Confirm, EmptyState, ErrorBox, Field, IconButton, Input, Loading, Modal, PageHeader, Select, Switch, Table, Tabs, Td, Th } from "../../components/ui";
 import { useAccount } from "../../lib/account";
 import { dateTime, relative } from "../../lib/format";
 import { useToast } from "../../lib/toast";
 import { useListParam } from "../../lib/urlState";
+import { ProgressSyncPanel } from "./ProgressSync";
 
 type User = S["UserView"];
 type Group = S["GroupView"];
 type Invite = S["InviteView"];
 type Tab = "users" | "groups" | "invites";
 
-const useUsers = () => useQuery({ queryKey: ["users"], queryFn: () => unwrap(api.GET("/api/v1/users")) });
 const useGroups = () => useQuery({ queryKey: ["users", "groups"], queryFn: () => unwrap(api.GET("/api/v1/groups")) });
 const usePermissions = () => useQuery({ queryKey: ["permissions"], queryFn: () => unwrap(api.GET("/api/v1/permissions")), staleTime: Infinity });
 
@@ -104,7 +104,10 @@ function UsersTab() {
                   <Td>
                     <Badge tone="info">{u.group}</Badge>
                   </Td>
-                  <Td className="text-muted">{u.readerName || "—"}</Td>
+                  <Td className="text-muted">
+                    {u.finished}{" " + t("chapters read")}
+                    {u.countForCleanup && <div className="text-xs">{t("counts for cleanup")}</div>}
+                  </Td>
                   <Td className="text-muted">{u.lastLoginAt ? relative(u.lastLoginAt) : tr("never")}</Td>
                   <Td className="text-muted">
                     {u.sessions}{" " + t("browser")}{u.sessions === 1 ? "" : tr("s")}, {u.devices}{" " + t("app")}{u.devices === 1 ? "" : tr("s")}
@@ -141,7 +144,7 @@ function UsersTab() {
         title={t("Delete user")}
         danger
         confirmLabel={t("Delete")}
-        message={`Delete ${deleting?.username}? Their reader and its progress stay (Settings → Readers).`}
+        message={`Delete ${deleting?.username}? Their reading progress (${deleting?.finished ?? 0} chapters read) is deleted with them.`}
         onConfirm={remove}
         onClose={() => setDeleting(null)}
       />
@@ -152,13 +155,12 @@ function UsersTab() {
 function UserModal({ user, onClose }: { user?: User; onClose: () => void }) {
   const qc = useQueryClient();
   const { data: groups } = useGroups();
-  const { data: readers } = useReaders();
   const { account } = useAccount();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState(user?.displayName ?? "");
   const [groupId, setGroupId] = useState(user?.groupId ?? 0);
-  const [readerId, setReaderId] = useState(user?.readerId ?? 0);
+  const [countForCleanup, setCountForCleanup] = useState(user?.countForCleanup ?? false);
   const [disabled, setDisabled] = useState(user?.disabled ?? false);
   const [error, setError] = useState<unknown>(null);
   const [saving, setSaving] = useState(false);
@@ -167,12 +169,11 @@ function UserModal({ user, onClose }: { user?: User; onClose: () => void }) {
     setError(null);
     try {
       if (user) {
-        await unwrap(api.PUT("/api/v1/users/{id}", { params: { path: { id: user.id } }, body: { displayName, groupId, readerId, disabled } }));
+        await unwrap(api.PUT("/api/v1/users/{id}", { params: { path: { id: user.id } }, body: { displayName, groupId, countForCleanup, disabled } }));
       } else {
         await unwrap(api.POST("/api/v1/users", { body: { username, password, displayName: displayName || undefined, groupId: groupId || undefined } }));
       }
       qc.invalidateQueries({ queryKey: ["users"] });
-      qc.invalidateQueries({ queryKey: ["readers"] });
       onClose();
     } catch (e) {
       setError(e);
@@ -220,16 +221,9 @@ function UserModal({ user, onClose }: { user?: User; onClose: () => void }) {
         </Field>
         {user && (
           <>
-            <Field label={t("Progress")} help={t("The reader whose progress this user reads and writes (e.g. one you set up for their Komga account before).")}>
-              <Select value={readerId} onChange={(e) => setReaderId(Number(e.target.value))}>
-                {readers?.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name}
-                  </option>
-                ))}
-              </Select>
-            </Field>
+            <Switch checked={countForCleanup} onChange={setCountForCleanup} label={t("Counts for cleanup")} />
             {user.id !== account?.id && <Switch checked={disabled} onChange={setDisabled} label={t("Disabled (can't sign in)")} />}
+            <ProgressSyncPanel userId={user.id} />
           </>
         )}
         {error !== null && <ErrorBox error={error} />}

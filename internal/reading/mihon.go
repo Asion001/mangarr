@@ -15,12 +15,12 @@ const MihonKomgaSourceID = "4508733312114627536"
 
 // MihonBackup exports the caller-visible library and reader's progress as a
 // Mihon backup connected to mangarr's Komga-compatible API.
-func (s *Service) MihonBackup(ctx context.Context, readerID int64, address, apiKey string) ([]byte, error) {
-	series, err := s.AllSeries(ctx, readerID, 0)
+func (s *Service) MihonBackup(ctx context.Context, userID int64, address, apiKey string) ([]byte, error) {
+	series, err := s.AllSeries(ctx, userID, 0)
 	if err != nil {
 		return nil, err
 	}
-	books, err := s.Books(ctx, readerID, 0)
+	books, err := s.Books(ctx, userID, 0)
 	if err != nil {
 		return nil, err
 	}

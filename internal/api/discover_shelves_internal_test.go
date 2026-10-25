@@ -53,12 +53,12 @@ func discoverTestDialects(t *testing.T, fn func(*testing.T, *discoverTestEnv)) {
 			if err := a.DB.NewSelect().Model(&profile).Order("id").Limit(1).Scan(t.Context()); err != nil {
 				t.Fatal(err)
 			}
-			reader, err := a.Reading.ReaderID(t.Context())
+			reader, err := a.Reading.DefaultUserID(t.Context())
 			if err != nil {
 				t.Fatal(err)
 			}
 			p := access.AdminPrincipal(access.KindAnonymous)
-			p.ReaderID = reader
+			p.UserID = reader
 			fn(t, &discoverTestEnv{s: &Server{app: a}, ctx: access.With(t.Context(), p), root: root.ID, profile: profile.ID, reader: reader, now: now})
 		})
 	}
@@ -167,7 +167,7 @@ func TestDiscoverShelfLibraryFiltersSortsAndVisibility(t *testing.T) {
 		if err := e.s.app.DB.NewSelect().Model(&chapter).Where("series_id = ?", b.ID).Scan(e.ctx); err != nil {
 			t.Fatal(err)
 		}
-		rs := &model.ChapterReadState{ReaderID: e.reader, ChapterID: chapter.ID, SeriesID: b.ID, Completed: true, SyncedAt: e.now}
+		rs := &model.ChapterReadState{UserID: e.reader, ChapterID: chapter.ID, SeriesID: b.ID, Completed: true, SyncedAt: e.now}
 		if err := readstate.Save(e.ctx, e.s.app.DB, rs); err != nil {
 			t.Fatal(err)
 		}
@@ -177,7 +177,7 @@ func TestDiscoverShelfLibraryFiltersSortsAndVisibility(t *testing.T) {
 		if !reflect.DeepEqual(discoverIDs(ranked), []int64{a.ID, c.ID}) || ranked.Library[0].Reason != "matches-genres" {
 			t.Fatalf("ranking: %+v", ranked)
 		}
-		viewer := &access.Principal{Kind: access.KindUser, ReaderID: e.reader, Perms: map[string]bool{}, Scope: access.Scope{RootFolders: []int64{e.root}, IncludeTags: []int64{7}, ExcludeTags: []int64{8}}}
+		viewer := &access.Principal{Kind: access.KindUser, UserID: e.reader, Perms: map[string]bool{}, Scope: access.Scope{RootFolders: []int64{e.root}, IncludeTags: []int64{7}, ExcludeTags: []int64{8}}}
 		e.ctx = access.With(t.Context(), viewer)
 		b.Tags = []int64{7, 8}
 		e.save(t, b)
@@ -241,7 +241,7 @@ func TestDiscoverShelfStableCursor(t *testing.T) {
 			t.Fatal("changed filters accepted")
 		}
 		other := access.AdminPrincipal(access.KindAnonymous)
-		other.ReaderID = e.reader + 99
+		other.UserID = e.reader + 99
 		if _, err := e.s.discoverShelf(access.With(t.Context(), other), in); err == nil {
 			t.Fatal("another caller accepted")
 		}
@@ -306,7 +306,7 @@ func TestDiscoverShelfPopularPagingAndFilters(t *testing.T) {
 			t.Fatal(err)
 		}
 		e.s.app.Catalogs.Bump()
-		viewer := &access.Principal{Kind: access.KindUser, ReaderID: e.reader, Perms: map[string]bool{}, Scope: access.Scope{ExcludeTags: []int64{8}}}
+		viewer := &access.Principal{Kind: access.KindUser, UserID: e.reader, Perms: map[string]bool{}, Scope: access.Scope{ExcludeTags: []int64{8}}}
 		e.ctx = access.With(t.Context(), viewer)
 		in := DiscoverShelfInput{Shelf: "popular", PageSize: 1}
 		var titles []string
@@ -420,7 +420,7 @@ func TestDiscoverShelfCursorRechecksLibraryState(t *testing.T) {
 		if err := e.s.app.DB.NewSelect().Model(&chapter).Where("series_id = ?", b.ID).Scan(e.ctx); err != nil {
 			t.Fatal(err)
 		}
-		progress := &model.ChapterReadState{ReaderID: e.reader, ChapterID: chapter.ID, SeriesID: b.ID, Page: 1, SyncedAt: e.now}
+		progress := &model.ChapterReadState{UserID: e.reader, ChapterID: chapter.ID, SeriesID: b.ID, Page: 1, SyncedAt: e.now}
 		if err := readstate.Save(e.ctx, e.s.app.DB, progress); err != nil {
 			t.Fatal(err)
 		}
@@ -513,7 +513,7 @@ func TestDiscoverShelfPopularFilteredContinuation(t *testing.T) {
 		if err := e.s.app.Settings.Set(e.ctx, "sources", st); err != nil {
 			t.Fatal(err)
 		}
-		viewer := &access.Principal{Kind: access.KindUser, ReaderID: e.reader, Scope: access.Scope{ExcludeTags: []int64{8}}}
+		viewer := &access.Principal{Kind: access.KindUser, UserID: e.reader, Scope: access.Scope{ExcludeTags: []int64{8}}}
 		e.ctx = access.With(t.Context(), viewer)
 		in := DiscoverShelfInput{Shelf: "popular", Lang: "en", InLibrary: "true", PageSize: 2}
 		first := e.page(t, in)

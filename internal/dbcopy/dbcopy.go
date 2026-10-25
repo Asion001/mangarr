@@ -17,13 +17,13 @@ import (
 // Tables are mangarr's tables in an order that satisfies foreign keys
 // (TestTablesCoverSchema keeps it complete).
 var Tables = []string{
-	"groups", "readers", "users", "user_ui_preferences", "source_priority_lists", "sessions", "invites",
+	"groups", "users", "user_ui_preferences", "source_priority_lists", "sessions", "invites",
 	"messenger_links", "messenger_link_tokens",
 	"settings", "tags", "root_folders", "profiles", "provider_definitions", "catalog_prefs", "source_stats", "update_seen", "update_seen_items",
 	"works", "series", "series_sources", "chapters", "chapter_releases", "chapter_files", "page_bounds",
 	"notification_deliveries", "notification_dispatches",
 	"recycled_files", "download_queue_order", "download_jobs", "history", "blocklist", "commands", "scheduled_tasks",
-	"reader_accounts", "title_read_states", "koreader_documents",
+	"library_accounts", "title_read_states", "koreader_documents",
 	"imports", "import_entries", "reading_keys", "read_events", "reading_sessions", "reader_prefs",
 	"requests", "request_users", "follows", "requested_progress",
 	"workers", "worker_tasks",

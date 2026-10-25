@@ -17,11 +17,11 @@ func (s *Server) registerMyReadingStats() {
 		func(ctx context.Context, _ *struct{}) (*struct{ Body reading.ReadingStats }, error) {
 			// the reader the web reader records time for (readerOf), so
 			// without accounts the default reader's time can be seen
-			readerID, err := s.readerOf(ctx)
+			userID, err := s.userOf(ctx)
 			if err != nil {
 				return nil, toHTTPError(err)
 			}
-			stats, err := s.app.Reading.Stats(ctx, readerID)
+			stats, err := s.app.Reading.Stats(ctx, userID)
 			if err != nil {
 				return nil, toHTTPError(err)
 			}

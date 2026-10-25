@@ -21,7 +21,7 @@ const readAheadRecent = 14 * 24 * time.Hour
 // furthest one the reader has progress on are monitored, even in series
 // that aren't, and searched, as long as the reader got there in the last
 // two weeks. It returns how many downloads were queued.
-func (s *Service) ReadAhead(ctx context.Context, readerID, seriesID int64) (int, error) {
+func (s *Service) ReadAhead(ctx context.Context, userID, seriesID int64) (int, error) {
 	cfg, err := s.Settings.Reading(ctx)
 	if err != nil || !cfg.ReadAhead.Enabled || cfg.ReadAhead.Chapters <= 0 || s.Downloads == nil {
 		return 0, err
@@ -34,7 +34,7 @@ func (s *Service) ReadAhead(ctx context.Context, readerID, seriesID int64) (int,
 		At     bun.NullTime `bun:"at"`
 	}
 	if err := s.DB.NewSelect().TableExpr("chapter_read_states AS rs").Join("JOIN chapters AS c ON c.id = rs.chapter_id").
-		ColumnExpr("c.number_sort, COALESCE(rs.read_at, rs.synced_at) AS at").Where("rs.reader_id = ? AND rs.series_id = ?", readerID, seriesID).
+		ColumnExpr("c.number_sort, COALESCE(rs.read_at, rs.synced_at) AS at").Where("rs.user_id = ? AND rs.series_id = ?", userID, seriesID).
 		Where("(rs.completed OR rs.page > 0)").OrderExpr("c.number_sort DESC").Limit(1).Scan(ctx, &pos); err != nil || len(pos) == 0 {
 		return 0, err
 	}

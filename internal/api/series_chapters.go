@@ -25,8 +25,8 @@ type ReleaseView struct {
 }
 
 type ReadStateView struct {
-	ReaderID  int64      `json:"readerId"`
-	Reader    string     `json:"reader"`
+	UserID    int64      `json:"userId"`
+	Name      string     `json:"name"`
 	Completed bool       `json:"completed"`
 	Page      int        `json:"page"`
 	ReadAt    *time.Time `json:"readAt,omitempty"`
@@ -67,8 +67,8 @@ func (s *Server) chapterResources(ctx context.Context, seriesID int64) ([]Chapte
 		Name string `bun:"name"`
 	}
 	var reads []rs
-	_ = db.NewSelect().TableExpr("chapter_read_states AS r").ColumnExpr("r.*, rd.name").
-		Join("JOIN readers AS rd ON rd.id = r.reader_id").Where("r.series_id = ?", seriesID).Scan(ctx, &reads)
+	_ = db.NewSelect().TableExpr("chapter_read_states AS r").ColumnExpr("r.*, "+progressName+" AS name").
+		Join("JOIN users AS u ON u.id = r.user_id").Where("r.series_id = ?", seriesID).Scan(ctx, &reads)
 
 	fileBy := map[int64]*model.ChapterFile{}
 	for i := range files {
@@ -100,14 +100,13 @@ func (s *Server) chapterResources(ctx context.Context, seriesID int64) ([]Chapte
 		}
 	}
 	readBy := map[int64][]ReadStateView{}
-	own, onlyOwn := chapterReaderOnly(ctx)
-	labels := s.progressReaderLabels(ctx)
+	own, onlyOwn := chapterProgressOnly(ctx)
 	for _, r := range reads {
-		if onlyOwn && r.ReaderID != own {
+		if onlyOwn && r.UserID != own {
 			continue
 		}
-		readBy[r.ChapterID] = append(readBy[r.ChapterID], ReadStateView{ReaderID: r.ReaderID,
-			Reader: progressReaderLabel(ctx, labels, r.ReaderID, r.Name), Completed: r.Completed, Page: r.Page, ReadAt: r.ReadAt})
+		readBy[r.ChapterID] = append(readBy[r.ChapterID], ReadStateView{UserID: r.UserID,
+			Name: progressLabel(ctx, r.UserID, r.Name), Completed: r.Completed, Page: r.Page, ReadAt: r.ReadAt})
 	}
 	out := make([]ChapterResource, 0, len(chapters))
 	for _, ch := range chapters {

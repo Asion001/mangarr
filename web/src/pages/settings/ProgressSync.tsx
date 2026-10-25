@@ -77,13 +77,16 @@ function DeviceRow({ d }: { d: Device }) {
   );
 }
 
-/** ReaderSyncPanel shows who reports a reader's progress and what they reported. */
-export function ReaderSyncPanel({ readerId }: { readerId: number }) {
+/** ProgressSyncPanel shows who reports an account's progress (yours without userId) and what they reported. */
+export function ProgressSyncPanel({ userId }: { userId?: number }) {
   const [open, setOpen] = useState(false);
   const [showEvents, setShowEvents] = useState(false);
   const { data, isLoading, error } = useQuery({
-    queryKey: ["readers", readerId, "sync"],
-    queryFn: () => unwrap(api.GET("/api/v1/readers/{id}/sync", { params: { path: { id: readerId }, query: { limit: 30 } } })),
+    queryKey: ["progress", userId ?? "me", "sync"],
+    queryFn: () =>
+      userId
+        ? unwrap(api.GET("/api/v1/users/{id}/sync", { params: { path: { id: userId }, query: { limit: 30 } } }))
+        : unwrap(api.GET("/api/v1/me/sync", { params: { query: { limit: 30 } } })),
     enabled: open,
   });
   const unusedKeys = (data?.keys ?? []).filter((k) => !data?.devices.some((d) => d.origin === "app" && d.device === k.comment));
@@ -95,11 +98,6 @@ export function ReaderSyncPanel({ readerId }: { readerId: number }) {
         <div className="mt-2 flex flex-col gap-2">
           {isLoading && <Spinner />}
           {error && <ErrorBox error={error} />}
-          {data?.readingApps && (
-            <p className="text-xs text-muted">{t("This is an account's progress: its reading apps (Mihon, KMReader, Paperback) write here.")}{" "}
-              <Link to="/settings/users" className="text-accent-2 hover:underline">{t("Users & groups")}</Link>
-            </p>
-          )}
           {data && data.devices.length === 0 && unusedKeys.length === 0 && <p className="text-sm text-muted">{t("No progress reports in the last 30 days.")}</p>}
           {data?.devices.map((d) => <DeviceRow key={`${d.origin}/${d.client}/${d.device}`} d={d} />)}
           {unusedKeys.map((k) => (

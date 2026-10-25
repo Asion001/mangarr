@@ -9,6 +9,8 @@ import (
 
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/modules"
+	"github.com/Asion001/mangarr/internal/modules/library"
+	"github.com/Asion001/mangarr/internal/readsync"
 )
 
 func init() { register((*Server).registerMyLibraryAccounts) }
@@ -28,18 +30,21 @@ type LinkedAccount struct {
 	ExternalUser string     `json:"externalUser"`
 	LastSyncAt   *time.Time `json:"lastSyncAt,omitempty"`
 	LastError    string     `json:"lastError,omitempty"`
+	// Live is the state of the server's live progress connection (Komga);
+	// unset for servers checked on a timer.
+	Live *readsync.WatchStatus `json:"live,omitempty"`
 }
 
-// myReader is the signed-in user's reader (their own progress).
-func myReader(ctx context.Context) (int64, error) {
+// myUserID is the signed-in user (whose progress it is).
+func myUserID(ctx context.Context) (int64, error) {
 	p, err := me(ctx)
 	if err != nil {
 		return 0, err
 	}
-	if p.ReaderID == 0 {
-		return 0, huma.Error400BadRequest("your account has no reader")
+	if p.UserID == 0 {
+		return 0, huma.Error400BadRequest("sign in with an account first")
 	}
-	return p.ReaderID, nil
+	return p.UserID, nil
 }
 
 func (s *Server) registerMyLibraryAccounts() {
@@ -48,15 +53,16 @@ func (s *Server) registerMyLibraryAccounts() {
 	huma.Register(s.api, huma.Operation{OperationID: "me-library-accounts", Method: http.MethodGet, Path: "/api/v1/me/library-accounts", Tags: tags,
 		Summary: "Library servers (Komga, Kavita) where you can link your own account to sync your progress"},
 		func(ctx context.Context, _ *struct{}) (*struct{ Body []MyLibraryAccount }, error) {
-			rid, err := myReader(ctx)
+			uid, err := myUserID(ctx)
 			if err != nil {
 				return nil, err
 			}
-			var accs []model.ReaderAccount
-			if err := s.app.DB.NewSelect().Model(&accs).Where("reader_id = ?", rid).Scan(ctx); err != nil {
+			var accs []model.LibraryAccount
+			if err := s.app.DB.NewSelect().Model(&accs).Where("user_id = ?", uid).Scan(ctx); err != nil {
 				return nil, toHTTPError(err)
 			}
 			out := []MyLibraryAccount{}
+			live := s.app.Watcher.Status()
 			for _, l := range s.app.Modules.Active(modules.KindLibrary) {
 				if l.Impl == nil || accountFieldsOf == nil {
 					continue
@@ -69,6 +75,10 @@ func (s *Server) registerMyLibraryAccounts() {
 				for _, acc := range accs {
 					if acc.ModuleID == l.Def.ID {
 						a.Linked = &LinkedAccount{ExternalUser: acc.ExternalUser, LastSyncAt: acc.LastSyncAt, LastError: acc.LastError}
+						if _, _, err := modules.GetAs[library.ProgressWatcher](s.app.Modules, acc.ModuleID); err == nil {
+							st := live[acc.ID]
+							a.Linked.Live = &st
+						}
 					}
 				}
 				out = append(out, a)
@@ -79,14 +89,14 @@ func (s *Server) registerMyLibraryAccounts() {
 	huma.Register(s.api, huma.Operation{OperationID: "me-library-account-save", Method: http.MethodPost, Path: "/api/v1/me/library-accounts", Tags: tags,
 		Summary: "Link your account on a library server (the credentials are tested first)"},
 		func(ctx context.Context, in *struct{ Body AccountInput }) (*struct{}, error) {
-			rid, err := myReader(ctx)
+			uid, err := myUserID(ctx)
 			if err != nil {
 				return nil, err
 			}
 			if l, ok := s.app.Modules.Get(in.Body.ModuleID); !ok || l.Def.Kind != string(modules.KindLibrary) || !l.Def.Enabled {
 				return nil, huma.Error404NotFound("library server not found")
 			}
-			_, err = s.saveReaderAccount(ctx, rid, in.Body)
+			_, err = s.saveLibraryAccount(ctx, uid, in.Body)
 			return nil, err
 		})
 
@@ -94,10 +104,10 @@ func (s *Server) registerMyLibraryAccounts() {
 		func(ctx context.Context, in *struct {
 			ModuleID int64 `path:"moduleId"`
 		}) (*struct{}, error) {
-			rid, err := myReader(ctx)
+			uid, err := myUserID(ctx)
 			if err != nil {
 				return nil, err
 			}
-			return nil, s.deleteReaderAccount(ctx, rid, "module_id = ?", in.ModuleID)
+			return nil, s.deleteLibraryAccount(ctx, uid, "module_id = ?", in.ModuleID)
 		})
 }

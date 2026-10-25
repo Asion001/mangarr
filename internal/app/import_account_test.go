@@ -70,9 +70,9 @@ func TestImportSiteAccount(t *testing.T) {
 				t.Fatalf("run = %+v %v", res, err)
 			}
 			reloaded, _ := e.App.Imports.Get(e.Ctx, imp.ID)
-			var r model.Reader
-			if err := e.App.DB.NewSelect().Model(&r).Where("id = ?", reloaded.Options.ReaderID).Scan(e.Ctx); err != nil || r.Name != "Site account" {
-				t.Fatalf("reader = %+v %v", r, err)
+			var r model.User
+			if err := e.App.DB.NewSelect().Model(&r).Where("id = ?", reloaded.Options.UserID).Scan(e.Ctx); err != nil || r.ID == 0 {
+				t.Fatalf("read state account = %+v %v", r, err)
 			}
 			entries, _, _ = e.App.Imports.Entries(e.Ctx, imp.ID, imports.EntryFilter{}, 0, 0)
 			var series []model.Chapter
@@ -81,7 +81,7 @@ func TestImportSiteAccount(t *testing.T) {
 				t.Fatalf("monitoring should start at the chapter reached: %+v", series)
 			}
 			var states []model.ChapterReadState
-			_ = e.App.DB.NewSelect().Model(&states).Where("reader_id = ?", r.ID).Scan(e.Ctx)
+			_ = e.App.DB.NewSelect().Model(&states).Where("user_id = ?", r.ID).Scan(e.Ctx)
 			got := map[int64]model.ChapterReadState{}
 			for _, st := range states {
 				got[st.ChapterID] = st
@@ -95,7 +95,7 @@ func TestImportSiteAccount(t *testing.T) {
 			// read once it is downloaded and its page count is known
 			waitFor(t, 20*time.Second, "chapter 3 read once downloaded", func() bool {
 				var st model.ChapterReadState
-				err := e.App.DB.NewSelect().Model(&st).Where("reader_id = ? AND chapter_id = ?", r.ID, series[2].ID).Scan(e.Ctx)
+				err := e.App.DB.NewSelect().Model(&st).Where("user_id = ? AND chapter_id = ?", r.ID, series[2].ID).Scan(e.Ctx)
 				return err == nil && st.Completed && st.Page == 0
 			})
 		})

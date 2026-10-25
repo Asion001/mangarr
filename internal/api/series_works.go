@@ -179,7 +179,7 @@ func (s *Server) titleCounts(ctx context.Context, editions []int64) (map[int64]t
 	for _, r := range rows {
 		out[r.WorkID] = r
 	}
-	readers := s.statsReaders(ctx)
+	readers := s.statsUsers(ctx)
 	if len(readers) == 0 {
 		return out, nil
 	}
@@ -189,7 +189,7 @@ func (s *Server) titleCounts(ctx context.Context, editions []int64) (map[int64]t
 		ColumnExpr("s.work_id").
 		ColumnExpr("COUNT(DISTINCT CASE WHEN rs.completed THEN c.number_key END) AS read_count").
 		ColumnExpr("COUNT(DISTINCT CASE WHEN NOT rs.completed AND rs.page > 0 THEN c.number_key END) AS in_progress").
-		Where("rs.series_id IN (?) AND rs.reader_id IN (?)", bun.In(editions), bun.In(readers)).GroupExpr("s.work_id").Scan(ctx, &rows); err != nil {
+		Where("rs.series_id IN (?) AND rs.user_id IN (?)", bun.In(editions), bun.In(readers)).GroupExpr("s.work_id").Scan(ctx, &rows); err != nil {
 		return nil, err
 	}
 	for _, r := range rows {

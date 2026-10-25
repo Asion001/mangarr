@@ -63,10 +63,6 @@ func seed(t *testing.T, d *db.DB) (*model.Series, time.Time) {
 			t.Fatal(err)
 		}
 	}
-	r := &model.Reader{Name: "ann", CountForCleanup: true, CreatedAt: now}
-	if _, err := d.NewInsert().Model(r).Exec(ctx); err != nil {
-		t.Fatal(err)
-	}
 	if _, err := d.NewInsert().Model(&model.Setting{Key: "general", Value: `{"instanceName":"mangarr"}`, UpdatedAt: now}).Exec(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +73,7 @@ func seed(t *testing.T, d *db.DB) (*model.Series, time.Time) {
 	if _, err := d.NewInsert().Model(g).Exec(ctx); err != nil {
 		t.Fatal(err)
 	}
-	u := &model.User{Username: "ann", PasswordHash: "", GroupID: g.ID, ReaderID: r.ID, DisplayName: "Ann", OIDCSubject: "sub-1", CreatedAt: now}
+	u := &model.User{Username: "ann", PasswordHash: "", GroupID: g.ID, DisplayName: "Ann", OIDCSubject: "sub-1", CountForCleanup: true, CreatedAt: now}
 	if _, err := d.NewInsert().Model(u).Exec(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -95,7 +91,7 @@ func seed(t *testing.T, d *db.DB) (*model.Series, time.Time) {
 		&model.RequestUser{RequestID: req.ID, UserID: u.ID, Note: "please!", CreatedAt: now},
 		&model.Follow{UserID: u.ID, SeriesID: ser.ID, CreatedAt: now},
 		&model.ReaderPrefs{UserID: u.ID, SeriesID: ser.ID, Data: `{"mode":"webtoon","crop":true}`, UpdatedAt: now},
-		&model.ReadingSession{ID: "copy-session-0001", ReaderID: r.ID, SeriesID: ser.ID, ChapterID: firstChapter.ID,
+		&model.ReadingSession{ID: "copy-session-0001", UserID: u.ID, SeriesID: ser.ID, ChapterID: firstChapter.ID,
 			ActiveSeconds: 95, StartedAt: now, UpdatedAt: now},
 	} {
 		if _, err := d.NewInsert().Model(m).Exec(ctx); err != nil {

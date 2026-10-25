@@ -26,7 +26,7 @@ func TestStorageSummary(t *testing.T) {
 	ru := &model.RootFolder{Path: t.TempDir(), Language: "ru", CreatedAt: now}
 	insert(en)
 	insert(ru)
-	readerID, err := a.Reading.ReaderID(ctx)
+	userID, err := a.Reading.DefaultUserID(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +55,7 @@ func TestStorageSummary(t *testing.T) {
 				SizeOriginal: f[0], Size: f[1], PageCount: 10, ImportedAt: now})
 			if firstChapter == 0 {
 				firstChapter = ch.ID
-				st := model.ChapterReadState{ReaderID: readerID, SeriesID: ser.ID, ChapterID: ch.ID, Completed: true, ReadAt: &now, SyncedAt: now}
+				st := model.ChapterReadState{UserID: userID, SeriesID: ser.ID, ChapterID: ch.ID, Completed: true, ReadAt: &now, SyncedAt: now}
 				if err := readstate.Save(ctx, a.DB, &st); err != nil {
 					t.Fatal(err)
 				}

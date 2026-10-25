@@ -317,17 +317,17 @@ func (s *Service) authenticate(r *http.Request) (p Principal, issue bool, ok boo
 }
 
 // keyUser is the account a device key acts as. Keys from before accounts
-// (no user) act as the reader set for reading apps and see everything.
+// (no user) see everything and keep the default account's progress.
 func (s *Service) keyUser(ctx context.Context, rk model.ReadingKey) *access.Principal {
 	if rk.UserID > 0 {
 		return s.userPrincipal(ctx, rk.UserID)
 	}
-	rid, err := s.deps.Reading.ReaderID(ctx)
+	uid, err := s.deps.Reading.DefaultUserID(ctx)
 	if err != nil {
 		return nil
 	}
 	p := access.AdminPrincipal(access.KindAPIKey)
-	p.ReaderID = rid
+	p.UserID = uid
 	return p
 }
 

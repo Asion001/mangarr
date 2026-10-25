@@ -21,7 +21,7 @@ export function useReadingShelf() {
   const { data: auth } = useAuthStatus();
   const name = auth ? `shelf:${accountKey(auth.account)}` : "";
   return useQuery({
-    queryKey: ["readers", "shelf"],
+    queryKey: ["progress", "shelf"],
     queryFn: async () => {
       const shelf = await fetchShelf();
       if (name) saveCopy(name, "", shelf);
@@ -43,7 +43,7 @@ export function ContinueReading() {
     <section className={late ? "open-in mb-6" : "mb-6"}>
       <div>
         <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold">
-          <BookOpen className="size-4 text-info" />{" " + t("Continue reading")}<span className="font-normal text-muted">· {data.reader}</span>
+          <BookOpen className="size-4 text-info" />{" " + t("Continue reading")}<span className="font-normal text-muted">· {data.user}</span>
         </h2>
         <div className="flex gap-3 overflow-x-auto pb-2">
           {data.items.map((it) => (

@@ -57,7 +57,7 @@ type atomText struct {
 type opdsHandlers struct{ s *Service }
 
 func (h *opdsHandlers) identity(w http.ResponseWriter, r *http.Request) (int64, bool) {
-	return h.s.readerID(w, r)
+	return h.s.userID(w, r)
 }
 
 func (h *opdsHandlers) feed(w http.ResponseWriter, title, id string, entries []atomEntry, links ...atomLink) {
@@ -364,7 +364,7 @@ func (h *opdsHandlers) download(w http.ResponseWriter, r *http.Request, format s
 		writeError(w, r, 400, err.Error())
 		return
 	}
-	b, err := h.s.deps.Reading.Book(r.Context(), p.User.ReaderID, pathID(r, "id"))
+	b, err := h.s.deps.Reading.Book(r.Context(), p.User.UserID, pathID(r, "id"))
 	if err != nil {
 		notFoundOr500(w, r, err)
 		return
@@ -432,7 +432,7 @@ func (h *opdsHandlers) download(w http.ResponseWriter, r *http.Request, format s
 		err = writeEPUB(&buf, chapterTitle(b.Chapter), b.Chapter.ID, out)
 	case "xtch":
 		title, author := chapterTitle(b.Chapter), ""
-		if si, err := h.s.deps.Reading.Series(r.Context(), p.User.ReaderID, b.Chapter.SeriesID); err == nil {
+		if si, err := h.s.deps.Reading.Series(r.Context(), p.User.UserID, b.Chapter.SeriesID); err == nil {
 			title = si.Series.Title + " - " + title
 			author = strings.Join(si.Series.Metadata.Authors, ", ")
 		}
@@ -445,8 +445,8 @@ func (h *opdsHandlers) download(w http.ResponseWriter, r *http.Request, format s
 		return
 	}
 	digest := archivePartialMD5(buf.Bytes())
-	readerID := p.User.ReaderID
-	_, err = h.s.deps.DB.NewInsert().Model(&model.KOReaderDocument{ReaderID: readerID, Document: digest, ChapterID: b.Chapter.ID}).On("CONFLICT (reader_id, document) DO UPDATE").Set("chapter_id = EXCLUDED.chapter_id").Exec(r.Context())
+	userID := p.User.UserID
+	_, err = h.s.deps.DB.NewInsert().Model(&model.KOReaderDocument{UserID: userID, Document: digest, ChapterID: b.Chapter.ID}).On("CONFLICT (user_id, document) DO UPDATE").Set("chapter_id = EXCLUDED.chapter_id").Exec(r.Context())
 	if err != nil {
 		writeError(w, r, 500, err.Error())
 		return

@@ -40,6 +40,7 @@ var operationPermissions = map[string][]string{
 	"me-library-accounts":           {permSignedIn},
 	"me-library-account-save":       {permSignedIn},
 	"me-library-account-delete":     {permSignedIn},
+	"me-sync":                       {permSignedIn},
 	"me-messenger":                  {permSignedIn},
 	"me-messenger-preferences":      {permSignedIn},
 	"me-messenger-telegram-link":    {permSignedIn},

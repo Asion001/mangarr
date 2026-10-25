@@ -150,11 +150,11 @@ func (s *Server) discoverShelf(ctx context.Context, in DiscoverShelfInput) (Disc
 		}
 		state.Seen = maps.Clone(state.Seen)
 	}
-	readerID, err := s.readerOf(ctx)
+	userID, err := s.userOf(ctx)
 	if err != nil {
 		return out, err
 	}
-	all, err := s.app.Reading.AllSeries(ctx, readerID, 0)
+	all, err := s.app.Reading.AllSeries(ctx, userID, 0)
 	if err != nil {
 		return out, err
 	}

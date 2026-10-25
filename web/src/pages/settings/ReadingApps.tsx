@@ -203,7 +203,7 @@ export function DevicesCard({ all = false }: { all?: boolean }) {
       <p className="mb-3 text-sm text-muted">
         {all ? (
           <>{t("Every account's app keys. Apps act as the key's account, with its progress and the series its group sees. Sync history per device is under Settings →")}{" "}
-            <Link to="/settings/readers" className="text-accent-2 hover:underline">{t("Readers")}</Link>
+            <Link to="/settings/users" className="text-accent-2 hover:underline">{t("Users & groups")}</Link>
             .
           </>
         ) : (

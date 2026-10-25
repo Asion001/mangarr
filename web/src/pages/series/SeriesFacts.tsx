@@ -54,8 +54,8 @@ export function Facts({ series: s, manage }: { series: Series; manage: boolean }
       {readers.length > 0 && row(t("Readers"), (
         <span className="flex flex-col gap-0.5">
           {readers.map((r) => (
-            <span key={r.readerId} title={r.lastReadAt ? `last read ${relative(r.lastReadAt)}` : undefined}>
-              {`${r.reader}: `}{r.read}/{s.stats.chapterCount}{" " + t("read")}{r.inProgress > 0 && `, ${r.inProgress} started`}
+            <span key={r.userId} title={r.lastReadAt ? `last read ${relative(r.lastReadAt)}` : undefined}>
+              {`${r.name}: `}{r.read}/{s.stats.chapterCount}{" " + t("read")}{r.inProgress > 0 && `, ${r.inProgress} started`}
             </span>
           ))}
         </span>

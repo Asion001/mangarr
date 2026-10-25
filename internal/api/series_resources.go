@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/uptrace/bun"
@@ -25,8 +24,8 @@ type SeriesStats struct {
 	// SpaceSaved is how much smaller processing (re-encoding) made the files.
 	SpaceSaved  int64   `json:"spaceSaved"`
 	LastChapter float64 `json:"lastChapter"`
-	// Read progress over readers who count for cleanup (all readers when
-	// none do): chapters finished, chapters started, last read.
+	// Read progress over users who count for cleanup (everyone when nobody
+	// does): chapters finished, chapters started, last read.
 	ReadCount       int        `json:"readCount"`
 	InProgressCount int        `json:"inProgressCount"`
 	LastReadAt      *time.Time `json:"lastReadAt,omitempty"`
@@ -35,8 +34,8 @@ type SeriesStats struct {
 // ReadingInfo is a series' reading progress (series detail).
 type ReadingInfo struct {
 	// NextUnread is the first chapter after the last one read.
-	NextUnread *NextChapter     `json:"nextUnread,omitempty"`
-	Readers    []ReaderProgress `json:"readers"`
+	NextUnread *NextChapter   `json:"nextUnread,omitempty"`
+	Readers    []UserProgress `json:"readers"`
 	// WebURL opens the series on a library server (e.g. Komga).
 	WebURL  string `json:"webUrl,omitempty"`
 	WebName string `json:"webName,omitempty"`
@@ -49,9 +48,10 @@ type NextChapter struct {
 	Available bool   `json:"available"` // has a file
 }
 
-type ReaderProgress struct {
-	ReaderID   int64      `json:"readerId"`
-	Reader     string     `json:"reader"`
+// UserProgress is how far someone read a series.
+type UserProgress struct {
+	UserID     int64      `json:"userId"`
+	Name       string     `json:"name"`
 	Read       int        `json:"read"`
 	InProgress int        `json:"inProgress"`
 	LastReadAt *time.Time `json:"lastReadAt,omitempty"`
@@ -130,8 +130,8 @@ func (s *Server) seriesStats(ctx context.Context, seriesID int64) (map[int64]Ser
 		st.SizeOnDisk, st.SpaceSaved = sz.Size, sz.Saved
 		out[sz.SeriesID] = st
 	}
-	readers := s.statsReaders(ctx)
-	if len(readers) == 0 {
+	users := s.statsUsers(ctx)
+	if len(users) == 0 {
 		return out, nil
 	}
 	var reads []struct {
@@ -145,7 +145,7 @@ func (s *Server) seriesStats(ctx context.Context, seriesID int64) (map[int64]Ser
 		ColumnExpr("COUNT(DISTINCT CASE WHEN rs.completed THEN rs.chapter_id END) AS read_count").
 		ColumnExpr("COUNT(DISTINCT CASE WHEN NOT rs.completed AND rs.page > 0 THEN rs.chapter_id END) AS in_progress").
 		ColumnExpr("MAX(rs.read_at) AS last_read").
-		Where("rs.reader_id IN (?)", bun.In(readers)).GroupExpr("rs.series_id")
+		Where("rs.user_id IN (?)", bun.In(users)).GroupExpr("rs.series_id")
 	if seriesID > 0 {
 		rq = rq.Where("rs.series_id = ?", seriesID)
 	}
@@ -164,47 +164,47 @@ func (s *Server) seriesStats(ctx context.Context, seriesID int64) (map[int64]Ser
 	return out, nil
 }
 
-// statsReaders are the readers whose progress the series pages show: a
+// statsUsers are the users whose progress the series pages show: a
 // signed-in user's own, else (the API key) the ones counting for cleanup.
-func (s *Server) statsReaders(ctx context.Context) []int64 {
-	if p := access.From(ctx); p != nil && p.Kind == access.KindUser && p.ReaderID > 0 {
-		return []int64{p.ReaderID}
+func (s *Server) statsUsers(ctx context.Context) []int64 {
+	if p := access.From(ctx); p != nil && p.Kind == access.KindUser && p.UserID > 0 {
+		return []int64{p.UserID}
 	}
-	return s.countedReaders(ctx)
+	return s.countedUsers(ctx)
 }
 
-// ownReaderOnly is set when the caller only sees their own progress (not
+// ownProgressOnly is set when the caller only sees their own progress (not
 // an administrator).
-func ownReaderOnly(ctx context.Context) (int64, bool) {
+func ownProgressOnly(ctx context.Context) (int64, bool) {
 	p := access.From(ctx)
 	if p == nil || p.IsAdmin() {
 		return 0, false
 	}
-	return p.ReaderID, true
+	return p.UserID, true
 }
 
-// chapterReaderOnly is the reader whose progress the chapter list shows. A
+// chapterProgressOnly is the user whose progress the chapter list shows. A
 // signed-in person, administrators included, sees only their own: the list
 // marks chapters read and picks where to continue from it, so another
-// reader's page there reads as yours. Everyone's totals stay in the reading
+// person's page there reads as yours. Everyone's totals stay in the reading
 // panel.
-func chapterReaderOnly(ctx context.Context) (int64, bool) {
+func chapterProgressOnly(ctx context.Context) (int64, bool) {
 	if p := access.From(ctx); p != nil && p.Kind == access.KindUser {
-		return p.ReaderID, true
+		return p.UserID, true
 	}
-	return ownReaderOnly(ctx)
+	return ownProgressOnly(ctx)
 }
 
-// countedReaders are the readers whose progress counts (cleanup readers,
-// or everyone when no reader counts for cleanup).
-func (s *Server) countedReaders(ctx context.Context) []int64 {
-	var readers []model.Reader
-	_ = s.app.DB.NewSelect().Model(&readers).Scan(ctx)
+// countedUsers are the users whose progress counts (the ones counting for
+// cleanup, or everyone when nobody does).
+func (s *Server) countedUsers(ctx context.Context) []int64 {
+	var users []model.User
+	_ = s.app.DB.NewSelect().Model(&users).Column("id", "count_for_cleanup").Scan(ctx)
 	var counted, all []int64
-	for _, r := range readers {
-		all = append(all, r.ID)
-		if r.CountForCleanup {
-			counted = append(counted, r.ID)
+	for _, u := range users {
+		all = append(all, u.ID)
+		if u.CountForCleanup {
+			counted = append(counted, u.ID)
 		}
 	}
 	if len(counted) > 0 {
@@ -213,40 +213,50 @@ func (s *Server) countedReaders(ctx context.Context) []int64 {
 	return all
 }
 
+// progressName is the SQL for a user's shown name (users aliased u).
+const progressName = "COALESCE(NULLIF(u.display_name, ''), u.username)"
+
+// progressLabel names whose progress it is ("You" for the caller's own).
+func progressLabel(ctx context.Context, userID int64, name string) string {
+	if p := access.From(ctx); p != nil && p.Kind == access.KindUser && p.UserID == userID {
+		return "You"
+	}
+	return name
+}
+
 // readingInfo describes who read what of a series, and what's next.
 func (s *Server) readingInfo(ctx context.Context, ser *model.Series, fullPath string) *ReadingInfo {
-	info := &ReadingInfo{Readers: []ReaderProgress{}}
+	info := &ReadingInfo{Readers: []UserProgress{}}
 	var rows []struct {
-		ReaderID   int64        `bun:"reader_id"`
+		UserID     int64        `bun:"user_id"`
 		Name       string       `bun:"name"`
 		Read       int          `bun:"read_count"`
 		InProgress int          `bun:"in_progress"`
 		LastRead   bun.NullTime `bun:"last_read"`
 	}
-	_ = s.app.DB.NewSelect().TableExpr("chapter_read_states AS rs").Join("JOIN readers AS r ON r.id = rs.reader_id").
-		ColumnExpr("rs.reader_id, r.name").
+	_ = s.app.DB.NewSelect().TableExpr("chapter_read_states AS rs").Join("JOIN users AS u ON u.id = rs.user_id").
+		ColumnExpr("rs.user_id, "+progressName+" AS name").
 		ColumnExpr("SUM(CASE WHEN rs.completed THEN 1 ELSE 0 END) AS read_count").
 		ColumnExpr("SUM(CASE WHEN NOT rs.completed AND rs.page > 0 THEN 1 ELSE 0 END) AS in_progress").
 		ColumnExpr("MAX(rs.read_at) AS last_read").
-		Where("rs.series_id = ?", ser.ID).GroupExpr("rs.reader_id, r.name").OrderExpr("r.name").Scan(ctx, &rows)
-	own, onlyOwn := ownReaderOnly(ctx)
-	labels := s.progressReaderLabels(ctx)
+		Where("rs.series_id = ?", ser.ID).GroupExpr("rs.user_id, u.display_name, u.username").OrderExpr("name").Scan(ctx, &rows)
+	own, onlyOwn := ownProgressOnly(ctx)
 	for _, r := range rows {
-		if onlyOwn && r.ReaderID != own {
+		if onlyOwn && r.UserID != own {
 			continue // others' progress is theirs
 		}
-		rp := ReaderProgress{ReaderID: r.ReaderID, Reader: progressReaderLabel(ctx, labels, r.ReaderID, r.Name), Read: r.Read, InProgress: r.InProgress}
+		rp := UserProgress{UserID: r.UserID, Name: progressLabel(ctx, r.UserID, r.Name), Read: r.Read, InProgress: r.InProgress}
 		if !r.LastRead.IsZero() {
 			t := r.LastRead.Time
 			rp.LastReadAt = &t
 		}
 		info.Readers = append(info.Readers, rp)
 	}
-	if readers := s.statsReaders(ctx); len(readers) > 0 {
+	if users := s.statsUsers(ctx); len(users) > 0 {
 		// the first chapter after the highest one read
 		var maxRead float64
 		err := s.app.DB.NewSelect().TableExpr("chapter_read_states AS rs").Join("JOIN chapters AS c ON c.id = rs.chapter_id").
-			ColumnExpr("COALESCE(MAX(c.number_sort), -1)").Where("rs.series_id = ? AND rs.completed AND rs.reader_id IN (?)", ser.ID, bun.In(readers)).
+			ColumnExpr("COALESCE(MAX(c.number_sort), -1)").Where("rs.series_id = ? AND rs.completed AND rs.user_id IN (?)", ser.ID, bun.In(users)).
 			Scan(ctx, &maxRead)
 		if err == nil && maxRead >= 0 {
 			var next model.Chapter
@@ -268,32 +278,6 @@ func (s *Server) readingInfo(ctx context.Context, ser *model.Series, fullPath st
 		}
 	}
 	return info
-}
-
-// progressReaderLabels decouples a person's visible identity from the name of
-// the storage bucket their progress was first imported into.
-func (s *Server) progressReaderLabels(ctx context.Context) map[int64]string {
-	var users []model.User
-	_ = s.app.DB.NewSelect().Model(&users).Column("reader_id", "username", "display_name").Where("reader_id IS NOT NULL").Scan(ctx)
-	out := make(map[int64]string, len(users))
-	for _, u := range users {
-		name := strings.TrimSpace(u.DisplayName)
-		if name == "" {
-			name = u.Username
-		}
-		out[u.ReaderID] = name
-	}
-	return out
-}
-
-func progressReaderLabel(ctx context.Context, labels map[int64]string, readerID int64, fallback string) string {
-	if p := access.From(ctx); p != nil && p.Kind == access.KindUser && p.ReaderID == readerID {
-		return "You"
-	}
-	if name := labels[readerID]; name != "" {
-		return name
-	}
-	return fallback
 }
 
 // sourceCounts fills each link's chapter count and how many chapter files

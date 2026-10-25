@@ -44,9 +44,9 @@ func TestReadAhead(t *testing.T) {
 				t.Fatalf("chapters %d", len(list))
 			}
 			// old history (a first sync with Komga) doesn't download anything
-			rid, _ := e.App.Reading.ReaderID(e.Ctx)
+			rid, _ := e.App.Reading.DefaultUserID(e.Ctx)
 			old := time.Now().Add(-60 * 24 * time.Hour).UTC()
-			st := &model.ChapterReadState{ReaderID: rid, ChapterID: list[0].ID, SeriesID: ser.ID, Completed: true, ReadAt: &old, SyncedAt: old}
+			st := &model.ChapterReadState{UserID: rid, ChapterID: list[0].ID, SeriesID: ser.ID, Completed: true, ReadAt: &old, SyncedAt: old}
 			if err := readstate.Save(e.Ctx, e.App.DB, st); err != nil {
 				t.Fatal(err)
 			}
