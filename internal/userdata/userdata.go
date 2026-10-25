@@ -390,7 +390,30 @@ func (s *Service) Preview(ctx context.Context, d *Export, picked map[int]int64) 
 	if err != nil {
 		return nil, err
 	}
-	return lib.matches(d, picked), nil
+	matches := lib.matches(d, picked)
+	// a position read up to counts the chapters it covers here
+	for i := range matches {
+		m := &matches[i]
+		r := d.Titles[m.Index].Reached
+		if m.SeriesID == 0 || r == nil {
+			continue
+		}
+		if r.Chapter < 0 {
+			n, ok := readstate.ChapterNumberByRef(ctx, s.DB, m.SeriesID, r.ChapterRef)
+			if !ok {
+				continue
+			}
+			resolved := *r
+			resolved.Chapter = n
+			m.Reached = &resolved
+		}
+		n, err := s.DB.NewSelect().Table("chapters").Where("series_id = ? AND number_sort >= 0 AND number_sort < ?", m.SeriesID, m.Reached.Chapter-0.0005).Count(ctx)
+		if err != nil {
+			return nil, err
+		}
+		m.Read = max(m.Read, int(n))
+	}
+	return matches, nil
 }
 
 func (l *library) matches(d *Export, picked map[int]int64) []DataTitleMatch {

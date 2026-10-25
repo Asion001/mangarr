@@ -176,7 +176,9 @@ function ImportReview({ data, from, onClose }: { data: Export; from: string; onC
   const count = (by: string) => matches.filter((m) => m.by === by).length;
   const missing = matches.filter((m) => !m.seriesId).length;
   const going = matches.length - missing;
-  const read = useMemo(() => data.titles.reduce((s, ti) => s + (ti.progress ?? []).length, 0), [data]);
+  const inFile = useMemo(() => data.titles.reduce((s, ti) => s + (ti.progress ?? []).length, 0), [data]);
+  // an app or site keeps how far each title was read: count it in the titles here
+  const read = from ? matches.reduce((s, m) => s + (m.seriesId ? m.read : 0), 0) : inFile;
   const follows = data.titles.filter((ti) => ti.following).length;
   // requests are a person's: none without logins
   const canAsk = !!from && account?.kind === "user" && can(["requests.create"]);

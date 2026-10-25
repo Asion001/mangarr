@@ -58,7 +58,7 @@ func TestUserImport(t *testing.T) {
 			d := userdata.FromBackup(b, "ann")
 			svc := &userdata.Service{DB: e.App.DB}
 			matches, err := svc.Preview(ctx, d, nil)
-			if err != nil || matches[0].SeriesID != bl.ID || matches[1].SeriesID != 0 || matches[0].Reached == nil {
+			if err != nil || matches[0].SeriesID != bl.ID || matches[1].SeriesID != 0 || matches[0].Reached == nil || matches[0].Read != 2 {
 				t.Fatalf("preview = %+v %v", matches, err)
 			}
 			acc := userdata.Account{UserID: ann.ID}

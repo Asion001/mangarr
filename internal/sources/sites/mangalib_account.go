@@ -8,6 +8,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/Asion001/mangarr/internal/sources/sourcekit"
 )
@@ -61,6 +63,7 @@ func (m *mangalib) ReadAccount(ctx context.Context, profile string) (sourcekit.A
 		return sourcekit.Account{}, err
 	}
 	acc := sourcekit.Account{User: firstNonBlank(who.Data.Username, user)}
+	places := map[int]int{} // entry → the chapter's place in its title's list
 	for _, f := range folders.Data {
 		if !slices.Contains(f.SiteIDs, mangalibSiteID) || !f.Public {
 			continue
@@ -73,9 +76,13 @@ func (m *mangalib) ReadAccount(ctx context.Context, profile string) (sourcekit.A
 		for page := 1; page <= mangalibMaxPages; page++ {
 			var out struct {
 				Data []struct {
-					ItemID   int64         `json:"item_id"`
-					Progress string        `json:"progress"`
-					Media    mangalibMedia `json:"media"`
+					ItemID   int64  `json:"item_id"`
+					Progress string `json:"progress"`
+					Meta     *struct {
+						// ItemNumber is the chapter's place in the title's list
+						ItemNumber int `json:"item_number"`
+					} `json:"meta"`
+					Media mangalibMedia `json:"media"`
 				} `json:"data"`
 				Meta struct {
 					Next any `json:"next_page_url"`
@@ -98,6 +105,9 @@ func (m *mangalib) ReadAccount(ctx context.Context, profile string) (sourcekit.A
 				}
 				if b.ItemID > 0 {
 					e.ChapterRef = strconv.FormatInt(b.ItemID, 10)
+					if b.Meta != nil && b.Meta.ItemNumber > 0 {
+						places[len(acc.Entries)] = b.Meta.ItemNumber
+					}
 					if p, err := strconv.Atoi(strings.TrimSpace(b.Progress)); err == nil && p > 0 {
 						e.Page = p
 					}
@@ -109,7 +119,91 @@ func (m *mangalib) ReadAccount(ctx context.Context, profile string) (sourcekit.A
 			}
 		}
 	}
+	m.resolveChapters(ctx, acc.Entries, places)
 	return acc, nil
+}
+
+// mangalibLookups is how many chapter lists are read at once while looking
+// up the chapters reached.
+const mangalibLookups = 2
+
+// resolveChapters turns the chapter ids bookmarks keep into chapter numbers,
+// from each title's chapter list. A title whose list can't be read keeps
+// the id, for the library's own chapters to resolve later.
+func (m *mangalib) resolveChapters(ctx context.Context, entries []sourcekit.AccountEntry, places map[int]int) {
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, mangalibLookups)
+	for i := range entries {
+		e := &entries[i]
+		if e.ChapterRef == "" {
+			continue
+		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			if n, ok := m.chapterNumber(ctx, mangalibSlug(e.URL), e.ChapterRef, places[i]); ok {
+				e.Chapter = n
+			}
+		}()
+	}
+	wg.Wait()
+}
+
+// chapterNumber finds the number of a chapter (or of one of its
+// translations) by its id, or by its place in the list when the id is gone
+// (chapters uploaded again get new ids; the bookmark keeps the old one).
+func (m *mangalib) chapterNumber(ctx context.Context, slug, ref string, place int) (float64, bool) {
+	if slug == "" {
+		return 0, false
+	}
+	var out struct {
+		Data []struct {
+			ID       int64  `json:"id"`
+			Index    int    `json:"index"`
+			Number   string `json:"number"`
+			Branches []struct {
+				ID int64 `json:"id"`
+			} `json:"branches"`
+		} `json:"data"`
+	}
+	// the site turns quick runs of requests away for a moment: try again
+	var err error
+	for try := 0; try < 3; try++ {
+		if try > 0 {
+			select {
+			case <-ctx.Done():
+				return 0, false
+			case <-time.After(time.Duration(try) * 2 * time.Second):
+			}
+		}
+		if err = m.c.JSON(ctx, sourcekit.Request{URL: m.api + "/api/manga/" + slug + "/chapters", Headers: m.headers()}, &out); err == nil {
+			break
+		}
+	}
+	if err != nil {
+		return 0, false
+	}
+	id, err := strconv.ParseInt(ref, 10, 64)
+	if err != nil {
+		return 0, false
+	}
+	for _, c := range out.Data {
+		hit := c.ID == id
+		for _, b := range c.Branches {
+			hit = hit || b.ID == id
+		}
+		if n, err := strconv.ParseFloat(c.Number, 64); hit && err == nil && n >= 0 {
+			return n, true
+		}
+	}
+	for _, c := range out.Data {
+		if n, err := strconv.ParseFloat(c.Number, 64); place > 0 && c.Index == place && err == nil && n >= 0 {
+			return n, true
+		}
+	}
+	return 0, false
 }
 
 // mangalibMedia is a bookmark's title.

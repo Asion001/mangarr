@@ -32,13 +32,15 @@ func TestMangaLibAccount(t *testing.T) {
 			  {"id":21,"name":"Смотрю","public":true,"is_abandoned":false,"count":4,"site_ids":[5]}]}`))
 		case r.URL.Path == "/api/bookmarks" && q.Get("status") == "1" && q.Get("user_id") == "77" && q.Get("page") == "1":
 			_, _ = w.Write([]byte(`{"data":[
-			  {"item_id":4413034,"progress":"21","media":{"id":2084,"name":"Kumo desu ga, Nani ka?","rus_name":"Паучок","eng_name":"So I'm a Spider","slug_url":"2084--kumo","model":"manga","site":1,"status":{"id":1,"label":"Онгоинг"},"cover":{"default":"https://img.example/k.jpg"}}},
+			  {"item_id":4413034,"progress":"21","meta":{"item_number":2},"media":{"id":2084,"name":"Kumo desu ga, Nani ka?","rus_name":"Паучок","eng_name":"So I'm a Spider","slug_url":"2084--kumo","model":"manga","site":1,"status":{"id":1,"label":"Онгоинг"},"cover":{"default":"https://img.example/k.jpg"}}},
 			  {"item_id":0,"progress":"0","media":{"id":5,"name":"Novel","slug_url":"5--novel","model":"ranobe","site":3}}],
 			  "meta":{"next_page_url":"http://api.example/api/bookmarks?page=2"}}`))
 		case r.URL.Path == "/api/bookmarks" && q.Get("status") == "1" && q.Get("page") == "2":
 			_, _ = w.Write([]byte(`{"data":[
 			  {"item_id":0,"progress":"0","media":{"id":6,"name":"Planned","slug_url":"6--planned","model":"manga","site":1,"status":{"id":2,"label":"Завершён"}}}],
 			  "meta":{"next_page_url":false}}`))
+		case r.URL.Path == "/api/manga/2084--kumo/chapters":
+			_, _ = w.Write([]byte(`{"data":[{"id":1,"number":"80","branches":[{"id":1}]},{"id":4413035,"index":2,"number":"80.1","branches":[{"id":4413035}]}]}`))
 		default:
 			t.Errorf("unexpected %s", r.URL)
 			w.WriteHeader(http.StatusNotFound)
@@ -57,7 +59,7 @@ func TestMangaLibAccount(t *testing.T) {
 		t.Fatalf("entries = %+v", acc.Entries)
 	}
 	k := acc.Entries[0]
-	if k.URL != "/2084--kumo" || k.Title != "So I'm a Spider" || k.ChapterRef != "4413034" || k.Page != 21 || k.Chapter != -1 || k.Lists[0] != "1" {
+	if k.URL != "/2084--kumo" || k.Title != "So I'm a Spider" || k.ChapterRef != "4413034" || k.Page != 21 || k.Chapter != 80.1 || k.Lists[0] != "1" {
 		t.Fatalf("first = %+v", k)
 	}
 	if p := acc.Entries[1]; p.ChapterRef != "" || p.Page != 0 || p.Status != sourcekit.StatusCompleted {
