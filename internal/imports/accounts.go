@@ -124,7 +124,7 @@ func accountBackup(a *source.Account, sourceID, name string, now time.Time) (*ba
 			}
 		}
 		if e.Chapter >= 0 || e.ChapterRef != "" {
-			m.ReadUpTo = &backupimport.ReadUpTo{Chapter: e.Chapter, Page: e.Page, ChapterRef: e.ChapterRef}
+			m.ReadUpTo = &backupimport.ReadUpTo{Chapter: e.Chapter, Page: e.Page, ChapterRef: e.ChapterRef, ChapterPlace: e.ChapterPlace}
 		}
 		b.Entries = append(b.Entries, m)
 	}

@@ -98,6 +98,8 @@ type ExportReached struct {
 	// ChapterRef is the source's id of the chapter reached when the file
 	// knows only that (Chapter is then -1).
 	ChapterRef string `json:"chapterRef,omitempty"`
+	// ChapterPlace is that chapter's place in the title's list (1-based).
+	ChapterPlace int `json:"chapterPlace,omitempty"`
 }
 
 // Event is an entry of the reading history.
@@ -401,6 +403,9 @@ func (s *Service) Preview(ctx context.Context, d *Export, picked map[int]int64) 
 		if r.Chapter < 0 {
 			n, ok := readstate.ChapterNumberByRef(ctx, s.DB, m.SeriesID, r.ChapterRef)
 			if !ok {
+				n, ok = readstate.ChapterNumberByPlace(ctx, s.DB, m.SeriesID, r.ChapterPlace)
+			}
+			if !ok {
 				continue
 			}
 			resolved := *r
@@ -469,6 +474,11 @@ type DataImportResult struct {
 	Settings int `json:"settings"`
 	// Requested are titles not on this server asked for (in the background).
 	Requested int `json:"requested,omitempty"`
+	// Pending are titles whose chapter reached is looked up at the site in
+	// the background; their progress follows.
+	Pending int `json:"pending,omitempty"`
+	// Unresolved are those titles, by index.
+	Unresolved []int `json:"-"`
 }
 
 // Import writes the file's data for the matched titles. It never lowers
@@ -496,7 +506,11 @@ func (s *Service) Import(ctx context.Context, acc Account, d *Export, opts DataI
 				return err
 			}
 			if opts.Progress {
-				if err := importProgress(ctx, tx, acc.UserID, lib.series[m.SeriesID], chapters, withReached(ctx, tx, m.SeriesID, t, chapters), res); err != nil {
+				progress, placed := withReached(ctx, tx, m.SeriesID, t, chapters)
+				if !placed {
+					res.Unresolved = append(res.Unresolved, m.Index)
+				}
+				if err := importProgress(ctx, tx, acc.UserID, lib.series[m.SeriesID], chapters, progress, res); err != nil {
 					return err
 				}
 				if _, err := readstate.FinishLastPages(ctx, tx, m.SeriesID, now); err != nil {
@@ -691,16 +705,20 @@ func Summarize(d *Export) Summary {
 }
 
 // withReached adds the chapters a title's reading position covers to its
+// progress (placed is false when the position can't be placed here yet).
 // progress: every chapter numbered below it read, the page in it kept.
-func withReached(ctx context.Context, tx bun.IDB, seriesID int64, t *ExportTitle, chapters map[string]int64) []ExportProgress {
+func withReached(ctx context.Context, tx bun.IDB, seriesID int64, t *ExportTitle, chapters map[string]int64) (progress []ExportProgress, placed bool) {
 	r := t.Reached
 	if r == nil {
-		return t.Progress
+		return t.Progress, true
 	}
 	if r.Chapter < 0 {
 		n, ok := readstate.ChapterNumberByRef(ctx, tx, seriesID, r.ChapterRef)
 		if !ok {
-			return t.Progress
+			n, ok = readstate.ChapterNumberByPlace(ctx, tx, seriesID, r.ChapterPlace)
+		}
+		if !ok {
+			return t.Progress, false
 		}
 		resolved := *r
 		resolved.Chapter = n
@@ -718,7 +736,7 @@ func withReached(ctx context.Context, tx bun.IDB, seriesID int64, t *ExportTitle
 			out = append(out, ExportProgress{Number: key, Page: r.Page, At: now})
 		}
 	}
-	return out
+	return out, true
 }
 
 func firstNonBlank(values ...string) string {
@@ -758,7 +776,8 @@ func FromBackup(b *backupimport.Backup, user string) *Export {
 			t.Progress = append(t.Progress, p)
 		}
 		if e.ReadUpTo != nil {
-			t.Reached = &ExportReached{Chapter: e.ReadUpTo.Chapter, Page: e.ReadUpTo.Page, ChapterRef: e.ReadUpTo.ChapterRef}
+			t.Reached = &ExportReached{Chapter: e.ReadUpTo.Chapter, Page: e.ReadUpTo.Page, ChapterRef: e.ReadUpTo.ChapterRef,
+				ChapterPlace: e.ReadUpTo.ChapterPlace}
 		}
 		d.Titles = append(d.Titles, t)
 	}

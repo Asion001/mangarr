@@ -504,6 +504,9 @@ func ImportReadState(ctx context.Context, idb bun.IDB, userID, seriesID int64, d
 		if u.Chapter < 0 {
 			n, ok := readstate.ChapterNumberByRef(ctx, idb, seriesID, u.ChapterRef)
 			if !ok {
+				n, ok = readstate.ChapterNumberByPlace(ctx, idb, seriesID, u.ChapterPlace)
+			}
+			if !ok {
 				return 0, nil
 			}
 			resolved := *u

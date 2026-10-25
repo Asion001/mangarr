@@ -14,6 +14,7 @@ import (
 	"github.com/Asion001/mangarr/internal/imports"
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/userdata"
+	"github.com/Asion001/mangarr/internal/userimport"
 )
 
 func init() { register((*Server).registerMyData) }
@@ -120,6 +121,21 @@ func (s *Server) registerMyData() {
 			res, err := svc.Import(ctx, acc, &in.Body.Data, in.Body.Options)
 			if err != nil {
 				return nil, toHTTPError(err)
+			}
+			if len(res.Unresolved) > 0 {
+				items := make([]userimport.Placement, 0, len(res.Unresolved))
+				matches, _ := svc.Preview(ctx, &in.Body.Data, in.Body.Options.Picked)
+				for _, i := range res.Unresolved {
+					if i < len(matches) && matches[i].SeriesID > 0 {
+						items = append(items, userimport.Placement{SeriesID: matches[i].SeriesID, Title: in.Body.Data.Titles[i]})
+					}
+				}
+				if len(items) > 0 {
+					if _, err := s.app.Queue.Push(ctx, "PlaceImportedProgress", map[string]any{"userId": acc.UserID, "items": items}, "import"); err != nil {
+						return nil, toHTTPError(err)
+					}
+					res.Pending = len(items)
+				}
 			}
 			if len(ask) > 0 {
 				if _, err := s.app.Queue.Push(ctx, "RequestImportedTitles", map[string]any{"userId": acc.UserID, "titles": ask}, "import"); err != nil {

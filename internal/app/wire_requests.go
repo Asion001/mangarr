@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/Asion001/mangarr/internal/events"
 	"github.com/Asion001/mangarr/internal/jobs"
@@ -11,6 +12,10 @@ import (
 	"github.com/Asion001/mangarr/internal/userdata"
 	"github.com/Asion001/mangarr/internal/userimport"
 )
+
+// PlacePause spaces the chapter lists asked of a site while placing a
+// user's imported progress (sites like MangaLib allow about one a second).
+var PlacePause = 1500 * time.Millisecond
 
 // wireRequests sets up series requests and personal notifications: new
 // chapters go to followers who can see the series.
@@ -41,6 +46,19 @@ func (a *App) wireRequests() {
 			}
 			res, err := a.UserImport.Request(ctx, p, body.Titles)
 			r.Progress("%d requested, %d already here, %d not found", res.Requested, res.Here, len(res.Unmatched))
+			return err
+		}})
+	a.Queue.Register(jobs.Definition{Name: "PlaceImportedProgress", Description: "Look up at the site the chapters a user's import reached and write that progress",
+		Handler: func(ctx context.Context, r *jobs.Run) error {
+			var body struct {
+				UserID int64                  `json:"userId"`
+				Items  []userimport.Placement `json:"items"`
+			}
+			if err := r.Body(&body); err != nil || body.UserID == 0 {
+				return fmt.Errorf("userId required")
+			}
+			n, err := a.UserImport.Place(ctx, body.UserID, body.Items, PlacePause)
+			r.Progress("%d of %d titles placed", n, len(body.Items))
 			return err
 		}})
 	// kept progress is written once a request's title is added and listed

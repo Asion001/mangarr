@@ -45,7 +45,9 @@ type mapper struct {
 	s      *Service
 	format string
 	// account is the module that read an account import
-	account    int64
+	account int64
+	// looked is when the site was last asked for a chapter list
+	looked     time.Time
 	opts       model.ImportOptions
 	threshold  float64
 	langs      []string
@@ -266,7 +268,7 @@ func (m *mapper) mapAccount(ctx context.Context, e *model.ImportEntry) {
 	if e.Source == nil {
 		m.mapMihon(e)
 	}
-	if u := e.Data.ReadUpTo; e.Source != nil && u != nil && u.Chapter < 0 && u.ChapterRef != "" {
+	if u := e.Data.ReadUpTo; e.Source != nil && u != nil && u.Chapter < 0 && (u.ChapterRef != "" || u.ChapterPlace > 0) {
 		m.resolveChapter(ctx, e)
 	}
 }
@@ -278,21 +280,63 @@ func (m *mapper) resolveChapter(ctx context.Context, e *model.ImportEntry) {
 	if err != nil {
 		return
 	}
-	cctx, cancel := context.WithTimeout(ctx, time.Minute)
-	defer cancel()
-	_, chapters, err := mod.Manga(cctx, source.MangaRef{SourceID: e.Source.SourceID, URL: e.Source.URL, TitleHint: e.Title}, true)
+	var chapters []source.Chapter
+	for try := 0; try < 3; try++ {
+		// sites like MangaLib allow about one request a second
+		wait := LookupPause - time.Since(m.looked)
+		if try > 0 {
+			wait = time.Duration(try) * 10 * time.Second
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(max(wait, 0)):
+		}
+		cctx, cancel := context.WithTimeout(ctx, time.Minute)
+		_, chapters, err = mod.Manga(cctx, source.MangaRef{SourceID: e.Source.SourceID, URL: e.Source.URL, TitleHint: e.Title}, true)
+		cancel()
+		m.looked = time.Now()
+		if err == nil {
+			break
+		}
+	}
 	if err != nil {
 		m.s.Log.Warn("list chapters for the chapter reached", "title", e.Title, "err", err)
 		return
 	}
+	if n, ok := ChapterIn(chapters, e.Data.ReadUpTo.ChapterRef, e.Data.ReadUpTo.ChapterPlace); ok {
+		u := *e.Data.ReadUpTo
+		u.Chapter = n
+		e.Data.ReadUpTo = &u
+	}
+}
+
+// LookupPause spaces the chapter lists asked of a site while placing the
+// chapters an account reached.
+var LookupPause = 1500 * time.Millisecond
+
+// ChapterIn finds a chapter's number in a source's chapter list by the
+// source's id for it, else by its place (1-based, in number order).
+func ChapterIn(chapters []source.Chapter, ref string, place int) (float64, bool) {
 	for _, c := range chapters {
-		if c.EngineRef == e.Data.ReadUpTo.ChapterRef && c.Number >= 0 {
-			u := *e.Data.ReadUpTo
-			u.Chapter = c.Number
-			e.Data.ReadUpTo = &u
-			return
+		if ref != "" && c.EngineRef == ref && c.Number >= 0 {
+			return c.Number, true
 		}
 	}
+	if place <= 0 {
+		return 0, false
+	}
+	var numbers []float64
+	for _, c := range chapters {
+		if c.Number >= 0 && !slices.Contains(numbers, c.Number) {
+			numbers = append(numbers, c.Number)
+		}
+	}
+	slices.Sort(numbers)
+	if place > len(numbers) {
+		return 0, false
+	}
+	return numbers[place-1], true
 }
 
 // aidokuRule converts an Aidoku source's manga key to a Keiyoushi url.

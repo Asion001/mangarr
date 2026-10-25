@@ -26,7 +26,7 @@ func TestMangaLibAccount(t *testing.T) {
 			_, _ = w.Write([]byte(`{"data":{"toast":{"message":"Not Found"}}}`))
 		case r.URL.Path == "/api/bookmarks/folder/77":
 			_, _ = w.Write([]byte(`{"data":[
-			  {"id":1,"name":"Читаю","public":true,"is_abandoned":false,"count":2,"site_ids":[0,1,2,3,4]},
+			  {"id":1,"name":"Читаю","public":true,"is_abandoned":false,"count":3,"site_ids":[0,1,2,3,4]},
 			  {"id":3,"name":"Брошено","public":true,"is_abandoned":true,"count":0,"site_ids":[0,1,2,3,4]},
 			  {"id":9,"name":"Секрет","public":false,"is_abandoned":false,"count":5,"site_ids":[1]},
 			  {"id":21,"name":"Смотрю","public":true,"is_abandoned":false,"count":4,"site_ids":[5]}]}`))
@@ -39,8 +39,6 @@ func TestMangaLibAccount(t *testing.T) {
 			_, _ = w.Write([]byte(`{"data":[
 			  {"item_id":0,"progress":"0","media":{"id":6,"name":"Planned","slug_url":"6--planned","model":"manga","site":1,"status":{"id":2,"label":"Завершён"}}}],
 			  "meta":{"next_page_url":false}}`))
-		case r.URL.Path == "/api/manga/2084--kumo/chapters":
-			_, _ = w.Write([]byte(`{"data":[{"id":1,"number":"80","branches":[{"id":1}]},{"id":4413035,"index":2,"number":"80.1","branches":[{"id":4413035}]}]}`))
 		default:
 			t.Errorf("unexpected %s", r.URL)
 			w.WriteHeader(http.StatusNotFound)
@@ -59,7 +57,7 @@ func TestMangaLibAccount(t *testing.T) {
 		t.Fatalf("entries = %+v", acc.Entries)
 	}
 	k := acc.Entries[0]
-	if k.URL != "/2084--kumo" || k.Title != "So I'm a Spider" || k.ChapterRef != "4413034" || k.Page != 21 || k.Chapter != 80.1 || k.Lists[0] != "1" {
+	if k.URL != "/2084--kumo" || k.Title != "So I'm a Spider" || k.ChapterRef != "4413034" || k.Page != 21 || k.Chapter != -1 || k.ChapterPlace != 2 || k.Lists[0] != "1" {
 		t.Fatalf("first = %+v", k)
 	}
 	if p := acc.Entries[1]; p.ChapterRef != "" || p.Page != 0 || p.Status != sourcekit.StatusCompleted {

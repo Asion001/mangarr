@@ -241,7 +241,7 @@ jobs:
         run: |
           gh release list --limit 1000 --json tagName,createdAt \
             --jq '[.[] | select(.tagName | startswith("build-"))] | sort_by(.createdAt) | reverse | .[30:] | .[].tagName' |
-          while read -r tag; do gh release delete "$tag" --yes --cleanup-tag; done
+          while read -r tag; do gh release delete "$tag" --yes --cleanup-tag || echo "skipped $tag (removed by another run)"; done
 
   images:
     needs: [test, web, generated]

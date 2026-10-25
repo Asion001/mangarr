@@ -578,7 +578,7 @@ func (m *Module) ReadAccount(ctx context.Context, sourceID, token string) (*sour
 		out.Entries = append(out.Entries, source.AccountEntry{
 			Manga: source.Manga{MangaRef: source.MangaRef{SourceID: sourceID, URL: e.URL, EngineRef: e.ID, TitleHint: e.Title},
 				Title: e.Title, ThumbnailURL: publicURL(s.Info().BaseURL, e.CoverURL)},
-			Status: status(e.Status), AltTitles: e.AltTitles, Lists: e.Lists, Chapter: e.Chapter, Page: e.Page, ChapterRef: e.ChapterRef})
+			Status: status(e.Status), AltTitles: e.AltTitles, Lists: e.Lists, Chapter: e.Chapter, Page: e.Page, ChapterRef: e.ChapterRef, ChapterPlace: e.ChapterPlace})
 	}
 	return out, nil
 }

@@ -27,12 +27,17 @@ func TestImportSiteAccount(t *testing.T) {
 			}
 			sc.AddManga(&fakesource.Manga{SourceID: "8010", URL: "/manga/a", Title: "Reading one", Status: source.StatusOngoing, Chapters: chs})
 			sc.AddManga(&fakesource.Manga{SourceID: "8010", URL: "/manga/b", Title: "Dropped one", Status: source.StatusOngoing, Chapters: chs[:1]})
+			sc.AddManga(&fakesource.Manga{SourceID: "8010", URL: "/manga/c", Title: "Placed one", Status: source.StatusOngoing, Chapters: chs})
+			imports.LookupPause = 0
 			sc.AccountToken = "secret"
 			sc.Account = &source.Account{User: "someone",
 				Lists: []source.AccountList{{ID: "L1", Name: "Reading", Status: source.ListReading}, {ID: "L2", Name: "Dropped", Status: source.ListDropped}},
 				Entries: []source.AccountEntry{
 					{Manga: source.Manga{MangaRef: source.MangaRef{SourceID: "8010", URL: "/manga/a"}, Title: "Reading one"}, Lists: []string{"L1"}, Chapter: 3, Page: 2},
 					{Manga: source.Manga{MangaRef: source.MangaRef{SourceID: "8010", URL: "/manga/b"}, Title: "Dropped one"}, Lists: []string{"L2"}, Chapter: -1},
+					// a site that keeps only the chapter's place in its list
+					{Manga: source.Manga{MangaRef: source.MangaRef{SourceID: "8010", URL: "/manga/c"}, Title: "Placed one"}, Lists: []string{"L1"}, Chapter: -1,
+						ChapterPlace: 2, ChapterRef: "gone"},
 				}}
 
 			e := newTestApp(t, dsn)
@@ -55,10 +60,13 @@ func TestImportSiteAccount(t *testing.T) {
 				t.Fatal(err)
 			}
 			entries, _, err := e.App.Imports.Entries(e.Ctx, imp.ID, imports.EntryFilter{}, 0, 0)
-			if err != nil || len(entries) != 2 {
+			if err != nil || len(entries) != 3 {
 				t.Fatalf("entries = %+v %v", entries, err)
 			}
 			reading, dropped := entries[0], entries[1]
+			if u := entries[2].Data.ReadUpTo; u == nil || u.Chapter != 2 {
+				t.Fatalf("placed one reached %+v", u)
+			}
 			if reading.State != model.EntryReady || !reading.Selected || reading.Source.How != model.MatchExact || reading.Source.ModuleID != mod {
 				t.Fatalf("reading = %+v %+v", reading, reading.Source)
 			}
@@ -66,7 +74,7 @@ func TestImportSiteAccount(t *testing.T) {
 				t.Fatal("a dropped title should start unselected")
 			}
 			res, err := e.App.Imports.Run(e.Ctx, imp.ID, nil)
-			if err != nil || res.Added != 1 || res.Failed != 0 {
+			if err != nil || res.Added != 2 || res.Failed != 0 {
 				t.Fatalf("run = %+v %v", res, err)
 			}
 			reloaded, _ := e.App.Imports.Get(e.Ctx, imp.ID)
@@ -81,13 +89,13 @@ func TestImportSiteAccount(t *testing.T) {
 				t.Fatalf("monitoring should start at the chapter reached: %+v", series)
 			}
 			var states []model.ChapterReadState
-			_ = e.App.DB.NewSelect().Model(&states).Where("user_id = ?", r.ID).Scan(e.Ctx)
+			_ = e.App.DB.NewSelect().Model(&states).Where("user_id = ? AND series_id = ?", r.ID, *entries[0].SeriesID).Scan(e.Ctx)
 			got := map[int64]model.ChapterReadState{}
 			for _, st := range states {
 				got[st.ChapterID] = st
 			}
 			if len(states) != 3 || !got[series[0].ID].Completed || !got[series[1].ID].Completed ||
-				got[series[2].ID].Completed || got[series[2].ID].Page != 2 {
+				!(got[series[2].ID].Page == 2 || got[series[2].ID].Completed) { // read already if it downloaded meanwhile
 				t.Fatalf("read states = %+v", states)
 			}
 

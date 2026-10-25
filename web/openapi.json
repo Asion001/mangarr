@@ -2207,6 +2207,10 @@
             "format": "int64",
             "type": "integer"
           },
+          "pending": {
+            "format": "int64",
+            "type": "integer"
+          },
           "progress": {
             "description": "Chapters whose progress was set",
             "format": "int64",
@@ -3506,6 +3510,10 @@
           "chapter": {
             "format": "double",
             "type": "number"
+          },
+          "chapterPlace": {
+            "format": "int64",
+            "type": "integer"
           },
           "chapterRef": {
             "type": "string"
@@ -7993,6 +8001,10 @@
           "chapter": {
             "format": "double",
             "type": "number"
+          },
+          "chapterPlace": {
+            "format": "int64",
+            "type": "integer"
           },
           "chapterRef": {
             "type": "string"

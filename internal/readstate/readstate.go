@@ -180,3 +180,20 @@ func ChapterNumberByRef(ctx context.Context, idb bun.IDB, seriesID int64, ref st
 	}
 	return n[0], true
 }
+
+// ChapterNumberByPlace is the number of a series' place-th chapter (1-based,
+// in number order), for progress a site keeps only by the chapter's place in
+// its list. It is an estimate: it holds while the series lists the same
+// chapters as the site.
+func ChapterNumberByPlace(ctx context.Context, idb bun.IDB, seriesID int64, place int) (float64, bool) {
+	if place <= 0 {
+		return 0, false
+	}
+	var n []float64
+	err := idb.NewSelect().Table("chapters").ColumnExpr("DISTINCT number_sort").Where("series_id = ? AND number_sort >= 0", seriesID).
+		OrderExpr("number_sort").Offset(int64(place)-1).Limit(1).Scan(ctx, &n)
+	if err != nil || len(n) == 0 {
+		return 0, false
+	}
+	return n[0], true
+}

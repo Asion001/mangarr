@@ -83,6 +83,9 @@ type ReadUpTo struct {
 	// ChapterRef is the source's id of the chapter reached when only that is
 	// known (Chapter is then -1 until the chapter list resolves it).
 	ChapterRef string `json:"chapterRef,omitempty"`
+	// ChapterPlace is that chapter's place in the title's list (1-based),
+	// used when its id can't be found.
+	ChapterPlace int `json:"chapterPlace,omitempty"`
 }
 
 // readBelow is whether n counts as read under u.

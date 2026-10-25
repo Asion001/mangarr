@@ -4590,6 +4590,8 @@ export interface components {
              * @description Chapters this server doesn't list (yet)
              */
             missing: number;
+            /** Format: int64 */
+            pending?: number;
             /**
              * Format: int64
              * @description Chapters whose progress was set
@@ -4996,6 +4998,8 @@ export interface components {
         ExportReached: {
             /** Format: double */
             chapter: number;
+            /** Format: int64 */
+            chapterPlace?: number;
             chapterRef?: string;
             /** Format: int64 */
             page?: number;
@@ -6345,6 +6349,8 @@ export interface components {
         ReadUpTo: {
             /** Format: double */
             chapter: number;
+            /** Format: int64 */
+            chapterPlace?: number;
             chapterRef?: string;
             /** Format: int64 */
             page?: number;

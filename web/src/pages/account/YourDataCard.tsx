@@ -189,7 +189,8 @@ function ImportReview({ data, from, onClose }: { data: Export; from: string; onC
     try {
       const res = await unwrap(api.POST("/api/v1/me/data/import", { body: { data, options: { ...opts, picked, request: ask } as Options } }));
       qc.invalidateQueries();
-      const asked = res.requested ? " · " + tr("{count} titles asked for", { count: res.requested }) : "";
+      const asked = (res.requested ? " · " + tr("{count} titles asked for", { count: res.requested }) : "") +
+        (res.pending ? " · " + tr("{count} titles get their progress in a few minutes, once the site says which chapter you reached", { count: res.pending }) : "");
       toast.success(tr("Your data was imported"), tr("{titles} titles · {progress} chapters · {history} history entries · {follows} follows", res) + asked);
       onClose();
     } catch (e) {

@@ -259,6 +259,9 @@ type AccountEntry struct {
 	// ChapterRef is the site's id of the chapter reached, for sites that
 	// keep that instead of its number (Chapter is then -1).
 	ChapterRef string
+	// ChapterPlace is that chapter's place in the title's list (1-based),
+	// when the site says: the last resort for placing it.
+	ChapterPlace int
 }
 
 // KeiyoushiID is the id Mihon and Tachiyomi give an extension: the first

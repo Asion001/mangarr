@@ -269,4 +269,6 @@ type AccountEntry struct {
 	// ChapterRef is the site's id of the chapter reached, when the site keeps
 	// that instead of its number (Chapter is then -1).
 	ChapterRef string `json:"chapterRef,omitempty"`
+	// ChapterPlace is that chapter's place in the title's list (1-based).
+	ChapterPlace int `json:"chapterPlace,omitempty"`
 }
