@@ -17,11 +17,11 @@ func TestChapterResourcesShowOnlyOwnProgress(t *testing.T) {
 		if err := e.s.app.DB.NewSelect().Model(&chapter).Where("series_id = ?", ser.ID).Scan(e.ctx); err != nil {
 			t.Fatal(err)
 		}
-		other := &model.Reader{Name: "someone else", CreatedAt: e.now}
+		other := &model.User{Username: "someone else", CreatedAt: e.now}
 		if _, err := e.s.app.DB.NewInsert().Model(other).Exec(e.ctx); err != nil {
 			t.Fatal(err)
 		}
-		progress := &model.ChapterReadState{ReaderID: other.ID, ChapterID: chapter.ID, SeriesID: ser.ID, Page: 50, SyncedAt: e.now}
+		progress := &model.ChapterReadState{UserID: other.ID, ChapterID: chapter.ID, SeriesID: ser.ID, Page: 50, SyncedAt: e.now}
 		if err := readstate.Save(e.ctx, e.s.app.DB, progress); err != nil {
 			t.Fatal(err)
 		}
@@ -34,16 +34,16 @@ func TestChapterResourcesShowOnlyOwnProgress(t *testing.T) {
 			return out[0].ReadBy
 		}
 		admin := access.AdminPrincipal(access.KindUser)
-		admin.ReaderID = e.reader
+		admin.UserID = e.reader
 		if got := readBy(admin); len(got) != 0 {
 			t.Fatalf("admin sees %+v, want no progress", got)
 		}
 		key := access.AdminPrincipal(access.KindAPIKey)
-		if got := readBy(key); len(got) != 1 || got[0].ReaderID != other.ID || got[0].Page != 50 {
+		if got := readBy(key); len(got) != 1 || got[0].UserID != other.ID || got[0].Page != 50 {
 			t.Fatalf("API key sees %+v, want the other reader's page", got)
 		}
-		admin.ReaderID = other.ID
-		if got := readBy(admin); len(got) != 1 || got[0].Reader != "You" {
+		admin.UserID = other.ID
+		if got := readBy(admin); len(got) != 1 || got[0].Name != "You" {
 			t.Fatalf("own progress = %+v", got)
 		}
 	})

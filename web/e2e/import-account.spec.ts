@@ -4,7 +4,7 @@ const account = {
   id: 7, format: "account", fileName: "Senkuro account", status: "review", progress: "", error: "", busy: false,
   createdAt: "2026-10-24T10:00:00Z", updatedAt: "2026-10-24T10:00:00Z",
   options: { onlyFavorites: false, rootFolderId: 1, profileId: 0, monitor: "unread", monitorNew: "all", searchMissing: true, categoryTags: true,
-    categories: { Брошено: { skip: true } }, readState: true, readerId: 0, pushProgress: true, matchMetadata: true, findByTitle: false, blockScanlators: false },
+    categories: { Брошено: { skip: true } }, readState: true, userId: 0, pushProgress: true, matchMetadata: true, findByTitle: false, blockScanlators: false },
   info: { backupDate: "2026-10-24T10:00:00Z", categories: ["Читаю", "Брошено"], sources: { "8010": "Senkuro" }, entries: 1, moduleId: 3,
     lists: { Читаю: "reading", Брошено: "dropped" } },
   counts: { all: 1, ready: 1, selected: 1, "selected:ready": 1 },

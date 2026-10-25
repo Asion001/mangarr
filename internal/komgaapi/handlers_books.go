@@ -42,7 +42,7 @@ func (s *Service) pageCount(b reading.BookInfo) int {
 
 // respond filters, sorts and pages books (seriesID 0: all series).
 func (h *bookHandlers) respond(w http.ResponseWriter, r *http.Request, seriesID int64, f bookFilter, p pageReq) {
-	rid, ok := h.s.readerID(w, r)
+	rid, ok := h.s.userID(w, r)
 	if !ok {
 		return
 	}
@@ -139,7 +139,7 @@ func singleSeries(c *condition) int64 {
 }
 
 func (h *bookHandlers) get(w http.ResponseWriter, r *http.Request) {
-	rid, ok := h.s.readerID(w, r)
+	rid, ok := h.s.userID(w, r)
 	if !ok {
 		return
 	}
@@ -159,7 +159,7 @@ func (h *bookHandlers) get(w http.ResponseWriter, r *http.Request) {
 // sibling is /books/{id}/next and /previous (404 at either end).
 func (h *bookHandlers) sibling(step int) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		rid, ok := h.s.readerID(w, r)
+		rid, ok := h.s.userID(w, r)
 		if !ok {
 			return
 		}
@@ -190,7 +190,7 @@ func (h *bookHandlers) sibling(step int) http.HandlerFunc {
 
 // onDeck is GET /api/v1/books/ondeck: the next chapter of each series in progress.
 func (h *bookHandlers) onDeck(w http.ResponseWriter, r *http.Request) {
-	rid, ok := h.s.readerID(w, r)
+	rid, ok := h.s.userID(w, r)
 	if !ok {
 		return
 	}

@@ -20,7 +20,7 @@ import (
 func TestSnake(t *testing.T) {
 	for in, want := range map[string]string{
 		"maxConcurrent": "MAX_CONCURRENT", "minFreeSpaceMb": "MIN_FREE_SPACE_MB", "apiKey": "API_KEY",
-		"url": "URL", "flareSolverrURL": "FLARE_SOLVERR_URL", "readerIds": "READER_IDS", "pageV2Size": "PAGE_V2_SIZE",
+		"url": "URL", "flareSolverrURL": "FLARE_SOLVERR_URL", "userIds": "USER_IDS", "pageV2Size": "PAGE_V2_SIZE",
 	} {
 		if got := Snake(in); got != want {
 			t.Errorf("Snake(%q) = %q, want %q", in, got, want)

@@ -20,7 +20,7 @@ var editionsBy = By{Origin: model.EventOriginApp, Client: "Language editions"}
 // announceEditions announces the applied changes in out for the same
 // chapters of the titles' other editions, so reading apps and library
 // servers showing those editions follow. It returns their series.
-func (s *Service) announceEditions(ctx context.Context, readerID int64, out []Outcome) map[int64]bool {
+func (s *Service) announceEditions(ctx context.Context, userID int64, out []Outcome) map[int64]bool {
 	results := map[int64]Outcome{}
 	var ids []int64
 	for _, o := range out {
@@ -46,7 +46,7 @@ func (s *Service) announceEditions(ctx context.Context, readerID int64, out []Ou
 			Where("c.id IN (?)", bun.In(ids[start:min(start+500, len(ids))])).
 			OrderExpr("c2.series_id, c2.number_sort, c2.id").Scan(ctx, &rows)
 		if err != nil {
-			s.Log.Warn("other editions not told about reading progress", "reader", readerID, "error", err)
+			s.Log.Warn("other editions not told about reading progress", "reader", userID, "error", err)
 			return nil
 		}
 		for _, r := range rows {
@@ -58,7 +58,7 @@ func (s *Service) announceEditions(ctx context.Context, readerID int64, out []Ou
 			others = append(others, o)
 		}
 	}
-	s.announce(readerID, others, editionsBy)
+	s.announce(userID, others, editionsBy)
 	changed := map[int64]bool{}
 	for _, o := range others {
 		changed[o.SeriesID] = true

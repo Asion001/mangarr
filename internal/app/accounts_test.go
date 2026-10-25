@@ -78,11 +78,11 @@ func TestAccountsShareTheLibrary(t *testing.T) {
 				t.Fatalf("boss reads: %d", code)
 			}
 			var st model.ChapterReadState
-			if err := a.DB.NewSelect().Model(&st).Where("chapter_id = ? AND reader_id = ?", f.chs[2].ID, boss.ReaderID).Scan(ctx); err != nil || !st.Completed {
-				t.Fatalf("boss's progress on his reader: %+v %v", st, err)
+			if err := a.DB.NewSelect().Model(&st).Where("chapter_id = ? AND user_id = ?", f.chs[2].ID, boss.ID).Scan(ctx); err != nil || !st.Completed {
+				t.Fatalf("boss's progress on his account: %+v %v", st, err)
 			}
-			if n, _ := a.DB.NewSelect().Model((*model.ChapterReadState)(nil)).Where("chapter_id = ? AND reader_id <> ?", f.chs[2].ID, boss.ReaderID).Count(ctx); n != 0 {
-				t.Fatal("boss's progress landed on another reader")
+			if n, _ := a.DB.NewSelect().Model((*model.ChapterReadState)(nil)).Where("chapter_id = ? AND user_id <> ?", f.chs[2].ID, boss.ID).Count(ctx); n != 0 {
+				t.Fatal("boss's progress landed on another account")
 			}
 			// with a password too, and without the apps permission no access
 			req, _ := http.NewRequest("GET", f.srv.URL+"/api/v2/users/me", nil)
@@ -136,7 +136,7 @@ func TestAccountsShareTheLibrary(t *testing.T) {
 			get("/api/v1/series/"+sid(f.other.ID)+"/chapters", &chs)
 			for _, c := range chs {
 				for _, r := range c.ReadBy {
-					if r.ReaderID != ann.ReaderID {
+					if r.UserID != ann.ID {
 						t.Fatalf("ann sees someone else's progress: %+v", r)
 					}
 				}

@@ -104,13 +104,13 @@ Read wherever the engine runs: in the server, or on a worker with the upscale ro
 
 | Variable | Type | Default | Description |
 |---|---|---|---|
-| `MANGARR_CLEANUP_ENABLED` | bool | `false` | Delete chapters every reader has finished. |
+| `MANGARR_CLEANUP_ENABLED` | bool | `false` | Delete chapters every counted user has finished. |
 | `MANGARR_CLEANUP_DRY_RUN` | bool | `true` | Only report what cleanup would delete. |
 | `MANGARR_CLEANUP_STATUSES` | list | `ongoing` | Series statuses cleanup applies to (comma-separated). |
-| `MANGARR_CLEANUP_READER_IDS` | list | `` | Required reader IDs (empty = all). |
-| `MANGARR_CLEANUP_IGNORE_READERS_NOT_STARTED` | bool | `true` | Readers who never opened a series don't block its cleanup. |
+| `MANGARR_CLEANUP_USER_IDS` | list | `` | Required user IDs (empty = all). |
+| `MANGARR_CLEANUP_IGNORE_READERS_NOT_STARTED` | bool | `true` | Users who never opened a series don't block its cleanup. |
 | `MANGARR_CLEANUP_KEEP_LAST_READ` | int | `1` | Keep the last N read chapters. |
-| `MANGARR_CLEANUP_GRACE_DAYS` | int | `7` | Days to wait after the last reader finished a chapter. |
+| `MANGARR_CLEANUP_GRACE_DAYS` | int | `7` | Days to wait after the last user finished a chapter. |
 | `MANGARR_CLEANUP_MIN_FREE_SPACE_GB` | int | `0` | Only clean up when free space is below this (GB, 0 = always). |
 | `MANGARR_CLEANUP_EXCLUDE_TAGS` | list | `keep` | Series with these tags are never cleaned up. |
 | `MANGARR_CLEANUP_USE_RECYCLE_BIN` | bool | `true` | Move cleaned files to the recycle bin. |
@@ -119,7 +119,7 @@ Read wherever the engine runs: in the server, or on a worker with the upscale ro
 
 | Variable | Type | Default | Description |
 |---|---|---|---|
-| `MANGARR_READSYNC_INTERVAL_MINUTES` | int | `30` | Minutes between reader progress syncs. |
+| `MANGARR_READSYNC_INTERVAL_MINUTES` | int | `30` | Minutes between progress syncs with library servers. |
 
 ### sources
 
@@ -156,7 +156,6 @@ Read wherever the engine runs: in the server, or on a worker with the upscale ro
 | Variable | Type | Default | Description |
 |---|---|---|---|
 | `MANGARR_READING_ENABLED` | bool | `false` | Allow Komga apps (Mihon's Komga extension, KMReader, Paperback) to connect. |
-| `MANGARR_READING_READER_ID` | int | `0` | Reader whose progress Komga apps read and write (0 = the first reader). |
 | `MANGARR_READING_PUBLIC_URL` | string | `` | Address Komga apps should use, e.g. https://manga.example.com:25600 (for the setup guides). |
 | `MANGARR_READING_DOWNLOAD_ON_OPEN` | bool | `true` | Queue a download when an app opens a chapter that isn't downloaded yet. |
 | `MANGARR_READING_RESIZE_PAGES` | bool | `true` | Serve phones and tablets a copy of the page at their screen size instead of the full scan. |

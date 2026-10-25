@@ -191,12 +191,10 @@ type Principal struct {
 	UserID      int64
 	Username    string
 	DisplayName string
-	// ReaderID is the user's own progress.
-	ReaderID  int64
-	GroupID   int64
-	GroupName string
-	Perms     map[string]bool
-	Scope     Scope
+	GroupID     int64
+	GroupName   string
+	Perms       map[string]bool
+	Scope       Scope
 	// SessionID is the web session used (empty for API keys).
 	SessionID string
 	// WorkerID is the worker a key belongs to (only with KindWorker).

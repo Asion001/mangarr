@@ -14,7 +14,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/uptrace/bun"
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/Asion001/mangarr/internal/access"
@@ -68,8 +67,10 @@ func (s *Service) Invalidate() {
 	s.mu.Unlock()
 }
 
+// NeedsSetup is true until there is an account someone can sign in to
+// (accounts without a password or single sign-on only hold progress).
 func (s *Service) NeedsSetup(ctx context.Context) (bool, error) {
-	n, err := s.db.NewSelect().Model((*model.User)(nil)).Count(ctx)
+	n, err := s.db.NewSelect().Model((*model.User)(nil)).Where("password_hash <> '' OR oidc_subject <> ''").Count(ctx)
 	return n == 0, err
 }
 
@@ -83,7 +84,7 @@ type NewUser struct {
 	OIDCSubject string
 }
 
-// CreateUser creates a user and their reader (their own progress).
+// CreateUser creates a user. Admins count for read-based cleanup.
 func (s *Service) CreateUser(ctx context.Context, in NewUser) (*model.User, error) {
 	in.Username = strings.TrimSpace(in.Username)
 	if in.Username == "" || strings.ContainsAny(in.Username, " \t:/") {
@@ -119,43 +120,11 @@ func (s *Service) CreateUser(ctx context.Context, in NewUser) (*model.User, erro
 	}
 	now := time.Now().UTC()
 	u := &model.User{Username: in.Username, PasswordHash: hash, DisplayName: strings.TrimSpace(in.DisplayName), GroupID: in.GroupID,
-		CreatedBy: in.CreatedBy, OIDCSubject: in.OIDCSubject, CreatedAt: now}
-	err = s.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
-		r, err := newReader(ctx, tx, u, first || in.GroupID == groups[model.GroupAdmins])
-		if err != nil {
-			return err
-		}
-		u.ReaderID = r.ID
-		_, err = tx.NewInsert().Model(u).Exec(ctx)
-		return err
-	})
-	if err != nil {
+		CreatedBy: in.CreatedBy, OIDCSubject: in.OIDCSubject, CountForCleanup: in.GroupID == groups[model.GroupAdmins], CreatedAt: now}
+	if _, err := s.db.NewInsert().Model(u).Exec(ctx); err != nil {
 		return nil, err
 	}
 	return u, nil
-}
-
-// newReader creates the reader for a user's progress, named after them
-// ("ann", else "ann (2)" when a reader of that name exists).
-func newReader(ctx context.Context, tx bun.IDB, u *model.User, countsForCleanup bool) (*model.Reader, error) {
-	base := u.DisplayName
-	if base == "" {
-		base = u.Username
-	}
-	name := base
-	for i := 2; ; i++ {
-		n, err := tx.NewSelect().Model((*model.Reader)(nil)).Where("name = ?", name).Count(ctx)
-		if err != nil {
-			return nil, err
-		}
-		if n == 0 {
-			break
-		}
-		name = fmt.Sprintf("%s (%d)", base, i)
-	}
-	r := &model.Reader{Name: name, CountForCleanup: countsForCleanup, CreatedAt: time.Now().UTC()}
-	_, err := tx.NewInsert().Model(r).Exec(ctx)
-	return r, err
 }
 
 // EnsureGroups creates the built-in groups when missing and returns their ids.
@@ -186,9 +155,9 @@ func (s *Service) EnsureGroups(ctx context.Context) (map[string]int64, error) {
 }
 
 // Upgrade brings accounts from before groups up to date: every user without
-// a group becomes an admin (the only user there was), and every user gets a
-// reader — preferred, when given, for the first user without one.
-func (s *Service) Upgrade(ctx context.Context, preferredReader int64) error {
+// a group becomes an admin (the only user there was), and device keys from
+// before accounts go to the first admin.
+func (s *Service) Upgrade(ctx context.Context) error {
 	groups, err := s.EnsureGroups(ctx)
 	if err != nil {
 		return err
@@ -197,36 +166,6 @@ func (s *Service) Upgrade(ctx context.Context, preferredReader int64) error {
 		Where("group_id IS NULL").Exec(ctx); err != nil {
 		return err
 	}
-	var users []model.User
-	if err := s.db.NewSelect().Model(&users).Where("reader_id IS NULL").Order("id").Scan(ctx); err != nil {
-		return err
-	}
-	for i := range users {
-		u := &users[i]
-		err := s.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
-			rid := int64(0)
-			if preferredReader > 0 {
-				if n, _ := tx.NewSelect().Model((*model.User)(nil)).Where("reader_id = ?", preferredReader).Count(ctx); n == 0 {
-					rid = preferredReader
-				}
-			}
-			if rid == 0 {
-				r, err := newReader(ctx, tx, u, u.GroupID == groups[model.GroupAdmins])
-				if err != nil {
-					return err
-				}
-				rid = r.ID
-			} else if err := renameImportedReader(ctx, tx, rid, u); err != nil {
-				return err
-			}
-			_, err := tx.NewUpdate().Model((*model.User)(nil)).Set("reader_id = ?", rid).Where("id = ?", u.ID).Exec(ctx)
-			return err
-		})
-		if err != nil {
-			return err
-		}
-	}
-	// device keys from before accounts belong to the first admin
 	var admin model.User
 	if err := s.db.NewSelect().Model(&admin).Where("group_id = ?", groups[model.GroupAdmins]).Order("id").Limit(1).Scan(ctx); err == nil {
 		if _, err := s.db.NewUpdate().Model((*model.ReadingKey)(nil)).Set("user_id = ?", admin.ID).Where("user_id IS NULL").Exec(ctx); err != nil {
@@ -235,34 +174,6 @@ func (s *Service) Upgrade(ctx context.Context, preferredReader int64) error {
 	}
 	s.Invalidate()
 	return nil
-}
-
-// renameImportedReader gives an unowned backup placeholder the account's
-// identity when it is adopted. The progress rows stay on the same reader, so
-// provenance and history are preserved. Non-placeholder and ambiguous names
-// are deliberately left alone.
-func renameImportedReader(ctx context.Context, tx bun.IDB, readerID int64, u *model.User) error {
-	var r model.Reader
-	if err := tx.NewSelect().Model(&r).Where("id = ?", readerID).Scan(ctx); err != nil {
-		return err
-	}
-	if r.Name != "Mihon backup" && r.Name != "Aidoku backup" {
-		return nil
-	}
-	name := strings.TrimSpace(u.DisplayName)
-	if name == "" {
-		name = u.Username
-	}
-	if name == "" {
-		return nil
-	}
-	if n, err := tx.NewSelect().Model((*model.Reader)(nil)).Where("name = ? AND id <> ?", name, readerID).Count(ctx); err != nil {
-		return err
-	} else if n > 0 {
-		return nil
-	}
-	_, err := tx.NewUpdate().Model((*model.Reader)(nil)).Set("name = ?", name).Where("id = ?", readerID).Exec(ctx)
-	return err
 }
 
 // PrincipalByName builds the principal of a user by username (nil when
@@ -468,7 +379,7 @@ func (s *Service) UserPrincipal(ctx context.Context, userID int64) (*access.Prin
 	}
 	var g model.Group
 	_ = s.db.NewSelect().Model(&g).Where("id = ?", u.GroupID).Scan(ctx)
-	p := &access.Principal{Kind: access.KindUser, UserID: u.ID, Username: u.Username, DisplayName: u.DisplayName, ReaderID: u.ReaderID,
+	p := &access.Principal{Kind: access.KindUser, UserID: u.ID, Username: u.Username, DisplayName: u.DisplayName,
 		GroupID: g.ID, GroupName: g.Name, Perms: map[string]bool{}, Scope: access.ScopeOf(&g)}
 	for _, perm := range g.Permissions {
 		p.Perms[perm] = true

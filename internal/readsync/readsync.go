@@ -34,7 +34,7 @@ type Syncer struct {
 	protected map[int64]time.Time
 
 	// OnChange, when set, hears what each sync or pushed event changed.
-	OnChange func(ctx context.Context, acc *model.ReaderAccount, changes []Change)
+	OnChange func(ctx context.Context, acc *model.LibraryAccount, changes []Change)
 }
 
 // Change is one read state a server's report changed (or that mangarr kept
@@ -48,7 +48,7 @@ type Change struct {
 	Outcome string
 }
 
-func (s *Syncer) report(ctx context.Context, acc *model.ReaderAccount, changes []Change) {
+func (s *Syncer) report(ctx context.Context, acc *model.LibraryAccount, changes []Change) {
 	if s.OnChange != nil && len(changes) > 0 {
 		s.OnChange(ctx, acc, changes)
 	}
@@ -117,14 +117,14 @@ func (s *Syncer) index(ctx context.Context) (map[string]fileRef, []string, error
 	return idx, roots, nil
 }
 
-// Sync refreshes read states for every reader account.
+// Sync refreshes read states for every library account.
 func (s *Syncer) Sync(ctx context.Context) (Result, error) {
 	var res Result
 	idx, roots, err := s.index(ctx)
 	if err != nil {
 		return res, err
 	}
-	var accounts []model.ReaderAccount
+	var accounts []model.LibraryAccount
 	if err := s.db.NewSelect().Model(&accounts).Scan(ctx); err != nil {
 		return res, err
 	}
@@ -140,19 +140,19 @@ func (s *Syncer) Sync(ctx context.Context) (Result, error) {
 			res.Failed++
 			acc.LastError = err.Error()
 			errs = append(errs, err)
-			s.log.Warn("read progress sync failed", "reader", acc.ReaderID, "module", acc.ModuleID, "err", err)
+			s.log.Warn("read progress sync failed", "reader", acc.UserID, "module", acc.ModuleID, "err", err)
 		}
 		res.Updated += n
 		_, _ = s.db.NewUpdate().Model(acc).Column("last_sync_at", "last_error").WherePK().Exec(ctx)
 	}
-	s.bus.Changed("readers", "sync", 0)
+	s.bus.Changed("progress", "sync", 0)
 	if res.Accounts > 0 && res.Failed == res.Accounts {
 		return res, errors.Join(errs...)
 	}
 	return res, nil
 }
 
-func (s *Syncer) syncAccount(ctx context.Context, acc *model.ReaderAccount, idx map[string]fileRef, roots []string) (int, error) {
+func (s *Syncer) syncAccount(ctx context.Context, acc *model.LibraryAccount, idx map[string]fileRef, roots []string) (int, error) {
 	pr, _, err := modules.GetAs[library.ProgressReader](s.mods, acc.ModuleID)
 	if err != nil {
 		return 0, err
@@ -164,7 +164,7 @@ func (s *Syncer) syncAccount(ctx context.Context, acc *model.ReaderAccount, idx 
 		return 0, err
 	}
 	var existing []model.ChapterReadState
-	if err := s.db.NewSelect().Model(&existing).Where("reader_id = ?", acc.ReaderID).Scan(ctx); err != nil {
+	if err := s.db.NewSelect().Model(&existing).Where("user_id = ?", acc.UserID).Scan(ctx); err != nil {
 		return 0, err
 	}
 	byChapter := map[int64]*model.ChapterReadState{}
@@ -187,7 +187,7 @@ func (s *Syncer) syncAccount(ctx context.Context, acc *model.ReaderAccount, idx 
 				continue
 			}
 			seen[ref.chapterID] = true
-			outcome, err := s.apply(ctx, tx, acc.ReaderID, byChapter[ref.chapterID], ref, bp, now)
+			outcome, err := s.apply(ctx, tx, acc.UserID, byChapter[ref.chapterID], ref, bp, now)
 			if err != nil {
 				return err
 			}
@@ -231,7 +231,7 @@ func (s *Syncer) syncAccount(ctx context.Context, acc *model.ReaderAccount, idx 
 // report takes over imported (backup) states. It returns
 // model.OutcomeApplied, model.OutcomeKept (a lower report was ignored) or
 // "" (nothing new).
-func (s *Syncer) apply(ctx context.Context, idb bun.IDB, readerID int64, st *model.ChapterReadState, ref fileRef, bp library.BookProgress, now time.Time) (string, error) {
+func (s *Syncer) apply(ctx context.Context, idb bun.IDB, userID int64, st *model.ChapterReadState, ref fileRef, bp library.BookProgress, now time.Time) (string, error) {
 	readAt := bp.ReadAt
 	if st == nil {
 		if !bp.Completed && bp.Page <= 0 {
@@ -240,7 +240,7 @@ func (s *Syncer) apply(ctx context.Context, idb bun.IDB, readerID int64, st *mod
 		if readAt == nil && bp.Completed {
 			readAt = &now
 		}
-		st = &model.ChapterReadState{ReaderID: readerID, ChapterID: ref.chapterID, SeriesID: ref.seriesID,
+		st = &model.ChapterReadState{UserID: userID, ChapterID: ref.chapterID, SeriesID: ref.seriesID,
 			Completed: bp.Completed, Page: bp.Page, ReadAt: readAt, SyncedAt: now}
 		return model.OutcomeApplied, readstate.Save(ctx, idb, st)
 	}
@@ -274,7 +274,7 @@ func (s *Syncer) apply(ctx context.Context, idb bun.IDB, readerID int64, st *mod
 
 // ApplyEvent stores one change pushed by a library server. It returns the
 // series that changed (0 when nothing did).
-func (s *Syncer) ApplyEvent(ctx context.Context, acc *model.ReaderAccount, ev library.ProgressEvent) (int64, error) {
+func (s *Syncer) ApplyEvent(ctx context.Context, acc *model.LibraryAccount, ev library.ProgressEvent) (int64, error) {
 	if ev.Book == nil {
 		return 0, nil
 	}
@@ -288,7 +288,7 @@ func (s *Syncer) ApplyEvent(ctx context.Context, acc *model.ReaderAccount, ev li
 	}
 	var cur model.ChapterReadState
 	found := true
-	if err := s.db.NewSelect().Model(&cur).Where("reader_id = ? AND chapter_id = ?", acc.ReaderID, ref.chapterID).Scan(ctx); err != nil {
+	if err := s.db.NewSelect().Model(&cur).Where("user_id = ? AND chapter_id = ?", acc.UserID, ref.chapterID).Scan(ctx); err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			return 0, err
 		}
@@ -312,7 +312,7 @@ func (s *Syncer) ApplyEvent(ctx context.Context, acc *model.ReaderAccount, ev li
 		if found {
 			st = &cur
 		}
-		if outcome, err = s.apply(ctx, s.db, acc.ReaderID, st, ref, *ev.Book, time.Now().UTC()); err != nil {
+		if outcome, err = s.apply(ctx, s.db, acc.UserID, st, ref, *ev.Book, time.Now().UTC()); err != nil {
 			return 0, err
 		}
 	}
@@ -326,13 +326,13 @@ func (s *Syncer) ApplyEvent(ctx context.Context, acc *model.ReaderAccount, ev li
 	if outcome != model.OutcomeApplied && outcome != model.OutcomeUnread {
 		return 0, nil
 	}
-	s.bus.Changed("readers", "sync", 0)
+	s.bus.Changed("progress", "sync", 0)
 	s.bus.Changed("series", "updated", ref.seriesID)
 	return ref.seriesID, nil
 }
 
-// SyncAccount refreshes one reader account.
-func (s *Syncer) SyncAccount(ctx context.Context, acc *model.ReaderAccount) (int, error) {
+// SyncAccount refreshes one library account.
+func (s *Syncer) SyncAccount(ctx context.Context, acc *model.LibraryAccount) (int, error) {
 	idx, roots, err := s.index(ctx)
 	if err != nil {
 		return 0, err
@@ -345,7 +345,7 @@ func (s *Syncer) SyncAccount(ctx context.Context, acc *model.ReaderAccount) (int
 	}
 	_, _ = s.db.NewUpdate().Model(acc).Column("last_sync_at", "last_error").WherePK().Exec(ctx)
 	if n > 0 {
-		s.bus.Changed("readers", "sync", 0)
+		s.bus.Changed("progress", "sync", 0)
 	}
 	return n, err
 }
@@ -381,7 +381,7 @@ func (s *Syncer) RestoreSeries(ctx context.Context, seriesID int64) (RestoreResu
 // reading app marked unread (unread), where mangarr still has them unread.
 func (s *Syncer) PushSeries(ctx context.Context, seriesID int64, unread []int64) (RestoreResult, error) {
 	var res RestoreResult
-	var accounts []model.ReaderAccount
+	var accounts []model.LibraryAccount
 	if err := s.db.NewSelect().Model(&accounts).Scan(ctx); err != nil || len(accounts) == 0 {
 		return res, err
 	}
@@ -407,7 +407,7 @@ func (s *Syncer) PushSeries(ctx context.Context, seriesID int64, unread []int64)
 			continue // server can't be written to
 		}
 		var states []model.ChapterReadState
-		if err := s.db.NewSelect().Model(&states).Where("reader_id = ? AND series_id = ?", acc.ReaderID, seriesID).Scan(ctx); err != nil {
+		if err := s.db.NewSelect().Model(&states).Where("user_id = ? AND series_id = ?", acc.UserID, seriesID).Scan(ctx); err != nil {
 			return res, err
 		}
 		remote := map[string]library.BookProgress{}

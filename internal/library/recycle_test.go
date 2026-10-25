@@ -170,11 +170,11 @@ func TestRestoreRecycledPreservesIdentityAndProgress(t *testing.T) {
 			t.Fatal(err)
 		}
 		for _, complete := range []bool{false, true} {
-			reader := &model.Reader{Name: fmt.Sprint("Archive reader ", complete), CreatedAt: time.Now()}
+			reader := &model.User{Username: fmt.Sprint("Archive reader ", complete), CreatedAt: time.Now()}
 			if _, err := d.NewInsert().Model(reader).Exec(ctx); err != nil {
 				t.Fatal(err)
 			}
-			state := &model.ChapterReadState{ReaderID: reader.ID, ChapterID: f.ChapterID, SeriesID: s.ID, Page: 4, Completed: complete, SyncedAt: time.Now()}
+			state := &model.ChapterReadState{UserID: reader.ID, ChapterID: f.ChapterID, SeriesID: s.ID, Page: 4, Completed: complete, SyncedAt: time.Now()}
 			if err := readstate.Save(ctx, d, state); err != nil {
 				t.Fatal(err)
 			}

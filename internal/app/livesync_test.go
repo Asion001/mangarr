@@ -44,16 +44,16 @@ func TestLiveReadSync(t *testing.T) {
 	files := e.chapterFiles(t, ser.ID)
 	path := func(n string) string { return filepath.Join(e.Root, "Live", files[n].RelativePath) }
 
-	r := &model.Reader{Name: "ann", CreatedAt: time.Now().UTC()}
+	r := &model.User{Username: "ann", CreatedAt: time.Now().UTC()}
 	_, _ = e.App.DB.NewInsert().Model(r).Exec(e.Ctx)
-	acc := &model.ReaderAccount{ReaderID: r.ID, ModuleID: libDef.ID, Credentials: map[string]string{"apiKey": "k"}, CreatedAt: time.Now().UTC()}
+	acc := &model.LibraryAccount{UserID: r.ID, ModuleID: libDef.ID, Credentials: map[string]string{"apiKey": "k"}, CreatedAt: time.Now().UTC()}
 	_, _ = e.App.DB.NewInsert().Model(acc).Exec(e.Ctx)
 	e.App.Watcher.Refresh(e.Ctx)
 	waitFor(t, 5*time.Second, "account connected", func() bool { return e.App.Watcher.Status()[acc.ID].Connected })
 
 	state := func(chapterID int64) *model.ChapterReadState {
 		var st model.ChapterReadState
-		if err := e.App.DB.NewSelect().Model(&st).Where("reader_id = ? AND chapter_id = ?", r.ID, chapterID).Scan(e.Ctx); err != nil {
+		if err := e.App.DB.NewSelect().Model(&st).Where("user_id = ? AND chapter_id = ?", r.ID, chapterID).Scan(e.Ctx); err != nil {
 			return nil
 		}
 		return &st
@@ -72,7 +72,7 @@ func TestLiveReadSync(t *testing.T) {
 	waitFor(t, 5*time.Second, "chapter 1 unread", func() bool { return state(files["1"].ChapterID) == nil })
 
 	// an imported state isn't cleared by the server not knowing it yet
-	imported := &model.ChapterReadState{ReaderID: r.ID, ChapterID: files["2"].ChapterID, SeriesID: ser.ID, Completed: true,
+	imported := &model.ChapterReadState{UserID: r.ID, ChapterID: files["2"].ChapterID, SeriesID: ser.ID, Completed: true,
 		SyncedAt: time.Now().UTC(), Origin: model.ReadOriginBackup}
 	_ = readstate.Save(e.Ctx, e.App.DB, imported)
 	push(library.ProgressEvent{Book: &library.BookProgress{LocalPath: path("2")}, Deleted: true})

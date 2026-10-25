@@ -84,7 +84,7 @@ func TestInvitesAndGroups(t *testing.T) {
 		t.Fatalf("redeem: %d", code)
 	}
 	acc := st["account"].(map[string]any)
-	if acc["group"] != "Kids" || acc["readerId"].(float64) == 0 {
+	if acc["group"] != "Kids" || acc["id"].(float64) == 0 {
 		t.Fatalf("account %v", acc)
 	}
 	if code := anon.do("POST", "/api/v1/invites/redeem/"+token, `{"username":"bob","password":"bob-pass-1"}`, nil); code != 404 {

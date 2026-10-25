@@ -51,7 +51,7 @@ func (s *Server) diagnostics(ctx context.Context) ([]byte, error) {
 
 	counts := map[string]int64{}
 	for name, m := range map[string]any{"series": (*model.Series)(nil), "chapters": (*model.Chapter)(nil), "files": (*model.ChapterFile)(nil),
-		"sources": (*model.SeriesSource)(nil), "readers": (*model.Reader)(nil), "readStates": (*model.ChapterReadState)(nil),
+		"sources": (*model.SeriesSource)(nil), "users": (*model.User)(nil), "readStates": (*model.ChapterReadState)(nil),
 		"queue": (*model.DownloadJob)(nil), "imports": (*model.Import)(nil)} {
 		counts[name], _ = s.app.DB.NewSelect().Model(m).Count(ctx)
 	}

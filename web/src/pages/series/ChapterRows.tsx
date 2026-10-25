@@ -366,8 +366,8 @@ function ChapterExpandedInfo({ chapter: c, accountKind, onMark }: { chapter: Cha
     <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3">
       <span className="text-xs font-medium text-muted">{t("Read by")}</span>
       {c.readBy.map((r) => (
-        <Badge key={r.readerId} tone={r.completed ? "ok" : "info"} title={r.completed ? `read ${relative(r.readAt)}` : `page ${r.page}`}>
-          <Eye className="size-3" /> {accountKind === "user" ? (r.completed ? t("Read") : `${t("Page")} ${r.page}`) : r.reader}
+        <Badge key={r.userId} tone={r.completed ? "ok" : "info"} title={r.completed ? `read ${relative(r.readAt)}` : `page ${r.page}`}>
+          <Eye className="size-3" /> {accountKind === "user" ? (r.completed ? t("Read") : `${t("Page")} ${r.page}`) : r.name}
         </Badge>
       ))}
       {c.readBy.length === 0 && <span className="text-xs text-muted">{t("Nobody yet")}</span>}

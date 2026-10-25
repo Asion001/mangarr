@@ -18,6 +18,7 @@ import (
 
 	"github.com/uptrace/bun"
 
+	"github.com/Asion001/mangarr/internal/access"
 	"github.com/Asion001/mangarr/internal/backupimport"
 	"github.com/Asion001/mangarr/internal/catalogs"
 	"github.com/Asion001/mangarr/internal/db"
@@ -96,12 +97,8 @@ func (s *Service) create(ctx context.Context, fileName string, b *backupimport.B
 	if err := s.DB.NewSelect().Model(&rf).Order("id").Limit(1).Scan(ctx); err == nil {
 		opts.RootFolderID = rf.ID
 	}
-	var readers []model.Reader
-	if err := s.DB.NewSelect().Model(&readers).Order("id").Scan(ctx); err != nil {
-		return nil, err
-	}
-	if len(readers) == 1 {
-		opts.ReaderID = readers[0].ID
+	if p := access.From(ctx); p != nil && p.Kind == access.KindUser {
+		opts.UserID = p.UserID // read state goes to whoever imports
 	}
 	imp := &model.Import{Format: b.Format, FileName: filepath.Base(fileName), Status: model.ImportMapping, Options: opts,
 		Info: model.ImportInfo{Categories: usedCategories(b), Sources: b.Sources, Entries: len(b.Entries)}, CreatedAt: now, UpdatedAt: now}

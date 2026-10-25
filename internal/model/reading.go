@@ -30,10 +30,10 @@ type ReadingKey struct {
 	LastUsedAt *time.Time `bun:"last_used_at" json:"lastUsedAt,omitempty"`
 }
 
-// KOReaderDocument maps KOReader's file digest to a chapter for one reader.
+// KOReaderDocument maps KOReader's file digest to a chapter for one user.
 type KOReaderDocument struct {
 	bun.BaseModel `bun:"table:koreader_documents"`
-	ReaderID      int64  `bun:"reader_id,pk"`
+	UserID        int64  `bun:"user_id,pk"`
 	Document      string `bun:"document,pk"`
 	ChapterID     int64  `bun:"chapter_id,notnull"`
 }
@@ -62,7 +62,7 @@ const (
 type ReadEvent struct {
 	bun.BaseModel `bun:"table:read_events"`
 	ID            int64 `bun:"id,pk,autoincrement" json:"id"`
-	ReaderID      int64 `bun:"reader_id,notnull" json:"readerId"`
+	UserID        int64 `bun:"user_id,notnull" json:"userId"`
 	SeriesID      int64 `bun:"series_id,notnull" json:"seriesId"`
 	ChapterID     int64 `bun:"chapter_id,notnull" json:"chapterId"`
 	// Chapters is how many chapters the event covers (ChapterID is the
@@ -82,7 +82,7 @@ type ReadEvent struct {
 type ReadingSession struct {
 	bun.BaseModel `bun:"table:reading_sessions"`
 	ID            string    `bun:"id,pk" json:"id"`
-	ReaderID      int64     `bun:"reader_id,notnull" json:"readerId"`
+	UserID        int64     `bun:"user_id,notnull" json:"userId"`
 	SeriesID      int64     `bun:"series_id,notnull" json:"seriesId"`
 	ChapterID     int64     `bun:"chapter_id,notnull" json:"chapterId"`
 	ActiveSeconds int       `bun:"active_seconds,notnull" json:"activeSeconds"`

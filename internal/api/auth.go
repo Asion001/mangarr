@@ -22,8 +22,6 @@ type Account struct {
 	Group       string `json:"group"`
 	// Permissions this account has (every one for admins).
 	Permissions []string `json:"permissions"`
-	// ReaderID is the account's own progress.
-	ReaderID int64 `json:"readerId"`
 	// Kind: user, apikey (the admin API key) or anonymous (logins disabled).
 	Kind string `json:"kind" enum:"user,apikey,anonymous"`
 }
@@ -60,7 +58,7 @@ func accountOf(p *access.Principal) *Account {
 		return nil
 	}
 	return &Account{ID: p.UserID, Username: p.Username, DisplayName: p.DisplayName, GroupID: p.GroupID, Group: p.GroupName,
-		Permissions: p.Permissions(), ReaderID: p.ReaderID, Kind: p.Kind}
+		Permissions: p.Permissions(), Kind: p.Kind}
 }
 
 type Credentials struct {

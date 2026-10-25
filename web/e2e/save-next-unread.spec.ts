@@ -11,7 +11,7 @@ const file = { pageCount: 20, size: 1000, format: "cbz", sourceName: "Source", a
 const chapters = Array.from({ length: 30 }, (_, index) => ({
   id: index + 1, seriesId: 1, number: String(index + 1), numberSort: index + 1, title: `Chapter ${index + 1}`,
   monitored: true, releaseDate: "2026-09-01T00:00:00Z", state: "imported", releases: [], file: { ...file, id: index + 1 },
-  readBy: index < 3 ? [{ readerId: 1, reader: "me", completed: true, page: 20, readAt: "2026-09-01T00:00:00Z" }] : [],
+  readBy: index < 3 ? [{ userId: 1, name: "me", completed: true, page: 20, readAt: "2026-09-01T00:00:00Z" }] : [],
 }));
 
 // Like Mihon: "next 5 unread" takes the next five not saved or waiting yet,

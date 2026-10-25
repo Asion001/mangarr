@@ -65,7 +65,7 @@ func (s *Server) registerReadPicker() {
 			if _, err := s.visibleSeries(ctx, in.ID); err != nil {
 				return nil, err
 			}
-			readerID, err := s.readerOf(ctx)
+			userID, err := s.userOf(ctx)
 			if err != nil {
 				return nil, readError(err)
 			}
@@ -79,7 +79,7 @@ func (s *Server) registerReadPicker() {
 			}
 			maxRead := -1.0
 			if err := s.app.DB.NewSelect().TableExpr("chapter_read_states AS rs").Join("JOIN chapters AS c ON c.id = rs.chapter_id").
-				ColumnExpr("COALESCE(MAX(c.number_sort), -1)").Where("rs.series_id = ? AND rs.completed AND rs.reader_id = ?", in.ID, readerID).
+				ColumnExpr("COALESCE(MAX(c.number_sort), -1)").Where("rs.series_id = ? AND rs.completed AND rs.user_id = ?", in.ID, userID).
 				Scan(ctx, &maxRead); err != nil {
 				return nil, toHTTPError(err)
 			}
@@ -158,7 +158,7 @@ func (s *Server) registerReadPicker() {
 			}
 			if len(ids) > 0 {
 				var stateRows []model.ChapterReadState
-				if err := s.app.DB.NewSelect().Model(&stateRows).Where("reader_id = ? AND chapter_id IN (?)", readerID, bun.In(ids)).Scan(ctx); err != nil {
+				if err := s.app.DB.NewSelect().Model(&stateRows).Where("user_id = ? AND chapter_id IN (?)", userID, bun.In(ids)).Scan(ctx); err != nil {
 					return nil, toHTTPError(err)
 				}
 				for _, state := range stateRows {

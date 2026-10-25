@@ -20,10 +20,11 @@ func init() { register((*Server).registerUsers) }
 // UserView is a user for the admin pages.
 type UserView struct {
 	model.User
-	Group      string `json:"group"`
-	ReaderName string `json:"readerName"`
-	Sessions   int64  `json:"sessions"`
-	Devices    int64  `json:"devices"`
+	Group    string `json:"group"`
+	Sessions int64  `json:"sessions"`
+	Devices  int64  `json:"devices"`
+	// Finished is how many chapters they finished.
+	Finished int `json:"finished"`
 }
 
 // GroupView is a group with its member count.
@@ -101,25 +102,30 @@ func (s *Server) registerUsers() {
 			}
 			var groups []model.Group
 			_ = db.NewSelect().Model(&groups).Scan(ctx)
-			var readers []model.Reader
-			_ = db.NewSelect().Model(&readers).Scan(ctx)
-			gname, rname := map[int64]string{}, map[int64]string{}
+			gname := map[int64]string{}
 			for _, g := range groups {
 				gname[g.ID] = g.Name
 			}
-			for _, r := range readers {
-				rname[r.ID] = r.Name
+			var finished []struct {
+				UserID int64 `bun:"user_id"`
+				N      int   `bun:"n"`
+			}
+			_ = db.NewSelect().TableExpr("title_read_states").ColumnExpr("user_id, COUNT(*) AS n").
+				Where("completed = ?", true).GroupExpr("user_id").Scan(ctx, &finished)
+			finishedBy := map[int64]int{}
+			for _, f := range finished {
+				finishedBy[f.UserID] = f.N
 			}
 			out := make([]UserView, len(users))
 			for i, u := range users {
-				out[i] = UserView{User: u, Group: gname[u.GroupID], ReaderName: rname[u.ReaderID]}
+				out[i] = UserView{User: u, Group: gname[u.GroupID], Finished: finishedBy[u.ID]}
 				out[i].Sessions, _ = db.NewSelect().Model((*model.Session)(nil)).Where("user_id = ? AND expires_at > ?", u.ID, time.Now().UTC()).Count(ctx)
 				out[i].Devices, _ = db.NewSelect().Model((*model.ReadingKey)(nil)).Where("user_id = ?", u.ID).Count(ctx)
 			}
 			return &struct{ Body []UserView }{out}, nil
 		})
 	huma.Register(s.api, huma.Operation{OperationID: "users-create", Method: http.MethodPost, Path: "/api/v1/users", Tags: tags,
-		Summary: "Create a user (with their own reader for progress)"},
+		Summary: "Create a user"},
 		func(ctx context.Context, in *struct {
 			Body struct {
 				Username    string `json:"username" minLength:"1"`
@@ -137,14 +143,14 @@ func (s *Server) registerUsers() {
 			return &struct{ Body model.User }{*u}, nil
 		})
 	huma.Register(s.api, huma.Operation{OperationID: "users-update", Method: http.MethodPut, Path: "/api/v1/users/{id}", Tags: tags,
-		Summary: "Change a user's name, group, reader, or disable them"},
+		Summary: "Change a user's name or group, whether they count for cleanup, or disable them"},
 		func(ctx context.Context, in *struct {
 			ID   int64 `path:"id"`
 			Body struct {
-				DisplayName string `json:"displayName,omitempty"`
-				GroupID     int64  `json:"groupId"`
-				ReaderID    int64  `json:"readerId,omitempty" doc:"The reader holding their progress"`
-				Disabled    bool   `json:"disabled,omitempty"`
+				DisplayName     string `json:"displayName,omitempty"`
+				GroupID         int64  `json:"groupId"`
+				CountForCleanup *bool  `json:"countForCleanup,omitempty" doc:"Read-based cleanup waits for them (unchanged when left out)"`
+				Disabled        bool   `json:"disabled,omitempty"`
 			}
 		}) (*struct{}, error) {
 			var u model.User
@@ -155,14 +161,6 @@ func (s *Server) registerUsers() {
 			if err := db.NewSelect().Model(&g).Where("id = ?", in.Body.GroupID).Scan(ctx); err != nil {
 				return nil, huma.Error400BadRequest("no such group")
 			}
-			if in.Body.ReaderID > 0 {
-				if n, _ := db.NewSelect().Model((*model.Reader)(nil)).Where("id = ?", in.Body.ReaderID).Count(ctx); n == 0 {
-					return nil, huma.Error400BadRequest("no such reader")
-				}
-				if n, _ := db.NewSelect().Model((*model.User)(nil)).Where("reader_id = ? AND id <> ?", in.Body.ReaderID, u.ID).Count(ctx); n > 0 {
-					return nil, huma.Error400BadRequest("another user already has that reader")
-				}
-			}
 			me := access.From(ctx)
 			if in.Body.Disabled && u.ID == me.UserID {
 				return nil, huma.Error400BadRequest("you can't disable yourself")
@@ -171,10 +169,10 @@ func (s *Server) registerUsers() {
 				return nil, err
 			}
 			u.DisplayName, u.GroupID, u.Disabled = strings.TrimSpace(in.Body.DisplayName), g.ID, in.Body.Disabled
-			if in.Body.ReaderID > 0 {
-				u.ReaderID = in.Body.ReaderID
+			if in.Body.CountForCleanup != nil {
+				u.CountForCleanup = *in.Body.CountForCleanup
 			}
-			if _, err := db.NewUpdate().Model(&u).Column("display_name", "group_id", "disabled", "reader_id").WherePK().Exec(ctx); err != nil {
+			if _, err := db.NewUpdate().Model(&u).Column("display_name", "group_id", "disabled", "count_for_cleanup").WherePK().Exec(ctx); err != nil {
 				return nil, toHTTPError(err)
 			}
 			if u.Disabled {
@@ -207,7 +205,7 @@ func (s *Server) registerUsers() {
 			return nil, toHTTPError(s.app.Auth.RevokeSessions(ctx, in.ID, keep))
 		})
 	huma.Register(s.api, huma.Operation{OperationID: "users-delete", Method: http.MethodDelete, Path: "/api/v1/users/{id}", Tags: tags,
-		Summary: "Delete a user (their reader and its progress stay)"},
+		Summary: "Delete a user and their reading progress"},
 		func(ctx context.Context, in *IDPath) (*struct{}, error) {
 			var u model.User
 			if err := db.NewSelect().Model(&u).Where("id = ?", in.ID).Scan(ctx); err != nil {
@@ -222,6 +220,7 @@ func (s *Server) registerUsers() {
 			if _, err := db.NewDelete().Model(&u).WherePK().Exec(ctx); err != nil {
 				return nil, toHTTPError(err)
 			}
+			_, _ = db.NewDelete().Model((*model.RequestedProgress)(nil)).Where("user_id = ?", u.ID).Exec(ctx)
 			s.app.Auth.Invalidate()
 			s.app.Komga.InvalidateKeys()
 			s.app.Bus.Changed("users", "deleted", u.ID)

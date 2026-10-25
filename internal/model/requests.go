@@ -80,7 +80,6 @@ type RequestedProgress struct {
 	bun.BaseModel `bun:"table:requested_progress"`
 	ID            int64 `bun:"id,pk,autoincrement"`
 	UserID        int64 `bun:"user_id,notnull"`
-	ReaderID      int64 `bun:"reader_id,notnull"`
 	RequestID     int64 `bun:"request_id,notnull"`
 	// Title is the imported title (a userdata.ExportTitle) as JSON.
 	Title     string    `bun:"title,notnull"`

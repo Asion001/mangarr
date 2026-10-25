@@ -85,6 +85,7 @@ me-reading-stats GET /api/v1/me/reading-stats -> signedin
 me-sessions GET /api/v1/me/sessions -> signedin
 me-sessions-revoke DELETE /api/v1/me/sessions/{id} -> signedin
 me-sessions-revoke-others POST /api/v1/me/sessions/revoke-others -> signedin
+me-sync GET /api/v1/me/sync -> signedin
 me-ui-preferences GET /api/v1/me/ui-preferences -> signedin
 me-ui-preferences-save PUT /api/v1/me/ui-preferences -> signedin
 modules-asset GET /api/v1/modules/{id}/asset -> library.add | library.edit
@@ -128,13 +129,6 @@ read-progress PUT /api/v1/read/chapters/{id}/progress -> signedin
 read-settings GET /api/v1/read/settings -> signedin
 read-settings-save PUT /api/v1/read/settings -> signedin
 read-time POST /api/v1/read/chapters/{id}/time -> signedin
-readers-account-delete DELETE /api/v1/readers/{id}/accounts/{accountId} -> admin
-readers-account-save POST /api/v1/readers/{id}/accounts -> admin
-readers-create POST /api/v1/readers -> admin
-readers-delete DELETE /api/v1/readers/{id} -> admin
-readers-list GET /api/v1/readers -> admin
-readers-sync GET /api/v1/readers/{id}/sync -> admin
-readers-update PUT /api/v1/readers/{id} -> admin
 reading-keys GET /api/v1/reading/keys -> apps
 reading-keys-create POST /api/v1/reading/keys -> apps
 reading-keys-delete DELETE /api/v1/reading/keys/{id} -> apps
@@ -272,6 +266,7 @@ users-delete DELETE /api/v1/users/{id} -> admin
 users-list GET /api/v1/users -> admin
 users-password POST /api/v1/users/{id}/password -> admin
 users-signout POST /api/v1/users/{id}/signout -> admin
+users-sync GET /api/v1/users/{id}/sync -> admin
 users-update PUT /api/v1/users/{id} -> admin
 wanted-missing GET /api/v1/wanted/missing -> library.edit
 worker-bye POST /api/v1/worker/bye -> worker

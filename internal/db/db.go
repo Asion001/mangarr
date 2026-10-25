@@ -107,11 +107,7 @@ func (d *DB) Migrate(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	gd := goose.DialectSQLite3
-	if d.Kind == Postgres {
-		gd = goose.DialectPostgres
-	}
-	p, err := goose.NewProvider(gd, d.DB.DB, sub)
+	p, err := newProvider(d.Kind, d.DB.DB, sub)
 	if err != nil {
 		return err
 	}
@@ -126,6 +122,14 @@ func (d *DB) Migrate(ctx context.Context) error {
 		slog.Info("applied migration", "version", r.Source.Version, "path", r.Source.Path, "duration", r.Duration)
 	}
 	return err
+}
+
+// newProvider runs the migrations in fsys, and SQLite's Go migrations.
+func newProvider(kind Dialect, sqldb *sql.DB, fsys fs.FS) (*goose.Provider, error) {
+	if kind == Postgres {
+		return goose.NewProvider(goose.DialectPostgres, sqldb, fsys)
+	}
+	return goose.NewProvider(goose.DialectSQLite3, sqldb, fsys, goose.WithGoMigrations(sqliteGoMigrations()...))
 }
 
 // Backup writes a consistent copy of an SQLite database to dst. Postgres

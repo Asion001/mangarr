@@ -28,7 +28,7 @@ func (h *progressHandlers) patchBook(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, http.StatusBadRequest, "page or completed is required")
 		return
 	}
-	rid, ok := h.s.readerID(w, r)
+	rid, ok := h.s.userID(w, r)
 	if !ok {
 		return
 	}
@@ -59,7 +59,7 @@ func (h *progressHandlers) patchBook(w http.ResponseWriter, r *http.Request) {
 
 // deleteBook is DELETE /api/v1/books/{id}/read-progress (mark unread).
 func (h *progressHandlers) deleteBook(w http.ResponseWriter, r *http.Request) {
-	rid, ok := h.s.readerID(w, r)
+	rid, ok := h.s.userID(w, r)
 	if !ok {
 		return
 	}
@@ -79,7 +79,7 @@ func (h *progressHandlers) deleteBook(w http.ResponseWriter, r *http.Request) {
 // markSeries is POST (read) and DELETE (unread) /api/v1/series/{id}/read-progress.
 func (h *progressHandlers) markSeries(read bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		rid, ok := h.s.readerID(w, r)
+		rid, ok := h.s.userID(w, r)
 		if !ok {
 			return
 		}
@@ -94,7 +94,7 @@ func (h *progressHandlers) markSeries(read bool) http.HandlerFunc {
 // tachiyomiV2 is GET /api/v2/series/{id}/read-progress/tachiyomi (Mihon's
 // Komga tracker, Paperback 0.9).
 func (h *progressHandlers) tachiyomiV2(w http.ResponseWriter, r *http.Request) {
-	rid, ok := h.s.readerID(w, r)
+	rid, ok := h.s.userID(w, r)
 	if !ok {
 		return
 	}
@@ -117,7 +117,7 @@ func (h *progressHandlers) putTachiyomiV2(w http.ResponseWriter, r *http.Request
 		writeError(w, r, http.StatusBadRequest, "lastBookNumberSortRead is required")
 		return
 	}
-	rid, ok := h.s.readerID(w, r)
+	rid, ok := h.s.userID(w, r)
 	if !ok {
 		return
 	}
@@ -131,7 +131,7 @@ func (h *progressHandlers) putTachiyomiV2(w http.ResponseWriter, r *http.Request
 // tachiyomiV1 is the index-based GET /api/v1/series/{id}/read-progress/tachiyomi
 // (older Mihon and Tachiyomi forks).
 func (h *progressHandlers) tachiyomiV1(w http.ResponseWriter, r *http.Request) {
-	rid, ok := h.s.readerID(w, r)
+	rid, ok := h.s.userID(w, r)
 	if !ok {
 		return
 	}
@@ -153,7 +153,7 @@ func (h *progressHandlers) putTachiyomiV1(w http.ResponseWriter, r *http.Request
 		writeError(w, r, http.StatusBadRequest, "lastBookRead is required")
 		return
 	}
-	rid, ok := h.s.readerID(w, r)
+	rid, ok := h.s.userID(w, r)
 	if !ok {
 		return
 	}

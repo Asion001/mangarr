@@ -99,11 +99,11 @@ func (s *Server) registerRecommendations() {
 				return nil, err
 			}
 			out := &struct{ Body SeriesRecommendations }{SeriesRecommendations{Related: []RecommendationItem{}, Similar: []RecommendationItem{}, Errors: []string{}}}
-			readerID, err := s.readerOf(ctx)
+			userID, err := s.userOf(ctx)
 			if err != nil {
 				return nil, err
 			}
-			library, err := s.app.Reading.AllSeries(ctx, readerID, 0)
+			library, err := s.app.Reading.AllSeries(ctx, userID, 0)
 			if err != nil {
 				return nil, toHTTPError(err)
 			}

@@ -71,10 +71,9 @@ type ImportOptions struct {
 	CategoryTags bool `json:"categoryTags"`
 	// Categories overrides root folder / profile per category.
 	Categories map[string]ImportCategory `json:"categories,omitempty"`
-	// ReadState imports read chapters for ReaderID (0 = a new reader named
-	// after the app).
+	// ReadState imports read chapters for UserID (0 = the first admin).
 	ReadState bool  `json:"readState"`
-	ReaderID  int64 `json:"readerId"`
+	UserID    int64 `json:"userId"`
 	// PushProgress writes the imported read state to Komga/Kavita once the
 	// chapters are on disk.
 	PushProgress bool `json:"pushProgress"`

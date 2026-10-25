@@ -44,9 +44,6 @@ func TestUserImport(t *testing.T) {
 				t.Fatal(err)
 			}
 			pAnn, _ := e.App.Auth.UserPrincipal(ctx, ann.ID)
-			if pAnn.ReaderID == 0 {
-				t.Fatal("users have a reader")
-			}
 			bl, err := e.App.Series.Add(ctx, series.AddRequest{Title: "Blue Lock", RootFolderID: e.RFID, Monitor: model.MonitorNone,
 				Sources: []series.SourceLink{{ModuleID: src, SourceID: "A", URL: "/bl"}}})
 			if err != nil {
@@ -64,7 +61,7 @@ func TestUserImport(t *testing.T) {
 			if err != nil || matches[0].SeriesID != bl.ID || matches[1].SeriesID != 0 || matches[0].Reached == nil {
 				t.Fatalf("preview = %+v %v", matches, err)
 			}
-			acc := userdata.Account{ReaderID: pAnn.ReaderID, UserID: ann.ID}
+			acc := userdata.Account{UserID: ann.ID}
 			if _, err := svc.Import(ctx, acc, d, userdata.DataImportOptions{Progress: true, Follows: true}); err != nil {
 				t.Fatal(err)
 			}
@@ -72,7 +69,7 @@ func TestUserImport(t *testing.T) {
 				var chs []model.Chapter
 				_ = e.App.DB.NewSelect().Model(&chs).Where("series_id = ?", seriesID).Scan(ctx)
 				var sts []model.ChapterReadState
-				_ = e.App.DB.NewSelect().Model(&sts).Where("reader_id = ? AND series_id = ?", pAnn.ReaderID, seriesID).Scan(ctx)
+				_ = e.App.DB.NewSelect().Model(&sts).Where("user_id = ? AND series_id = ?", ann.ID, seriesID).Scan(ctx)
 				out := map[float64]model.ChapterReadState{}
 				for _, st := range sts {
 					for _, c := range chs {
@@ -91,7 +88,7 @@ func TestUserImport(t *testing.T) {
 				t.Fatal("ann follows what she imported")
 			}
 
-			res, err := e.App.UserImport.Request(ctx, pAnn, pAnn.ReaderID, []userdata.ExportTitle{d.Titles[1]})
+			res, err := e.App.UserImport.Request(ctx, pAnn, []userdata.ExportTitle{d.Titles[1]})
 			if err != nil || res.Requested != 1 {
 				t.Fatalf("request = %+v %v", res, err)
 			}

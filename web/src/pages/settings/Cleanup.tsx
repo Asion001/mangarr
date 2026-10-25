@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Eraser, RefreshCw } from "lucide-react";
 import { api, unwrap, type S } from "../../api/client";
-import { usePushCommand, useReaders, useTags } from "../../api/queries";
+import { usePushCommand, useTags, useUsers } from "../../api/queries";
 import { Badge, Button, Card, Confirm, ErrorBox, Field, Input, Loading, PageHeader, SaveBar, Switch, Table, Td, Th } from "../../components/ui";
 import { bytes, relative } from "../../lib/format";
 import { useSettingsDoc } from "./useSettingsDoc";
@@ -36,7 +36,7 @@ function skipReason(s: Skip): string {
 
 export function CleanupPage() {
   const { value: c, patch, save, saving, isLoading, error, lock, dirty, reset } = useSettingsDoc<CleanupSettings>("cleanup");
-  const { data: readers } = useReaders();
+  const { data: users } = useUsers();
   const { data: tags } = useTags();
   const push = usePushCommand();
   const [confirmRun, setConfirmRun] = useState(false);
@@ -46,16 +46,16 @@ export function CleanupPage() {
     const cur = c.statuses ?? [];
     patch({ statuses: cur.includes(s) ? cur.filter((x) => x !== s) : [...cur, s] });
   };
-  const toggleReader = (id: number) => {
+  const toggleUser = (id: number) => {
     if (!c) return;
-    const cur = c.readerIds ?? [];
-    patch({ readerIds: cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id] });
+    const cur = c.userIds ?? [];
+    patch({ userIds: cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id] });
   };
   return (
     <>
       <PageHeader
         title={t("Read-based cleanup")}
-        subtitle={t("Delete chapters every reader has finished to save space. Cleaned chapters are never downloaded again unless you restore them.")}
+        subtitle={t("Delete chapters everyone counted has finished to save space. Cleaned chapters are never downloaded again unless you restore them.")}
       />
       {isLoading && <Loading />}
       {error && <ErrorBox error={error} />}
@@ -88,17 +88,13 @@ export function CleanupPage() {
                 ))}
               </div>
             </Field>
-            <Field env={lock("readerIds")} label={t("Required readers")} help={t("None selected = every reader counting for cleanup, or everyone when no reader is marked to count.")}>
+            <Field env={lock("userIds")} label={t("Required users")} help={t("None selected = every user counting for cleanup (Settings → Users), or everyone when nobody is marked to count.")}>
               <div className="flex flex-wrap gap-3">
-                {readers?.map((r) => (
-                  <label key={r.id} className="flex items-center gap-1.5 text-sm">
-                    <input type="checkbox" checked={(c.readerIds ?? []).includes(r.id)} onChange={() => toggleReader(r.id)} /> {r.name}
+                {users?.map((u) => (
+                  <label key={u.id} className="flex items-center gap-1.5 text-sm">
+                    <input type="checkbox" checked={(c.userIds ?? []).includes(u.id)} onChange={() => toggleUser(u.id)} /> {u.displayName || u.username}
                   </label>
                 ))}
-                {!readers?.length && (
-                  <span className="text-sm text-muted">{t("No readers yet —") + " "}<Link to="/settings/readers" className="text-accent-2">{t("add readers")}</Link>.
-                  </span>
-                )}
               </div>
             </Field>
             <Field env={lock("excludeTags")} label={t("Excluded tags")} help={t("Series with any of these tags are never cleaned.")}>

@@ -428,9 +428,9 @@ func (s *Server) listUpdates(ctx context.Context, viewer *access.Principal, f up
 		for _, row := range releaseRows {
 			available[row.ChapterID] = true
 		}
-		if viewer != nil && viewer.ReaderID > 0 {
+		if viewer != nil && viewer.UserID > 0 {
 			var states []model.ChapterReadState
-			if err := s.app.DB.NewSelect().Model(&states).Where("reader_id = ?", viewer.ReaderID).
+			if err := s.app.DB.NewSelect().Model(&states).Where("user_id = ?", viewer.UserID).
 				Where("chapter_id IN (?)", bun.In(chapterIDs)).Scan(ctx); err != nil {
 				return UpdatePage{}, err
 			}

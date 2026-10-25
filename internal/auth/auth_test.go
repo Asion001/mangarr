@@ -45,8 +45,8 @@ func TestUsersAndSessions(t *testing.T) {
 	if _, err := s.CreateUser(ctx, auth.NewUser{Username: "ANN", Password: "whatever-1"}); err == nil {
 		t.Fatal("usernames are case-insensitive")
 	}
-	if admin.ReaderID == 0 || friend.ReaderID == 0 || admin.ReaderID == friend.ReaderID {
-		t.Fatalf("readers %d %d", admin.ReaderID, friend.ReaderID)
+	if !admin.CountForCleanup || friend.CountForCleanup {
+		t.Fatalf("admins count for cleanup, others don't: %v %v", admin.CountForCleanup, friend.CountForCleanup)
 	}
 
 	// the first user is an admin, the next ones are Users
@@ -55,7 +55,7 @@ func TestUsersAndSessions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if p := s.Authenticate(request(adminCookie)); p == nil || !p.IsAdmin() || p.ReaderID != admin.ReaderID {
+	if p := s.Authenticate(request(adminCookie)); p == nil || !p.IsAdmin() || p.UserID != admin.ID {
 		t.Fatalf("admin principal %+v", p)
 	}
 	_, c1, err := s.Login(ctx, "Ann", "ann-pass-1", c) // any case
@@ -130,29 +130,26 @@ func TestLoginLockout(t *testing.T) {
 	}
 }
 
-// TestUpgrade: users from before groups become admins and keep the reader
-// reading apps used.
+// TestUpgrade: users from before groups become admins.
 func TestUpgrade(t *testing.T) {
 	ctx := context.Background()
 	d := dbtest.SQLite(t)
 	st := settings.NewStore(d)
 	_, _ = st.EnsureSecrets(ctx)
 	now := time.Now().UTC()
-	r := &model.Reader{Name: "Sam", CountForCleanup: true, CreatedAt: now}
-	_, _ = d.NewInsert().Model(r).Exec(ctx)
 	old := &model.User{Username: "sam", PasswordHash: "$2a$10$x", CreatedAt: now}
 	if _, err := d.NewInsert().Model(old).Exec(ctx); err != nil {
 		t.Fatal(err)
 	}
 	s := auth.NewService(d, st, false)
-	if err := s.Upgrade(ctx, r.ID); err != nil {
+	if err := s.Upgrade(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Upgrade(ctx, r.ID); err != nil { // idempotent
+	if err := s.Upgrade(ctx); err != nil { // idempotent
 		t.Fatal(err)
 	}
 	p, err := s.UserPrincipal(ctx, old.ID)
-	if err != nil || p == nil || !p.IsAdmin() || p.ReaderID != r.ID {
+	if err != nil || p == nil || !p.IsAdmin() {
 		t.Fatalf("upgraded %+v %v", p, err)
 	}
 	if n, _ := d.NewSelect().Model((*model.Group)(nil)).Count(ctx); n != 2 {
@@ -160,33 +157,29 @@ func TestUpgrade(t *testing.T) {
 	}
 }
 
-func TestUpgradeRenamesImportedReader(t *testing.T) {
+// TestSetupIgnoresProgressOnlyAccounts: an account nobody can sign in to
+// (a former reader's progress) doesn't count as set up, and the first real
+// account is still the admin.
+func TestSetupIgnoresProgressOnlyAccounts(t *testing.T) {
 	ctx := context.Background()
 	d := dbtest.SQLite(t)
 	st := settings.NewStore(d)
 	_, _ = st.EnsureSecrets(ctx)
-	now := time.Now().UTC()
-	r := &model.Reader{Name: "Mihon backup", CountForCleanup: true, CreatedAt: now}
-	_, _ = d.NewInsert().Model(r).Exec(ctx)
-	event := &model.ReadEvent{ReaderID: r.ID, ChapterID: 10, SeriesID: 20, Chapters: 1, Completed: true,
-		Origin: model.EventOriginBackup, Outcome: model.OutcomeApplied, At: now}
-	if _, err := d.NewInsert().Model(event).Exec(ctx); err != nil {
-		t.Fatal(err)
-	}
-	u := &model.User{Username: "sam", DisplayName: "Sam", PasswordHash: "$2a$10$x", CreatedAt: now}
-	if _, err := d.NewInsert().Model(u).Exec(ctx); err != nil {
-		t.Fatal(err)
-	}
 	s := auth.NewService(d, st, false)
-	if err := s.Upgrade(ctx, r.ID); err != nil {
+	if _, err := d.NewInsert().Model(&model.User{Username: "reader-1", Disabled: true, CreatedAt: time.Now().UTC()}).Exec(ctx); err != nil {
 		t.Fatal(err)
 	}
-	var got model.Reader
-	if err := d.NewSelect().Model(&got).Where("id = ?", r.ID).Scan(ctx); err != nil || got.Name != "Sam" {
-		t.Fatalf("reader after adoption: %+v %v", got, err)
+	if needs, err := s.NeedsSetup(ctx); err != nil || !needs {
+		t.Fatalf("needs setup = %v, %v", needs, err)
 	}
-	var kept model.ReadEvent
-	if err := d.NewSelect().Model(&kept).Where("id = ?", event.ID).Scan(ctx); err != nil || kept.ReaderID != r.ID || kept.Origin != model.EventOriginBackup {
-		t.Fatalf("imported progress was not preserved: %+v %v", kept, err)
+	u, err := s.CreateUser(ctx, auth.NewUser{Username: "boss", Password: "boss-pass-1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p, _ := s.UserPrincipal(ctx, u.ID); p == nil || !p.IsAdmin() {
+		t.Fatalf("first account %+v", p)
+	}
+	if needs, _ := s.NeedsSetup(ctx); needs {
+		t.Fatal("still needs setup")
 	}
 }

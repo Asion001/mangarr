@@ -101,16 +101,15 @@ func (s *Service) Run(ctx context.Context, id int64, progress func(string)) (Run
 		s.setStatus(ctx, imp, model.ImportReview, "", err.Error())
 		return res, err
 	}
-	if opts.ReadState && opts.ReaderID == 0 {
-		r := &model.Reader{Name: readerName(imp), CreatedAt: time.Now().UTC()}
-		if _, err := s.DB.NewInsert().Model(r).Exec(ctx); err != nil {
+	if opts.ReadState && opts.UserID == 0 {
+		uid, err := readstate.DefaultUserID(ctx, s.DB)
+		if err != nil {
 			return fail(err)
 		}
-		opts.ReaderID, imp.Options.ReaderID = r.ID, r.ID
+		opts.UserID, imp.Options.UserID = uid, uid
 		if _, err := s.DB.NewUpdate().Model(imp).Column("options").WherePK().Exec(ctx); err != nil {
 			return fail(err)
 		}
-		s.Bus.Changed("readers", "created", r.ID)
 	}
 	tags := map[string]int64{}
 	if opts.CategoryTags {
@@ -169,16 +168,6 @@ func (s *Service) Run(ctx context.Context, id int64, progress func(string)) (Run
 	summary := fmt.Sprintf("%d added, %d merged, %d failed, %d chapters marked read", res.Added, res.Merged, res.Failed, res.ReadSets)
 	s.setStatus(ctx, imp, model.ImportDone, summary, "")
 	return res, nil
-}
-
-func readerName(imp *model.Import) string {
-	switch imp.Format {
-	case backupimport.FormatAccount:
-		return imp.FileName
-	case backupimport.FormatAidoku:
-		return "Aidoku backup"
-	}
-	return "Mihon backup"
 }
 
 func (s *Service) ensureTags(ctx context.Context, names []string) (map[string]int64, error) {
@@ -437,10 +426,10 @@ func (s *Service) merge(ctx context.Context, seriesID int64, e *model.ImportEntr
 
 // readState writes the entry's read chapters for the import's reader.
 func (s *Service) readState(ctx context.Context, opts model.ImportOptions, seriesID int64, d backupimport.BackupManga) (int, error) {
-	if !opts.ReadState || opts.ReaderID == 0 {
+	if !opts.ReadState || opts.UserID == 0 {
 		return 0, nil
 	}
-	n, err := ImportReadState(ctx, s.DB, opts.ReaderID, seriesID, d, time.Now().UTC())
+	n, err := ImportReadState(ctx, s.DB, opts.UserID, seriesID, d, time.Now().UTC())
 	if err == nil {
 		_, err = readstate.FinishLastPages(ctx, s.DB, seriesID, time.Now().UTC())
 	}
@@ -457,7 +446,7 @@ func (s *Service) readState(ctx context.Context, opts model.ImportOptions, serie
 // ImportReadState maps the backup's read chapters to the series' chapters
 // (by chapter url, then number) and raises the reader's state. It returns
 // how many chapter states changed.
-func ImportReadState(ctx context.Context, idb bun.IDB, readerID, seriesID int64, d backupimport.BackupManga, now time.Time) (int, error) {
+func ImportReadState(ctx context.Context, idb bun.IDB, userID, seriesID int64, d backupimport.BackupManga, now time.Time) (int, error) {
 	var chapters []model.Chapter
 	if err := idb.NewSelect().Model(&chapters).Column("id", "number_sort").Where("series_id = ?", seriesID).Scan(ctx); err != nil {
 		return 0, err
@@ -534,7 +523,7 @@ func ImportReadState(ctx context.Context, idb bun.IDB, readerID, seriesID int64,
 		return 0, nil
 	}
 	var existing []model.ChapterReadState
-	if err := idb.NewSelect().Model(&existing).Where("reader_id = ? AND series_id = ?", readerID, seriesID).Scan(ctx); err != nil {
+	if err := idb.NewSelect().Model(&existing).Where("user_id = ? AND series_id = ?", userID, seriesID).Scan(ctx); err != nil {
 		return 0, err
 	}
 	have := map[int64]*model.ChapterReadState{}
@@ -552,7 +541,7 @@ func ImportReadState(ctx context.Context, idb bun.IDB, readerID, seriesID int64,
 		}
 		st := have[id]
 		if st == nil {
-			st = &model.ChapterReadState{ReaderID: readerID, ChapterID: id, SeriesID: seriesID, Completed: w.completed, Page: w.page,
+			st = &model.ChapterReadState{UserID: userID, ChapterID: id, SeriesID: seriesID, Completed: w.completed, Page: w.page,
 				ReadAt: readAt, SyncedAt: now, Origin: model.ReadOriginBackup}
 			if err := readstate.Save(ctx, idb, st); err != nil {
 				return changed, err

@@ -120,7 +120,7 @@ export const useUpdatesUnseen = (enabled = true) =>
 export const useHealth = (enabled = true) => useQuery({ queryKey: ["health"], queryFn: () => unwrap(api.GET("/api/v1/health")), enabled });
 export const useCommands = () => useQuery({ queryKey: ["commands"], queryFn: () => unwrap(api.GET("/api/v1/commands", { params: { query: { limit: 50 } } })) });
 export const useTasks = () => useQuery({ queryKey: ["tasks"], queryFn: () => unwrap(api.GET("/api/v1/system/tasks")) });
-export const useReaders = () => useQuery({ queryKey: ["readers"], queryFn: () => unwrap(api.GET("/api/v1/readers")) });
+export const useUsers = () => useQuery({ queryKey: ["users"], queryFn: () => unwrap(api.GET("/api/v1/users")) });
 /** useCatalogs lists every catalog with preferences and the catalogs generation. */
 export const useCatalogs = () => useQuery({ queryKey: ["catalogs"], queryFn: () => unwrap(api.GET("/api/v1/catalogs")), staleTime: 30_000 });
 

@@ -20,16 +20,16 @@ type User struct {
 	Username      string `bun:"username,notnull" json:"username"`
 	PasswordHash  string `bun:"password_hash,notnull" json:"-"`
 	// DisplayName is shown instead of the username when set.
-	DisplayName string `bun:"display_name,notnull" json:"displayName"`
-	GroupID     int64  `bun:"group_id,nullzero" json:"groupId"`
-	// ReaderID is the user's own progress (their reader).
-	ReaderID    int64      `bun:"reader_id,nullzero" json:"readerId"`
+	DisplayName string     `bun:"display_name,notnull" json:"displayName"`
+	GroupID     int64      `bun:"group_id,nullzero" json:"groupId"`
 	Disabled    bool       `bun:"disabled,notnull" json:"disabled"`
 	LastLoginAt *time.Time `bun:"last_login_at" json:"lastLoginAt,omitempty"`
 	// OIDCSubject links the user to a single sign-on account.
 	OIDCSubject string    `bun:"oidc_subject,notnull" json:"-"`
 	CreatedBy   int64     `bun:"created_by,nullzero" json:"createdBy,omitempty"`
 	CreatedAt   time.Time `bun:"created_at,notnull" json:"createdAt"`
+	// CountForCleanup makes read-based cleanup wait for this user.
+	CountForCleanup bool `bun:"count_for_cleanup,notnull" json:"countForCleanup"`
 }
 
 // Group gives its users permissions (internal/access) and can limit the
@@ -858,18 +858,12 @@ type ScheduledTask struct {
 
 // ---- Readers / progress ------------------------------------------------------
 
-type Reader struct {
-	bun.BaseModel   `bun:"table:readers"`
-	ID              int64     `bun:"id,pk,autoincrement" json:"id"`
-	Name            string    `bun:"name,notnull" json:"name"`
-	CountForCleanup bool      `bun:"count_for_cleanup,notnull" json:"countForCleanup"`
-	CreatedAt       time.Time `bun:"created_at,notnull" json:"createdAt"`
-}
-
-type ReaderAccount struct {
-	bun.BaseModel `bun:"table:reader_accounts"`
+// LibraryAccount is a user's login on a library server (Komga, Kavita)
+// that their progress syncs with.
+type LibraryAccount struct {
+	bun.BaseModel `bun:"table:library_accounts"`
 	ID            int64             `bun:"id,pk,autoincrement" json:"id"`
-	ReaderID      int64             `bun:"reader_id,notnull" json:"readerId"`
+	UserID        int64             `bun:"user_id,notnull" json:"userId"`
 	ModuleID      int64             `bun:"module_id,notnull" json:"moduleId"`
 	Credentials   map[string]string `bun:"credentials,notnull" json:"-"`
 	ExternalUser  string            `bun:"external_user,notnull" json:"externalUser"`
@@ -878,7 +872,7 @@ type ReaderAccount struct {
 	CreatedAt     time.Time         `bun:"created_at,notnull" json:"createdAt"`
 }
 
-// ChapterReadState is a reader's progress in a chapter. Progress belongs to
+// ChapterReadState is a user's progress in a chapter. Progress belongs to
 // the title: chapter_read_states is a view that shows a TitleReadState on
 // that chapter of every language edition, so this is read-only. Write
 // through internal/readstate.
@@ -886,7 +880,7 @@ type ChapterReadState struct {
 	bun.BaseModel `bun:"table:chapter_read_states"`
 	// ID is the TitleReadState's: editions of a title share it.
 	ID        int64      `bun:"id,pk" json:"id"`
-	ReaderID  int64      `bun:"reader_id,notnull" json:"readerId"`
+	UserID    int64      `bun:"user_id,notnull" json:"userId"`
 	ChapterID int64      `bun:"chapter_id,notnull" json:"chapterId"`
 	SeriesID  int64      `bun:"series_id,notnull" json:"seriesId"`
 	Completed bool       `bun:"completed,notnull" json:"completed"`
@@ -901,12 +895,12 @@ type ChapterReadState struct {
 	SourceChapterID int64 `bun:"source_chapter_id" json:"-"`
 }
 
-// TitleReadState is a reader's progress in one chapter number of a title,
+// TitleReadState is a user's progress in one chapter number of a title,
 // shared by the title's language editions.
 type TitleReadState struct {
 	bun.BaseModel `bun:"table:title_read_states"`
 	ID            int64 `bun:"id,pk,autoincrement"`
-	ReaderID      int64 `bun:"reader_id,notnull"`
+	UserID        int64 `bun:"user_id,notnull"`
 	// TitleID is the work's id, or minus the series id without a work.
 	TitleID   int64  `bun:"title_id,notnull"`
 	NumberKey string `bun:"number_key,notnull"`

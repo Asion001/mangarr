@@ -22,7 +22,7 @@ func secretKey(k string) bool {
 }
 
 // Secrets lists the credential values mangarr currently knows: its API key
-// and session secret, secret module settings and reader account credentials.
+// and session secret, secret module settings and library account credentials.
 func (a *App) Secrets(ctx context.Context) []string {
 	var out []string
 	if g, err := a.Settings.General(ctx); err == nil {
@@ -51,7 +51,7 @@ func (a *App) Secrets(ctx context.Context) []string {
 			}
 		}
 	}
-	var accounts []model.ReaderAccount
+	var accounts []model.LibraryAccount
 	_ = a.DB.NewSelect().Model(&accounts).Scan(ctx)
 	for _, acc := range accounts {
 		for _, v := range acc.Credentials {

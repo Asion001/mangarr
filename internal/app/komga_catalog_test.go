@@ -74,15 +74,15 @@ func newKomgaFixture(t *testing.T, dsn string) *komgaFixture {
 	if _, err := e.App.DB.NewInsert().Model(c).Exec(e.Ctx); err != nil {
 		t.Fatal(err)
 	}
-	rid, err := e.App.Reading.ReaderID(e.Ctx)
+	rid, err := e.App.Reading.DefaultUserID(e.Ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
 	f.reader = rid
 	read := now.Add(-time.Hour)
 	for _, st := range []*model.ChapterReadState{
-		{ReaderID: rid, ChapterID: f.chs[0].ID, SeriesID: ser.ID, Completed: true, ReadAt: &read, SyncedAt: now},
-		{ReaderID: rid, ChapterID: f.chs[1].ID, SeriesID: ser.ID, Page: 5, SyncedAt: now},
+		{UserID: rid, ChapterID: f.chs[0].ID, SeriesID: ser.ID, Completed: true, ReadAt: &read, SyncedAt: now},
+		{UserID: rid, ChapterID: f.chs[1].ID, SeriesID: ser.ID, Page: 5, SyncedAt: now},
 	} {
 		if err := readstate.Save(e.Ctx, e.App.DB, st); err != nil {
 			t.Fatal(err)

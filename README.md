@@ -76,7 +76,7 @@ draws them).
 - **Library that works on its own** — flat series folders, stable file names,
   `ComicInfo.xml` (validated against the v2.1 schema), `series.json` for
   Komga, `cover.jpg`. Files are written atomically.
-- **Read-based cleanup** (off by default) — syncs each reader's progress from
+- **Read-based cleanup** (off by default) — syncs each user's progress from
   Komga/Kavita and deletes chapters everyone finished: keep the last N, grace
   period, ignore readers who never opened a series, `keep` tag, dry run,
   recycle bin, restore.

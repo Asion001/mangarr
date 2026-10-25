@@ -103,13 +103,13 @@ func (h *koSyncHandlers) putProgress(w http.ResponseWriter, r *http.Request) {
 		koJSON(w, http.StatusBadRequest, map[string]any{"message": "invalid progress"})
 		return
 	}
-	readerID := p.ReaderID
+	userID := p.UserID
 	var doc model.KOReaderDocument
-	if err := h.s.deps.DB.NewSelect().Model(&doc).Where("reader_id = ? AND document = ?", readerID, strings.ToLower(update.Document)).Scan(r.Context()); err != nil {
+	if err := h.s.deps.DB.NewSelect().Model(&doc).Where("user_id = ? AND document = ?", userID, strings.ToLower(update.Document)).Scan(r.Context()); err != nil {
 		koJSON(w, http.StatusNotFound, map[string]any{"message": "unknown document"})
 		return
 	}
-	b, err := h.s.deps.Reading.Book(r.Context(), readerID, doc.ChapterID)
+	b, err := h.s.deps.Reading.Book(r.Context(), userID, doc.ChapterID)
 	if err != nil {
 		koJSON(w, http.StatusNotFound, map[string]any{"message": "unknown document"})
 		return
@@ -123,7 +123,7 @@ func (h *koSyncHandlers) putProgress(w http.ResponseWriter, r *http.Request) {
 	if page == 0 && update.Percentage > 0 {
 		page = int(update.Percentage * float64(h.s.deps.Reading.CachedPageCount(doc.ChapterID)))
 	}
-	_, err = h.s.deps.Reading.Record(r.Context(), readerID, []reading.Change{{ChapterID: b.Chapter.ID, SeriesID: b.EditionID, Completed: completed, Page: page}}, reading.By{Origin: model.EventOriginApp, Client: "KOReader", Device: update.Device})
+	_, err = h.s.deps.Reading.Record(r.Context(), userID, []reading.Change{{ChapterID: b.Chapter.ID, SeriesID: b.EditionID, Completed: completed, Page: page}}, reading.By{Origin: model.EventOriginApp, Client: "KOReader", Device: update.Device})
 	if err != nil {
 		koJSON(w, http.StatusInternalServerError, map[string]any{"message": "couldn't save progress"})
 		return
@@ -145,11 +145,11 @@ func (h *koSyncHandlers) getProgress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var doc model.KOReaderDocument
-	if err := h.s.deps.DB.NewSelect().Model(&doc).Where("reader_id = ? AND document = ?", p.ReaderID, document).Scan(r.Context()); err != nil {
+	if err := h.s.deps.DB.NewSelect().Model(&doc).Where("user_id = ? AND document = ?", p.UserID, document).Scan(r.Context()); err != nil {
 		koJSON(w, http.StatusOK, map[string]any{"document": document})
 		return
 	}
-	b, err := h.s.deps.Reading.Book(r.Context(), p.ReaderID, doc.ChapterID)
+	b, err := h.s.deps.Reading.Book(r.Context(), p.UserID, doc.ChapterID)
 	if err != nil {
 		koJSON(w, http.StatusOK, map[string]any{"document": document})
 		return

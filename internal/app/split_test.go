@@ -38,9 +38,9 @@ func TestReprocessSplitsTallPagesAndRemapsProgress(t *testing.T) {
 		t.Fatal(err)
 	}
 	now := time.Now().UTC()
-	readers := []*model.Reader{
-		{Name: "in progress", CountForCleanup: true, CreatedAt: now},
-		{Name: "completed", CountForCleanup: true, CreatedAt: now},
+	readers := []*model.User{
+		{Username: "in progress", CountForCleanup: true, CreatedAt: now},
+		{Username: "completed", CountForCleanup: true, CreatedAt: now},
 	}
 	for _, reader := range readers {
 		if _, err := e.App.DB.NewInsert().Model(reader).Exec(e.Ctx); err != nil {
@@ -48,8 +48,8 @@ func TestReprocessSplitsTallPagesAndRemapsProgress(t *testing.T) {
 		}
 	}
 	states := []*model.ChapterReadState{
-		{ReaderID: readers[0].ID, ChapterID: chapter.ID, SeriesID: ser.ID, Page: 2, SyncedAt: now},
-		{ReaderID: readers[1].ID, ChapterID: chapter.ID, SeriesID: ser.ID, Page: 2, Completed: true, ReadAt: &now, SyncedAt: now},
+		{UserID: readers[0].ID, ChapterID: chapter.ID, SeriesID: ser.ID, Page: 2, SyncedAt: now},
+		{UserID: readers[1].ID, ChapterID: chapter.ID, SeriesID: ser.ID, Page: 2, Completed: true, ReadAt: &now, SyncedAt: now},
 	}
 	for _, state := range states {
 		if err := readstate.Save(e.Ctx, e.App.DB, state); err != nil {

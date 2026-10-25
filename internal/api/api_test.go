@@ -56,7 +56,7 @@ func TestOpenAPIAndAuth(t *testing.T) {
 	if err := json.NewDecoder(resp.Body).Decode(&doc); err != nil {
 		t.Fatal(err)
 	}
-	for _, p := range []string{"/api/v1/series", "/api/v1/sources/search", "/api/v1/cleanup/preview", "/api/v1/readers"} {
+	for _, p := range []string{"/api/v1/series", "/api/v1/sources/search", "/api/v1/cleanup/preview", "/api/v1/users"} {
 		if _, ok := doc.Paths[p]; !ok {
 			t.Errorf("missing path %s", p)
 		}

@@ -22,14 +22,14 @@ const (
 // Observe logs progress changes made elsewhere (a library server's sync, an
 // import) and announces them like Record does, so reading apps and the
 // other servers hear about them.
-func (s *Service) Observe(ctx context.Context, readerID int64, out []Outcome, by By) {
+func (s *Service) Observe(ctx context.Context, userID int64, out []Outcome, by By) {
 	if len(out) == 0 {
 		return
 	}
 	s.inReadingOrder(ctx, out)
-	s.logOutcomes(ctx, readerID, out, by, time.Now().UTC())
-	s.announce(readerID, out, by)
-	for sid := range s.announceEditions(ctx, readerID, out) {
+	s.logOutcomes(ctx, userID, out, by, time.Now().UTC())
+	s.announce(userID, out, by)
+	for sid := range s.announceEditions(ctx, userID, out) {
 		s.Bus.Changed("series", "updated", sid)
 	}
 }
@@ -50,7 +50,7 @@ func (s *Service) inReadingOrder(ctx context.Context, out []Outcome) {
 }
 
 // announce publishes ProgressChanged per series for applied changes and unreads.
-func (s *Service) announce(readerID int64, out []Outcome, by By) {
+func (s *Service) announce(userID int64, out []Outcome, by By) {
 	type key struct {
 		series int64
 		unread bool
@@ -69,14 +69,14 @@ func (s *Service) announce(readerID int64, out []Outcome, by By) {
 	}
 	for _, k := range order {
 		s.Bus.Publish(events.Event{Type: ProgressChanged, SeriesID: k.series,
-			Payload: ProgressPayload{ReaderID: readerID, ChapterIDs: chapters[k], Deleted: k.unread, Origin: by.Origin}})
+			Payload: ProgressPayload{UserID: userID, ChapterIDs: chapters[k], Deleted: k.unread, Origin: by.Origin}})
 	}
 }
 
 // logOutcomes writes read events: one per series, outcome and state (a
 // series marked read is one event), except that a device's page turns in
 // one chapter update its last event.
-func (s *Service) logOutcomes(ctx context.Context, readerID int64, out []Outcome, by By, now time.Time) {
+func (s *Service) logOutcomes(ctx context.Context, userID int64, out []Outcome, by By, now time.Time) {
 	type key struct {
 		series    int64
 		result    string
@@ -97,7 +97,7 @@ func (s *Service) logOutcomes(ctx context.Context, readerID int64, out []Outcome
 	for _, k := range order {
 		g := groups[k]
 		last := g[len(g)-1] // changes come in reading order
-		ev := &model.ReadEvent{ReaderID: readerID, SeriesID: k.series, ChapterID: last.ChapterID, Chapters: len(g), Completed: k.completed,
+		ev := &model.ReadEvent{UserID: userID, SeriesID: k.series, ChapterID: last.ChapterID, Chapters: len(g), Completed: k.completed,
 			Page: last.Page, Origin: by.Origin, Client: by.Client, Device: by.Device, Outcome: k.result, At: now}
 		if (k.result == model.OutcomeKept || len(g) == 1 && k.result == model.OutcomeApplied) && s.mergeEvent(ctx, ev) {
 			continue
@@ -113,7 +113,7 @@ func (s *Service) logOutcomes(ctx context.Context, readerID int64, out []Outcome
 // sends on every sync (once a day stays one "kept" event).
 func (s *Service) mergeEvent(ctx context.Context, ev *model.ReadEvent) bool {
 	var last model.ReadEvent
-	if err := s.DB.NewSelect().Model(&last).Where("reader_id = ? AND chapter_id = ?", ev.ReaderID, ev.ChapterID).
+	if err := s.DB.NewSelect().Model(&last).Where("user_id = ? AND chapter_id = ?", ev.UserID, ev.ChapterID).
 		OrderExpr("id DESC").Limit(1).Scan(ctx); err != nil {
 		return false
 	}
@@ -175,8 +175,8 @@ type SyncHealth struct {
 	Events  []EventView  `json:"events"`
 }
 
-// SyncHealth summarizes readerID's recent progress reports.
-func (s *Service) SyncHealth(ctx context.Context, readerID int64, limit int) (SyncHealth, error) {
+// SyncHealth summarizes userID's recent progress reports.
+func (s *Service) SyncHealth(ctx context.Context, userID int64, limit int) (SyncHealth, error) {
 	var groups []struct {
 		Origin   string       `bun:"origin"`
 		Client   string       `bun:"client"`
@@ -188,10 +188,10 @@ func (s *Service) SyncHealth(ctx context.Context, readerID int64, limit int) (Sy
 	if err := s.DB.NewSelect().Model((*model.ReadEvent)(nil)).
 		ColumnExpr("origin, client, device, MAX(at) AS last_seen, COUNT(*) AS events").
 		ColumnExpr("SUM(CASE WHEN outcome = ? THEN 1 ELSE 0 END) AS kept", model.OutcomeKept).
-		Where("reader_id = ?", readerID).GroupExpr("origin, client, device").Scan(ctx, &groups); err != nil {
+		Where("user_id = ?", userID).GroupExpr("origin, client, device").Scan(ctx, &groups); err != nil {
 		return SyncHealth{}, err
 	}
-	recent, err := s.recentEvents(ctx, readerID, max(limit, 200))
+	recent, err := s.recentEvents(ctx, userID, max(limit, 200))
 	if err != nil {
 		return SyncHealth{}, err
 	}
@@ -210,9 +210,9 @@ func (s *Service) SyncHealth(ctx context.Context, readerID int64, limit int) (Sy
 	return out, nil
 }
 
-func (s *Service) recentEvents(ctx context.Context, readerID int64, limit int) ([]EventView, error) {
+func (s *Service) recentEvents(ctx context.Context, userID int64, limit int) ([]EventView, error) {
 	var evs []model.ReadEvent
-	if err := s.DB.NewSelect().Model(&evs).Where("reader_id = ?", readerID).OrderExpr("at DESC, id DESC").Limit(int64(limit)).Scan(ctx); err != nil {
+	if err := s.DB.NewSelect().Model(&evs).Where("user_id = ?", userID).OrderExpr("at DESC, id DESC").Limit(int64(limit)).Scan(ctx); err != nil {
 		return nil, err
 	}
 	seriesIDs, chapterIDs := map[int64]bool{}, map[int64]bool{}

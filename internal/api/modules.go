@@ -195,7 +195,7 @@ func (s *Server) registerModules() {
 		})
 }
 
-// moduleInUse reports why a module can't be deleted (series linked, reader accounts).
+// moduleInUse reports why a module can't be deleted (series linked, library accounts).
 func (s *Server) moduleInUse(ctx context.Context, id int64) (string, error) {
 	n, err := s.app.DB.NewSelect().Model((*model.SeriesSource)(nil)).Where("module_id = ?", id).Count(ctx)
 	if err != nil {

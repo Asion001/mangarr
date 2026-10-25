@@ -59,11 +59,11 @@ func TestReadSyncAndCleanup(t *testing.T) {
 			lib.SetProgress("k1", p1)
 			lib.SetProgress("k2", p2)
 			for i, key := range []string{"k1", "k2"} {
-				r := &model.Reader{Name: "reader" + key, CountForCleanup: true, CreatedAt: time.Now().UTC()}
+				r := &model.User{Username: "reader" + key, CountForCleanup: true, CreatedAt: time.Now().UTC()}
 				if _, err := e.App.DB.NewInsert().Model(r).Exec(e.Ctx); err != nil {
 					t.Fatal(err)
 				}
-				acc := &model.ReaderAccount{ReaderID: r.ID, ModuleID: libDef.ID, Credentials: map[string]string{"apiKey": key}, CreatedAt: time.Now().UTC()}
+				acc := &model.LibraryAccount{UserID: r.ID, ModuleID: libDef.ID, Credentials: map[string]string{"apiKey": key}, CreatedAt: time.Now().UTC()}
 				if _, err := e.App.DB.NewInsert().Model(acc).Exec(e.Ctx); err != nil {
 					t.Fatal(err)
 				}

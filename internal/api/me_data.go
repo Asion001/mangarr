@@ -24,17 +24,14 @@ const maxDataImport = 256 << 20
 var unsafeFileName = regexp.MustCompile(`[^A-Za-z0-9._-]+`)
 
 func (s *Server) myAccount(ctx context.Context) (userdata.Account, error) {
-	readerID, err := s.readerOf(ctx)
+	userID, err := s.userOf(ctx)
 	if err != nil {
 		return userdata.Account{}, err
 	}
-	acc := userdata.Account{ReaderID: readerID}
-	if p := access.From(ctx); p != nil && p.Kind == access.KindUser {
-		acc.UserID = p.UserID
-		var u model.User
-		if err := s.app.DB.NewSelect().Model(&u).Column("username").Where("id = ?", p.UserID).Scan(ctx); err == nil {
-			acc.Username = u.Username
-		}
+	acc := userdata.Account{UserID: userID}
+	var u model.User
+	if err := s.app.DB.NewSelect().Model(&u).Column("username").Where("id = ?", userID).Scan(ctx); err == nil {
+		acc.Username = u.Username
 	}
 	return acc, nil
 }

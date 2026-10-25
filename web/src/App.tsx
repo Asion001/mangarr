@@ -41,7 +41,6 @@ const CleanupPage = lazy(() => retryWhenBack(() => import("./pages/settings/Clea
 const ModulesPage = lazy(() => retryWhenBack(() => import("./pages/settings/Modules"), (m) => ({ default: m.ModulesPage })));
 const ProfilesPage = lazy(() => retryWhenBack(() => import("./pages/settings/Profiles"), (m) => ({ default: m.ProfilesPage })));
 const MediaPage = lazy(() => retryWhenBack(() => import("./pages/settings/Media"), (m) => ({ default: m.MediaPage })));
-const ReadersPage = lazy(() => retryWhenBack(() => import("./pages/settings/Readers"), (m) => ({ default: m.ReadersPage })));
 const ReadingAppsPage = lazy(() => retryWhenBack(() => import("./pages/settings/ReadingApps"), (m) => ({ default: m.ReadingAppsPage })));
 const GeneralPage = lazy(() => retryWhenBack(() => import("./pages/settings/General"), (m) => ({ default: m.GeneralPage })));
 const DownloadsPage = lazy(() => retryWhenBack(() => import("./pages/settings/Downloads"), (m) => ({ default: m.DownloadsPage })));
@@ -165,7 +164,7 @@ export function App() {
           <Route path="settings/upscalers" element={<Navigate to="/system/workers" replace />} />
           <Route path="settings/sso" element={<Need perm="admin"><SingleSignOnPage /></Need>} />
           <Route path="settings/users" element={<Need perm="admin"><UsersPage /></Need>} />
-          <Route path="settings/readers" element={<Need perm="admin"><ReadersPage /></Need>} />
+          <Route path="settings/readers" element={<Navigate to="/settings/users" replace />} />
           <Route path="settings/reading" element={<Need perm="admin"><ReadingAppsPage /></Need>} />
           <Route path="settings/downloads" element={<Need perm="admin"><DownloadsPage /></Need>} />
           <Route path="settings/general" element={<Need perm="admin"><GeneralPage /></Need>} />

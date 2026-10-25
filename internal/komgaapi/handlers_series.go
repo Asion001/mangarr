@@ -19,12 +19,12 @@ type listBody struct {
 	FullTextSearch string     `json:"fullTextSearch"`
 }
 
-// readerID is the caller's reader (their progress).
-func (s *Service) readerID(w http.ResponseWriter, r *http.Request) (int64, bool) {
-	if u := PrincipalFrom(r.Context()).User; u != nil && u.ReaderID > 0 {
-		return u.ReaderID, true
+// userID is the caller's account (whose progress it is).
+func (s *Service) userID(w http.ResponseWriter, r *http.Request) (int64, bool) {
+	if u := PrincipalFrom(r.Context()).User; u != nil && u.UserID > 0 {
+		return u.UserID, true
 	}
-	rid, err := s.deps.Reading.ReaderID(r.Context())
+	rid, err := s.deps.Reading.DefaultUserID(r.Context())
 	if err != nil {
 		writeError(w, r, http.StatusInternalServerError, err.Error())
 		return 0, false
@@ -33,7 +33,7 @@ func (s *Service) readerID(w http.ResponseWriter, r *http.Request) (int64, bool)
 }
 
 func (h *seriesHandlers) respond(w http.ResponseWriter, r *http.Request, f seriesFilter, p pageReq) {
-	rid, ok := h.s.readerID(w, r)
+	rid, ok := h.s.userID(w, r)
 	if !ok {
 		return
 	}
@@ -104,7 +104,7 @@ func pathID(r *http.Request, name string) int64 {
 }
 
 func (h *seriesHandlers) get(w http.ResponseWriter, r *http.Request) {
-	rid, ok := h.s.readerID(w, r)
+	rid, ok := h.s.userID(w, r)
 	if !ok {
 		return
 	}
@@ -125,7 +125,7 @@ func notFoundOr500(w http.ResponseWriter, r *http.Request, err error) {
 }
 
 func (h *seriesHandlers) thumbnail(w http.ResponseWriter, r *http.Request) {
-	rid, ok := h.s.readerID(w, r)
+	rid, ok := h.s.userID(w, r)
 	if !ok {
 		return
 	}

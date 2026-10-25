@@ -19,7 +19,7 @@ type pageHandlers struct{ s *Service }
 
 // book loads the book in the path (writing the error when it can't).
 func (h *pageHandlers) book(w http.ResponseWriter, r *http.Request) (*reading.BookInfo, *reading.SeriesInfo, bool) {
-	rid, ok := h.s.readerID(w, r)
+	rid, ok := h.s.userID(w, r)
 	if !ok {
 		return nil, nil, false
 	}

@@ -65,7 +65,7 @@ func (a *App) wireReading(ctx context.Context) error {
 
 	// what library servers report is logged per server and announced like
 	// app progress
-	a.ReadSync.OnChange = func(ctx context.Context, acc *model.ReaderAccount, changes []readsync.Change) {
+	a.ReadSync.OnChange = func(ctx context.Context, acc *model.LibraryAccount, changes []readsync.Change) {
 		name := "Library server"
 		if l, ok := a.Modules.Get(acc.ModuleID); ok {
 			name = l.Def.Name
@@ -75,7 +75,7 @@ func (a *App) wireReading(ctx context.Context) error {
 			out[i] = reading.Outcome{Change: reading.Change{ChapterID: c.ChapterID, SeriesID: c.SeriesID, Completed: c.Completed, Page: c.Page,
 				Unread: c.Outcome == model.OutcomeUnread}, Result: c.Outcome}
 		}
-		a.Reading.Observe(ctx, acc.ReaderID, out, reading.By{Origin: model.EventOriginServer, Client: name})
+		a.Reading.Observe(ctx, acc.UserID, out, reading.By{Origin: model.EventOriginServer, Client: name})
 	}
 
 	// every change reaches the other library servers
@@ -86,11 +86,11 @@ func (a *App) wireReading(ctx context.Context) error {
 		if !ok || p.Deleted || e.SeriesID == 0 {
 			return
 		}
-		seriesID, readerID := e.SeriesID, p.ReaderID
-		a.ReadAhead.Do([2]int64{readerID, seriesID}, func() {
+		seriesID, userID := e.SeriesID, p.UserID
+		a.ReadAhead.Do([2]int64{userID, seriesID}, func() {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 			defer cancel()
-			if _, err := a.Reading.ReadAhead(ctx, readerID, seriesID); err != nil {
+			if _, err := a.Reading.ReadAhead(ctx, userID, seriesID); err != nil {
 				a.Log.Warn("read ahead failed", "series", seriesID, "err", err)
 			}
 		})
@@ -102,8 +102,8 @@ func (a *App) wireReading(ctx context.Context) error {
 		if !ok || e.SeriesID == 0 {
 			return
 		}
-		// what a server reported only needs to reach the reader's other servers
-		if p.Origin == model.EventOriginServer && a.FanOut.writableAccounts(p.ReaderID) < 2 {
+		// what a server reported only needs to reach the user's other servers
+		if p.Origin == model.EventOriginServer && a.FanOut.writableAccounts(p.UserID) < 2 {
 			return
 		}
 		a.FanOut.schedule(e.SeriesID, p)
@@ -132,10 +132,10 @@ type fanOutSeries struct {
 	unread map[int64]bool
 }
 
-// writableAccounts counts the reader's accounts on servers that accept progress.
-func (f *FanOut) writableAccounts(readerID int64) int {
-	var accs []model.ReaderAccount
-	if err := f.a.DB.NewSelect().Model(&accs).Column("id", "module_id").Where("reader_id = ?", readerID).Scan(context.Background()); err != nil {
+// writableAccounts counts the user's accounts on servers that accept progress.
+func (f *FanOut) writableAccounts(userID int64) int {
+	var accs []model.LibraryAccount
+	if err := f.a.DB.NewSelect().Model(&accs).Column("id", "module_id").Where("user_id = ?", userID).Scan(context.Background()); err != nil {
 		return 0
 	}
 	n := 0

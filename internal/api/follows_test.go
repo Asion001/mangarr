@@ -125,10 +125,10 @@ func TestOwnLibraryAccount(t *testing.T) {
 	if linked, _ := list[0]["linked"].(map[string]any); linked == nil || linked["externalUser"] != "user-k1" {
 		t.Fatalf("after linking %v", list)
 	}
-	var accs []model.ReaderAccount
+	var accs []model.LibraryAccount
 	_ = a.DB.NewSelect().Model(&accs).Scan(ctx)
-	if len(accs) != 1 || accs[0].ReaderID != annUser.ReaderID {
-		t.Fatalf("accounts %+v (ann's reader %d)", accs, annUser.ReaderID)
+	if len(accs) != 1 || accs[0].UserID != annUser.ID {
+		t.Fatalf("accounts %+v (ann is %d)", accs, annUser.ID)
 	}
 	list = nil // decoding into the old maps would keep ann's keys
 	bob.do("GET", "/api/v1/me/library-accounts", "", &list)
@@ -138,7 +138,7 @@ func TestOwnLibraryAccount(t *testing.T) {
 	if code := ann.do("DELETE", "/api/v1/me/library-accounts/"+mid, "", nil); code != 204 {
 		t.Fatalf("unlink: %d", code)
 	}
-	if n, _ := a.DB.NewSelect().Model((*model.ReaderAccount)(nil)).Count(ctx); n != 0 {
+	if n, _ := a.DB.NewSelect().Model((*model.LibraryAccount)(nil)).Count(ctx); n != 0 {
 		t.Fatalf("accounts left %d", n)
 	}
 }

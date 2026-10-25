@@ -21,7 +21,7 @@ type WatchStatus struct {
 	Error       string     `json:"error,omitempty"`
 }
 
-// Watcher keeps a live connection to every reader account whose server
+// Watcher keeps a live connection to every library account whose server
 // pushes progress changes (Komga), applying them as they come.
 type Watcher struct {
 	s *Syncer
@@ -80,13 +80,13 @@ func (w *Watcher) Run(ctx context.Context, interval time.Duration) {
 	}
 }
 
-// Refresh reconciles running watches with the reader accounts.
+// Refresh reconciles running watches with the library accounts.
 func (w *Watcher) Refresh(ctx context.Context) {
-	var accounts []model.ReaderAccount
+	var accounts []model.LibraryAccount
 	if err := w.s.db.NewSelect().Model(&accounts).Scan(ctx); err != nil {
 		return
 	}
-	want := map[int64]model.ReaderAccount{}
+	want := map[int64]model.LibraryAccount{}
 	keys := map[int64]string{}
 	for _, acc := range accounts {
 		if _, def, err := modules.GetAs[library.ProgressWatcher](w.s.mods, acc.ModuleID); err == nil {
@@ -116,7 +116,7 @@ func (w *Watcher) Refresh(ctx context.Context) {
 }
 
 // watchKey changes when an account's module or credentials change.
-func watchKey(acc model.ReaderAccount) string {
+func watchKey(acc model.LibraryAccount) string {
 	keys := make([]string, 0, len(acc.Credentials))
 	for k := range acc.Credentials {
 		keys = append(keys, k)
@@ -138,7 +138,7 @@ func (w *Watcher) setStatus(id int64, fn func(*WatchStatus)) {
 }
 
 // loop keeps one account connected, reconnecting with backoff.
-func (w *Watcher) loop(ctx context.Context, acc model.ReaderAccount) {
+func (w *Watcher) loop(ctx context.Context, acc model.LibraryAccount) {
 	backoff := w.MinBackoff
 	var resyncMu sync.Mutex
 	var resync *time.Timer

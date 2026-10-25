@@ -141,11 +141,11 @@ func TestImportMihonBackup(t *testing.T) {
 				t.Fatalf("monitoring should start after the last read chapter: %+v", chs)
 			}
 			reloaded, _ := e.App.Imports.Get(e.Ctx, imp.ID)
-			if reloaded.Status != model.ImportDone || reloaded.Options.ReaderID == 0 {
+			if reloaded.Status != model.ImportDone || reloaded.Options.UserID == 0 {
 				t.Fatalf("import = %+v", reloaded)
 			}
 			var states []model.ChapterReadState
-			_ = e.App.DB.NewSelect().Model(&states).Where("reader_id = ?", reloaded.Options.ReaderID).Order("chapter_id").Scan(e.Ctx)
+			_ = e.App.DB.NewSelect().Model(&states).Where("user_id = ?", reloaded.Options.UserID).Order("chapter_id").Scan(e.Ctx)
 			if len(states) != 6 { // One Piece 3, Existing 1, Dupe 2
 				t.Fatalf("read states = %+v", states)
 			}

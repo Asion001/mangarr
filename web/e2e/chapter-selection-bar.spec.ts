@@ -12,7 +12,7 @@ const file = { id: 1, pageCount: 20, size: 1000, format: "cbz", sourceName: "Sou
 const chapters = Array.from({ length: 120 }, (_, index) => ({
   id: index + 1, seriesId: 1, number: String(index + 1), numberSort: index + 1, title: `Chapter ${index + 1}`,
   monitored: true, releaseDate: "2026-09-01T00:00:00Z", state: "imported", releases: [], file: { ...file, id: index + 1 },
-  readBy: index + 1 < 69 ? [{ readerId: 1, reader: "me", completed: true, page: 20, readAt: "2026-09-01T00:00:00Z" }] : index + 1 === 69 ? [{ readerId: 1, reader: "me", completed: false, page: 5, readAt: "2026-09-01T00:00:00Z" }] : [],
+  readBy: index + 1 < 69 ? [{ userId: 1, name: "me", completed: true, page: 20, readAt: "2026-09-01T00:00:00Z" }] : index + 1 === 69 ? [{ userId: 1, name: "me", completed: false, page: 5, readAt: "2026-09-01T00:00:00Z" }] : [],
 }));
 
 async function mock(page: Page, marked: number[]) {

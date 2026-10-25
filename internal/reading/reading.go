@@ -1,5 +1,5 @@
 // Package reading is what reading apps see of the library: every series and
-// every chapter (downloaded or not) with one reader's progress, covers,
+// every chapter (downloaded or not) with one user's progress, covers,
 // pages (from files or streamed from sources) and progress updates. The
 // Komga-compatible API (internal/komgaapi) is built on it.
 package reading
@@ -15,7 +15,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/uptrace/bun"
@@ -28,6 +27,7 @@ import (
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/modules"
 	"github.com/Asion001/mangarr/internal/modules/source"
+	"github.com/Asion001/mangarr/internal/readstate"
 	"github.com/Asion001/mangarr/internal/settings"
 	"github.com/Asion001/mangarr/internal/sourcepriority"
 )
@@ -52,41 +52,12 @@ type Service struct {
 
 	streams streams
 	bounds  boundsCache
-	// readerMu makes the first reader once: a fresh install answering a
-	// burst of app requests would otherwise race to create several.
-	readerMu sync.Mutex
 }
 
-// ReaderID is the reader reading apps act as (the configured one, else the
-// first reader; one named "Me" is created when there is none).
-func (s *Service) ReaderID(ctx context.Context) (int64, error) {
-	rs, err := s.Settings.Reading(ctx)
-	if err != nil {
-		return 0, err
-	}
-	if rs.ReaderID > 0 {
-		if n, _ := s.DB.NewSelect().Model((*model.Reader)(nil)).Where("id = ?", rs.ReaderID).Count(ctx); n > 0 {
-			return rs.ReaderID, nil
-		}
-	}
-	var r model.Reader
-	if err := s.DB.NewSelect().Model(&r).Order("id").Limit(1).Scan(ctx); err == nil {
-		return r.ID, nil
-	} else if !errors.Is(err, sql.ErrNoRows) {
-		return 0, err
-	}
-	// there is none yet: make it once, whoever asks first
-	s.readerMu.Lock()
-	defer s.readerMu.Unlock()
-	if err := s.DB.NewSelect().Model(&r).Order("id").Limit(1).Scan(ctx); err == nil {
-		return r.ID, nil
-	}
-	r = model.Reader{Name: "Me", CreatedAt: time.Now().UTC()}
-	if _, err := s.DB.NewInsert().Model(&r).Exec(ctx); err != nil {
-		return 0, err
-	}
-	s.Bus.Changed("readers", "created", r.ID)
-	return r.ID, nil
+// DefaultUserID is the account whose progress requests without one use
+// (see readstate.DefaultUserID).
+func (s *Service) DefaultUserID(ctx context.Context) (int64, error) {
+	return readstate.DefaultUserID(ctx, s.DB)
 }
 
 // SeriesInfo is a series with the reader's counts.
@@ -114,8 +85,8 @@ func (si SeriesInfo) LastModified() time.Time {
 	return si.Series.UpdatedAt
 }
 
-// AllSeries loads every series (id > 0: just that one) with readerID's counts.
-func (s *Service) AllSeries(ctx context.Context, readerID, id int64) ([]SeriesInfo, error) {
+// AllSeries loads every series (id > 0: just that one) with userID's counts.
+func (s *Service) AllSeries(ctx context.Context, userID, id int64) ([]SeriesInfo, error) {
 	var list []model.Series
 	q := s.DB.NewSelect().Model(&list).Order("sort_title")
 	if id > 0 {
@@ -182,7 +153,7 @@ func (s *Service) AllSeries(ctx context.Context, readerID, id int64) ([]SeriesIn
 		ColumnExpr("SUM(CASE WHEN rs.completed THEN 1 ELSE 0 END) AS read_count").
 		ColumnExpr("SUM(CASE WHEN NOT rs.completed AND rs.page > 0 THEN 1 ELSE 0 END) AS in_progress").
 		ColumnExpr("MAX(COALESCE(rs.read_at, rs.synced_at)) AS last_read").
-		Where("rs.reader_id = ?", readerID).GroupExpr("rs.series_id")
+		Where("rs.user_id = ?", userID).GroupExpr("rs.series_id")
 	if id > 0 {
 		rq = rq.Where("rs.series_id = ?", id)
 	}
@@ -243,7 +214,7 @@ func (s *Service) AllSeries(ctx context.Context, readerID, id int64) ([]SeriesIn
 			if err != nil {
 				return nil, err
 			}
-			books, err := s.enrich(ctx, readerID, chapters, ids)
+			books, err := s.enrich(ctx, userID, chapters, ids)
 			if err != nil {
 				return nil, err
 			}
@@ -259,8 +230,8 @@ func (s *Service) AllSeries(ctx context.Context, readerID, id int64) ([]SeriesIn
 }
 
 // Series loads one series with the reader's counts.
-func (s *Service) Series(ctx context.Context, readerID, id int64) (*SeriesInfo, error) {
-	list, err := s.AllSeries(ctx, readerID, id)
+func (s *Service) Series(ctx context.Context, userID, id int64) (*SeriesInfo, error) {
+	list, err := s.AllSeries(ctx, userID, id)
 	if err != nil {
 		return nil, err
 	}
@@ -288,7 +259,7 @@ type BookInfo struct {
 }
 
 // Books loads chapters (seriesID 0: all series), ordered by series and number.
-func (s *Service) Books(ctx context.Context, readerID, seriesID int64) ([]BookInfo, error) {
+func (s *Service) Books(ctx context.Context, userID, seriesID int64) ([]BookInfo, error) {
 	allowed, err := s.visibleSeries(ctx, seriesID)
 	if err != nil {
 		return nil, err
@@ -308,7 +279,7 @@ func (s *Service) Books(ctx context.Context, readerID, seriesID int64) ([]BookIn
 			if err != nil {
 				return nil, err
 			}
-			books, err := s.enrich(ctx, readerID, chapters, ids)
+			books, err := s.enrich(ctx, userID, chapters, ids)
 			if err != nil {
 				return nil, err
 			}
@@ -336,7 +307,7 @@ func (s *Service) Books(ctx context.Context, readerID, seriesID int64) ([]BookIn
 	if seriesID > 0 {
 		only = []int64{seriesID}
 	}
-	books, err := s.enrich(ctx, readerID, chapters, only)
+	books, err := s.enrich(ctx, userID, chapters, only)
 	if err != nil || seriesID > 0 || len(languagesOf(ctx)) == 0 {
 		return books, err
 	}
@@ -357,7 +328,7 @@ func (s *Service) Books(ctx context.Context, readerID, seriesID int64) ([]BookIn
 }
 
 // Book loads one chapter.
-func (s *Service) Book(ctx context.Context, readerID, chapterID int64) (*BookInfo, error) {
+func (s *Service) Book(ctx context.Context, userID, chapterID int64) (*BookInfo, error) {
 	var ch model.Chapter
 	if err := s.DB.NewSelect().Model(&ch).Where("id = ?", chapterID).Scan(ctx); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -366,7 +337,7 @@ func (s *Service) Book(ctx context.Context, readerID, chapterID int64) (*BookInf
 		return nil, err
 	}
 	// the index needs the whole series
-	all, err := s.Books(ctx, readerID, ch.SeriesID)
+	all, err := s.Books(ctx, userID, ch.SeriesID)
 	if err != nil {
 		return nil, err
 	}
@@ -378,7 +349,7 @@ func (s *Service) Book(ctx context.Context, readerID, chapterID int64) (*BookInf
 	if len(languagesOf(ctx)) > 0 {
 		// the device's title shows another language's copy of this chapter;
 		// the chapter itself is still readable
-		return s.Book(withoutLanguages(ctx), readerID, chapterID)
+		return s.Book(withoutLanguages(ctx), userID, chapterID)
 	}
 	return nil, ErrNotFound
 }
@@ -448,11 +419,11 @@ func (s *Service) FileBook(ctx context.Context, fileID int64) (*BookInfo, error)
 
 // enrich adds files, states and scanlators to chapters (only: the series
 // they are of, nil for any).
-func (s *Service) enrich(ctx context.Context, readerID int64, chapters []model.Chapter, only []int64) ([]BookInfo, error) {
+func (s *Service) enrich(ctx context.Context, userID int64, chapters []model.Chapter, only []int64) ([]BookInfo, error) {
 	var files []model.ChapterFile
 	fq := s.DB.NewSelect().Model(&files)
 	var states []model.ChapterReadState
-	sq := s.DB.NewSelect().Model(&states).Where("reader_id = ?", readerID)
+	sq := s.DB.NewSelect().Model(&states).Where("user_id = ?", userID)
 	var rels []model.ChapterRelease
 	relq := s.DB.NewSelect().Model(&rels).Column("chapter_id", "scanlator").Where("chapter_id IS NOT NULL").Where("removed = ?", false)
 	if len(only) > 0 {

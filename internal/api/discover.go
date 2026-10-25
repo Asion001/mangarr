@@ -113,11 +113,11 @@ func discoverLibraryItem(info reading.SeriesInfo) DiscoverLibraryItem {
 }
 
 func (s *Server) discoverLibrary(ctx context.Context, rootFolderID int64, lang string, limit int) ([]DiscoverLibraryItem, []DiscoverLibraryItem, map[string]int64, error) {
-	readerID, err := s.readerOf(ctx)
+	userID, err := s.userOf(ctx)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	all, err := s.app.Reading.AllSeries(ctx, readerID, 0)
+	all, err := s.app.Reading.AllSeries(ctx, userID, 0)
 	if err != nil {
 		return nil, nil, nil, err
 	}

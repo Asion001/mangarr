@@ -204,12 +204,12 @@ type Plan struct {
 	HeldSize int64 `json:"heldSize"`
 }
 
-// requiredReaders are the readers who must have finished a chapter: the
-// chosen ones, else the ones counting for cleanup, else everyone (as the
-// series pages count progress).
-func requiredReaders(readers []model.Reader, chosen []int64) []int64 {
+// requiredUsers are the users who must have finished a chapter: the chosen
+// ones, else the ones counting for cleanup, else everyone (as the series
+// pages count progress).
+func requiredUsers(users []model.User, chosen []int64) []int64 {
 	var picked, counted, all []int64
-	for _, r := range readers {
+	for _, r := range users {
 		all = append(all, r.ID)
 		if r.CountForCleanup {
 			counted = append(counted, r.ID)
@@ -241,11 +241,11 @@ func (c *Cleaner) Plan(ctx context.Context) (*Plan, error) {
 	}
 	plan := &Plan{Enabled: cs.Enabled, DryRun: cs.DryRun, Candidates: []Candidate{}, Skipped: []Skip{}}
 
-	var readers []model.Reader
-	if err := c.db.NewSelect().Model(&readers).Scan(ctx); err != nil {
+	var users []model.User
+	if err := c.db.NewSelect().Model(&users).Scan(ctx); err != nil {
 		return nil, err
 	}
-	required := requiredReaders(readers, cs.ReaderIDs)
+	required := requiredUsers(users, cs.UserIDs)
 	var profiles []model.Profile
 	if err := c.db.NewSelect().Model(&profiles).Scan(ctx); err != nil {
 		return nil, err
@@ -436,7 +436,7 @@ func (c *Cleaner) loadSeries(ctx context.Context, s model.Series) (SeriesData, e
 		if sd.States[st.ChapterID] == nil {
 			sd.States[st.ChapterID] = map[int64]model.ChapterReadState{}
 		}
-		sd.States[st.ChapterID][st.ReaderID] = st
+		sd.States[st.ChapterID][st.UserID] = st
 	}
 	return sd, nil
 }

@@ -19,7 +19,7 @@ const map: Record<string, string[][]> = {
   cache: [["cache"], ["source-search"], ["browse"], ["source-manga"], ["discover"]],
   processing: [["processing"], ["health"]],
   settings: [["settings"]],
-  readers: [["readers"], ["series"], ["me-library-accounts"]],
+  progress: [["progress"], ["series"], ["me-library-accounts"]],
   reading: [["reading"], ["settings"], ["discover"], ["updates"]],
   updates: [["updates"]],
   database: [["database"]],

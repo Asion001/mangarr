@@ -121,10 +121,8 @@ type ExportSession struct {
 	Updated time.Time `json:"updated"`
 }
 
-// Account is whose data it is: a reader always, a user when there are
-// accounts (follows and settings belong to users).
+// Account is whose data it is.
 type Account struct {
-	ReaderID int64
 	UserID   int64
 	Username string
 }
@@ -169,7 +167,7 @@ func (s *Service) Export(ctx context.Context, acc Account) (*Export, error) {
 		SyncedAt  time.Time  `bun:"synced_at"`
 	}
 	if err := s.DB.NewRaw(`SELECT st.series_id, c.number_key, st.completed, st.page, st.read_at, st.synced_at
-FROM chapter_read_states AS st JOIN chapters AS c ON c.id = st.chapter_id WHERE st.reader_id = ? ORDER BY c.number_sort`, acc.ReaderID).Scan(ctx, &states); err != nil {
+FROM chapter_read_states AS st JOIN chapters AS c ON c.id = st.chapter_id WHERE st.user_id = ? ORDER BY c.number_sort`, acc.UserID).Scan(ctx, &states); err != nil {
 		return nil, err
 	}
 	for _, st := range states {
@@ -192,7 +190,7 @@ FROM chapter_read_states AS st JOIN chapters AS c ON c.id = st.chapter_id WHERE 
 		At        time.Time `bun:"at"`
 	}
 	if err := s.DB.NewRaw(`SELECT e.series_id, c.number_key, e.chapters, e.completed, e.page, e.origin, e.client, e.device, e.outcome, e.at
-FROM read_events AS e JOIN chapters AS c ON c.id = e.chapter_id WHERE e.reader_id = ? ORDER BY e.at, e.id`, acc.ReaderID).Scan(ctx, &events); err != nil {
+FROM read_events AS e JOIN chapters AS c ON c.id = e.chapter_id WHERE e.user_id = ? ORDER BY e.at, e.id`, acc.UserID).Scan(ctx, &events); err != nil {
 		return nil, err
 	}
 	for _, e := range events {
@@ -211,7 +209,7 @@ FROM read_events AS e JOIN chapters AS c ON c.id = e.chapter_id WHERE e.reader_i
 		UpdatedAt time.Time `bun:"updated_at"`
 	}
 	if err := s.DB.NewRaw(`SELECT r.series_id, c.number_key, r.active_seconds, r.started_at, r.updated_at
-FROM reading_sessions AS r JOIN chapters AS c ON c.id = r.chapter_id WHERE r.reader_id = ? ORDER BY r.started_at`, acc.ReaderID).Scan(ctx, &sessions); err != nil {
+FROM reading_sessions AS r JOIN chapters AS c ON c.id = r.chapter_id WHERE r.user_id = ? ORDER BY r.started_at`, acc.UserID).Scan(ctx, &sessions); err != nil {
 		return nil, err
 	}
 	for _, se := range sessions {
@@ -475,7 +473,7 @@ func (s *Service) Import(ctx context.Context, acc Account, d *Export, opts DataI
 				return err
 			}
 			if opts.Progress {
-				if err := importProgress(ctx, tx, acc.ReaderID, lib.series[m.SeriesID], chapters, withReached(ctx, tx, m.SeriesID, t, chapters), res); err != nil {
+				if err := importProgress(ctx, tx, acc.UserID, lib.series[m.SeriesID], chapters, withReached(ctx, tx, m.SeriesID, t, chapters), res); err != nil {
 					return err
 				}
 				if _, err := readstate.FinishLastPages(ctx, tx, m.SeriesID, now); err != nil {
@@ -483,7 +481,7 @@ func (s *Service) Import(ctx context.Context, acc Account, d *Export, opts DataI
 				}
 			}
 			if opts.History {
-				if err := importHistory(ctx, tx, acc.ReaderID, m.SeriesID, chapters, t, res); err != nil {
+				if err := importHistory(ctx, tx, acc.UserID, m.SeriesID, chapters, t, res); err != nil {
 					return err
 				}
 			}
@@ -559,9 +557,9 @@ func chapterIDs(ctx context.Context, tx bun.Tx, seriesID int64) (map[string]int6
 	return out, nil
 }
 
-func importProgress(ctx context.Context, tx bun.Tx, readerID int64, ser *model.Series, chapters map[string]int64, progress []ExportProgress, res *DataImportResult) error {
+func importProgress(ctx context.Context, tx bun.Tx, userID int64, ser *model.Series, chapters map[string]int64, progress []ExportProgress, res *DataImportResult) error {
 	var have []model.TitleReadState
-	if err := tx.NewSelect().Model(&have).Where("reader_id = ? AND title_id = ?", readerID, readstate.TitleID(ser)).Scan(ctx); err != nil {
+	if err := tx.NewSelect().Model(&have).Where("user_id = ? AND title_id = ?", userID, readstate.TitleID(ser)).Scan(ctx); err != nil {
 		return err
 	}
 	current := map[string]model.TitleReadState{}
@@ -578,7 +576,7 @@ func importProgress(ctx context.Context, tx bun.Tx, readerID int64, ser *model.S
 			res.Kept++
 			continue
 		}
-		st := &model.ChapterReadState{ReaderID: readerID, ChapterID: id, Completed: p.Completed, Page: max(p.Page, 0), ReadAt: p.ReadAt, SyncedAt: p.At, Origin: model.ReadOriginBackup}
+		st := &model.ChapterReadState{UserID: userID, ChapterID: id, Completed: p.Completed, Page: max(p.Page, 0), ReadAt: p.ReadAt, SyncedAt: p.At, Origin: model.ReadOriginBackup}
 		if st.SyncedAt.IsZero() {
 			st.SyncedAt = time.Now().UTC()
 		}
@@ -590,20 +588,20 @@ func importProgress(ctx context.Context, tx bun.Tx, readerID int64, ser *model.S
 	return nil
 }
 
-func importHistory(ctx context.Context, tx bun.Tx, readerID, seriesID int64, chapters map[string]int64, t *ExportTitle, res *DataImportResult) error {
+func importHistory(ctx context.Context, tx bun.Tx, userID, seriesID int64, chapters map[string]int64, t *ExportTitle, res *DataImportResult) error {
 	for _, e := range t.History {
 		id, ok := chapters[e.Number]
 		if !ok {
 			continue
 		}
-		n, err := tx.NewSelect().Model((*model.ReadEvent)(nil)).Where("reader_id = ? AND chapter_id = ? AND at = ?", readerID, id, e.At).Count(ctx)
+		n, err := tx.NewSelect().Model((*model.ReadEvent)(nil)).Where("user_id = ? AND chapter_id = ? AND at = ?", userID, id, e.At).Count(ctx)
 		if err != nil {
 			return err
 		}
 		if n > 0 {
 			continue
 		}
-		ev := &model.ReadEvent{ReaderID: readerID, SeriesID: seriesID, ChapterID: id, Chapters: max(e.Chapters, 1), Completed: e.Completed, Page: e.Page,
+		ev := &model.ReadEvent{UserID: userID, SeriesID: seriesID, ChapterID: id, Chapters: max(e.Chapters, 1), Completed: e.Completed, Page: e.Page,
 			Origin: e.Origin, Client: e.Client, Device: e.Device, Outcome: e.Outcome, At: e.At}
 		if ev.Origin == "" {
 			ev.Origin = model.ReadOriginBackup
@@ -619,8 +617,8 @@ func importHistory(ctx context.Context, tx bun.Tx, readerID, seriesID int64, cha
 			continue
 		}
 		// the same session imported twice gets the same id
-		key := sha256.Sum256(fmt.Appendf(nil, "%d/%d/%s/%d", readerID, id, se.Started.UTC().Format(time.RFC3339Nano), se.Seconds))
-		row := &model.ReadingSession{ID: fmt.Sprintf("import-%x", key[:12]), ReaderID: readerID, SeriesID: seriesID, ChapterID: id,
+		key := sha256.Sum256(fmt.Appendf(nil, "%d/%d/%s/%d", userID, id, se.Started.UTC().Format(time.RFC3339Nano), se.Seconds))
+		row := &model.ReadingSession{ID: fmt.Sprintf("import-%x", key[:12]), UserID: userID, SeriesID: seriesID, ChapterID: id,
 			ActiveSeconds: se.Seconds, StartedAt: se.Started, UpdatedAt: se.Updated}
 		r, err := tx.NewInsert().Model(row).On("CONFLICT DO NOTHING").Exec(ctx)
 		if err != nil {

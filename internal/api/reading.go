@@ -58,44 +58,48 @@ type ShelfItem struct {
 	LastReadAt *time.Time  `json:"lastReadAt,omitempty"`
 }
 
-// Shelf is a reader's "Continue reading" shelf.
+// Shelf is a user's "Continue reading" shelf.
 type Shelf struct {
-	ReaderID int64       `json:"readerId"`
-	Reader   string      `json:"reader"`
-	Items    []ShelfItem `json:"items"`
+	UserID int64       `json:"userId"`
+	User   string      `json:"user"`
+	Items  []ShelfItem `json:"items"`
 }
 
 func (s *Server) registerReading() {
 	tags := []string{"Reading apps"}
 	huma.Register(s.api, huma.Operation{OperationID: "reading-shelf", Method: http.MethodGet, Path: "/api/v1/reading/shelf", Tags: tags,
-		Summary: "Continue reading: the next chapter of each series the reader started, most recently read first"},
+		Summary: "Continue reading: the next chapter of each series the user started, most recently read first"},
 		func(ctx context.Context, in *struct {
-			ReaderID int64 `query:"readerId" doc:"Reader (0 = the one reading apps act as)"`
-			Limit    int   `query:"limit" default:"20" minimum:"1" maximum:"100"`
+			UserID int64 `query:"userId" doc:"User (0 = you, or the default account without a login)"`
+			Limit  int   `query:"limit" default:"20" minimum:"1" maximum:"100"`
 		}) (*struct{ Body Shelf }, error) {
-			rid := in.ReaderID
-			if p := access.From(ctx); p != nil && p.Kind == access.KindUser && (rid == 0 || !p.IsAdmin()) {
-				rid = p.ReaderID // your own shelf (only admins look at others')
+			uid := in.UserID
+			if p := access.From(ctx); p != nil && p.Kind == access.KindUser && (uid == 0 || !p.IsAdmin()) {
+				uid = p.UserID // your own shelf (only admins look at others')
 			}
-			if rid == 0 {
-				// (without readers there's no shelf; don't create one)
-				if n, err := s.app.DB.NewSelect().Model((*model.Reader)(nil)).Count(ctx); err != nil || n == 0 {
+			if uid == 0 {
+				// (without accounts there's no shelf; don't create one)
+				if n, err := s.app.DB.NewSelect().Model((*model.User)(nil)).Count(ctx); err != nil || n == 0 {
 					return &struct{ Body Shelf }{Shelf{Items: []ShelfItem{}}}, toHTTPError(err)
 				}
 				var err error
-				if rid, err = s.app.Reading.ReaderID(ctx); err != nil {
+				if uid, err = s.app.Reading.DefaultUserID(ctx); err != nil {
 					return nil, toHTTPError(err)
 				}
 			}
-			var r model.Reader
-			if err := s.app.DB.NewSelect().Model(&r).Where("id = ?", rid).Scan(ctx); err != nil {
-				return nil, huma.Error404NotFound("reader not found")
+			var u model.User
+			if err := s.app.DB.NewSelect().Model(&u).Where("id = ?", uid).Scan(ctx); err != nil {
+				return nil, huma.Error404NotFound("user not found")
 			}
-			next, err := s.app.Reading.OnDeck(ctx, rid)
+			next, err := s.app.Reading.OnDeck(ctx, uid)
 			if err != nil {
 				return nil, toHTTPError(err)
 			}
-			out := Shelf{ReaderID: rid, Reader: r.Name, Items: []ShelfItem{}}
+			name := u.DisplayName
+			if name == "" {
+				name = u.Username
+			}
+			out := Shelf{UserID: uid, User: name, Items: []ShelfItem{}}
 			for _, n := range next[:min(in.Limit, len(next))] {
 				ser, ch := n.Series.Series, n.Book.Chapter
 				it := ShelfItem{SeriesID: ser.ID, Title: ser.Title,
@@ -234,19 +238,16 @@ func (s *Server) registerReading() {
 				return nil, huma.Error422UnprocessableEntity("address must be an HTTP(S) server address without credentials, query or fragment")
 			}
 			principal := access.From(ctx)
-			readerID := principal.ReaderID
-			if readerID == 0 {
-				readerID, err = s.app.Reading.ReaderID(ctx)
-				if err != nil {
-					return nil, toHTTPError(err)
-				}
+			userID, err := s.userOf(ctx)
+			if err != nil {
+				return nil, toHTTPError(err)
 			}
 			comment := "Mihon backup " + time.Now().Format("2006-01-02")
 			key, device, err := s.app.Komga.CreateKey(ctx, principal.UserID, comment, "Mihon backup export")
 			if err != nil {
 				return nil, toHTTPError(err)
 			}
-			data, err := s.app.Reading.MihonBackup(ctx, readerID, address, key)
+			data, err := s.app.Reading.MihonBackup(ctx, userID, address, key)
 			if err != nil {
 				_, _ = s.app.DB.NewDelete().Model(device).WherePK().Exec(ctx)
 				s.app.Komga.InvalidateKeys()

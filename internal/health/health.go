@@ -160,7 +160,7 @@ func (c *Checker) Run(ctx context.Context) []Check {
 	c.checkRootFolders(ctx, add)
 	c.checkSources(ctx, add)
 	c.checkQueue(ctx, add)
-	c.checkReaders(ctx, add)
+	c.checkLibraryAccounts(ctx, add)
 	c.checkUpscale(ctx, add)
 	for _, fn := range c.checks {
 		for _, ch := range fn(ctx) {
@@ -377,15 +377,15 @@ func (c *Checker) checkQueue(ctx context.Context, add func(Check)) {
 	}
 }
 
-func (c *Checker) checkReaders(ctx context.Context, add func(Check)) {
+func (c *Checker) checkLibraryAccounts(ctx context.Context, add func(Check)) {
 	var bad []struct {
 		Name      string `bun:"name"`
 		LastError string `bun:"last_error"`
 	}
-	_ = c.db.NewSelect().TableExpr("reader_accounts AS a").ColumnExpr("r.name, a.last_error").
-		Join("JOIN readers AS r ON r.id = a.reader_id").Where("a.last_error <> ''").Scan(ctx, &bad)
+	_ = c.db.NewSelect().TableExpr("library_accounts AS a").ColumnExpr("COALESCE(NULLIF(u.display_name, ''), u.username) AS name, a.last_error").
+		Join("JOIN users AS u ON u.id = a.user_id").Where("a.last_error <> ''").Scan(ctx, &bad)
 	for _, b := range bad {
-		add(Check{Source: "Readers", Type: Warning, Message: fmt.Sprintf("progress sync for %s fails: %s", b.Name, b.LastError), Link: "/settings/readers"})
+		add(Check{Source: "Progress sync", Type: Warning, Message: fmt.Sprintf("progress sync for %s fails: %s", b.Name, b.LastError), Link: "/settings/users"})
 	}
 }
 

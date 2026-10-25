@@ -39,7 +39,7 @@ func (a *App) wireRequests() {
 			if err != nil || p == nil {
 				return fmt.Errorf("user %d can't make requests", body.UserID)
 			}
-			res, err := a.UserImport.Request(ctx, p, p.ReaderID, body.Titles)
+			res, err := a.UserImport.Request(ctx, p, body.Titles)
 			r.Progress("%d requested, %d already here, %d not found", res.Requested, res.Here, len(res.Unmatched))
 			return err
 		}})

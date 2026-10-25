@@ -86,7 +86,7 @@ func TestMyDataMovesToAnotherServer(t *testing.T) {
 	}
 	read := func(ser *model.Series, number string, completed bool, page int) {
 		at := time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
-		st := &model.ChapterReadState{ReaderID: anna.ReaderID, ChapterID: chapterOf(t, a, ser.ID, number), Completed: completed, Page: page, ReadAt: &at, SyncedAt: at}
+		st := &model.ChapterReadState{UserID: anna.ID, ChapterID: chapterOf(t, a, ser.ID, number), Completed: completed, Page: page, ReadAt: &at, SyncedAt: at}
 		if err := readstate.Save(ctx, a.DB, st); err != nil {
 			t.Fatal(err)
 		}
@@ -96,7 +96,7 @@ func TestMyDataMovesToAnotherServer(t *testing.T) {
 	read(old["Vinland Saga"], "1", true, 0)
 	read(old["Kaguya-sama"], "1", true, 0)
 	read(old["Dandadan"], "1", true, 0)
-	ev := &model.ReadEvent{ReaderID: anna.ReaderID, SeriesID: old["Blue Period"].ID, ChapterID: chapterOf(t, a, old["Blue Period"].ID, "1"), Chapters: 1,
+	ev := &model.ReadEvent{UserID: anna.ID, SeriesID: old["Blue Period"].ID, ChapterID: chapterOf(t, a, old["Blue Period"].ID, "1"), Chapters: 1,
 		Completed: true, Origin: "web", At: time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)}
 	if _, err := a.DB.NewInsert().Model(ev).Exec(ctx); err != nil {
 		t.Fatal(err)
@@ -136,7 +136,7 @@ func TestMyDataMovesToAnotherServer(t *testing.T) {
 		t.Fatal(err)
 	}
 	// already further here: kept
-	if err := readstate.Save(ctx, b.DB, &model.ChapterReadState{ReaderID: annaB.ReaderID, ChapterID: chapterOf(t, b, here["Blue Period (EN)"].ID, "2"), Completed: true, SyncedAt: time.Now()}); err != nil {
+	if err := readstate.Save(ctx, b.DB, &model.ChapterReadState{UserID: annaB.ID, ChapterID: chapterOf(t, b, here["Blue Period (EN)"].ID, "2"), Completed: true, SyncedAt: time.Now()}); err != nil {
 		t.Fatal(err)
 	}
 	me := caller{t, login(t, srvB.URL, "anna", "anna-pass-2"), srvB.URL}
@@ -159,7 +159,7 @@ func TestMyDataMovesToAnotherServer(t *testing.T) {
 		t.Fatalf("import %+v", res)
 	}
 	var states []model.ChapterReadState
-	if err := b.DB.NewSelect().Model(&states).Where("reader_id = ?", annaB.ReaderID).Scan(ctx); err != nil || len(states) != 4 {
+	if err := b.DB.NewSelect().Model(&states).Where("user_id = ?", annaB.ID).Scan(ctx); err != nil || len(states) != 4 {
 		t.Fatalf("states %+v %v", states, err)
 	}
 	if n, _ := b.DB.NewSelect().Model((*model.Follow)(nil)).Where("user_id = ? AND series_id = ?", annaB.ID, here["Vinland"].ID).Count(ctx); n != 1 {

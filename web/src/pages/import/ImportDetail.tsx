@@ -4,7 +4,7 @@ import { Link, useParams } from "react-router";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Check, Download, Library, Play, RefreshCw, Search, Tags } from "lucide-react";
 import { api, apiUrl, unwrap, type S } from "../../api/client";
-import { useProfiles, useReaders, useRootFolders } from "../../api/queries";
+import { useProfiles, useRootFolders, useUsers } from "../../api/queries";
 import { Cover } from "../../components/Cover";
 import { Badge, Button, Card, Confirm, ErrorBox, Field, Input, Loading, Modal, PageHeader, Select, Spinner, Switch, Table, Td, Th } from "../../components/ui";
 import { date, languageName } from "../../lib/format";
@@ -386,7 +386,7 @@ function OptionsCard({ imp, disabled, onSaved }: { imp: S["ImportResource"]; dis
   const toast = useToast();
   const { data: roots } = useRootFolders();
   const { data: profiles } = useProfiles();
-  const { data: readers } = useReaders();
+  const { data: users } = useUsers();
   const [o, setO] = useState<Options>(imp.options);
   useEffect(() => setO(imp.options), [imp.options]);
   const save = async (next: Options) => {
@@ -443,18 +443,16 @@ function OptionsCard({ imp, disabled, onSaved }: { imp: S["ImportResource"]; dis
         <div className="flex flex-col gap-2">
           <Switch checked={o.readState} onChange={(v) => set("readState", v)} label={t("Import read chapters")} />
           {o.readState && (
-            <Select value={o.readerId} onChange={(e) => set("readerId", Number(e.target.value))}>
-              {account ? (
-                <option value={0}>{t("New reader “")}{imp.fileName}”</option>
-              ) : (
-                <option value={0}>{t("New reader “")}{imp.format === "aidoku" ? "Aidoku" : "Mihon"}{" " + t("backup”")}</option>
-              )}
-              {readers?.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name}
-                </option>
-              ))}
-            </Select>
+            <Field label={t("Whose progress")}>
+              <Select value={o.userId} onChange={(e) => set("userId", Number(e.target.value))}>
+                {!o.userId && <option value={0}>{t("The first administrator")}</option>}
+                {users?.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.displayName || u.username}
+                  </option>
+                ))}
+              </Select>
+            </Field>
           )}
           {o.readState && (
             <Switch checked={o.pushProgress} onChange={(v) => set("pushProgress", v)} label={t("Mark them read in Komga/Kavita once downloaded")} />

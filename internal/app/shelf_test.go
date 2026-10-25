@@ -26,7 +26,7 @@ func TestReadingShelf(t *testing.T) {
 	defer resp.Body.Close()
 	var shelf api.Shelf
 	_ = json.NewDecoder(resp.Body).Decode(&shelf)
-	if shelf.ReaderID != f.reader || len(shelf.Items) != 1 {
+	if shelf.UserID != f.reader || len(shelf.Items) != 1 {
 		t.Fatalf("shelf %+v", shelf)
 	}
 	it := shelf.Items[0]

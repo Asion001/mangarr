@@ -17,8 +17,8 @@ type NextUp struct {
 // OnDeck lists, for each series the reader has started and not finished,
 // the first unread chapter after the last one read, most recently read
 // series first.
-func (s *Service) OnDeck(ctx context.Context, readerID int64) ([]NextUp, error) {
-	series, err := s.AllSeries(ctx, readerID, 0)
+func (s *Service) OnDeck(ctx context.Context, userID int64) ([]NextUp, error) {
+	series, err := s.AllSeries(ctx, userID, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -35,7 +35,7 @@ func (s *Service) OnDeck(ctx context.Context, readerID int64) ([]NextUp, error) 
 	for id := range started {
 		ids = append(ids, id)
 	}
-	books, err := s.booksIn(ctx, readerID, ids)
+	books, err := s.booksIn(ctx, userID, ids)
 	if err != nil {
 		return nil, err
 	}
@@ -66,13 +66,13 @@ func (s *Service) OnDeck(ctx context.Context, readerID int64) ([]NextUp, error) 
 
 // booksIn loads the books of some listed series (as AllSeries shows them)
 // the way Books(…, 0) lists them, without reading the rest of the library.
-func (s *Service) booksIn(ctx context.Context, readerID int64, ids []int64) ([]BookInfo, error) {
+func (s *Service) booksIn(ctx context.Context, userID int64, ids []int64) ([]BookInfo, error) {
 	if len(languagesOf(ctx)) == 0 {
 		chapters, err := s.chaptersOf(ctx, ids)
 		if err != nil {
 			return nil, err
 		}
-		return s.enrich(ctx, readerID, chapters, ids)
+		return s.enrich(ctx, userID, chapters, ids)
 	}
 	// a device with a language order: the titles' other editions too
 	var list []model.Series
@@ -104,7 +104,7 @@ func (s *Service) booksIn(ctx context.Context, readerID int64, ids []int64) ([]B
 	if err != nil {
 		return nil, err
 	}
-	books, err := s.enrich(ctx, readerID, chapters, all)
+	books, err := s.enrich(ctx, userID, chapters, all)
 	if err != nil {
 		return nil, err
 	}

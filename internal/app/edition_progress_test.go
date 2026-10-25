@@ -58,13 +58,13 @@ func TestEditionProgress(t *testing.T) {
 			en := add("Abyss EN", "en", work.ID, 1, 2, 3, 4)
 			ru := add("Abyss RU", "ru", work.ID, 1, 2, 3)
 			add("Other", "en", other.ID, 1)
-			reader := &model.Reader{Name: "ann", CountForCleanup: true, CreatedAt: now}
+			reader := &model.User{Username: "ann", CountForCleanup: true, CreatedAt: now}
 			if _, err := e.App.DB.NewInsert().Model(reader).Exec(e.Ctx); err != nil {
 				t.Fatal(err)
 			}
 			state := func(series string, n float64) *model.ChapterReadState {
 				var st model.ChapterReadState
-				if err := e.App.DB.NewSelect().Model(&st).Where("reader_id = ? AND chapter_id = ?", reader.ID, chapters[series][n]).Scan(e.Ctx); err != nil {
+				if err := e.App.DB.NewSelect().Model(&st).Where("user_id = ? AND chapter_id = ?", reader.ID, chapters[series][n]).Scan(e.Ctx); err != nil {
 					return nil
 				}
 				return &st
@@ -108,7 +108,7 @@ func TestEditionProgress(t *testing.T) {
 			if rows != 1 {
 				t.Fatalf("%d stored states, want one for the title", rows)
 			}
-			events, _ := e.App.DB.NewSelect().Model((*model.ReadEvent)(nil)).Where("reader_id = ?", reader.ID).Count(e.Ctx)
+			events, _ := e.App.DB.NewSelect().Model((*model.ReadEvent)(nil)).Where("user_id = ?", reader.ID).Count(e.Ctx)
 			if events != 1 {
 				t.Fatalf("%d read events, want only the reported one", events)
 			}
@@ -204,7 +204,7 @@ func TestEditionProgressLibraryServer(t *testing.T) {
 				}
 				chapter[lang], path[lang] = c.ID, filepath.Join(e.Root, ser.Path, cf.RelativePath)
 			}
-			reader := &model.Reader{Name: "ann", CountForCleanup: true, CreatedAt: now}
+			reader := &model.User{Username: "ann", CountForCleanup: true, CreatedAt: now}
 			if _, err := e.App.DB.NewInsert().Model(reader).Exec(e.Ctx); err != nil {
 				t.Fatal(err)
 			}
@@ -214,7 +214,7 @@ func TestEditionProgressLibraryServer(t *testing.T) {
 			if err := e.App.Modules.Create(e.Ctx, libDef); err != nil {
 				t.Fatal(err)
 			}
-			acc := &model.ReaderAccount{ReaderID: reader.ID, ModuleID: libDef.ID, Credentials: map[string]string{"apiKey": "k"}, CreatedAt: now}
+			acc := &model.LibraryAccount{UserID: reader.ID, ModuleID: libDef.ID, Credentials: map[string]string{"apiKey": "k"}, CreatedAt: now}
 			if _, err := e.App.DB.NewInsert().Model(acc).Exec(e.Ctx); err != nil {
 				t.Fatal(err)
 			}
@@ -227,7 +227,7 @@ func TestEditionProgressLibraryServer(t *testing.T) {
 			}
 			read := func(lang string) bool {
 				var st model.ChapterReadState
-				err := e.App.DB.NewSelect().Model(&st).Where("reader_id = ? AND chapter_id = ?", reader.ID, chapter[lang]).Scan(e.Ctx)
+				err := e.App.DB.NewSelect().Model(&st).Where("user_id = ? AND chapter_id = ?", reader.ID, chapter[lang]).Scan(e.Ctx)
 				return err == nil && st.Completed
 			}
 
@@ -323,7 +323,7 @@ func TestEditionsSharedInfo(t *testing.T) {
 			}
 
 			// English 1 read, Russian 2 started: one title, read in Russian last
-			reader := &model.Reader{Name: "ann", CountForCleanup: true, CreatedAt: now}
+			reader := &model.User{Username: "ann", CountForCleanup: true, CreatedAt: now}
 			if _, err := e.App.DB.NewInsert().Model(reader).Exec(e.Ctx); err != nil {
 				t.Fatal(err)
 			}
@@ -414,7 +414,7 @@ func TestDeviceLanguageOrder(t *testing.T) {
 			// English has 1-3, only 1 downloaded; Russian has 1-4, 1 and 2 downloaded
 			en := add("en", []int{1, 2, 3}, []int{1})
 			ru := add("ru", []int{1, 2, 3, 4}, []int{1, 2})
-			rid, err := e.App.Reading.ReaderID(e.Ctx)
+			rid, err := e.App.Reading.DefaultUserID(e.Ctx)
 			if err != nil {
 				t.Fatal(err)
 			}
