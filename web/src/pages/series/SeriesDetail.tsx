@@ -5,10 +5,11 @@ import { label, t as tr, t } from "../../lib/i18n/core";
 import { useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { ArrowLeft, Plus, BookOpen, ChevronDown, Eye, EyeOff, FilePen, Languages, HardDrive, MoreHorizontal, Pencil, RefreshCw, Search, Sparkles, Trash2, FileSearch, BookText, Link2, Unlink } from "lucide-react";
-import { apiUrl, type Chapter, type S } from "../../api/client";
+import { apiUrl, type Chapter, type S, type Series } from "../../api/client";
 import { useChapters, usePushCommand, useSeries, useSeriesList } from "../../api/queries";
 import { Cover } from "../../components/Cover";
-import { Badge, Button, Confirm, ErrorBox, Loading, Menu, Modal, Select, Switch, type MenuItem } from "../../components/ui";
+import { likelySame, TitleSearch } from "../../components/TitlePicker";
+import { Badge, Button, Confirm, ErrorBox, Loading, Menu, Modal, Switch, type MenuItem } from "../../components/ui";
 import { languageName } from "../../lib/format";
 import { genreName } from "../../lib/genres";
 import { useToast } from "../../lib/toast";
@@ -51,7 +52,7 @@ export function SeriesDetail() {
   const [showDesc, setShowDesc] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [grouping, setGrouping] = useState(false);
-  const [groupTarget, setGroupTarget] = useState("");
+  const [groupTarget, setGroupTarget] = useState<Series | null>(null);
   const [groupBusy, setGroupBusy] = useState(false);
   const [addingLang, setAddingLang] = useState(false);
   // a request for another language, opened from Requests: ?addLanguage=xx&request=id
@@ -84,7 +85,7 @@ export function SeriesDetail() {
     setGroupBusy(true);
     if (await actions.setWork(workId)) {
       setGrouping(false);
-      setGroupTarget("");
+      setGroupTarget(null);
     }
     setGroupBusy(false);
   };
@@ -233,19 +234,19 @@ export function SeriesDetail() {
       {asksLang && addingLang && <RequestLanguageModal series={s} onClose={() => setAddingLang(false)} />}
       {handlesRequests && !!requestedLang && fulfils > 0 && <AddLanguageModal series={s} initialLang={requestedLang} requestId={fulfils} onClose={closeRequested} />}
       {manage && grouping && (
-        <Modal open onClose={() => setGrouping(false)} title={t("Group language edition")}>
+        <Modal open onClose={() => (setGrouping(false), setGroupTarget(null))} title={t("Group language edition")}>
           <p className="mb-4 text-sm text-muted">{t("Choose the title this edition belongs to. Files, sources, and settings stay separate; reading progress, the cover and the title's info are shared.")}</p>
-          <Select value={groupTarget} onChange={(event) => setGroupTarget(event.target.value)}>
-            <option value="">{t("Choose a title…")}</option>
-            {(library ?? []).filter((candidate) => candidate.workId !== s.workId).map((candidate) => (
-              <option key={candidate.workId} value={candidate.workId}>
-                {candidate.title}{candidate.editions?.length ? ` (${candidate.editions.map((edition) => (edition.language ? languageName(edition.language) : "—")).join(", ")})` : ""}
-              </option>
-            ))}
-          </Select>
+          <TitleSearch
+            autoFocus
+            value={groupTarget?.id}
+            exclude={(candidate) => candidate.workId === s.workId}
+            suggested={(library ?? []).filter((candidate) => candidate.workId !== s.workId && likelySame(s, candidate)).map((candidate) => candidate.id)}
+            onPick={setGroupTarget}
+          />
+          {groupTarget && <p className="mt-3 text-sm">{t("Group with {title}", { title: groupTarget.displayTitle || groupTarget.title })}</p>}
           <div className="mt-5 flex justify-end gap-2">
             <Button variant="ghost" onClick={() => setGrouping(false)}>{t("Cancel")}</Button>
-            <Button variant="primary" loading={groupBusy} disabled={!groupTarget} onClick={() => setWork(Number(groupTarget))}>{t("Group edition")}</Button>
+            <Button variant="primary" loading={groupBusy} disabled={!groupTarget?.workId} onClick={() => setWork(groupTarget?.workId ?? 0)}>{t("Group edition")}</Button>
           </div>
         </Modal>
       )}

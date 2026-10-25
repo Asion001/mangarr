@@ -5,6 +5,7 @@ import { api, unwrap } from "../../api/client";
 import { useSeriesList } from "../../api/queries";
 import { Badge, Button, ErrorBox, Loading, PageHeader, Select, Table, Td, Th } from "../../components/ui";
 import { dateTime } from "../../lib/format";
+import { TitlePicker } from "../../components/TitlePicker";
 import { useListParam } from "../../lib/urlState";
 
 const tone: Record<string, "ok" | "warn" | "err" | "info" | "default" | "accent"> = {
@@ -49,12 +50,7 @@ export function HistoryPage() {
         title={t("History")}
         actions={
           <div className="flex flex-wrap items-center justify-end gap-2">
-            <Select className="w-52" value={seriesParam} onChange={(e) => (setSeries(e.target.value), setPage("1"))}>
-              <option value="">{t("All titles")}</option>
-              {(series ?? []).slice().sort((a, b) => a.title.localeCompare(b.title)).map((s) => (
-                <option key={s.id} value={s.id}>{s.title}</option>
-              ))}
-            </Select>
+            <TitlePicker className="w-full sm:w-56" placeholder={t("All titles")} value={seriesId ?? 0} onChange={(id) => (setSeries(id ? String(id) : ""), setPage("1"))} />
             <Select className="w-44" value={eventType} onChange={(e) => (setEventType(e.target.value), setPage("1"))}>
               <option value="">{t("All events")}</option>
               {Object.keys(tone).map((event) => <option key={event} value={event}>{event}</option>)}

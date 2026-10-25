@@ -5,7 +5,8 @@ import clsx from "clsx";
 import { ArrowRight, Pencil, Plus, Trash2, TriangleAlert } from "lucide-react";
 import { Link } from "react-router";
 import { api, ApiError, apiUrl, unwrap, type Profile, type S } from "../../api/client";
-import { useChapters, useProfiles, useSeriesList } from "../../api/queries";
+import { useChapters, useProfiles } from "../../api/queries";
+import { TitlePicker } from "../../components/TitlePicker";
 import { Badge, Button, Card, Confirm, ErrorBox, Field, IconButton, Input, Loading, Modal, PageHeader, Segmented, Select, Switch, TagInput } from "../../components/ui";
 import { bytes } from "../../lib/format";
 import { useToast } from "../../lib/toast";
@@ -645,7 +646,6 @@ function ProfileEditor({ profile, onClose }: { profile: Profile; onClose: () => 
 
 /** PipelinePreview runs the unsaved upscale and encode settings on three pages of a chapter. */
 function PipelinePreview({ upscale, encode, pages, onClose }: { upscale: Cfg["upscale"]; encode: Cfg["encode"]; pages: Cfg["pages"]; onClose: () => void }) {
-  const { data: series } = useSeriesList();
   const [seriesId, setSeriesId] = useState(0);
   const { data: chapters } = useChapters(seriesId);
   const withFiles = (chapters ?? []).filter((c) => c.file);
@@ -666,14 +666,7 @@ function PipelinePreview({ upscale, encode, pages, onClose }: { upscale: Cfg["up
     <Modal open onClose={onClose} title={<span className="flex flex-wrap items-baseline gap-x-3">{t("Preview: {steps}", { steps })}<span className="text-xs font-normal text-muted">{t("Uses the unsaved settings")}</span></span>} size="xl">
       <div className="mb-4 flex flex-wrap items-end gap-2">
         <Field label={t("Series")} className="min-w-48 flex-1">
-          <Select value={seriesId} onChange={(e) => (setSeriesId(Number(e.target.value)), setChapterId(0))}>
-            <option value={0}>{t("Pick a series…")}</option>
-            {series?.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.title}
-              </option>
-            ))}
-          </Select>
+          <TitlePicker className="w-full" placeholder={t("Pick a series…")} value={seriesId} onChange={(id) => (setSeriesId(id), setChapterId(0))} />
         </Field>
         <Field label={t("Chapter")} className="w-40">
           <Select value={chapterId || withFiles[0]?.id || 0} onChange={(e) => setChapterId(Number(e.target.value))}>

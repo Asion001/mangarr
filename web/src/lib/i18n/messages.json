@@ -10666,5 +10666,33 @@
   "{count} titles get their progress in a few minutes, once the site says which chapter you reached": {
     "ru": "тайтлов получат прогресс через несколько минут, когда сайт сообщит, до какой главы вы дошли: {count}",
     "uk": "тайтлів отримають прогрес за кілька хвилин, коли сайт повідомить, до якого розділу ви дійшли: {count}"
+  },
+  "also “{name}”": {
+    "ru": "также «{name}»",
+    "uk": "також «{name}»"
+  },
+  "Search titles…": {
+    "ru": "Поиск тайтлов…",
+    "uk": "Пошук тайтлів…"
+  },
+  "Looks like the same title": {
+    "ru": "Похоже, это тот же тайтл",
+    "uk": "Схоже, це той самий тайтл"
+  },
+  "Matching “{query}”": {
+    "ru": "По запросу «{query}»",
+    "uk": "За запитом «{query}»"
+  },
+  "No title matches “{query}”.": {
+    "ru": "Нет тайтлов по запросу «{query}».",
+    "uk": "Немає тайтлів за запитом «{query}»."
+  },
+  "No titles yet.": {
+    "ru": "Тайтлов пока нет.",
+    "uk": "Тайтлів поки немає."
+  },
+  "Group with {title}": {
+    "ru": "Объединить с «{title}»",
+    "uk": "Об’єднати з «{title}»"
   }
 }

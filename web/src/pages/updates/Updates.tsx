@@ -6,7 +6,8 @@ import { BookOpen, BookPlus, CheckCheck, Eye, Settings, SlidersHorizontal, Spark
 import { api, apiUrl, unwrap, type S } from "../../api/client";
 import { useSeriesList } from "../../api/queries";
 import { Cover } from "../../components/Cover";
-import { Badge, Button, ButtonLink, Card, EmptyState, ErrorBox, Input, Loading, Modal, PageHeader, Segmented, Select } from "../../components/ui";
+import { TitlePicker } from "../../components/TitlePicker";
+import { Badge, Button, ButtonLink, Card, EmptyState, ErrorBox, Loading, Modal, PageHeader, Segmented, Select } from "../../components/ui";
 import { languageName, relative } from "../../lib/format";
 import { useLiveUpdateStatus } from "../../lib/events";
 import { t } from "../../lib/i18n/core";
@@ -213,10 +214,6 @@ function FilterControls(p: {
   const { data } = useSeriesList();
   const library = Array.isArray(data) ? data : [];
   const languages = useMemo(() => [...new Set(library.map((s) => s.language).filter(Boolean) as string[])].sort(), [library]);
-  const titles = useMemo(() => library.map((s) => ({ id: s.id, title: s.title })).sort((a, b) => a.title.localeCompare(b.title)), [library]);
-  const current = titles.find((x) => x.id === p.seriesId)?.title ?? "";
-  const [typed, setTyped] = useState<string | null>(null);
-  const listId = useRef(`update-titles-${Math.random().toString(36).slice(2)}`).current;
   return (
     <>
       <Segmented
@@ -242,23 +239,7 @@ function FilterControls(p: {
           {t("Titles I follow")}
         </label>
       )}
-      <Input
-        className="w-full sm:w-52"
-        list={listId}
-        aria-label={t("Title")}
-        placeholder={t("Filter by title…")}
-        value={typed ?? current}
-        onChange={(e) => {
-          const v = e.target.value;
-          setTyped(v);
-          const hit = titles.find((x) => x.title.toLowerCase() === v.trim().toLowerCase());
-          if (hit) (p.onSeries(hit.id), setTyped(null));
-          else if (!v && p.seriesId) p.onSeries(0);
-        }}
-      />
-      <datalist id={listId}>
-        {titles.map((x) => <option key={x.id} value={x.title} />)}
-      </datalist>
+      <TitlePicker className="w-full sm:w-56" placeholder={t("Filter by title…")} value={p.seriesId} onChange={p.onSeries} />
     </>
   );
 }
