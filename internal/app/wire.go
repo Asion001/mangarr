@@ -177,23 +177,37 @@ func (a *App) wire(ctx context.Context) error {
 			r.Progress("%d chapters queued", total)
 			return bulkError(failed, len(ids), "search", lastErr)
 		}})
-	a.Queue.Register(jobs.Definition{Name: "RefreshMetadata", Description: "Refresh series metadata from metadata modules",
+	a.Queue.Register(jobs.Definition{Name: "RefreshMetadata", Description: "Refresh series metadata from metadata modules: one series (seriesId), several (seriesIds) or the whole library",
 		Handler: func(ctx context.Context, r *jobs.Run) error {
 			var body struct {
-				SeriesID int64 `json:"seriesId"`
+				SeriesID  int64   `json:"seriesId"`
+				SeriesIDs []int64 `json:"seriesIds"`
 			}
 			_ = r.Body(&body)
-			var ids []int64
+			ids := body.SeriesIDs
 			if body.SeriesID > 0 {
-				ids = []int64{body.SeriesID}
-			} else if err := a.DB.NewSelect().Model((*model.Series)(nil)).Column("id").Where("preview = ?", false).Scan(ctx, &ids); err != nil {
-				return err
+				ids = append([]int64{body.SeriesID}, ids...)
 			}
-			changed := 0
+			// the scheduled run names no series and covers the library; it
+			// only logs failures, while a refresh someone asked for reports them
+			picked := len(ids) > 0
+			if !picked {
+				if err := a.DB.NewSelect().Model((*model.Series)(nil)).Column("id").Where("preview = ?", false).Scan(ctx, &ids); err != nil {
+					return err
+				}
+			}
+			changed, failed := 0, 0
+			var lastErr error
 			for i, id := range ids {
 				ok, err := a.Series.RefreshMetadata(ctx, id)
+				if ctx.Err() != nil {
+					return ctx.Err()
+				}
 				if err != nil {
 					a.Log.Warn("metadata refresh", "series", id, "err", err)
+					failed++
+					lastErr = err
+					r.Progress("%d/%d series, %d updated", i+1, len(ids), changed)
 					continue
 				}
 				if ok {
@@ -204,7 +218,10 @@ func (a *App) wire(ctx context.Context) error {
 				}
 				r.Progress("%d/%d series, %d updated", i+1, len(ids), changed)
 			}
-			return nil
+			if !picked {
+				return nil
+			}
+			return bulkError(failed, len(ids), "refresh metadata", lastErr)
 		}})
 
 	if err := a.Scheduler.Add(ctx, jobs.Task{Name: "RefreshSources", Interval: 10 * time.Minute, RunOnStart: true}); err != nil {

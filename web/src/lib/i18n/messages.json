@@ -5379,6 +5379,10 @@
     "ru": "Обновление серий ({count})",
     "uk": "Оновлення серій ({count})"
   },
+  "Refreshing metadata of {count} series": {
+    "ru": "Обновление метаданных серий ({count})",
+    "uk": "Оновлення метаданих серій ({count})"
+  },
   "Delete {count} series": {
     "ru": "Удалить серии ({count})",
     "uk": "Видалити серії ({count})"

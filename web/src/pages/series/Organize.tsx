@@ -167,7 +167,7 @@ export function MassEditBar({
       setBusy(false);
     }
   };
-  const command = async (name: "SearchMissing" | "RefreshSeries", label: string) => {
+  const command = async (name: "SearchMissing" | "RefreshSeries" | "RefreshMetadata", label: string) => {
     try {
       await unwrap(api.POST("/api/v1/commands", { body: { name, body: { seriesIds: ids } } }));
       toast.info(label);
@@ -267,6 +267,7 @@ export function MassEditBar({
                 items={[
                   { label: t("Search missing chapters"), onSelect: () => void command("SearchMissing", t("Searching missing chapters of {count} series", { count })) },
                   { label: t("Refresh sources"), onSelect: () => void command("RefreshSeries", t("Refreshing {count} series", { count })) },
+                  { label: t("Refresh metadata"), onSelect: () => void command("RefreshMetadata", t("Refreshing metadata of {count} series", { count })) },
                   { label: t("Rename files…"), onSelect: () => setRenaming(true) },
                   { section: "" },
                   { label: t("Delete series…"), danger: true, onSelect: () => setDeleting(true), hidden: !deletes },

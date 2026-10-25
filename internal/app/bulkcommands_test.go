@@ -2,6 +2,7 @@ package app_test
 
 import (
 	"context"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -75,5 +76,50 @@ func TestBulkRefreshContinuesPastAFailedSeries(t *testing.T) {
 	n, err := e.App.DB.NewSelect().Model((*model.Chapter)(nil)).Where("series_id = ?", ser.ID).Count(e.Ctx)
 	if err != nil || n != 1 {
 		t.Fatalf("want the second series refreshed (1 chapter), got %d (%v)", n, err)
+	}
+}
+
+// A metadata refresh for picked series covers only those, and reports the
+// ones it couldn't refresh.
+func TestRefreshMetadataOfPickedSeries(t *testing.T) {
+	sc := fakesource.NewScenario("bulk-metadata")
+	sc.Sources = []source.SourceInfo{{ID: "A", Name: "Source A", Lang: "en"}}
+	titles := []string{"First Series", "Second Series", "Third Series"}
+	for i, title := range titles {
+		sc.AddManga(&fakesource.Manga{SourceID: "A", URL: "/" + strconv.Itoa(i), Title: title, Status: source.StatusOngoing})
+	}
+	e := newTestApp(t, dbtest.DSNs(t)["sqlite"])
+	mod := e.addFakeModule(t, "bulk-metadata")
+	var ids []int64
+	for i, title := range titles {
+		ser, err := e.App.Series.Add(e.Ctx, series.AddRequest{Title: title, RootFolderID: e.RFID, Monitor: model.MonitorAll,
+			Sources: []series.SourceLink{{ModuleID: mod, SourceID: "A", URL: "/" + strconv.Itoa(i), SourceName: "Source A", Lang: "en"}}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		ids = append(ids, ser.ID)
+	}
+	run := func(body map[string]any) *model.Command {
+		t.Helper()
+		c, err := e.App.Queue.Push(e.Ctx, "RefreshMetadata", body, "test")
+		if err != nil {
+			t.Fatal(err)
+		}
+		wctx, cancel := context.WithTimeout(e.Ctx, 30*time.Second)
+		defer cancel()
+		res, err := e.App.Queue.Wait(wctx, c.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return res
+	}
+	if res := run(map[string]any{"seriesIds": ids[:2]}); res.Status != model.CommandCompleted || !strings.HasPrefix(res.Message, "2/2 series") {
+		t.Fatalf("want two series refreshed, got %s: %q %s", res.Status, res.Message, res.Error)
+	}
+	if res := run(map[string]any{"seriesIds": []int64{ids[2] + 1000, ids[2]}}); res.Status != model.CommandFailed || !strings.Contains(res.Error, "1 of 2 series") {
+		t.Fatalf("want 1 of 2 series failed, got %s: %s", res.Status, res.Error)
+	}
+	if res := run(nil); res.Status != model.CommandCompleted || !strings.HasPrefix(res.Message, "3/3 series") {
+		t.Fatalf("want the whole library refreshed, got %s: %q %s", res.Status, res.Message, res.Error)
 	}
 }
