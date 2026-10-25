@@ -183,6 +183,18 @@ func ownReaderOnly(ctx context.Context) (int64, bool) {
 	return p.ReaderID, true
 }
 
+// chapterReaderOnly is the reader whose progress the chapter list shows. A
+// signed-in person, administrators included, sees only their own: the list
+// marks chapters read and picks where to continue from it, so another
+// reader's page there reads as yours. Everyone's totals stay in the reading
+// panel.
+func chapterReaderOnly(ctx context.Context) (int64, bool) {
+	if p := access.From(ctx); p != nil && p.Kind == access.KindUser {
+		return p.ReaderID, true
+	}
+	return ownReaderOnly(ctx)
+}
+
 // countedReaders are the readers whose progress counts (cleanup readers,
 // or everyone when no reader counts for cleanup).
 func (s *Server) countedReaders(ctx context.Context) []int64 {

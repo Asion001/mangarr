@@ -100,7 +100,7 @@ func (s *Server) chapterResources(ctx context.Context, seriesID int64) ([]Chapte
 		}
 	}
 	readBy := map[int64][]ReadStateView{}
-	own, onlyOwn := ownReaderOnly(ctx)
+	own, onlyOwn := chapterReaderOnly(ctx)
 	labels := s.progressReaderLabels(ctx)
 	for _, r := range reads {
 		if onlyOwn && r.ReaderID != own {
