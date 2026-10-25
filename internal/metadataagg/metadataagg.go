@@ -6,6 +6,7 @@ package metadataagg
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"reflect"
 	"regexp"
@@ -72,7 +73,7 @@ func (a *Aggregator) SearchLanguage(ctx context.Context, q, language string, lim
 				list, err = m.Instance.Search(ctx, q, limit)
 			}
 			if err != nil {
-				errs[i] = errors.New(m.Def.Name + ": " + err.Error())
+				errs[i] = fmt.Errorf("%s: %w", m.Def.Name, err)
 				return
 			}
 			for _, md := range list {

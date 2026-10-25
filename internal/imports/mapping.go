@@ -2,8 +2,11 @@ package imports
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
+	"path"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -208,7 +211,7 @@ func (m *mapper) mapEntry(ctx context.Context, e *model.ImportEntry) {
 		}
 	}
 	if e.SeriesID == nil && m.opts.MatchMetadata && e.Metadata == nil {
-		e.Metadata = m.matchMetadata(ctx, d)
+		e.Metadata = m.matchMetadata(ctx, d, e.Source)
 	}
 	if e.SeriesID == nil && e.Metadata != nil {
 		if sid, ok := m.byExternal[e.Metadata.Provider+":"+e.Metadata.ID]; ok {
@@ -525,7 +528,7 @@ func (m *mapper) findByTitle(ctx context.Context, e *model.ImportEntry) {
 // trackerOrder tries the most useful tracker ids first.
 var trackerOrder = []string{backupimport.TrackerAniList, backupimport.TrackerMAL, backupimport.TrackerMangaUpdates, backupimport.TrackerKitsu}
 
-func (m *mapper) matchMetadata(ctx context.Context, d backupimport.BackupManga) *model.ImportMetadata {
+func (m *mapper) matchMetadata(ctx context.Context, d backupimport.BackupManga, src *model.ImportSource) *model.ImportMetadata {
 	for _, mm := range m.meta {
 		if id := d.Trackers[mm.Def.Implementation]; id != "" {
 			return &model.ImportMetadata{ModuleID: mm.Def.ID, Provider: mm.Def.Implementation, ID: id, Title: d.Title, How: model.MatchTracker}
@@ -553,7 +556,35 @@ func (m *mapper) matchMetadata(ctx context.Context, d backupimport.BackupManga) 
 	if len(m.meta) == 0 {
 		return nil
 	}
-	return MatchTitleMetadata(ctx, m.s.Metadata, d.Title, d.AltTitles)
+	// a site's link often spells the English or romanized name the site's
+	// own (translated) title hides: /manga/chronicles-of-the-demon-faction
+	alts := d.AltTitles
+	if src != nil {
+		if name := SlugTitle(src.URL); name != "" {
+			alts = append([]string{name}, alts...)
+		}
+	}
+	return MatchTitleMetadata(ctx, m.s.Metadata, d.Title, alts)
+}
+
+var (
+	slugID     = regexp.MustCompile(`^\d+--`) // MangaLib's "7965--chainsaw-man"
+	slugLatin  = regexp.MustCompile(`^[a-z0-9]+(?:[-_][a-z0-9]+)+$`)
+	slugLetter = regexp.MustCompile(`[a-z]`)
+)
+
+// SlugTitle is the name a manga link's last path part spells, or "" when it
+// is no readable name (a number, an id, one word).
+func SlugTitle(link string) string {
+	if u, err := url.Parse(link); err == nil {
+		link = u.Path
+	}
+	slug := strings.ToLower(path.Base(strings.TrimRight(link, "/")))
+	slug = slugID.ReplaceAllString(slug, "")
+	if !slugLatin.MatchString(slug) || len(slugLetter.FindAllString(slug, -1)) < 4 {
+		return ""
+	}
+	return strings.Join(strings.FieldsFunc(slug, func(r rune) bool { return r == '-' || r == '_' }), " ")
 }
 
 // MatchTitleMetadata finds the metadata series for a title by searching its
@@ -569,9 +600,17 @@ func MatchTitleMetadata(ctx context.Context, agg *metadataagg.Aggregator, title 
 		return nil
 	}
 	for _, q := range names[:min(len(names), 3)] {
-		sctx, cancel := context.WithTimeout(ctx, 45*time.Second)
-		cands, _ := agg.Search(sctx, q, 5)
-		cancel()
+		cands, errs := searchMetadata(ctx, agg, q)
+		if wait := pauseLeft(errs); wait > 0 {
+			// a provider is paused (rate limited, down): a title it would
+			// find must not be imported without metadata, so wait it out once
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-time.After(wait):
+			}
+			cands, _ = searchMetadata(ctx, agg, q)
+		}
 		best, score := -1, 0.0
 		for i, c := range cands {
 			cn := append([]string{c.Title}, c.AltTitles...)
@@ -588,6 +627,31 @@ func MatchTitleMetadata(ctx context.Context, agg *metadataagg.Aggregator, title 
 		}
 	}
 	return nil
+}
+
+func searchMetadata(ctx context.Context, agg *metadataagg.Aggregator, q string) ([]metadataagg.Candidate, []error) {
+	sctx, cancel := context.WithTimeout(ctx, 45*time.Second)
+	defer cancel()
+	return agg.Search(sctx, q, 5)
+}
+
+// maxPauseWait bounds how long a match waits for a paused provider.
+const maxPauseWait = 2 * time.Minute
+
+// pauseLeft is how long until the first paused provider among errs takes
+// calls again, capped by maxPauseWait; 0 when none is paused.
+func pauseLeft(errs []error) time.Duration {
+	var left time.Duration
+	for _, err := range errs {
+		var paused *metadata.PausedError
+		if errors.As(err, &paused) {
+			d := min(max(time.Until(paused.Until), time.Second), maxPauseWait)
+			if left == 0 || d < left {
+				left = d
+			}
+		}
+	}
+	return left
 }
 
 func firstNonEmpty(xs ...string) string {
