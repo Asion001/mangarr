@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -229,7 +230,19 @@ type EntryFilter struct {
 	Selected *bool
 	Query    string
 	IDs      []int64
+	// List is a category of the backup or a list of the site account.
+	List string
+	// Source is the matched source's name, or NoSource for entries without one.
+	Source string
+	// Progress is "started" or "none" (nothing read yet).
+	Progress string
+	// Sort is "" (order in the file), "title", "read" (most read first),
+	// "recent" (read most recently first) or "chapters" (most chapters first).
+	Sort string
 }
+
+// NoSource filters entries that have no matched source.
+const NoSource = "-"
 
 func (f EntryFilter) apply(q *bun.SelectQuery) *bun.SelectQuery {
 	if f.State != "" {
@@ -247,8 +260,133 @@ func (f EntryFilter) apply(q *bun.SelectQuery) *bun.SelectQuery {
 	return q
 }
 
+// inMemory is whether the filter reads the entries' data, which is JSON
+// and is filtered and sorted here rather than in SQL.
+func (f EntryFilter) inMemory() bool {
+	return f.List != "" || f.Source != "" || f.Progress != "" || f.Sort != ""
+}
+
+func (f EntryFilter) match(e *model.ImportEntry) bool {
+	if f.List != "" && !slices.Contains(e.Data.Categories, f.List) {
+		return false
+	}
+	if f.Source != "" {
+		name := NoSource
+		if e.Source != nil {
+			name = e.Source.SourceName
+		}
+		if name != f.Source {
+			return false
+		}
+	}
+	switch f.Progress {
+	case "started":
+		return Started(e.Data)
+	case "none":
+		return !Started(e.Data)
+	}
+	return true
+}
+
+// Started is whether any of the manga was read.
+func Started(m backupimport.BackupManga) bool {
+	if m.ReadUpTo != nil && (m.ReadUpTo.Chapter > 0 || m.ReadUpTo.Page > 0 || m.ReadUpTo.ChapterRef != "") {
+		return true
+	}
+	for _, c := range m.Chapters {
+		if c.Read || c.LastPageRead > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// reached is how far the manga was read, for sorting.
+func reached(m backupimport.BackupManga) float64 {
+	n := float64(m.ReadCount())
+	if m.ReadUpTo != nil {
+		n = max(n, m.ReadUpTo.Chapter)
+	}
+	return n
+}
+
+// lastRead is when a chapter of the manga was last read (zero when unknown).
+func lastRead(m backupimport.BackupManga) time.Time {
+	var at time.Time
+	for _, c := range m.Chapters {
+		if c.ReadAt != nil && c.ReadAt.After(at) {
+			at = *c.ReadAt
+		}
+	}
+	return at
+}
+
+func (f EntryFilter) sort(list []model.ImportEntry) {
+	var cmp func(a, b *model.ImportEntry) int
+	switch f.Sort {
+	case "title":
+		cmp = func(a, b *model.ImportEntry) int {
+			return strings.Compare(strings.ToLower(a.Title), strings.ToLower(b.Title))
+		}
+	case "read":
+		cmp = func(a, b *model.ImportEntry) int { return compareDesc(reached(a.Data), reached(b.Data)) }
+	case "recent":
+		cmp = func(a, b *model.ImportEntry) int { return lastRead(b.Data).Compare(lastRead(a.Data)) }
+	case "chapters":
+		cmp = func(a, b *model.ImportEntry) int { return compareDesc(len(a.Data.Chapters), len(b.Data.Chapters)) }
+	default:
+		cmp = func(*model.ImportEntry, *model.ImportEntry) int { return 0 }
+	}
+	slices.SortStableFunc(list, func(a, b model.ImportEntry) int {
+		if c := cmp(&a, &b); c != 0 {
+			return c
+		}
+		return a.Position - b.Position
+	})
+}
+
+func compareDesc[T int | float64](a, b T) int {
+	switch {
+	case a > b:
+		return -1
+	case a < b:
+		return 1
+	}
+	return 0
+}
+
+// selectEntries loads the entries of an import matching f, in its order.
+func (s *Service) selectEntries(ctx context.Context, id int64, f EntryFilter) ([]model.ImportEntry, error) {
+	out := []model.ImportEntry{}
+	if err := f.apply(s.DB.NewSelect().Model(&out).Where("import_id = ?", id)).Order("position").Scan(ctx); err != nil {
+		return nil, err
+	}
+	if !f.inMemory() {
+		return out, nil
+	}
+	kept := out[:0]
+	for i := range out {
+		if f.match(&out[i]) {
+			kept = append(kept, out[i])
+		}
+	}
+	f.sort(kept)
+	return kept, nil
+}
+
 // Entries lists a page of entries.
 func (s *Service) Entries(ctx context.Context, id int64, f EntryFilter, page, pageSize int) ([]model.ImportEntry, int, error) {
+	if f.inMemory() {
+		all, err := s.selectEntries(ctx, id, f)
+		if err != nil {
+			return nil, 0, err
+		}
+		if pageSize <= 0 {
+			return all, len(all), nil
+		}
+		from := min(max(page-1, 0)*pageSize, len(all))
+		return all[from:min(from+pageSize, len(all))], len(all), nil
+	}
 	out := []model.ImportEntry{}
 	q := f.apply(s.DB.NewSelect().Model(&out).Where("import_id = ?", id)).Order("position")
 	if pageSize > 0 {
@@ -256,6 +394,27 @@ func (s *Service) Entries(ctx context.Context, id int64, f EntryFilter, page, pa
 	}
 	total, err := q.ScanAndCount(ctx)
 	return out, int(total), err
+}
+
+// Facets counts an import's entries per list and per matched source
+// (NoSource for those without one).
+func (s *Service) Facets(ctx context.Context, id int64) (lists, sources map[string]int, err error) {
+	var rows []model.ImportEntry
+	if err := s.DB.NewSelect().Model(&rows).Column("data", "source").Where("import_id = ?", id).Scan(ctx); err != nil {
+		return nil, nil, err
+	}
+	lists, sources = map[string]int{}, map[string]int{}
+	for _, e := range rows {
+		for _, c := range e.Data.Categories {
+			lists[c]++
+		}
+		name := NoSource
+		if e.Source != nil {
+			name = e.Source.SourceName
+		}
+		sources[name]++
+	}
+	return lists, sources, nil
 }
 
 // EntryPatch changes entries.
@@ -275,8 +434,8 @@ func (s *Service) UpdateEntries(ctx context.Context, id int64, f EntryFilter, p 
 	if s.Busy(id) {
 		return 0, ErrBusy
 	}
-	var entries []model.ImportEntry
-	if err := f.apply(s.DB.NewSelect().Model(&entries).Where("import_id = ?", id)).Scan(ctx); err != nil {
+	entries, err := s.selectEntries(ctx, id, f)
+	if err != nil {
 		return 0, err
 	}
 	if (p.Source != nil || p.Metadata != nil) && len(entries) != 1 {
@@ -284,7 +443,7 @@ func (s *Service) UpdateEntries(ctx context.Context, id int64, f EntryFilter, p 
 	}
 	now := time.Now().UTC()
 	changed := 0
-	err := s.DB.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+	err = s.DB.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
 		for i := range entries {
 			e := &entries[i]
 			if e.State == model.EntryImported {

@@ -4440,6 +4440,13 @@
             },
             "type": "array"
           },
+          "lists": {
+            "additionalProperties": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "type": "object"
+          },
           "page": {
             "format": "int64",
             "type": "integer"
@@ -4447,6 +4454,13 @@
           "pageSize": {
             "format": "int64",
             "type": "integer"
+          },
+          "sources": {
+            "additionalProperties": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "type": "object"
           },
           "total": {
             "format": "int64",
@@ -4457,7 +4471,9 @@
           "items",
           "total",
           "page",
-          "pageSize"
+          "pageSize",
+          "lists",
+          "sources"
         ],
         "type": "object"
       },
@@ -4496,11 +4512,26 @@
       "ImportEntryFilter": {
         "additionalProperties": false,
         "properties": {
+          "list": {
+            "type": "string"
+          },
+          "progress": {
+            "enum": [
+              "",
+              "started",
+              "none"
+            ],
+            "type": "string"
+          },
           "q": {
             "type": "string"
           },
           "selected": {
             "type": "boolean"
+          },
+          "source": {
+            "description": "Matched source name; - for entries without one",
+            "type": "string"
           },
           "state": {
             "enum": [
@@ -16298,6 +16329,54 @@
             "in": "query",
             "name": "q",
             "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "list",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Matched source name; - for entries without one",
+            "explode": false,
+            "in": "query",
+            "name": "source",
+            "schema": {
+              "description": "Matched source name; - for entries without one",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "progress",
+            "schema": {
+              "enum": [
+                "",
+                "started",
+                "none"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "Empty: the order in the file",
+            "explode": false,
+            "in": "query",
+            "name": "sort",
+            "schema": {
+              "description": "Empty: the order in the file",
+              "enum": [
+                "",
+                "title",
+                "read",
+                "recent",
+                "chapters"
+              ],
               "type": "string"
             }
           },

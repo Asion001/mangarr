@@ -5457,10 +5457,16 @@ export interface components {
         };
         ImportEntriesPage: {
             items: components["schemas"]["ImportEntryView"][];
+            lists: {
+                [key: string]: number;
+            };
             /** Format: int64 */
             page: number;
             /** Format: int64 */
             pageSize: number;
+            sources: {
+                [key: string]: number;
+            };
             /** Format: int64 */
             total: number;
         };
@@ -5475,8 +5481,13 @@ export interface components {
             source?: components["schemas"]["ImportSource"];
         };
         ImportEntryFilter: {
+            list?: string;
+            /** @enum {string} */
+            progress?: "" | "started" | "none";
             q?: string;
             selected?: boolean;
+            /** @description Matched source name; - for entries without one */
+            source?: string;
             /** @enum {string} */
             state?: "" | "pending" | "ready" | "review" | "extension" | "library" | "imported" | "failed";
         };
@@ -9840,6 +9851,12 @@ export interface operations {
                 state?: "" | "pending" | "ready" | "review" | "extension" | "library" | "imported" | "failed";
                 selected?: "" | "true" | "false";
                 q?: string;
+                list?: string;
+                /** @description Matched source name; - for entries without one */
+                source?: string;
+                progress?: "" | "started" | "none";
+                /** @description Empty: the order in the file */
+                sort?: "" | "title" | "read" | "recent" | "chapters";
                 page?: number;
                 pageSize?: number;
             };

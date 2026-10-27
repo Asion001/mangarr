@@ -62,15 +62,31 @@ export function ImportDetailPage() {
   const toast = useToast();
   const [state, setState] = useListParam("state");
   const [q, setQ] = useQueryParam("q");
+  const [list, setList] = useListParam("list");
+  const [source, setSource] = useListParam("source");
+  const [progress, setProgress] = useListParam("progress");
+  const [sort, setSort] = useListParam("sort");
   const [pageStr, setPage] = useListParam("page", "1");
   const page = Number(pageStr) || 1;
   const imp = useQuery({ queryKey: ["import", id], queryFn: () => unwrap(api.GET("/api/v1/imports/{id}", { params: { path: { id } } })) });
   const entries = useQuery({
-    queryKey: ["import-entries", id, state, q, page],
+    queryKey: ["import-entries", id, state, q, list, source, progress, sort, page],
     queryFn: () =>
       unwrap(
         api.GET("/api/v1/imports/{id}/entries", {
-          params: { path: { id }, query: { state: (state || undefined) as never, q: q || undefined, page, pageSize: PAGE } },
+          params: {
+            path: { id },
+            query: {
+              state: (state || undefined) as never,
+              q: q || undefined,
+              list: list || undefined,
+              source: source || undefined,
+              progress: (progress || undefined) as never,
+              sort: (sort || undefined) as never,
+              page,
+              pageSize: PAGE,
+            },
+          },
         }),
       ),
     placeholderData: keepPreviousData,
@@ -123,7 +139,12 @@ export function ImportDetailPage() {
   const items = entries.data?.items ?? [];
   const total = entries.data?.total ?? 0;
   const pages = Math.max(1, Math.ceil(total / PAGE));
-  const filter = { state: (state || undefined) as never, q: q || undefined };
+  const filter = { state: (state || undefined) as never, q: q || undefined, list: list || undefined, source: source || undefined, progress: (progress || undefined) as never };
+  // lists and sources of the import, with counts, for the filter menus
+  const lists = Object.entries(entries.data?.lists ?? {}).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  const sources = Object.entries(entries.data?.sources ?? {}).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  const narrowed = [state && stateLabel(state).toLowerCase(), list, source && (source === "-" ? tr("no source") : source), progress && (progress === "started" ? tr("started") : tr("not started"))].filter(Boolean).join(" · ");
+  const pick = (set: (v: string) => void) => (v: string) => (set(v), setPage("1"));
 
   return (
     <>
@@ -166,6 +187,40 @@ export function ImportDetailPage() {
             </Button>
           ))}
         </div>
+      </div>
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        {(lists.length > 0 || list) && (
+          <Select aria-label={t("List")} className="w-auto max-w-full" value={list} onChange={(e) => pick(setList)(e.target.value)}>
+            <option value="">{t("List: any")}</option>
+            {lists.map(([name, n]) => (
+              <option key={name} value={name}>
+                {name} ({n})
+              </option>
+            ))}
+          </Select>
+        )}
+        {(sources.length > 1 || source) && (
+          <Select aria-label={t("Source")} className="w-auto max-w-full" value={source} onChange={(e) => pick(setSource)(e.target.value)}>
+            <option value="">{t("Source: any")}</option>
+            {sources.map(([name, n]) => (
+              <option key={name} value={name}>
+                {name === "-" ? tr("No source") : name} ({n})
+              </option>
+            ))}
+          </Select>
+        )}
+        <Select aria-label={t("Progress")} className="w-auto max-w-full" value={progress} onChange={(e) => pick(setProgress)(e.target.value)}>
+          <option value="">{t("Progress: any")}</option>
+          <option value="started">{t("Started reading")}</option>
+          <option value="none">{t("Not started")}</option>
+        </Select>
+        <Select aria-label={t("Sort")} className="w-auto max-w-full" value={sort} onChange={(e) => pick(setSort)(e.target.value)}>
+          <option value="">{t("Sort: order in the file")}</option>
+          <option value="title">{t("Sort: title A–Z")}</option>
+          <option value="read">{t("Sort: most read")}</option>
+          <option value="recent">{t("Sort: read most recently")}</option>
+          <option value="chapters">{t("Sort: most chapters")}</option>
+        </Select>
         <div className="relative ml-auto w-full max-w-xs">
           <Search className="absolute left-2.5 top-2.5 size-4 text-muted" />
           <Input className="pl-8" placeholder={t("Filter titles…")} defaultValue={q} onChange={(e) => (setQ(e.target.value), setPage("1"))} />
@@ -175,7 +230,7 @@ export function ImportDetailPage() {
       <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-muted">
         <span>
           {counts.selected ?? 0}{" " + t("of") + " "}{counts.all ?? 0}{" " + t("selected")}</span>
-        <Button size="sm" disabled={busy} onClick={() => patch({ filter, selected: true })}>{t("Select all") + " "}{state ? stateLabel(state).toLowerCase() : ""} ({total})
+        <Button size="sm" disabled={busy} onClick={() => patch({ filter, selected: true })}>{t("Select all") + " "}{narrowed} ({total})
         </Button>
         <Button size="sm" disabled={busy} onClick={() => patch({ filter, selected: false })}>{t("Deselect them")}</Button>
         {(counts.review ?? 0) > 0 && (

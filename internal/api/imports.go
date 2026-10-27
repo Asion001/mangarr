@@ -47,6 +47,10 @@ type ImportEntriesPage struct {
 	Total    int               `json:"total"`
 	Page     int               `json:"page"`
 	PageSize int               `json:"pageSize"`
+	// Lists counts all entries per list (category), Sources per matched
+	// source name ("-": none).
+	Lists   map[string]int `json:"lists"`
+	Sources map[string]int `json:"sources"`
 }
 
 // ImportEntryFilter selects entries for bulk changes.
@@ -54,6 +58,13 @@ type ImportEntryFilter struct {
 	State    string `json:"state,omitempty" enum:",pending,ready,review,extension,library,imported,failed"`
 	Selected *bool  `json:"selected,omitempty"`
 	Query    string `json:"q,omitempty"`
+	List     string `json:"list,omitempty"`
+	Source   string `json:"source,omitempty" doc:"Matched source name; - for entries without one"`
+	Progress string `json:"progress,omitempty" enum:",started,none"`
+}
+
+func (f *ImportEntryFilter) filter() imports.EntryFilter {
+	return imports.EntryFilter{State: f.State, Selected: f.Selected, Query: f.Query, List: f.List, Source: f.Source, Progress: f.Progress}
 }
 
 type ImportEntriesPatch struct {
@@ -198,10 +209,14 @@ func (s *Server) registerImports() {
 			State    string `query:"state" enum:",pending,ready,review,extension,library,imported,failed"`
 			Selected string `query:"selected" enum:",true,false"`
 			Query    string `query:"q"`
+			List     string `query:"list"`
+			Source   string `query:"source" doc:"Matched source name; - for entries without one"`
+			Progress string `query:"progress" enum:",started,none"`
+			Sort     string `query:"sort" enum:",title,read,recent,chapters" doc:"Empty: the order in the file"`
 			Page     int    `query:"page" default:"1"`
 			PageSize int    `query:"pageSize" default:"100"`
 		}) (*struct{ Body ImportEntriesPage }, error) {
-			f := imports.EntryFilter{State: in.State, Query: in.Query}
+			f := imports.EntryFilter{State: in.State, Query: in.Query, List: in.List, Source: in.Source, Progress: in.Progress, Sort: in.Sort}
 			if in.Selected != "" {
 				sel := in.Selected == "true"
 				f.Selected = &sel
@@ -217,7 +232,12 @@ func (s *Server) registerImports() {
 				v.Data.Chapters = nil // can be thousands per manga
 				views = append(views, v)
 			}
-			return &struct{ Body ImportEntriesPage }{ImportEntriesPage{Items: views, Total: total, Page: max(in.Page, 1), PageSize: pageSize}}, nil
+			lists, sources, err := s.app.Imports.Facets(ctx, in.ID)
+			if err != nil {
+				return nil, importError(err)
+			}
+			return &struct{ Body ImportEntriesPage }{ImportEntriesPage{Items: views, Total: total, Page: max(in.Page, 1), PageSize: pageSize,
+				Lists: lists, Sources: sources}}, nil
 		})
 
 	huma.Register(s.api, huma.Operation{OperationID: "imports-entry-cover", Method: http.MethodGet, Path: "/api/v1/imports/{id}/entries/{entryId}/cover", Tags: tags,
@@ -279,7 +299,7 @@ func (s *Server) registerImports() {
 		}, error) {
 			f := imports.EntryFilter{IDs: in.Body.IDs}
 			if in.Body.Filter != nil {
-				f = imports.EntryFilter{State: in.Body.Filter.State, Selected: in.Body.Filter.Selected, Query: in.Body.Filter.Query}
+				f = in.Body.Filter.filter()
 			} else if len(in.Body.IDs) == 0 {
 				return nil, huma.Error400BadRequest("ids or filter required")
 			}
