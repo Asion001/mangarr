@@ -37,6 +37,12 @@ func TestNeedsUpscale(t *testing.T) {
 	if NeedsUpscale(downloads.PageFile{Width: 500, Format: "gif"}, 1400) {
 		t.Error("gif must be left alone")
 	}
+	if !NeedsUpscale(downloads.PageFile{Width: 784, Height: 1100, Format: "avif"}, 1400) {
+		t.Error("narrow avif should be upscaled")
+	}
+	if NeedsUpscale(downloads.PageFile{Width: 500, Format: "jxl"}, 1400) {
+		t.Error("jxl must be left alone")
+	}
 	if NeedsUpscale(downloads.PageFile{Width: 0, Format: "avif"}, 1400) {
 		t.Error("unknown width must be left alone")
 	}

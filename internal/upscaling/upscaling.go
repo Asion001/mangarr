@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"image/png"
 	"os"
 	"path/filepath"
 	"slices"
@@ -16,6 +17,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/gen2brain/avif"
 
 	"github.com/Asion001/mangarr/internal/downloads"
 	"github.com/Asion001/mangarr/internal/imagecheck"
@@ -169,10 +172,10 @@ func NeedsUpscale(pg downloads.PageFile, minWidth int) bool {
 		return false
 	}
 	switch pg.Format {
-	case "jpeg", "png", "webp", "bmp":
+	case "jpeg", "png", "webp", "bmp", "avif":
 		return true
 	}
-	return false // gif (animations), avif, jxl are left alone
+	return false // gif (animations) and jxl are left alone
 }
 
 func (p *Processor) Process(ctx context.Context, cfg model.UpscaleConfig, pages []downloads.PageFile, workDir string) ([]downloads.PageFile, bool, string, error) {
@@ -208,6 +211,18 @@ func (p *Processor) ProcessEach(ctx context.Context, cfg model.UpscaleConfig, pa
 	if err != nil {
 		return nil, false, "", err
 	}
+	// the upscalers read AVIF pages as PNG; the pages handed back unchanged
+	// stay as they were
+	in, todo, err := avifToPNG(pages, todo, filepath.Join(workDir, "avif"))
+	if err != nil {
+		return nil, false, "", err
+	}
+	if len(todo) == 0 {
+		for i, pg := range pages {
+			ready(i, pg)
+		}
+		return pages, false, "", nil
+	}
 	find := func(name string) *upscale.Model {
 		for i := range info.Models {
 			if info.Models[i].Name == name {
@@ -232,7 +247,7 @@ func (p *Processor) ProcessEach(ctx context.Context, cfg model.UpscaleConfig, pa
 	color := make([]bool, len(pages))
 	if colorMdl != mdl {
 		for _, i := range todo {
-			color[i] = InColor(pages[i])
+			color[i] = InColor(in[i])
 		}
 	}
 	modelFor := func(i int) *upscale.Model {
@@ -339,7 +354,7 @@ run:
 				if l.pin != nil {
 					cctx = l.pin(ctx)
 				}
-				if err := p.upscaleChunk(cctx, l, cfg, b.format, l.scale(b.scale), b.maxWidth, pages, idxs, out, outDir); err != nil {
+				if err := p.upscaleChunk(cctx, l, cfg, b.format, l.scale(b.scale), b.maxWidth, in, idxs, out, outDir); err != nil {
 					cancel(err)
 					return
 				}
@@ -369,6 +384,52 @@ run:
 		name = strings.Join(names, ", ")
 	}
 	return out, true, name, nil
+}
+
+// avifToPNG is pages with the AVIF ones of todo written out as PNG, and todo
+// without the AVIF pages the built-in decoder refuses (taller than 32768
+// pixels), which stay as they are.
+func avifToPNG(pages []downloads.PageFile, todo []int, dir string) ([]downloads.PageFile, []int, error) {
+	in := append([]downloads.PageFile(nil), pages...)
+	kept := todo[:0:0]
+	for _, i := range todo {
+		pg := pages[i]
+		if pg.Format != "avif" {
+			kept = append(kept, i)
+			continue
+		}
+		f, err := os.Open(pg.Path)
+		if err != nil {
+			return nil, nil, err
+		}
+		img, err := avif.Decode(f)
+		_ = f.Close()
+		if errors.Is(err, avif.ErrDecode) {
+			continue
+		}
+		if err != nil {
+			return nil, nil, fmt.Errorf("decode %s: %w", pg.Name, err)
+		}
+		if err := os.MkdirAll(dir, 0o775); err != nil {
+			return nil, nil, err
+		}
+		name := strings.TrimSuffix(pg.Name, filepath.Ext(pg.Name)) + ".png"
+		path := filepath.Join(dir, name)
+		out, err := os.Create(path)
+		if err != nil {
+			return nil, nil, err
+		}
+		err = (&png.Encoder{CompressionLevel: png.BestSpeed}).Encode(out, img)
+		if cerr := out.Close(); err == nil {
+			err = cerr
+		}
+		if err != nil {
+			return nil, nil, err
+		}
+		in[i] = downloads.PageFile{Name: name, Path: path, Format: "png", Width: pg.Width, Height: pg.Height}
+		kept = append(kept, i)
+	}
+	return in, kept, nil
 }
 
 // InColor reports whether a page is in color, judged the way the encoder

@@ -12,6 +12,8 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/gen2brain/avif"
+
 	"github.com/Asion001/mangarr/internal/downloads"
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/modules/upscale"
@@ -188,5 +190,46 @@ func TestColorPagesGetTheirOwnModel(t *testing.T) {
 	}
 	if len(eng.runs) != 1 || eng.runs[0].Model != "bw" || name != "bw" {
 		t.Fatalf("ran %+v, recorded %q", eng.runs, name)
+	}
+}
+
+// pngEngine records the format of every page it is handed.
+type pngEngine struct {
+	recordingEngine
+	formats []string
+}
+
+func (e *pngEngine) Upscale(ctx context.Context, images []upscale.Image, p upscale.Params) ([]upscale.Image, error) {
+	for _, img := range images {
+		_, f, err := image.DecodeConfig(bytes.NewReader(img.Data))
+		if err != nil {
+			f = "unreadable"
+		}
+		e.formats = append(e.formats, f)
+	}
+	return e.recordingEngine.Upscale(ctx, images, p)
+}
+
+// TestAVIFPagesAreUpscaled: a source serving AVIF pages gets them upscaled,
+// handed to the upscaler as PNG.
+func TestAVIFPagesAreUpscaled(t *testing.T) {
+	pages, gray, dir := routePages(t, 2)
+	var buf bytes.Buffer
+	if err := avif.Encode(&buf, image.NewGray(image.Rect(0, 0, 8, 8)), avif.Options{Quality: 60, Speed: 10}); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "0000.avif")
+	if err := os.WriteFile(path, buf.Bytes(), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	pages[0] = downloads.PageFile{Name: "0000.avif", Path: path, Format: "avif", Width: 2, Height: 2}
+	eng := &pngEngine{recordingEngine: recordingEngine{models: []upscale.Model{{Name: "bw", Scales: []int{2, 4}}}, out: gray}}
+	out, changed, _, err := (&Processor{Fixed: eng}).Process(context.Background(),
+		model.UpscaleConfig{Enabled: true, MinWidth: 4, Model: "bw", Format: SourceFormat}, pages, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !changed || len(eng.formats) != 1 || eng.formats[0] != "png" || out[0].Format != "png" {
+		t.Fatalf("changed %v, upscaler got %v, out %+v", changed, eng.formats, out)
 	}
 }
