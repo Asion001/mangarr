@@ -10255,6 +10255,23 @@
         ],
         "type": "object"
       },
+      "SeriesRequester": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object"
+      },
       "SeriesResource": {
         "additionalProperties": false,
         "properties": {
@@ -10331,12 +10348,26 @@
           "readingDirection": {
             "type": "string"
           },
+          "requestedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "requestedBy": {
+            "items": {
+              "$ref": "#/components/schemas/SeriesRequester"
+            },
+            "type": "array"
+          },
           "rootFolderId": {
             "format": "int64",
             "type": "integer"
           },
           "sortTitle": {
             "type": "string"
+          },
+          "sourceCount": {
+            "format": "int64",
+            "type": "integer"
           },
           "sourcePriorityMode": {
             "enum": [
@@ -10440,6 +10471,12 @@
           "pageSize": {
             "format": "int64",
             "type": "integer"
+          },
+          "requesters": {
+            "items": {
+              "$ref": "#/components/schemas/SeriesRequester"
+            },
+            "type": "array"
           },
           "total": {
             "format": "int64",
@@ -12021,6 +12058,13 @@
               "type": "string"
             },
             "maxItems": 20,
+            "type": "array"
+          },
+          "libraryColumns": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 30,
             "type": "array"
           },
           "libraryPageSize": {
@@ -21193,8 +21237,103 @@
                 "latest",
                 "missing",
                 "size",
-                "read"
+                "read",
+                "progress",
+                "chapters",
+                "year",
+                "status",
+                "requested"
               ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "Sort direction; each sort has its own default",
+            "explode": false,
+            "in": "query",
+            "name": "order",
+            "schema": {
+              "description": "Sort direction; each sort has its own default",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "monitored",
+            "schema": {
+              "enum": [
+                "yes",
+                "no"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "enum": [
+                "ongoing",
+                "completed",
+                "hiatus",
+                "cancelled"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "missing: monitored chapters without a file; complete: none missing; none: no files yet",
+            "explode": false,
+            "in": "query",
+            "name": "downloads",
+            "schema": {
+              "description": "missing: monitored chapters without a file; complete: none missing; none: no files yet",
+              "enum": [
+                "missing",
+                "complete",
+                "none"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "reading",
+            "schema": {
+              "enum": [
+                "unstarted",
+                "reading",
+                "finished",
+                "unread"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "Only series you follow",
+            "explode": false,
+            "in": "query",
+            "name": "following",
+            "schema": {
+              "description": "Only series you follow",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "A user id, or none for titles nobody asked for (people who manage requests)",
+            "explode": false,
+            "in": "query",
+            "name": "requestedBy",
+            "schema": {
+              "description": "A user id, or none for titles nobody asked for (people who manage requests)",
+              "maxLength": 20,
               "type": "string"
             }
           },

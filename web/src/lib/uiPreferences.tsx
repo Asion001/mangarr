@@ -7,7 +7,7 @@ import { useAuthStatus } from '../api/queries';
 import { applyAppearance, resolveTheme, type Theme } from './theme';
 import { setSiteName } from './documentTitle';
 
-export type UIOptions = {otherLanguageChapters?:boolean; theme?:''|'dark'|'light'|'system'; accent?:string; startPage?:''|'series'|'discover'|'updates'|'continue'; sidebarCollapsed?:boolean; hiddenNav?:string[]; libraryView?:''|'posters'|'table'; librarySort?:string; libraryPageSize?:string};
+export type UIOptions = {otherLanguageChapters?:boolean; theme?:''|'dark'|'light'|'system'; accent?:string; startPage?:''|'series'|'discover'|'updates'|'continue'; sidebarCollapsed?:boolean; hiddenNav?:string[]; libraryView?:''|'posters'|'table'; librarySort?:string; libraryPageSize?:string; libraryColumns?:string[]};
 export type UIPreferences = {locale:LocalePreference; mode:'reading'|'editing'; options:UIOptions};
 const defaults: UIPreferences = {locale:'auto',mode:'reading',options:{}};
 const Ctx = createContext<{preferences:UIPreferences; save:(p:Partial<UIPreferences>)=>Promise<void>; canEdit:boolean; saving:boolean; error:unknown; ready:boolean}>({preferences:defaults,save:async()=>{},canEdit:false,saving:false,error:null,ready:false});

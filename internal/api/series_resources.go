@@ -74,6 +74,13 @@ type SeriesResource struct {
 	// managed language variants of that work.
 	WorkTitle string           `json:"workTitle,omitempty"`
 	Editions  []EditionSummary `json:"editions,omitempty"`
+	// SourceCount is how many sources the title's editions have (search).
+	SourceCount int `json:"sourceCount,omitempty"`
+	// RequestedBy are the people who asked for the title or one of its
+	// languages, and RequestedAt when the first did (search, for people
+	// who manage requests).
+	RequestedBy []SeriesRequester `json:"requestedBy,omitempty"`
+	RequestedAt *time.Time        `json:"requestedAt,omitempty"`
 }
 
 type EditionSummary struct {

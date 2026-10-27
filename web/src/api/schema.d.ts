@@ -7094,6 +7094,11 @@ export interface components {
             seriesId: number;
             title: string;
         };
+        SeriesRequester: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+        };
         SeriesResource: {
             adaptations: components["schemas"]["AdaptationResource"][];
             addOptions: components["schemas"]["AddOptions"];
@@ -7119,9 +7124,14 @@ export interface components {
             profileId: number;
             reading?: components["schemas"]["ReadingInfo"];
             readingDirection: string;
+            /** Format: date-time */
+            requestedAt?: string;
+            requestedBy?: components["schemas"]["SeriesRequester"][];
             /** Format: int64 */
             rootFolderId: number;
             sortTitle: string;
+            /** Format: int64 */
+            sourceCount?: number;
             /** @enum {string} */
             sourcePriorityMode: "inherit" | "custom";
             sources?: components["schemas"]["SeriesSource"][];
@@ -7146,6 +7156,7 @@ export interface components {
             page: number;
             /** Format: int64 */
             pageSize: number;
+            requesters?: components["schemas"]["SeriesRequester"][];
             /** Format: int64 */
             total: number;
             /** Format: int64 */
@@ -7618,6 +7629,7 @@ export interface components {
         UIOptions: {
             accent?: string;
             hiddenNav?: string[];
+            libraryColumns?: string[];
             libraryPageSize?: string;
             librarySort?: string;
             /** @enum {string} */
@@ -13423,7 +13435,18 @@ export interface operations {
             query?: {
                 q?: string;
                 filter?: "all" | "following" | "monitored" | "missing" | "ongoing" | "completed" | "unread" | "reading";
-                sort?: "title" | "added" | "latest" | "missing" | "size" | "read";
+                sort?: "title" | "added" | "latest" | "missing" | "size" | "read" | "progress" | "chapters" | "year" | "status" | "requested";
+                /** @description Sort direction; each sort has its own default */
+                order?: "asc" | "desc";
+                monitored?: "yes" | "no";
+                status?: "ongoing" | "completed" | "hiatus" | "cancelled";
+                /** @description missing: monitored chapters without a file; complete: none missing; none: no files yet */
+                downloads?: "missing" | "complete" | "none";
+                reading?: "unstarted" | "reading" | "finished" | "unread";
+                /** @description Only series you follow */
+                following?: boolean;
+                /** @description A user id, or none for titles nobody asked for (people who manage requests) */
+                requestedBy?: string;
                 rootFolderId?: number;
                 language?: string;
                 /** @description Only series with these genres or tags; repeat the parameter for each */

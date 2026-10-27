@@ -57,13 +57,78 @@ func TestSortSeriesSearch(t *testing.T) {
 	a, b, c := searchSeries(1, "A"), searchSeries(2, "B"), searchSeries(3, "C")
 	a.Stats.SizeOnDisk, b.Stats.SizeOnDisk, c.Stats.SizeOnDisk = 10, 30, 20
 	items := []SeriesResource{a, b, c}
-	sortSeriesSearch(items, "size")
+	sortSeriesSearch(items, "size", "")
 	if items[0].Title != "B" || items[1].Title != "C" || items[2].Title != "A" {
 		t.Fatalf("size order: %s %s %s", items[0].Title, items[1].Title, items[2].Title)
 	}
-	sortSeriesSearch(items, "title")
+	sortSeriesSearch(items, "title", "")
 	if items[0].Title != "A" || items[2].Title != "C" {
 		t.Fatalf("title order: %s %s %s", items[0].Title, items[1].Title, items[2].Title)
+	}
+	sortSeriesSearch(items, "size", "asc")
+	if items[0].Title != "A" || items[2].Title != "B" {
+		t.Fatalf("size ascending: %s %s %s", items[0].Title, items[1].Title, items[2].Title)
+	}
+	sortSeriesSearch(items, "title", "desc")
+	if items[0].Title != "C" || items[2].Title != "A" {
+		t.Fatalf("title descending: %s %s %s", items[0].Title, items[1].Title, items[2].Title)
+	}
+	// downloaded share: B has all monitored chapters, C half, A none monitored
+	a, b, c = items[2], items[1], items[0]
+	b.Stats.MonitoredCount, c.Stats.MonitoredCount, c.Stats.MissingCount = 4, 4, 2
+	items = []SeriesResource{a, c, b}
+	sortSeriesSearch(items, "progress", "")
+	if items[0].Title != "B" || items[1].Title != "C" || items[2].Title != "A" {
+		t.Fatalf("progress order: %s %s %s", items[0].Title, items[1].Title, items[2].Title)
+	}
+	// a title nobody asked for sorts after the requested ones
+	when := time.Unix(100, 0)
+	a.RequestedAt, b.Stats = &when, SeriesStats{}
+	items = []SeriesResource{c, b, a}
+	sortSeriesSearch(items, "requested", "")
+	if items[0].Title != "A" || items[1].Title != "B" {
+		t.Fatalf("requested order: %s %s %s", items[0].Title, items[1].Title, items[2].Title)
+	}
+	a.Status, b.Status, c.Status = "completed", "ongoing", "hiatus"
+	items = []SeriesResource{a, c, b}
+	sortSeriesSearch(items, "status", "")
+	if items[0].Title != "B" || items[1].Title != "C" || items[2].Title != "A" {
+		t.Fatalf("status order: %s %s %s", items[0].Title, items[1].Title, items[2].Title)
+	}
+}
+
+func TestMatchesSeriesQueryManagementFilters(t *testing.T) {
+	item := searchSeries(1, "Moonlit Journey")
+	item.Status = "ongoing"
+	item.Stats = SeriesStats{ChapterCount: 10, MonitoredCount: 10, FileCount: 6, MissingCount: 4, ReadCount: 3}
+	item.RequestedBy = []SeriesRequester{{ID: 7, Name: "alex"}}
+	for _, query := range []SeriesSearchQuery{
+		{Monitored: "no"},
+		{Status: "ongoing"},
+		{Downloads: "missing"},
+		{Reading: "reading"},
+		{Reading: "unread"},
+		{RequestedBy: "7"},
+		{Monitored: "no", Status: "ongoing", Downloads: "missing", RequestedBy: "7"},
+	} {
+		if !matchesSeriesQuery(item, query) {
+			t.Fatalf("%+v should match", query)
+		}
+	}
+	for _, query := range []SeriesSearchQuery{
+		{Monitored: "yes"},
+		{Status: "completed"},
+		{Downloads: "complete"},
+		{Downloads: "none"},
+		{Reading: "unstarted"},
+		{Reading: "finished"},
+		{Following: true},
+		{RequestedBy: "8"},
+		{RequestedBy: "none"},
+	} {
+		if matchesSeriesQuery(item, query) {
+			t.Fatalf("%+v should not match", query)
+		}
 	}
 }
 

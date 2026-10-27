@@ -34,4 +34,6 @@ type UIOptions struct {
 	LibraryView     string `json:"libraryView,omitempty" enum:"posters,table,"`
 	LibrarySort     string `json:"librarySort,omitempty" maxLength:"20"`
 	LibraryPageSize string `json:"libraryPageSize,omitempty" maxLength:"4"`
+	// LibraryColumns are the table view's columns, in order (empty: the default).
+	LibraryColumns []string `json:"libraryColumns,omitempty" maxItems:"30"`
 }

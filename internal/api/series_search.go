@@ -1,11 +1,14 @@
 package api
 
 import (
+	"cmp"
 	"context"
 	"net/http"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/Asion001/mangarr/internal/access"
@@ -28,12 +31,28 @@ type SeriesSearchResponse struct {
 	Genres []string `json:"genres"`
 	// GenreCounts says how many visible series have each of Genres.
 	GenreCounts map[string]int `json:"genreCounts"`
+	// Requesters are the people who asked for a visible title, for the
+	// "Requested by" filter (only for people who manage requests).
+	Requesters []SeriesRequester `json:"requesters,omitempty"`
+}
+
+// SeriesRequester is a person who asked for a title.
+type SeriesRequester struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
 }
 
 type SeriesSearchQuery struct {
 	Query        string   `query:"q" maxLength:"200"`
 	Filter       string   `query:"filter" enum:"all,following,monitored,missing,ongoing,completed,unread,reading" default:"all"`
-	Sort         string   `query:"sort" enum:"title,added,latest,missing,size,read" default:"title"`
+	Sort         string   `query:"sort" enum:"title,added,latest,missing,size,read,progress,chapters,year,status,requested" default:"title"`
+	Order        string   `query:"order,omitempty" enum:"asc,desc" doc:"Sort direction; each sort has its own default"`
+	Monitored    string   `query:"monitored,omitempty" enum:"yes,no"`
+	Status       string   `query:"status,omitempty" enum:"ongoing,completed,hiatus,cancelled"`
+	Downloads    string   `query:"downloads,omitempty" enum:"missing,complete,none" doc:"missing: monitored chapters without a file; complete: none missing; none: no files yet"`
+	Reading      string   `query:"reading,omitempty" enum:"unstarted,reading,finished,unread"`
+	Following    bool     `query:"following,omitempty" doc:"Only series you follow"`
+	RequestedBy  string   `query:"requestedBy,omitempty" maxLength:"20" doc:"A user id, or none for titles nobody asked for (people who manage requests)"`
 	RootFolderID int64    `query:"rootFolderId,omitempty"`
 	Language     string   `query:"language,omitempty" maxLength:"20"`
 	Genres       []string `query:"genre,omitempty,explode" maxItems:"50" doc:"Only series with these genres or tags; repeat the parameter for each"`
@@ -123,6 +142,59 @@ func matchesSeriesQuery(item SeriesResource, query SeriesSearchQuery) bool {
 	if !hasGenres(item.Metadata, query.Genres, query.GenreMatch == "any") {
 		return false
 	}
+	if query.Monitored != "" && item.Monitored != (query.Monitored == "yes") {
+		return false
+	}
+	if query.Status != "" && item.Status != query.Status {
+		return false
+	}
+	if query.Following && !item.Following {
+		return false
+	}
+	switch query.Downloads {
+	case "missing":
+		if item.Stats.MissingCount == 0 {
+			return false
+		}
+	case "complete":
+		if item.Stats.MissingCount > 0 || item.Stats.FileCount == 0 {
+			return false
+		}
+	case "none":
+		if item.Stats.FileCount > 0 {
+			return false
+		}
+	}
+	read, total := item.Stats.ReadCount, item.Stats.ChapterCount
+	switch query.Reading {
+	case "unstarted":
+		if read > 0 || item.Stats.InProgressCount > 0 {
+			return false
+		}
+	case "reading":
+		if (read == 0 && item.Stats.InProgressCount == 0) || read >= total {
+			return false
+		}
+	case "finished":
+		if total == 0 || read < total {
+			return false
+		}
+	case "unread":
+		if read >= total {
+			return false
+		}
+	}
+	switch query.RequestedBy {
+	case "":
+	case "none":
+		if len(item.RequestedBy) > 0 {
+			return false
+		}
+	default:
+		if !slices.ContainsFunc(item.RequestedBy, func(r SeriesRequester) bool { return strconv.FormatInt(r.ID, 10) == query.RequestedBy }) {
+			return false
+		}
+	}
 	switch query.Filter {
 	case "following":
 		return item.Following
@@ -141,31 +213,75 @@ func matchesSeriesQuery(item SeriesResource, query SeriesSearchQuery) bool {
 	}
 }
 
-func sortSeriesSearch(items []SeriesResource, order string) {
-	sort.SliceStable(items, func(i, j int) bool {
-		a, b := items[i], items[j]
-		var before bool
-		switch order {
+// seriesStatusOrder ranks statuses from still coming out to stopped.
+var seriesStatusOrder = map[string]int{"ongoing": 1, "hiatus": 2, "completed": 3, "cancelled": 4}
+
+// descendingSorts are the sorts that list the biggest or newest first
+// unless asked otherwise.
+var descendingSorts = map[string]bool{"added": true, "latest": true, "missing": true, "size": true, "read": true, "progress": true, "chapters": true, "year": true, "requested": true}
+
+// downloadedShare is the part of the monitored chapters that have a file.
+func downloadedShare(s SeriesStats) float64 {
+	if s.MonitoredCount == 0 {
+		return 0
+	}
+	return float64(s.MonitoredCount-s.MissingCount) / float64(s.MonitoredCount)
+}
+
+// compareTimes orders two times, a missing one counting as the oldest.
+func compareTimes(a, b *time.Time) int {
+	switch {
+	case a == nil && b == nil:
+		return 0
+	case a == nil:
+		return -1
+	case b == nil:
+		return 1
+	}
+	return a.Compare(*b)
+}
+
+// sortSeriesSearch orders items by a sort, in order ("asc" or "desc"; empty
+// is the sort's own default); ties keep title order.
+func sortSeriesSearch(items []SeriesResource, by, order string) {
+	desc := descendingSorts[by]
+	if order != "" {
+		desc = order == "desc"
+	}
+	slices.SortStableFunc(items, func(a, b SeriesResource) int {
+		var c int
+		switch by {
 		case "added":
-			before = a.AddedAt.After(b.AddedAt)
+			c = a.AddedAt.Compare(b.AddedAt)
 		case "latest":
-			before = a.Stats.LastChapter > b.Stats.LastChapter
+			c = cmp.Compare(a.Stats.LastChapter, b.Stats.LastChapter)
 		case "missing":
-			before = a.Stats.MissingCount > b.Stats.MissingCount
+			c = cmp.Compare(a.Stats.MissingCount, b.Stats.MissingCount)
 		case "size":
-			before = a.Stats.SizeOnDisk > b.Stats.SizeOnDisk
+			c = cmp.Compare(a.Stats.SizeOnDisk, b.Stats.SizeOnDisk)
 		case "read":
-			if a.Stats.LastReadAt == nil {
-				before = false
-			} else if b.Stats.LastReadAt == nil {
-				before = true
-			} else {
-				before = a.Stats.LastReadAt.After(*b.Stats.LastReadAt)
-			}
-		default:
-			before = a.SortTitle < b.SortTitle
+			c = compareTimes(a.Stats.LastReadAt, b.Stats.LastReadAt)
+		case "progress":
+			c = cmp.Compare(downloadedShare(a.Stats), downloadedShare(b.Stats))
+		case "chapters":
+			c = cmp.Compare(a.Stats.ChapterCount, b.Stats.ChapterCount)
+		case "year":
+			c = cmp.Compare(a.Metadata.Year, b.Metadata.Year)
+		case "status":
+			c = cmp.Compare(seriesStatusOrder[a.Status], seriesStatusOrder[b.Status])
+		case "requested":
+			c = compareTimes(a.RequestedAt, b.RequestedAt)
 		}
-		return before
+		if desc {
+			c = -c
+		}
+		if c == 0 {
+			c = strings.Compare(a.SortTitle, b.SortTitle)
+			if by == "title" && desc {
+				c = -c
+			}
+		}
+		return c
 	})
 }
 
@@ -228,13 +344,24 @@ func (s *Server) registerSeriesSearch() {
 					rawMatches[key] = true
 				}
 			}
+			filters := *in
+			filters.Query, filters.RootFolderID, filters.Language = "", 0, ""
 			grouped, err := s.groupedSeriesResources(ctx, visible, uiLanguage(in.AcceptLanguage))
 			if err != nil {
 				return nil, toHTTPError(err)
 			}
+			if err := s.addSourceCounts(ctx, grouped); err != nil {
+				return nil, toHTTPError(err)
+			}
+			var requesters []SeriesRequester
+			if principal.Can(access.RequestsManage) {
+				if requesters, err = s.addRequesters(ctx, grouped); err != nil {
+					return nil, toHTTPError(err)
+				}
+			} else {
+				filters.RequestedBy = ""
+			}
 			items := make([]SeriesResource, 0, len(grouped))
-			filters := *in
-			filters.Query, filters.RootFolderID, filters.Language = "", 0, ""
 			for _, item := range grouped {
 				key := item.WorkID
 				if key == 0 {
@@ -247,7 +374,7 @@ func (s *Server) registerSeriesSearch() {
 					items = append(items, item)
 				}
 			}
-			sortSeriesSearch(items, in.Sort)
+			sortSeriesSearch(items, in.Sort, in.Order)
 			total := len(items)
 			var totalSize int64
 			for _, item := range items {
@@ -270,7 +397,7 @@ func (s *Server) registerSeriesSearch() {
 				return genreCount[a] > genreCount[b] || genreCount[a] == genreCount[b] && a < b
 			})
 			return &struct{ Body SeriesSearchResponse }{SeriesSearchResponse{
-				Items: items[start:end], Page: page, PageSize: pageSize, Total: total, TotalSize: totalSize, Languages: langs, Genres: genreList, GenreCounts: genreCount,
+				Items: items[start:end], Page: page, PageSize: pageSize, Total: total, TotalSize: totalSize, Languages: langs, Genres: genreList, GenreCounts: genreCount, Requesters: requesters,
 			}}, nil
 		})
 }

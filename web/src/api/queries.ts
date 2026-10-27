@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, unwrap } from "./client";
+import type { paths } from "./schema";
 import { accountKey, forgetCopy, readCopy, saveCopy } from "./persist";
 import { unreachable } from "../lib/connection";
 import { useToast } from "../lib/toast";
@@ -52,17 +53,7 @@ export const useSeriesList = () => {
   });
 };
 
-export type SeriesSearchQuery = {
-  q?: string;
-  filter?: "all" | "following" | "monitored" | "missing" | "ongoing" | "completed" | "unread" | "reading";
-  sort?: "title" | "added" | "latest" | "missing" | "size" | "read";
-  rootFolderId?: number;
-  language?: string;
-  genre?: string[];
-  genreMatch?: "all" | "any";
-  page?: number;
-  pageSize?: number;
-};
+export type SeriesSearchQuery = NonNullable<paths["/api/v1/series/search"]["get"]["parameters"]["query"]>;
 
 const fetchSeriesPage = (query: SeriesSearchQuery) => unwrap(api.GET("/api/v1/series/search", { params: { query } }));
 

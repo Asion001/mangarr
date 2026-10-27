@@ -4,15 +4,15 @@ import { useDocumentTitle } from "../../lib/documentTitle";
 import { useEffect, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
 import { Link } from "react-router";
-import { Check, CheckSquare, Inbox, LayoutGrid, List, Plus, RefreshCw, Search, SlidersHorizontal, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, CheckSquare, Inbox, LayoutGrid, List, Plus, RefreshCw, Search, SlidersHorizontal, X } from "lucide-react";
 import { api, apiUrl, unwrap, type Series } from "../../api/client";
 import { usePushCommand, useRootFolders, useSeriesSearch } from "../../api/queries";
 import { useReachable } from "../../lib/offline/connection";
 import { useSavedChapters } from "../../lib/offline/store";
 import { Cover } from "../../components/Cover";
-import { Badge, Button, EmptyState, ErrorBox, Input, Loading, Progress, Select, Table, Td, Th, ButtonLink } from "../../components/ui";
+import { Badge, Button, EmptyState, ErrorBox, Input, Loading, Progress, Select, ButtonLink } from "../../components/ui";
 import { GenrePicker, type GenreMatch } from "./GenrePicker";
-import { bytes, date, languageName } from "../../lib/format";
+import { bytes, languageName } from "../../lib/format";
 import { genreName } from "../../lib/genres";
 import { useListParam, useQueryParam, useStoredListParam } from "../../lib/urlState";
 import { MassEditBar } from "./Organize";
@@ -21,38 +21,29 @@ import { SetupChecklist } from "./SetupChecklist";
 import { useAccount } from "../../lib/account";
 import { useToast } from "../../lib/toast";
 import { RequestSearch } from "../requests/Requests";
+import { ColumnPicker, LibraryTable, progressOf, sortLabel, sortOrder, sorts, useLibraryColumns, type Order, type Sort } from "./LibraryTable";
 import { readingListName, readingStatusName, readingStatuses, useReadingLists, type ReadingStatus } from "../../lib/readingLists";
 import { useQuery } from "@tanstack/react-query";
 
 type Filter = "all" | "monitored" | "missing" | "ongoing" | "completed" | "unread" | "reading" | "following";
-type Sort = "title" | "added" | "latest" | "missing" | "size" | "read";
+// filter is the old single "Show" choice; links with it open with the matching fields set
 const filters: readonly Filter[] = ["all", "following", "monitored", "missing", "ongoing", "completed", "unread", "reading"];
-const sorts: readonly Sort[] = ["title", "added", "latest", "missing", "size", "read"];
+const orders = ["", "asc", "desc"] as const;
+const monitoredValues = ["", "yes", "no"] as const;
+const statusValues = ["", "ongoing", "completed", "hiatus", "cancelled"] as const;
+const downloadValues = ["", "missing", "complete", "none"] as const;
+const readingValues = ["", "unstarted", "reading", "finished", "unread"] as const;
+const followingValues = ["", "1"] as const;
 const pageSizes = ["24", "36", "48", "72"] as const;
 const libraryStateKey = (name: string) => `mangarr:library:${name}`;
 
-const filterLabels: Record<Filter, string> = {
-  all: "All",
-  following: "Following",
-  monitored: "Monitored",
-  missing: "Missing chapters",
-  ongoing: "Ongoing",
-  completed: "Completed",
-  unread: "With unread chapters",
-  reading: "Started reading",
-};
-const filterLabel = (f: Filter) => t(filterLabels[f] as Parameters<typeof t>[0]);
-
-export function statusTone(s: string) {
-  return s === "ongoing" ? "ok" : s === "completed" ? "info" : s === "hiatus" ? "warn" : s === "cancelled" ? "err" : "default";
-}
-
-function progressOf(s: Series) {
-  const { fileCount, monitoredCount, missingCount } = s.stats;
-  if (monitoredCount === 0) return { pct: 0, tone: "accent" as const };
-  const pct = ((monitoredCount - missingCount) / monitoredCount) * 100;
-  return { pct, tone: missingCount === 0 ? ("ok" as const) : fileCount === 0 ? ("err" as const) : ("warn" as const) };
-}
+type Choice = { value: string; label: string };
+const choiceLabel = (label: string) => t(label as Parameters<typeof t>[0]);
+const monitoredChoices: Choice[] = [{ value: "", label: "Any" }, { value: "yes", label: "Monitored" }, { value: "no", label: "Not monitored" }];
+const statusChoices: Choice[] = [{ value: "", label: "Any" }, { value: "ongoing", label: "Ongoing" }, { value: "completed", label: "Completed" }, { value: "hiatus", label: "Hiatus" }, { value: "cancelled", label: "Cancelled" }];
+const downloadChoices: Choice[] = [{ value: "", label: "Any" }, { value: "missing", label: "Missing chapters" }, { value: "complete", label: "All downloaded" }, { value: "none", label: "Nothing downloaded yet" }];
+const readingChoices: Choice[] = [{ value: "", label: "Any" }, { value: "unstarted", label: "Not started" }, { value: "reading", label: "Started reading" }, { value: "finished", label: "Finished" }, { value: "unread", label: "With unread chapters" }];
+const chosen = (list: Choice[], value: string) => choiceLabel(list.find((c) => c.value === value)?.label ?? value);
 
 /** ReadBar is a thin bar of chapters read. */
 function ReadBar({ s }: { s: Series }) {
@@ -80,8 +71,32 @@ export function SeriesIndex() {
   const { preferences: uiPrefs, save: saveUI } = useUIPreferences();
   const ui = uiPrefs.options ?? {};
   const [filterParam, setFilter] = useStoredListParam("filter", "all", libraryStateKey("filter"), filters);
+  const [monitored, setMonitored] = useStoredListParam("monitored", "", libraryStateKey("monitored"), monitoredValues);
+  const [status, setStatus] = useStoredListParam("status", "", libraryStateKey("status"), statusValues);
+  const [downloads, setDownloads] = useStoredListParam("downloads", "", libraryStateKey("downloads"), downloadValues);
+  const [reading, setReading] = useStoredListParam("reading", "", libraryStateKey("reading"), readingValues);
+  const [followingParam, setFollowing] = useStoredListParam("following", "", libraryStateKey("following"), followingValues);
+  const [requestedBy, setRequestedBy] = useStoredListParam("requestedBy", "", libraryStateKey("requestedBy"));
   const [sortParam, setSortOnly] = useStoredListParam("sort", ui.librarySort && (sorts as readonly string[]).includes(ui.librarySort) ? ui.librarySort : "title", libraryStateKey("sort"), sorts);
+  const [orderParam, setOrder] = useStoredListParam("order", "", libraryStateKey("order"), orders);
   const setSort = (v: string) => { setSortOnly(v); void saveUI({ options: { librarySort: v } }).catch(() => undefined); };
+  // an old "Show" choice (a bookmark, or what this browser remembered) moves to its own field
+  useEffect(() => {
+    if (filterParam === "all") return;
+    const move: Record<string, () => void> = {
+      following: () => setFollowing("1"),
+      monitored: () => setMonitored("yes"),
+      missing: () => setDownloads("missing"),
+      ongoing: () => setStatus("ongoing"),
+      completed: () => setStatus("completed"),
+      unread: () => setReading("unread"),
+      reading: () => setReading("reading"),
+    };
+    move[filterParam]?.();
+    setFilter("all");
+  }, [filterParam]);
+  const requests = account.can("requests.manage");
+  const [columns, setColumns] = useLibraryColumns(ui.libraryColumns, (ids) => void saveUI({ options: { libraryColumns: ids } }).catch(() => undefined));
   const [rootParam, setRoot] = useStoredListParam("root", "", libraryStateKey("root"));
   const [language, setLanguage] = useStoredListParam("language", "", libraryStateKey("language"));
   // the picked genres share one parameter in the page address, comma-separated
@@ -120,11 +135,22 @@ export function SeriesIndex() {
   const [pageParam, setPage] = useListParam("page", "1");
   const [pageSizeParam, setPageSizeOnly] = useStoredListParam("pageSize", ui.libraryPageSize && (pageSizes as readonly string[]).includes(ui.libraryPageSize) ? ui.libraryPageSize : "36", libraryStateKey("pageSize"), pageSizes);
   const setPageSize = (v: string) => { setPageSizeOnly(v); void saveUI({ options: { libraryPageSize: v } }).catch(() => undefined); };
-  const filter = filterParam as Filter;
   const sort = sortParam as Sort;
+  const order = sortOrder(sort, orderParam);
+  const following = followingParam === "1";
   const page = Math.max(1, Number(pageParam) || 1);
   const pageSize = Number(pageSizeParam);
   const rootFolderId = Number(rootParam) || undefined;
+  const searchQuery = {
+    ...listQuery,
+    q: q || undefined, sort, order: orderParam ? order : undefined, rootFolderId, language: language || undefined, ...genreQuery,
+    monitored: (monitored || undefined) as "yes" | "no" | undefined,
+    status: (status || undefined) as "ongoing" | "completed" | "hiatus" | "cancelled" | undefined,
+    downloads: (downloads || undefined) as "missing" | "complete" | "none" | undefined,
+    reading: (reading || undefined) as "unstarted" | "reading" | "finished" | "unread" | undefined,
+    following: following || undefined,
+    requestedBy: requests && requestedBy ? requestedBy : undefined,
+  };
   const [searchDraft, setSearchDraft] = useState(q);
   useEffect(() => setSearchDraft(q), [q]);
   useEffect(() => {
@@ -135,7 +161,7 @@ export function SeriesIndex() {
     }, 250);
     return () => window.clearTimeout(timeout);
   }, [searchDraft, q]);
-  const { data, isLoading, isPlaceholderData, error } = useSeriesSearch({ q: q || undefined, filter, sort, rootFolderId, language: language || undefined, ...genreQuery, ...listQuery, page, pageSize });
+  const { data, isLoading, isPlaceholderData, error } = useSeriesSearch({ ...searchQuery, page, pageSize });
   useEffect(() => {
     if (!data?.total) return;
     const last = Math.max(1, Math.ceil(data.total / pageSize));
@@ -148,7 +174,7 @@ export function SeriesIndex() {
   const [selectingAll, setSelectingAll] = useState(false);
   useEffect(()=>{if(!manage){setSelecting(false);setSelected(new Map());}},[manage]);
   // a shift-click range starts on this page, not where the last one was clicked
-  useEffect(() => setLastClicked(null), [q, filter, sort, rootFolderId, language, genreParam, genreMatch, page, pageSize]);
+  useEffect(() => setLastClicked(null), [q, monitored, status, downloads, reading, following, requestedBy, listParam, listUser, sort, order, rootFolderId, language, genreParam, genreMatch, page, pageSize]);
   /** toggle flips one series; shift+click sets the whole range from the last click the same way. */
   const toggle = (idx: number, shift = false) => {
     const s = list[idx];
@@ -167,7 +193,7 @@ export function SeriesIndex() {
     try {
       const all = new Map<number, string>();
       for (let p = 1; ; p++) {
-        const r = await unwrap(api.GET("/api/v1/series/search", { params: { query: { q: q || undefined, filter, sort, rootFolderId, language: language || undefined, ...genreQuery, page: p, pageSize: 100 } } }));
+        const r = await unwrap(api.GET("/api/v1/series/search", { params: { query: { ...searchQuery, page: p, pageSize: 100 } } }));
         r.items.forEach((s) => all.set(s.id, s.title));
         if (r.items.length < 100 || all.size >= r.total) break;
       }
@@ -185,8 +211,9 @@ export function SeriesIndex() {
   const saved = useSavedChapters();
   const savedSeries = useMemo(() => new Set(Object.values(saved).map((c) => c.seriesId)), [saved]);
   const list = !reachable && savedSeries.size > 0 ? (data?.items ?? []).filter((s) => savedSeries.has(s.id)) : data?.items ?? [];
-  const setFilterAndReset = (value: string) => { setFilter(value); setPage("1"); };
-  const setSortAndReset = (value: string) => { setSort(value); setPage("1"); };
+  const reset = (set: (v: string) => void) => (value: string) => { set(value); setPage("1"); };
+  const setSortAndReset = (value: string, nextOrder: Order | "" = "") => { setSort(value); setOrder(nextOrder); setPage("1"); };
+  const requesterName = (id: string) => id === "none" ? t("Nobody") : data?.requesters?.find((r) => String(r.id) === id)?.name ?? t("Removed user");
 
   useDocumentTitle(t("Series"));
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -209,7 +236,12 @@ export function SeriesIndex() {
   }, [filtersOpen]);
   // what narrows the list, as chips that clear one at a time
   const active = [
-    filter !== "all" && { key: "filter", label: filterLabel(filter), clear: () => setFilterAndReset("all") },
+    monitored && { key: "monitored", label: chosen(monitoredChoices, monitored), clear: () => reset(setMonitored)("") },
+    status && { key: "status", label: chosen(statusChoices, status), clear: () => reset(setStatus)("") },
+    downloads && { key: "downloads", label: chosen(downloadChoices, downloads), clear: () => reset(setDownloads)("") },
+    reading && { key: "reading", label: chosen(readingChoices, reading), clear: () => reset(setReading)("") },
+    following && { key: "following", label: t("Following"), clear: () => reset(setFollowing)("") },
+    requests && requestedBy && { key: "requestedBy", label: t("Requested by {name}", { name: requesterName(requestedBy) }), clear: () => reset(setRequestedBy)("") },
     rootFolderId && { key: "root", label: roots?.find((root) => root.id === rootFolderId)?.path ?? t("Removed library"), clear: () => { setRoot(""); setPage("1"); } },
     language && { key: "language", label: languageName(language), clear: () => { setLanguage(""); setPage("1"); } },
     listParam && { key: "list", label: listUser ? t("{name}: {list}", { name: ownerName(listUser), list: listName(listParam) }) : t("List: {name}", { name: listName(listParam) }), clear: () => { setListParam(""); setListUser(""); setPage("1"); } },
@@ -217,6 +249,12 @@ export function SeriesIndex() {
   ].filter((chip): chip is { key: string; label: string; clear: () => void } => !!chip);
   const clearFilters = () => {
     setFilter("all");
+    setMonitored("");
+    setStatus("");
+    setDownloads("");
+    setReading("");
+    setFollowing("");
+    setRequestedBy("");
     setRoot("");
     setLanguage("");
     setListParam("");
@@ -260,23 +298,63 @@ export function SeriesIndex() {
           </button>
           {filtersOpen && (
             <div id="library-filters" className="absolute right-0 top-full z-30 mt-2 flex w-[min(22rem,calc(100vw-2rem))] flex-col gap-3 rounded-xl border border-border bg-panel-2 p-4 shadow-xl">
-              <label className="flex flex-col gap-1 text-xs text-muted">
-                {t("Show")}
-                <Select value={filter} onChange={(e) => setFilterAndReset(e.target.value)}>
-                  {filters.map((f) => <option key={f} value={f}>{filterLabel(f)}</option>)}
-                </Select>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="flex flex-col gap-1 text-xs text-muted">
+                  {t("Monitoring")}
+                  <Select value={monitored} onChange={(e) => reset(setMonitored)(e.target.value)}>
+                    {monitoredChoices.map((c) => <option key={c.value} value={c.value}>{choiceLabel(c.label)}</option>)}
+                  </Select>
+                </label>
+                <label className="flex flex-col gap-1 text-xs text-muted">
+                  {t("Status")}
+                  <Select value={status} onChange={(e) => reset(setStatus)(e.target.value)}>
+                    {statusChoices.map((c) => <option key={c.value} value={c.value}>{choiceLabel(c.label)}</option>)}
+                  </Select>
+                </label>
+                <label className="flex flex-col gap-1 text-xs text-muted">
+                  {t("Downloads")}
+                  <Select value={downloads} onChange={(e) => reset(setDownloads)(e.target.value)}>
+                    {downloadChoices.map((c) => <option key={c.value} value={c.value}>{choiceLabel(c.label)}</option>)}
+                  </Select>
+                </label>
+                <label className="flex flex-col gap-1 text-xs text-muted">
+                  {t("Reading")}
+                  <Select value={reading} onChange={(e) => reset(setReading)(e.target.value)}>
+                    {readingChoices.map((c) => <option key={c.value} value={c.value}>{choiceLabel(c.label)}</option>)}
+                  </Select>
+                </label>
+              </div>
+              {requests && ((data?.requesters?.length ?? 0) > 0 || requestedBy !== "") && (
+                <label className="flex flex-col gap-1 text-xs text-muted">
+                  {t("Requested by")}
+                  <Select value={requestedBy} onChange={(e) => reset(setRequestedBy)(e.target.value)}>
+                    <option value="">{t("Anyone")}</option>
+                    {(data?.requesters ?? []).map((r) => <option key={r.id} value={String(r.id)}>{r.name}</option>)}
+                    {requestedBy !== "" && requestedBy !== "none" && !data?.requesters?.some((r) => String(r.id) === requestedBy) && <option value={requestedBy}>{requesterName(requestedBy)}</option>}
+                    <option value="none">{t("Nobody")}</option>
+                  </Select>
+                </label>
+              )}
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={following} onChange={(e) => reset(setFollowing)(e.target.checked ? "1" : "")} />
+                {t("Only titles I follow")}
               </label>
-              <label className="flex flex-col gap-1 text-xs text-muted">
-                {t("Sort")}
-                <Select value={sort} onChange={(e) => setSortAndReset(e.target.value)}>
-                  <option value="title">{t("Sort: title")}</option>
-                  <option value="added">{t("Sort: recently added")}</option>
-                  <option value="latest">{t("Sort: latest chapter")}</option>
-                  <option value="missing">{t("Sort: missing")}</option>
-                  <option value="size">{t("Sort: size")}</option>
-                  <option value="read">{t("Sort: recently read")}</option>
-                </Select>
-              </label>
+              <div className="flex flex-col gap-1 text-xs text-muted">
+                <label htmlFor="library-sort">{t("Sort")}</label>
+                <div className="flex gap-2">
+                  <Select id="library-sort" className="flex-1" value={sort} onChange={(e) => setSortAndReset(e.target.value)}>
+                    {sorts.filter((s) => s !== "requested" || requests).map((s) => <option key={s} value={s}>{sortLabel(s)}</option>)}
+                  </Select>
+                  <div className="inline-flex shrink-0 overflow-hidden rounded-md border border-border" role="group" aria-label={t("Sort direction")}>
+                    <button type="button" aria-pressed={order === "asc"} aria-label={t("Ascending")} onClick={() => setSortAndReset(sort, "asc")} className={clsx("inline-flex h-9 w-9 items-center justify-center", order === "asc" ? "bg-border text-fg" : "bg-panel text-muted hover:text-fg")}>
+                      <ArrowUp className="size-4" />
+                    </button>
+                    <button type="button" aria-pressed={order === "desc"} aria-label={t("Descending")} onClick={() => setSortAndReset(sort, "desc")} className={clsx("inline-flex h-9 w-9 items-center justify-center", order === "desc" ? "bg-border text-fg" : "bg-panel text-muted hover:text-fg")}>
+                      <ArrowDown className="size-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
               {/* a remembered filter stays visible, so it can be cleared even when it no longer applies */}
               {((roots?.length ?? 0) > 1 || rootParam !== "") && (
                 <label className="flex flex-col gap-1 text-xs text-muted">
@@ -374,7 +452,7 @@ export function SeriesIndex() {
           )}
         </div>
       )}
-      {!q && filter === "all" && !rootFolderId && !language && !listParam && !genres.length && <ContinueReading />}
+      {!q && active.length === 0 && !rootFolderId && !language && !listParam && !genres.length && <ContinueReading />}
       {/* the bar's row is always there so showing it never moves the list; it only shows while a new filter or page loads, not on live refreshes */}
       <div className={clsx("mb-2 h-0.5 overflow-hidden rounded", isPlaceholderData ? "bg-panel-2" : "invisible")} aria-hidden={!isPlaceholderData}><div className="h-full w-1/3 animate-pulse rounded bg-accent" /></div>
       {isLoading && <Loading />}
@@ -385,7 +463,7 @@ export function SeriesIndex() {
           <Button size="sm" variant="ghost" loading={selectingAll} onClick={() => void selectAllMatching()}>{t("Select all {count} matching", { count: data.total })}</Button>
         </div>
       )}
-      {data && data.total === 0 && !q && filter === "all" && !rootFolderId && !language && !listParam && !genres.length && (
+      {data && data.total === 0 && !q && active.length === 0 && !rootFolderId && !language && !listParam && !genres.length && (
         account.isAdmin ? (
           <SetupChecklist />
         ) : (
@@ -400,7 +478,7 @@ export function SeriesIndex() {
           </EmptyState>
         )
       )}
-      {data && data.total === 0 && (q || filter !== "all" || rootFolderId || language || listParam || genres.length > 0) && (
+      {data && data.total === 0 && (q || active.length > 0 || rootFolderId || language || listParam || genres.length > 0) && (
         <EmptyState title={t("No series match these filters")}>{t("Try a shorter title or clear one of the filters.")}</EmptyState>
       )}
       {view === "posters" ? (
@@ -452,56 +530,24 @@ export function SeriesIndex() {
           })}
         </div>
       ) : (
-        <Table>
-          <thead>
-            <tr>
-              {selecting && <Th className="w-8" />}
-              <Th>{t("Title")}</Th>
-              <Th>{t("Status")}</Th>
-              <Th>{t("Chapters")}</Th>
-              <Th>{t("Latest")}</Th>
-              <Th>{t("Size")}</Th>
-              <Th>{t("Added")}</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {list.map((s, idx) => (
-              <tr key={s.id} className="hover:bg-panel-2/60">
-                {selecting && (
-                  <Td className="w-8">
-                    <input type="checkbox" aria-label={`Select ${s.title}`} checked={selected.has(s.id)} onChange={() => undefined} onClick={(e) => toggle(idx, e.shiftKey)} />
-                  </Td>
-                )}
-                <Td>
-                  <Link to={`/series/${s.id}`} className="font-medium hover:text-accent-2">
-                    {s.displayTitle || s.title}
-                  </Link>
-                  {(s.editions?.length ?? 0) > 0 && (
-                    <span className="ml-2 inline-flex gap-1">
-                      {(s.editions ?? []).map((edition) => <Badge key={edition.id}>{edition.language ? languageName(edition.language) : "—"}</Badge>)}
-                    </span>
-                  )}
-                  {manage && !s.monitored && <span className="ml-2"><Badge>{t("unmonitored")}</Badge></span>}
-                </Td>
-                <Td>
-                  <Badge tone={statusTone(s.status)}>{s.status}</Badge>
-                </Td>
-                <Td className="w-48">
-                  <div className="flex items-center gap-2">
-                    <div className="w-24"><Progress value={progressOf(s).pct} tone={progressOf(s).tone} /></div>
-                    <span className="text-xs text-muted">
-                      {s.stats.fileCount}/{s.stats.chapterCount}
-                      {s.stats.readCount > 0 && ` · ${s.stats.readCount} read`}
-                    </span>
-                  </div>
-                </Td>
-                <Td>{s.stats.lastChapter || "—"}</Td>
-                <Td>{bytes(s.stats.sizeOnDisk)}</Td>
-                <Td>{date(s.addedAt)}</Td>
-              </tr>
-            ))}
-          </tbody>
-        </Table>
+        <>
+          <div className="mb-2 flex justify-end">
+            <ColumnPicker value={columns} onChange={setColumns} requests={requests} />
+          </div>
+          <LibraryTable
+            list={list}
+            columns={columns}
+            sort={sort}
+            order={order}
+            onSort={(by, next) => setSortAndReset(by, next)}
+            edit={manage}
+            requests={requests}
+            roots={new Map((roots ?? []).map((root) => [root.id, root.path]))}
+            selecting={selecting}
+            selected={selected}
+            onToggle={toggle}
+          />
+        </>
       )}
       {data && data.total > 0 && (
         <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
@@ -515,7 +561,7 @@ export function SeriesIndex() {
       )}
       {data && data.total > 0 && account.can("library.edit") && (
         <p className="mt-3 text-center text-sm text-muted">
-          {t(q || filter !== "all" || rootFolderId || language || genres.length > 0 ? "{count} matching series · {size} on disk" : "{count} series · {size} on disk", { count: data.total, size: bytes(data.totalSize) })}
+          {t(q || active.length > 0 || rootFolderId || language || genres.length > 0 ? "{count} matching series · {size} on disk" : "{count} series · {size} on disk", { count: data.total, size: bytes(data.totalSize) })}
         </p>
       )}
       {(adds || requester) && q.trim().length > 1 && page === 1 && (
