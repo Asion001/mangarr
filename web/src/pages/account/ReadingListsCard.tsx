@@ -78,7 +78,7 @@ export function ReadingListsCard() {
         open={!!deleting}
         title={t("Delete {name}?", { name: deleting?.name ?? "" })}
         message={t("The titles stay in the library.")}
-        confirmLabel="Delete"
+        confirmLabel={t("Delete")}
         danger
         onConfirm={() => { const id = deleting?.id ?? 0; setDeleting(null); void run(() => unwrap(api.DELETE("/api/v1/me/lists/{id}", { params: { path: { id } } }))); }}
         onClose={() => setDeleting(null)}
