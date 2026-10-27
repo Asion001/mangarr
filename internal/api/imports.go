@@ -82,16 +82,16 @@ func (in *accountReadInput) check() error {
 	return nil
 }
 
-// readAccount reads a site account for the caller.
-func (s *Server) readAccount(ctx context.Context, in *accountReadInput) (*backupimport.Backup, error) {
+// readAccount reads a site account for the caller, with its lists' kinds.
+func (s *Server) readAccount(ctx context.Context, in *accountReadInput) (*backupimport.Backup, map[string]string, error) {
 	if err := in.check(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	b, _, _, err := s.app.Imports.ReadAccount(ctx, in.Body.ModuleID, in.Body.SourceID, in.Body.Token)
+	b, lists, _, err := s.app.Imports.ReadAccount(ctx, in.Body.ModuleID, in.Body.SourceID, in.Body.Token)
 	if err != nil {
-		return nil, importError(err)
+		return nil, nil, importError(err)
 	}
-	return b, nil
+	return b, lists, nil
 }
 
 func importError(err error) error {

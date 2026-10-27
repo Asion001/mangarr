@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -24,6 +25,7 @@ import (
 	"github.com/Asion001/mangarr/internal/chapternum"
 	"github.com/Asion001/mangarr/internal/db"
 	"github.com/Asion001/mangarr/internal/model"
+	"github.com/Asion001/mangarr/internal/readinglists"
 	"github.com/Asion001/mangarr/internal/readstate"
 	"github.com/Asion001/mangarr/internal/titlematch"
 	"github.com/Asion001/mangarr/internal/version"
@@ -68,7 +70,12 @@ type ExportTitle struct {
 	// Reached is how far the title was read, from apps and sites that keep
 	// only that: chapters numbered below it are read.
 	Reached *ExportReached `json:"reached,omitempty"`
-	// Lists are the app's categories or the site's lists the title was in.
+	// Status is where the account is with the title (reading, planned,
+	// completed, onhold, dropped), Favorite whether it's in Favorites, and
+	// Lists the other lists it's in by name: the app's categories, the
+	// site's lists or the account's own.
+	Status   string          `json:"status,omitempty" enum:"reading,planned,completed,onhold,dropped,"`
+	Favorite bool            `json:"favorite,omitempty"`
 	Lists    []string        `json:"lists,omitempty"`
 	History  []ExportEvent   `json:"history,omitempty"`
 	Sessions []ExportSession `json:"sessions,omitempty"`
@@ -245,6 +252,9 @@ FROM reading_sessions AS r JOIN chapters AS c ON c.id = r.chapter_id WHERE r.use
 				touched[p.SeriesID] = true
 			}
 		}
+		if err := s.exportLists(ctx, acc.UserID, series, titles, touched); err != nil {
+			return nil, err
+		}
 		var ui model.UIPreferences
 		if err := s.DB.NewSelect().Model(&ui).Where("user_id = ?", acc.UserID).Scan(ctx); err == nil {
 			out.UI = &ExportUI{Locale: ui.Locale, Mode: ui.Mode, Options: ui.Options}
@@ -270,6 +280,50 @@ FROM reading_sessions AS r JOIN chapters AS c ON c.id = r.chapter_id WHERE r.use
 	return out, nil
 }
 
+// exportLists puts the account's statuses and lists on the titles' editions.
+func (s *Service) exportLists(ctx context.Context, userID int64, series []model.Series, titles map[int64]*ExportTitle, touched map[int64]bool) error {
+	var statuses []model.TitleStatus
+	if err := s.DB.NewSelect().Model(&statuses).Where("user_id = ?", userID).Scan(ctx); err != nil {
+		return err
+	}
+	var entries []struct {
+		TitleID int64  `bun:"title_id"`
+		Name    string `bun:"name"`
+		Kind    string `bun:"kind"`
+	}
+	if err := s.DB.NewRaw(`SELECT t.title_id, l.name, l.kind FROM reading_list_titles AS t JOIN reading_lists AS l ON l.id = t.list_id
+WHERE l.user_id = ? ORDER BY l.id`, userID).Scan(ctx, &entries); err != nil {
+		return err
+	}
+	if len(statuses) == 0 && len(entries) == 0 {
+		return nil
+	}
+	editions := map[int64][]int64{}
+	for i := range series {
+		if titles[series[i].ID] != nil {
+			id := readstate.TitleID(&series[i])
+			editions[id] = append(editions[id], series[i].ID)
+		}
+	}
+	for _, st := range statuses {
+		for _, id := range editions[st.TitleID] {
+			titles[id].Status = st.Status
+			touched[id] = true
+		}
+	}
+	for _, e := range entries {
+		for _, id := range editions[e.TitleID] {
+			if e.Kind == model.ListFavorites {
+				titles[id].Favorite = true
+			} else {
+				titles[id].Lists = append(titles[id].Lists, e.Name)
+			}
+			touched[id] = true
+		}
+	}
+	return nil
+}
+
 // Check rejects a file that isn't an account export this version reads.
 func Check(d *Export) error {
 	if d == nil || d.Format != Format {
@@ -291,9 +345,11 @@ type DataTitleMatch struct {
 	By          string `json:"by,omitempty" enum:"source,id,title,picked,"`
 	Read        int    `json:"read" doc:"Chapters read in the file"`
 	Following   bool   `json:"following"`
-	// Reached and Lists are the file's, for titles from apps and sites.
-	Reached *ExportReached `json:"reached,omitempty"`
-	Lists   []string       `json:"lists,omitempty"`
+	// Reached, Status, Favorite and Lists are the file's.
+	Reached  *ExportReached `json:"reached,omitempty"`
+	Status   string         `json:"status,omitempty"`
+	Favorite bool           `json:"favorite,omitempty"`
+	Lists    []string       `json:"lists,omitempty"`
 	// Source names where the title came from (titles not on this server).
 	Source string `json:"source,omitempty"`
 }
@@ -425,7 +481,7 @@ func (l *library) matches(d *Export, picked map[int]int64) []DataTitleMatch {
 	out := make([]DataTitleMatch, 0, len(d.Titles))
 	for i := range d.Titles {
 		t := &d.Titles[i]
-		m := DataTitleMatch{Index: i, Title: t.Title, Following: t.Following, Reached: t.Reached, Lists: t.Lists}
+		m := DataTitleMatch{Index: i, Title: t.Title, Following: t.Following, Reached: t.Reached, Status: t.Status, Favorite: t.Favorite, Lists: t.Lists}
 		if len(t.Sources) > 0 {
 			m.Source = firstNonBlank(t.Sources[0].Name, t.Sources[0].SourceID)
 		}
@@ -454,6 +510,7 @@ type DataImportOptions struct {
 	Progress bool `json:"progress"`
 	History  bool `json:"history" doc:"Reading history and reading time"`
 	Follows  bool `json:"follows"`
+	Lists    bool `json:"lists,omitempty" doc:"Reading statuses and lists"`
 	Settings bool `json:"settings" doc:"Reader and interface settings"`
 	// Picked overrides matches: title index → series id (0: skip the title).
 	Picked map[int]int64 `json:"picked,omitempty"`
@@ -471,6 +528,7 @@ type DataImportResult struct {
 	History  int `json:"history"`
 	Sessions int `json:"sessions"`
 	Follows  int `json:"follows"`
+	Lists    int `json:"lists" doc:"Titles whose status or lists changed"`
 	Settings int `json:"settings"`
 	// Requested are titles not on this server asked for (in the background).
 	Requested int `json:"requested,omitempty"`
@@ -532,6 +590,16 @@ func (s *Service) Import(ctx context.Context, acc Account, d *Export, opts DataI
 				}
 				if n, _ := r.RowsAffected(); n > 0 {
 					res.Follows++
+				}
+			}
+			if opts.Lists && (t.Status != "" || t.Favorite || len(t.Lists) > 0) {
+				changed, err := readinglists.Import(ctx, tx, acc.UserID, readstate.TitleID(lib.series[m.SeriesID]),
+					readinglists.Imported{Status: t.Status, Favorite: t.Favorite, Lists: t.Lists})
+				if err != nil {
+					return err
+				}
+				if changed {
+					res.Lists++
 				}
 			}
 			if opts.Settings && len(t.Reader) > 0 {
@@ -750,15 +818,19 @@ func firstNonBlank(values ...string) string {
 
 // FromBackup turns an app backup or a site account (read into the same
 // shape) into an export of the user's own data: titles with their sources,
-// tracker ids, lists, follows and progress.
-func FromBackup(b *backupimport.Backup, user string) *Export {
+// tracker ids, lists, follows and progress. statuses are a site's lists'
+// kinds by name (source.ListReading…): its built-in lists become the
+// title's status or Favorites, whatever the site calls them, and the rest
+// stay lists by name.
+func FromBackup(b *backupimport.Backup, user string, statuses map[string]string) *Export {
 	d := &Export{Format: Format, Version: Version, Exported: b.CreatedAt, User: user, Titles: []ExportTitle{}}
 	if d.Exported.IsZero() {
 		d.Exported = time.Now().UTC()
 	}
 	for _, e := range b.Entries {
-		t := ExportTitle{Title: e.Title, AltTitles: e.AltTitles, Following: e.Favorite, Lists: e.Categories,
+		t := ExportTitle{Title: e.Title, AltTitles: e.AltTitles, Following: e.Favorite,
 			Sources: []ExportSource{{SourceID: e.SourceID, Name: firstNonBlank(e.SourceName, b.Sources[e.SourceID]), URL: e.URL}}}
+		t.Status, t.Favorite, t.Lists = listsOf(e.Categories, statuses)
 		if len(e.Trackers) > 0 {
 			t.IDs = map[string]string{}
 			for k, v := range e.Trackers {
@@ -782,4 +854,26 @@ func FromBackup(b *backupimport.Backup, user string) *Export {
 		d.Titles = append(d.Titles, t)
 	}
 	return d
+}
+
+// listsOf sorts a title's lists into its status (the first in
+// model.ReadingStatuses order), Favorites and the rest.
+func listsOf(names []string, statuses map[string]string) (status string, favorite bool, lists []string) {
+	rank := len(model.ReadingStatuses)
+	for _, n := range names {
+		kind := statuses[n]
+		if kind == "favorite" { // source.ListFavorite
+
+			favorite = true
+			continue
+		}
+		if i := slices.Index(model.ReadingStatuses, kind); i >= 0 {
+			if i < rank {
+				rank, status = i, kind
+			}
+			continue
+		}
+		lists = append(lists, n)
+	}
+	return status, favorite, lists
 }

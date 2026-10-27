@@ -10,6 +10,7 @@ import (
 	"github.com/Asion001/mangarr/internal/metadataagg"
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/modules/source"
+	"github.com/Asion001/mangarr/internal/readinglists"
 	"github.com/Asion001/mangarr/internal/readstate"
 	"github.com/Asion001/mangarr/internal/series"
 	"github.com/Asion001/mangarr/internal/testutil/fakesource"
@@ -55,18 +56,42 @@ func TestUserImport(t *testing.T) {
 			e.runCommand(t, "RefreshSeries", map[string]any{"seriesId": bl.ID})
 
 			b := &backupimport.Backup{Format: backupimport.FormatAccount, Sources: map[string]string{"A": "Source A"}, Entries: []backupimport.BackupManga{
-				{SourceID: "A", URL: "/bl", Title: "Blue Lock", Favorite: true, ReadUpTo: &backupimport.ReadUpTo{Chapter: 3, Page: 2}},
-				{SourceID: "A", URL: "/k8", Title: "Kaiju No. 8", Favorite: true, Chapters: []backupimport.BackupChapter{{Number: 1, Read: true}}},
+				{SourceID: "A", URL: "/bl", Title: "Blue Lock", Favorite: true, ReadUpTo: &backupimport.ReadUpTo{Chapter: 3, Page: 2},
+					Categories: []string{"Читаю", "Любимое", "Sports"}},
+				{SourceID: "A", URL: "/k8", Title: "Kaiju No. 8", Favorite: true, Chapters: []backupimport.BackupChapter{{Number: 1, Read: true}},
+					Categories: []string{"В планах"}},
 			}}
-			d := userdata.FromBackup(b, "ann")
+			// the site's own names for its lists map to the standard ones
+			d := userdata.FromBackup(b, "ann", map[string]string{"Читаю": source.ListReading, "В планах": source.ListPlanned, "Любимое": source.ListFavorite, "Sports": ""})
+			if t0, t1 := d.Titles[0], d.Titles[1]; t0.Status != model.ReadReading || !t0.Favorite || len(t0.Lists) != 1 || t0.Lists[0] != "Sports" || t1.Status != model.ReadPlanned {
+				t.Fatalf("lists = %+v / %+v", d.Titles[0], d.Titles[1])
+			}
 			svc := &userdata.Service{DB: e.App.DB}
 			matches, err := svc.Preview(ctx, d, nil)
 			if err != nil || matches[0].SeriesID != bl.ID || matches[1].SeriesID != 0 || matches[0].Reached == nil || matches[0].Read != 2 {
 				t.Fatalf("preview = %+v %v", matches, err)
 			}
 			acc := userdata.Account{UserID: ann.ID}
-			if _, err := svc.Import(ctx, acc, d, userdata.DataImportOptions{Progress: true, Follows: true}); err != nil {
+			if _, err := svc.Import(ctx, acc, d, userdata.DataImportOptions{Progress: true, Follows: true, Lists: true}); err != nil {
 				t.Fatal(err)
+			}
+			entry := func(seriesID int64) readinglists.TitleLists {
+				ser, err := e.App.Series.Get(ctx, seriesID)
+				if err != nil {
+					t.Fatal(err)
+				}
+				got, err := readinglists.Get(ctx, e.App.DB, ann.ID, readstate.TitleID(ser))
+				if err != nil {
+					t.Fatal(err)
+				}
+				return got
+			}
+			lists, err := readinglists.Lists(ctx, e.App.DB, ann.ID)
+			if err != nil || len(lists) != 2 || lists[0].Kind != model.ListFavorites || lists[1].Name != "Sports" {
+				t.Fatalf("ann's lists = %+v %v", lists, err)
+			}
+			if got := entry(bl.ID); got.Status != model.ReadReading || len(got.Lists) != 2 {
+				t.Fatalf("blue lock lists = %+v", got)
 			}
 			states := func(seriesID int64) map[float64]model.ChapterReadState {
 				var chs []model.Chapter
@@ -117,6 +142,9 @@ func TestUserImport(t *testing.T) {
 				st := states(k8.ID)
 				return st[1].Completed
 			})
+			if got := entry(k8.ID); got.Status != model.ReadPlanned {
+				t.Fatalf("kaiju lists = %+v", got)
+			}
 			if n, _ := e.App.DB.NewSelect().Model((*model.RequestedProgress)(nil)).Count(ctx); n != 0 {
 				t.Fatalf("kept progress left behind: %d", n)
 			}

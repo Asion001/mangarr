@@ -25,6 +25,7 @@ import { ReleaseLine } from "./ReleaseSchedule";
 import { RequestDownloadButton, waitingChapters } from "./RequestDownload";
 import { capital, Dot, Facts, FollowButton, statusClass } from "./SeriesFacts";
 import { useSeriesActions } from "./useSeriesActions";
+import { ListsButton } from "./ListsButton";
 import { Recommendations } from "./Recommendations";
 
 export function SeriesDetail() {
@@ -93,6 +94,7 @@ export function SeriesDetail() {
   const md = s.metadata;
   const tags = titleTags(md);
   const follows = account?.kind === "user" && !s.preview;
+  const lists = !!account && !s.preview;
   const manageItems: MenuItem[] = [
     { label: t("Edit…"), icon: <Pencil className="size-4" />, onSelect: () => setEdit(true) },
     s.monitored
@@ -161,7 +163,7 @@ export function SeriesDetail() {
               <AdaptationsChip adaptations={s.adaptations ?? []} />
             </div>
           </div>
-          {(readTarget || waiting > 0 || follows || manage) && (
+          {(readTarget || waiting > 0 || follows || lists || manage) && (
             <div className="col-span-2 flex flex-wrap items-center gap-2">
               {readTarget && (
                 <Link to={`/read/${readTarget.id}`} className="inline-flex h-11 basis-full items-center justify-center gap-2 whitespace-nowrap rounded-md bg-primary px-5 text-sm font-semibold text-white hover:bg-primary-hover sm:basis-auto">
@@ -170,6 +172,7 @@ export function SeriesDetail() {
               )}
               {waiting > 0 && <RequestDownloadButton seriesId={id} waiting={waiting} />}
               {follows && <FollowButton seriesId={id} following={s.following} />}
+              {lists && <ListsButton seriesId={id} />}
               {manage && <Menu className="h-11 px-3" label={<span className="sr-only">{t("Manage")}</span>} icon={<MoreHorizontal className="size-4" />} align="right" items={manageItems} />}
             </div>
           )}

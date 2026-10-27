@@ -9,6 +9,7 @@ import type { components } from "../../api/schema";
 import { Badge, Button, Card, ErrorBox, Field, Input, Modal, SecretInput, Select } from "../../components/ui";
 import { useAccount } from "../../lib/account";
 import { useToast } from "../../lib/toast";
+import { readingStatusName, type ReadingStatus } from "../../lib/readingLists";
 
 type Export = components["schemas"]["Export"];
 type Options = components["schemas"]["DataImportOptions"];
@@ -162,7 +163,7 @@ function ImportReview({ data, from, onClose }: { data: Export; from: string; onC
   const [picked, setPicked] = useState<Record<string, number>>({});
   const [changing, setChanging] = useState<number | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
-  const [opts, setOpts] = useState({ progress: true, history: true, follows: true, settings: true });
+  const [opts, setOpts] = useState({ progress: true, history: true, follows: true, lists: true, settings: true });
   const [importing, setImporting] = useState(false);
   // titles not on this server the user doesn't want asked for
   const [noAsk, setNoAsk] = useState<Record<number, boolean>>({});
@@ -180,6 +181,7 @@ function ImportReview({ data, from, onClose }: { data: Export; from: string; onC
   // an app or site keeps how far each title was read: count it in the titles here
   const read = from ? matches.reduce((s, m) => s + (m.seriesId ? m.read : 0), 0) : inFile;
   const follows = data.titles.filter((ti) => ti.following).length;
+  const listed = data.titles.filter((ti) => ti.status || ti.favorite || (ti.lists ?? []).length > 0).length;
   // requests are a person's: none without logins
   const canAsk = !!from && account?.kind === "user" && can(["requests.create"]);
   const ask = canAsk ? matches.filter((m) => !m.seriesId && !(m.index in picked) && !noAsk[m.index]).map((m) => m.index) : [];
@@ -267,7 +269,11 @@ function ImportReview({ data, from, onClose }: { data: Export; from: string; onC
                   <tr key={m.index} className="border-t border-border">
                     <td className="px-3 py-2">
                       {m.title}
-                      {(m.lists ?? []).length > 0 && <div className="text-xs text-muted">{(m.lists ?? []).join(", ")}</div>}
+                      {(m.status || m.favorite || (m.lists ?? []).length > 0) && (
+                        <div className="text-xs text-muted">
+                          {[m.status && readingStatusName(m.status as ReadingStatus), m.favorite && t("Favorites"), ...(m.lists ?? [])].filter(Boolean).join(", ")}
+                        </div>
+                      )}
                     </td>
                     <td className="px-3 py-2">
                       {changing === m.index ? (
@@ -324,9 +330,10 @@ function ImportReview({ data, from, onClose }: { data: Export; from: string; onC
                 ["progress", t("Progress"), t("{count} chapters", { count: n(read) })],
                 ["history", t("Reading history and time"), ""],
                 ["follows", t("Followed titles"), follows ? n(follows) : ""],
+                ["lists", t("Reading statuses and lists"), listed ? n(listed) : ""],
                 ["settings", t("Reader and interface settings"), ""],
               ] as [keyof typeof opts, string, string][]
-            ).filter(([k]) => !from || k === "progress" || k === "follows").map(([k, l, hint]) => (
+            ).filter(([k]) => !from || k === "progress" || k === "follows" || k === "lists").map(([k, l, hint]) => (
               <label key={k} className="flex items-center gap-2">
                 <input type="checkbox" className="size-4 accent-primary" checked={opts[k]} onChange={(e) => setOpts({ ...opts, [k]: e.target.checked })} />
                 {l}

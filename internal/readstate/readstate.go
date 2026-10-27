@@ -15,6 +15,7 @@ import (
 	"github.com/uptrace/bun"
 
 	"github.com/Asion001/mangarr/internal/model"
+	"github.com/Asion001/mangarr/internal/readinglists"
 )
 
 // DefaultUserID is the account whose progress requests without one use (no
@@ -86,10 +87,14 @@ func SetPage(ctx context.Context, db bun.IDB, id int64, page int) error {
 }
 
 // Retitle carries the progress of a series' chapters from the title it
-// left to the one it joined, keeping the furthest where both have some.
+// left to the one it joined, keeping the furthest where both have some, and
+// the title's reading lists with it.
 func Retitle(ctx context.Context, db bun.IDB, seriesID, from, to int64) error {
 	if from == to {
 		return nil
+	}
+	if err := readinglists.Retitle(ctx, db, from, to); err != nil {
+		return err
 	}
 	_, err := db.NewRaw(`INSERT INTO title_read_states (user_id, title_id, number_key, chapter_id, completed, page, read_at, synced_at, origin)
 SELECT t.user_id, ?, t.number_key, t.chapter_id, t.completed, t.page, t.read_at, t.synced_at, t.origin
@@ -101,8 +106,12 @@ WHERE EXCLUDED.completed AND NOT title_read_states.completed`, to, from, seriesI
 	return err
 }
 
-// Purge deletes the progress of titles that have no series left.
+// Purge deletes the progress and reading lists of titles that have no
+// series left.
 func Purge(ctx context.Context, db bun.IDB) error {
+	if err := readinglists.Purge(ctx, db); err != nil {
+		return err
+	}
 	_, err := db.NewRaw(`DELETE FROM title_read_states WHERE title_id NOT IN (SELECT COALESCE(work_id, -id) FROM series)`).Exec(ctx)
 	return err
 }

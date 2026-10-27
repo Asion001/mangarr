@@ -26,6 +26,7 @@ var Tables = []string{
 	"library_accounts", "title_read_states", "koreader_documents",
 	"imports", "import_entries", "reading_keys", "read_events", "reading_sessions", "reader_prefs",
 	"requests", "request_users", "follows", "requested_progress",
+	"title_statuses", "reading_lists", "reading_list_titles",
 	"workers", "worker_tasks",
 }
 

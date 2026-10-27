@@ -72,9 +72,10 @@ test("on a phone the cover sits beside the title and the actions run full width"
   await mock(page);
   await page.goto("/series/4");
   const heading = await page.getByRole("heading", { name: "Steel Lantern" }).boundingBox();
+  const first = await page.getByRole("button", { name: "Add to list" }).boundingBox();
   const manage = await page.getByRole("button", { name: "Manage" }).boundingBox();
   // the title is indented by the cover beside it; the actions start at the left edge, under the cover
-  expect(heading && manage && heading.x > manage.x + 100).toBe(true);
+  expect(heading && first && heading.x > first.x + 100).toBe(true);
   expect(heading && manage && manage.y > heading.y + heading.height).toBe(true);
 });
 

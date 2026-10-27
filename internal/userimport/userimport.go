@@ -99,11 +99,11 @@ func (s *Service) metadataFor(ctx context.Context, t *userdata.ExportTitle) *mod
 	return imports.MatchTitleMetadata(ctx, s.Metadata, t.Title, t.AltTitles)
 }
 
-// write imports one title's progress (and follow) into a series.
+// write imports one title's progress, follow and lists into a series.
 func (s *Service) write(ctx context.Context, userID, seriesID int64, t *userdata.ExportTitle) error {
 	d := &userdata.Export{Format: userdata.Format, Version: userdata.Version, Exported: time.Now().UTC(), Titles: []userdata.ExportTitle{*t}}
 	_, err := (&userdata.Service{DB: s.DB}).Import(ctx, userdata.Account{UserID: userID}, d,
-		userdata.DataImportOptions{Progress: true, Follows: true, Picked: map[int]int64{0: seriesID}})
+		userdata.DataImportOptions{Progress: true, Follows: true, Lists: true, Picked: map[int]int64{0: seriesID}})
 	return err
 }
 

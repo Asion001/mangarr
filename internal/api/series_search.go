@@ -11,6 +11,7 @@ import (
 	"github.com/Asion001/mangarr/internal/access"
 	"github.com/Asion001/mangarr/internal/genres"
 	"github.com/Asion001/mangarr/internal/model"
+	"github.com/Asion001/mangarr/internal/readstate"
 	"github.com/danielgtaylor/huma/v2"
 )
 
@@ -37,6 +38,8 @@ type SeriesSearchQuery struct {
 	Language     string   `query:"language,omitempty" maxLength:"20"`
 	Genres       []string `query:"genre,omitempty,explode" maxItems:"50" doc:"Only series with these genres or tags; repeat the parameter for each"`
 	GenreMatch   string   `query:"genreMatch" enum:"all,any" default:"all" doc:"Whether a series needs all the genres or any one of them"`
+	List         string   `query:"list,omitempty" maxLength:"20" doc:"Only titles with this reading status (reading, planned, completed, onhold, dropped) or in the list with this id"`
+	ListUser     int64    `query:"listUser,omitempty" doc:"Whose statuses and lists the list filter uses (yours when unset); others' need Manage the library"`
 	Page         int      `query:"page" minimum:"1" default:"1"`
 	PageSize     int      `query:"pageSize" minimum:"12" maximum:"100" default:"36"`
 	// AcceptLanguage picks which edition's name and cover a title shows.
@@ -174,6 +177,10 @@ func (s *Server) registerSeriesSearch() {
 			if err := s.app.DB.NewSelect().Model(&list).Where("preview = ?", false).Order("sort_title").Scan(ctx); err != nil {
 				return nil, toHTTPError(err)
 			}
+			listed, err := s.listFilter(ctx, in.List, in.ListUser)
+			if err != nil {
+				return nil, err
+			}
 			principal := access.From(ctx)
 			languages := map[string]bool{}
 			genreCount := map[string]int{}
@@ -196,6 +203,9 @@ func (s *Server) registerSeriesSearch() {
 					continue
 				}
 				if in.Language != "" && series.Language != in.Language {
+					continue
+				}
+				if listed != nil && !listed[readstate.TitleID(&series)] {
 					continue
 				}
 				visible = append(visible, series)

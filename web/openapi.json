@@ -2156,6 +2156,10 @@
             "description": "Reading history and reading time",
             "type": "boolean"
           },
+          "lists": {
+            "description": "Reading statuses and lists",
+            "type": "boolean"
+          },
           "picked": {
             "additionalProperties": {
               "format": "int64",
@@ -2202,6 +2206,11 @@
             "format": "int64",
             "type": "integer"
           },
+          "lists": {
+            "description": "Titles whose status or lists changed",
+            "format": "int64",
+            "type": "integer"
+          },
           "missing": {
             "description": "Chapters this server doesn't list (yet)",
             "format": "int64",
@@ -2241,6 +2250,7 @@
           "history",
           "sessions",
           "follows",
+          "lists",
           "settings"
         ],
         "type": "object"
@@ -2257,6 +2267,9 @@
               ""
             ],
             "type": "string"
+          },
+          "favorite": {
+            "type": "boolean"
           },
           "following": {
             "type": "boolean"
@@ -2287,6 +2300,9 @@
             "type": "string"
           },
           "source": {
+            "type": "string"
+          },
+          "status": {
             "type": "string"
           },
           "title": {
@@ -3586,6 +3602,9 @@
             },
             "type": "array"
           },
+          "favorite": {
+            "type": "boolean"
+          },
           "following": {
             "type": "boolean"
           },
@@ -3632,6 +3651,17 @@
               "$ref": "#/components/schemas/ExportSource"
             },
             "type": "array"
+          },
+          "status": {
+            "enum": [
+              "reading",
+              "planned",
+              "completed",
+              "onhold",
+              "dropped",
+              ""
+            ],
+            "type": "string"
           },
           "title": {
             "type": "string"
@@ -5334,6 +5364,20 @@
           "details",
           "chapters",
           "cached"
+        ],
+        "type": "object"
+      },
+      "Me-list-renameRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
         ],
         "type": "object"
       },
@@ -8221,6 +8265,127 @@
         ],
         "type": "object"
       },
+      "ReadingList": {
+        "additionalProperties": false,
+        "properties": {
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "kind": {
+            "enum": [
+              "favorites",
+              ""
+            ],
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "createdAt"
+        ],
+        "type": "object"
+      },
+      "ReadingListCount": {
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "kind": {
+            "enum": [
+              "favorites",
+              ""
+            ],
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "count",
+          "id",
+          "name",
+          "kind",
+          "createdAt"
+        ],
+        "type": "object"
+      },
+      "ReadingListNameBody": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "ReadingListOwner": {
+        "additionalProperties": false,
+        "properties": {
+          "displayName": {
+            "type": "string"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "username": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "username"
+        ],
+        "type": "object"
+      },
+      "ReadingListsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "lists": {
+            "items": {
+              "$ref": "#/components/schemas/ReadingListCount"
+            },
+            "type": "array"
+          },
+          "statuses": {
+            "items": {
+              "$ref": "#/components/schemas/ReadingStatusCount"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "statuses",
+          "lists"
+        ],
+        "type": "object"
+      },
       "ReadingStats": {
         "additionalProperties": false,
         "properties": {
@@ -8372,6 +8537,30 @@
           "enabled",
           "listening",
           "address"
+        ],
+        "type": "object"
+      },
+      "ReadingStatusCount": {
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "reading",
+              "planned",
+              "completed",
+              "onhold",
+              "dropped"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "count"
         ],
         "type": "object"
       },
@@ -11740,6 +11929,36 @@
             "type": "integer"
           }
         },
+        "type": "object"
+      },
+      "TitleLists": {
+        "additionalProperties": false,
+        "properties": {
+          "lists": {
+            "description": "Ids of the lists the title is in",
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "status": {
+            "description": "Empty when the title has none",
+            "enum": [
+              "reading",
+              "planned",
+              "completed",
+              "onhold",
+              "dropped",
+              ""
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "lists"
+        ],
         "type": "object"
       },
       "TitlePreview": {
@@ -16455,6 +16674,161 @@
         ]
       }
     },
+    "/api/v1/me/lists": {
+      "get": {
+        "operationId": "me-lists",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadingListsResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Your reading statuses and lists, with how many titles each holds",
+        "tags": [
+          "Reading lists"
+        ]
+      },
+      "post": {
+        "operationId": "me-list-create",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReadingListNameBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadingList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Make a list (or get yours of that name)",
+        "tags": [
+          "Reading lists"
+        ]
+      }
+    },
+    "/api/v1/me/lists/{id}": {
+      "delete": {
+        "operationId": "me-list-delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Delete a list you made (its titles stay in the library)",
+        "tags": [
+          "Reading lists"
+        ]
+      },
+      "put": {
+        "operationId": "me-list-rename",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Me-list-renameRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadingList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Rename a list you made",
+        "tags": [
+          "Reading lists"
+        ]
+      }
+    },
     "/api/v1/me/messenger": {
       "get": {
         "operationId": "me-messenger",
@@ -19059,6 +19433,40 @@
         ]
       }
     },
+    "/api/v1/reading-lists/owners": {
+      "get": {
+        "operationId": "reading-list-owners",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ReadingListOwner"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Users with titles in a status or a list, to filter the library by theirs",
+        "tags": [
+          "Reading lists"
+        ]
+      }
+    },
     "/api/v1/reading/keys": {
       "get": {
         "operationId": "reading-keys",
@@ -20838,6 +21246,28 @@
             }
           },
           {
+            "description": "Only titles with this reading status (reading, planned, completed, onhold, dropped) or in the list with this id",
+            "explode": false,
+            "in": "query",
+            "name": "list",
+            "schema": {
+              "description": "Only titles with this reading status (reading, planned, completed, onhold, dropped) or in the list with this id",
+              "maxLength": 20,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Whose statuses and lists the list filter uses (yours when unset); others' need Manage the library",
+            "explode": false,
+            "in": "query",
+            "name": "listUser",
+            "schema": {
+              "description": "Whose statuses and lists the list filter uses (yours when unset); others' need Manage the library",
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
             "explode": false,
             "in": "query",
             "name": "page",
@@ -21397,6 +21827,98 @@
         "summary": "Follow a series: its new chapters go to your notification targets",
         "tags": [
           "Series"
+        ]
+      }
+    },
+    "/api/v1/series/{id}/lists": {
+      "get": {
+        "operationId": "series-lists",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TitleLists"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Your status and lists for a series' title",
+        "tags": [
+          "Reading lists"
+        ]
+      },
+      "put": {
+        "operationId": "series-lists-save",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TitleLists"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TitleLists"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Set your status and lists for a series' title (every edition shares them)",
+        "tags": [
+          "Reading lists"
         ]
       }
     },
@@ -25248,6 +25770,48 @@
         "summary": "Change a user's name or group, whether they count for cleanup, or disable them",
         "tags": [
           "Users"
+        ]
+      }
+    },
+    "/api/v1/users/{id}/lists": {
+      "get": {
+        "operationId": "user-lists",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadingListsResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "A user's reading statuses and lists, with how many titles each holds",
+        "tags": [
+          "Reading lists"
         ]
       }
     },

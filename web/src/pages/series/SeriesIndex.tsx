@@ -21,6 +21,8 @@ import { SetupChecklist } from "./SetupChecklist";
 import { useAccount } from "../../lib/account";
 import { useToast } from "../../lib/toast";
 import { RequestSearch } from "../requests/Requests";
+import { readingListName, readingStatusName, readingStatuses, useReadingLists, type ReadingStatus } from "../../lib/readingLists";
+import { useQuery } from "@tanstack/react-query";
 
 type Filter = "all" | "monitored" | "missing" | "ongoing" | "completed" | "unread" | "reading" | "following";
 type Sort = "title" | "added" | "latest" | "missing" | "size" | "read";
@@ -89,6 +91,32 @@ export function SeriesIndex() {
   const genreMatch: GenreMatch = matchParam === "any" ? "any" : "all";
   const setGenres = (list: string[]) => { setGenreParam(list.join(",")); setPage("1"); };
   const genreQuery = { genre: genres.length ? genres : undefined, genreMatch: genres.length > 1 && genreMatch === "any" ? ("any" as const) : undefined };
+  // a status or a list (by id) of yours, or with listUser someone else's for people who manage the library
+  const [listParam, setListParam] = useListParam("list");
+  const [listUserParam, setListUser] = useListParam("listUser");
+  const seesOthersLists = account.can("library.manage");
+  const listUser = seesOthersLists ? Number(listUserParam) || undefined : undefined;
+  const listQuery = { list: listParam || undefined, listUser: listParam ? listUser : undefined };
+  const { data: lists } = useReadingLists(!!account.account, listUser);
+  const { data: owners } = useQuery({
+    queryKey: ["reading-lists", "owners"],
+    queryFn: () => unwrap(api.GET("/api/v1/reading-lists/owners")),
+    enabled: seesOthersLists,
+  });
+  const ownerName = (id?: number) => {
+    const o = owners?.find((x) => x.id === id);
+    return o ? o.displayName || o.username : t("Someone else");
+  };
+  const listName = (key: string) => {
+    if ((readingStatuses as readonly string[]).includes(key)) return readingStatusName(key as ReadingStatus);
+    const l = lists?.lists?.find((x) => String(x.id) === key);
+    return l ? readingListName(l) : t("Removed list");
+  };
+  const listOptions = [
+    ...(lists?.statuses ?? []).filter((x) => x.count > 0).map((x) => ({ key: x.status, label: readingStatusName(x.status as ReadingStatus), count: x.count })),
+    ...(lists?.lists ?? []).filter((x) => x.count > 0).map((x) => ({ key: String(x.id), label: readingListName(x), count: x.count })),
+  ];
+  const showsLists = listOptions.length > 0 || listParam !== "" || (seesOthersLists && (owners?.length ?? 0) > 0);
   const [pageParam, setPage] = useListParam("page", "1");
   const [pageSizeParam, setPageSizeOnly] = useStoredListParam("pageSize", ui.libraryPageSize && (pageSizes as readonly string[]).includes(ui.libraryPageSize) ? ui.libraryPageSize : "36", libraryStateKey("pageSize"), pageSizes);
   const setPageSize = (v: string) => { setPageSizeOnly(v); void saveUI({ options: { libraryPageSize: v } }).catch(() => undefined); };
@@ -107,7 +135,7 @@ export function SeriesIndex() {
     }, 250);
     return () => window.clearTimeout(timeout);
   }, [searchDraft, q]);
-  const { data, isLoading, isPlaceholderData, error } = useSeriesSearch({ q: q || undefined, filter, sort, rootFolderId, language: language || undefined, ...genreQuery, page, pageSize });
+  const { data, isLoading, isPlaceholderData, error } = useSeriesSearch({ q: q || undefined, filter, sort, rootFolderId, language: language || undefined, ...genreQuery, ...listQuery, page, pageSize });
   useEffect(() => {
     if (!data?.total) return;
     const last = Math.max(1, Math.ceil(data.total / pageSize));
@@ -184,12 +212,15 @@ export function SeriesIndex() {
     filter !== "all" && { key: "filter", label: filterLabel(filter), clear: () => setFilterAndReset("all") },
     rootFolderId && { key: "root", label: roots?.find((root) => root.id === rootFolderId)?.path ?? t("Removed library"), clear: () => { setRoot(""); setPage("1"); } },
     language && { key: "language", label: languageName(language), clear: () => { setLanguage(""); setPage("1"); } },
+    listParam && { key: "list", label: listUser ? t("{name}: {list}", { name: ownerName(listUser), list: listName(listParam) }) : t("List: {name}", { name: listName(listParam) }), clear: () => { setListParam(""); setListUser(""); setPage("1"); } },
     ...genres.map((g) => ({ key: `genre:${g}`, label: genreName(g), clear: () => setGenres(genres.filter((x) => x !== g)) })),
   ].filter((chip): chip is { key: string; label: string; clear: () => void } => !!chip);
   const clearFilters = () => {
     setFilter("all");
     setRoot("");
     setLanguage("");
+    setListParam("");
+    setListUser("");
     setGenreParam("");
     setMatch("all");
     setPage("1");
@@ -267,6 +298,26 @@ export function SeriesIndex() {
                   </Select>
                 </label>
               )}
+              {seesOthersLists && showsLists && (
+                <label className="flex flex-col gap-1 text-xs text-muted">
+                  {t("Whose lists")}
+                  <Select aria-label={t("Whose lists")} value={listUser ? String(listUser) : ""} onChange={(e) => { setListUser(e.target.value); setListParam(""); setPage("1"); }}>
+                    <option value="">{t("Mine")}</option>
+                    {listUser && !owners?.some((o) => o.id === listUser) && <option value={String(listUser)}>{ownerName(listUser)}</option>}
+                    {owners?.filter((o) => o.id !== account.account?.id).map((o) => <option key={o.id} value={String(o.id)}>{o.displayName || o.username}</option>)}
+                  </Select>
+                </label>
+              )}
+              {showsLists && (
+                <label className="flex flex-col gap-1 text-xs text-muted">
+                  {t("List")}
+                  <Select aria-label={t("List")} value={listParam} onChange={(e) => { setListParam(e.target.value); setPage("1"); }}>
+                    <option value="">{t("All titles")}</option>
+                    {listParam !== "" && !listOptions.some((o) => o.key === listParam) && <option value={listParam}>{listName(listParam)}</option>}
+                    {listOptions.map((o) => <option key={o.key} value={o.key}>{o.label} ({o.count})</option>)}
+                  </Select>
+                </label>
+              )}
               {((data?.genres?.length ?? 0) > 0 || genres.length > 0) && (
                 <GenrePicker genres={data?.genres ?? []} counts={data?.genreCounts} value={genres} onChange={setGenres} match={genreMatch} onMatch={(m) => { setMatch(m); setPage("1"); }} />
               )}
@@ -323,7 +374,7 @@ export function SeriesIndex() {
           )}
         </div>
       )}
-      {!q && filter === "all" && !rootFolderId && !language && !genres.length && <ContinueReading />}
+      {!q && filter === "all" && !rootFolderId && !language && !listParam && !genres.length && <ContinueReading />}
       {/* the bar's row is always there so showing it never moves the list; it only shows while a new filter or page loads, not on live refreshes */}
       <div className={clsx("mb-2 h-0.5 overflow-hidden rounded", isPlaceholderData ? "bg-panel-2" : "invisible")} aria-hidden={!isPlaceholderData}><div className="h-full w-1/3 animate-pulse rounded bg-accent" /></div>
       {isLoading && <Loading />}
@@ -334,7 +385,7 @@ export function SeriesIndex() {
           <Button size="sm" variant="ghost" loading={selectingAll} onClick={() => void selectAllMatching()}>{t("Select all {count} matching", { count: data.total })}</Button>
         </div>
       )}
-      {data && data.total === 0 && !q && filter === "all" && !rootFolderId && !language && !genres.length && (
+      {data && data.total === 0 && !q && filter === "all" && !rootFolderId && !language && !listParam && !genres.length && (
         account.isAdmin ? (
           <SetupChecklist />
         ) : (
@@ -349,7 +400,7 @@ export function SeriesIndex() {
           </EmptyState>
         )
       )}
-      {data && data.total === 0 && (q || filter !== "all" || rootFolderId || language || genres.length > 0) && (
+      {data && data.total === 0 && (q || filter !== "all" || rootFolderId || language || listParam || genres.length > 0) && (
         <EmptyState title={t("No series match these filters")}>{t("Try a shorter title or clear one of the filters.")}</EmptyState>
       )}
       {view === "posters" ? (

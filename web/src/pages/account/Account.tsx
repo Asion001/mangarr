@@ -19,6 +19,7 @@ import { useToast } from "../../lib/toast";
 import { ReadingStatsCard } from "./ReadingStats";
 import { MessengerCard } from "./MessengerCard";
 import { YourDataCard } from "./YourDataCard";
+import { ReadingListsCard } from "./ReadingListsCard";
 import { ProgressSyncPanel } from "../settings/ProgressSync";
 
 const permLabel: Record<string, string> = {
@@ -88,6 +89,7 @@ export function AccountPage() {
           </div>
         </Card>
         <ReadingStatsCard />
+        <ReadingListsCard />
         <YourDataCard />
         <OnDeviceCard />
       </div>

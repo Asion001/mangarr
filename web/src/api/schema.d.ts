@@ -869,6 +869,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/lists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Your reading statuses and lists, with how many titles each holds */
+        get: operations["me-lists"];
+        put?: never;
+        /** Make a list (or get yours of that name) */
+        post: operations["me-list-create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/lists/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Rename a list you made */
+        put: operations["me-list-rename"];
+        post?: never;
+        /** Delete a list you made (its titles stay in the library) */
+        delete: operations["me-list-delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/messenger": {
         parameters: {
             query?: never;
@@ -1746,6 +1782,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/reading-lists/owners": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Users with titles in a status or a list, to filter the library by theirs */
+        get: operations["reading-list-owners"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/reading/keys": {
         parameters: {
             query?: never;
@@ -2400,6 +2453,24 @@ export interface paths {
         put: operations["series-follow"];
         post?: never;
         delete: operations["series-unfollow"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/series/{id}/lists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Your status and lists for a series' title */
+        get: operations["series-lists"];
+        /** Set your status and lists for a series' title (every edition shares them) */
+        put: operations["series-lists-save"];
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -3637,6 +3708,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/users/{id}/lists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A user's reading statuses and lists, with how many titles each holds */
+        get: operations["user-lists"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/users/{id}/password": {
         parameters: {
             query?: never;
@@ -4567,6 +4655,8 @@ export interface components {
             follows: boolean;
             /** @description Reading history and reading time */
             history: boolean;
+            /** @description Reading statuses and lists */
+            lists?: boolean;
             picked?: {
                 [key: string]: number;
             };
@@ -4585,6 +4675,11 @@ export interface components {
              * @description Chapters already further here
              */
             kept: number;
+            /**
+             * Format: int64
+             * @description Titles whose status or lists changed
+             */
+            lists: number;
             /**
              * Format: int64
              * @description Chapters this server doesn't list (yet)
@@ -4609,6 +4704,7 @@ export interface components {
         DataTitleMatch: {
             /** @enum {string} */
             by?: "source" | "id" | "title" | "picked" | "";
+            favorite?: boolean;
             following: boolean;
             /** Format: int64 */
             index: number;
@@ -4623,6 +4719,7 @@ export interface components {
             seriesId: number;
             seriesTitle?: string;
             source?: string;
+            status?: string;
             title: string;
         };
         DatabaseInfo: {
@@ -5021,6 +5118,7 @@ export interface components {
         };
         ExportTitle: {
             altTitles?: string[];
+            favorite?: boolean;
             following?: boolean;
             history?: components["schemas"]["ExportEvent"][];
             /** @description Metadata ids, as anilist: 30013 */
@@ -5034,6 +5132,8 @@ export interface components {
             reader?: unknown;
             sessions?: components["schemas"]["ExportSession"][];
             sources?: components["schemas"]["ExportSource"][];
+            /** @enum {string} */
+            status?: "reading" | "planned" | "completed" | "onhold" | "dropped" | "";
             title: string;
         };
         ExportUI: {
@@ -5540,6 +5640,9 @@ export interface components {
             cached: boolean;
             chapters: components["schemas"]["SourceChapter"][];
             details: components["schemas"]["SourceMangaDetails"];
+        };
+        "Me-list-renameRequest": {
+            name: string;
         };
         "Me-messenger-preferencesRequest": {
             events: string[];
@@ -6414,6 +6517,39 @@ export interface components {
             /** Format: int64 */
             userId?: number;
         };
+        ReadingList: {
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: int64 */
+            id: number;
+            /** @enum {string} */
+            kind: "favorites" | "";
+            name: string;
+        };
+        ReadingListCount: {
+            /** Format: int64 */
+            count: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: int64 */
+            id: number;
+            /** @enum {string} */
+            kind: "favorites" | "";
+            name: string;
+        };
+        ReadingListNameBody: {
+            name: string;
+        };
+        ReadingListOwner: {
+            displayName?: string;
+            /** Format: int64 */
+            id: number;
+            username: string;
+        };
+        ReadingListsResponse: {
+            lists: components["schemas"]["ReadingListCount"][];
+            statuses: components["schemas"]["ReadingStatusCount"][];
+        };
         ReadingStats: {
             activeMonth?: components["schemas"]["ReadingStatsMonth"];
             /** Format: int64 */
@@ -6459,6 +6595,12 @@ export interface components {
             error?: string;
             listening: boolean;
             publicUrl: string;
+        };
+        ReadingStatusCount: {
+            /** Format: int64 */
+            count: number;
+            /** @enum {string} */
+            status: "reading" | "planned" | "completed" | "onhold" | "dropped";
         };
         RecommendationItem: {
             adaptations?: components["schemas"]["Adaptation"][];
@@ -7450,6 +7592,15 @@ export interface components {
             refreshGapMinSec?: number;
             /** Format: int64 */
             requestsPerMinute?: number;
+        };
+        TitleLists: {
+            /** @description Ids of the lists the title is in */
+            lists: number[];
+            /**
+             * @description Empty when the title has none
+             * @enum {string}
+             */
+            status: "reading" | "planned" | "completed" | "onhold" | "dropped" | "";
         };
         TitlePreview: {
             created: boolean;
@@ -10009,6 +10160,132 @@ export interface operations {
             };
         };
     };
+    "me-lists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadingListsResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "me-list-create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReadingListNameBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadingList"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "me-list-rename": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Me-list-renameRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadingList"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "me-list-delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "me-messenger": {
         parameters: {
             query?: never;
@@ -11892,6 +12169,35 @@ export interface operations {
             };
         };
     };
+    "reading-list-owners": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadingListOwner"][];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "reading-keys": {
         parameters: {
             query?: {
@@ -13124,6 +13430,10 @@ export interface operations {
                 genre?: string[];
                 /** @description Whether a series needs all the genres or any one of them */
                 genreMatch?: "all" | "any";
+                /** @description Only titles with this reading status (reading, planned, completed, onhold, dropped) or in the list with this id */
+                list?: string;
+                /** @description Whose statuses and lists the list filter uses (yours when unset); others' need Manage the library */
+                listUser?: number;
                 page?: number;
                 pageSize?: number;
             };
@@ -13499,6 +13809,72 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "series-lists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TitleLists"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "series-lists-save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TitleLists"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TitleLists"];
+                };
             };
             /** @description Error */
             default: {
@@ -16478,6 +16854,37 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "user-lists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadingListsResponse"];
+                };
             };
             /** @description Error */
             default: {

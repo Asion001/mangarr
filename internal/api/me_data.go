@@ -164,16 +164,16 @@ func (s *Server) registerMyData() {
 				return nil, huma.Error400BadRequest(err.Error())
 			}
 			acc, _ := s.myAccount(ctx)
-			return &struct{ Body *userdata.Export }{userdata.FromBackup(b, acc.Username)}, nil
+			return &struct{ Body *userdata.Export }{userdata.FromBackup(b, acc.Username, nil)}, nil
 		})
 	huma.Register(s.api, huma.Operation{OperationID: "me-data-from-account", Method: http.MethodPost, Path: "/api/v1/me/data/from-account", Tags: tags,
 		Summary: "Read a manga site account's lists and progress as your data, to preview and import like an export. The token is used for this read only and isn't kept."},
 		func(ctx context.Context, in *accountReadInput) (*struct{ Body *userdata.Export }, error) {
-			b, err := s.readAccount(ctx, in)
+			b, lists, err := s.readAccount(ctx, in)
 			if err != nil {
 				return nil, err
 			}
 			acc, _ := s.myAccount(ctx)
-			return &struct{ Body *userdata.Export }{userdata.FromBackup(b, acc.Username)}, nil
+			return &struct{ Body *userdata.Export }{userdata.FromBackup(b, acc.Username, lists)}, nil
 		})
 }
