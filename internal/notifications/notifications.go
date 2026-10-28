@@ -148,15 +148,28 @@ func (d *Dispatcher) flush(seriesID int64) {
 	if len(dg.items) > 0 {
 		msg := DigestMessage(dg.title, dg.cover, dg.items, false)
 		d.dispatch(events.ChapterImported, seriesID, msg)
-		if d.Followers != nil {
+		// followers hear about new releases, not a newly added series
+		// catching up (adding many titles at once would send one message each)
+		if fresh := NewReleases(dg.items); len(fresh) > 0 && d.Followers != nil {
 			if users := d.Followers(d.context(), seriesID); len(users) > 0 {
-				d.SendToUsers(users, events.ChapterImported, seriesID, msg)
+				d.SendToUsers(users, events.ChapterImported, seriesID, DigestMessage(dg.title, dg.cover, fresh, false))
 			}
 		}
 	}
 	if len(dg.upgraded) > 0 {
 		d.dispatch(events.ChapterUpgraded, seriesID, DigestMessage(dg.title, dg.cover, dg.upgraded, true))
 	}
+}
+
+// NewReleases leaves out the chapters a series is catching up on.
+func NewReleases(items []events.ChapterImportedPayload) []events.ChapterImportedPayload {
+	var out []events.ChapterImportedPayload
+	for _, it := range items {
+		if !it.Backlog {
+			out = append(out, it)
+		}
+	}
+	return out
 }
 
 // DigestMessage renders "Series: 3 new chapters (120–122)".

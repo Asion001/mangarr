@@ -319,7 +319,9 @@ the run of the library.
 
 **Following**: the bell on a series page (and the *Following* filter in the
 library). New chapters of series you follow go to your linked Telegram or
-Discord account.
+Discord account. Chapters a series already had when it was added aren't
+announced to followers, so adding many titles at once doesn't send a
+message for each.
 
 **Personal notifications** come from the server's own Telegram and Discord
 bots, as private messages. Nobody enters tokens or addresses but the admin.

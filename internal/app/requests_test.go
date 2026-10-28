@@ -227,10 +227,14 @@ func testRequests(t *testing.T, dsn string) {
 		r, _ := e.App.Requests.Get(ctx, pAnn, v.ID)
 		return r.Status == model.RequestAvailable
 	})
-	waitFor(t, 5*time.Second, "ann hears it's available and about the chapter", func() bool {
-		m := capturedFor("ann-phone")
-		return hasTitle(m, "Available: Blue Lock") && hasTitle(m, "Blue Lock: 1 new chapter")
+	waitFor(t, 5*time.Second, "ann hears it's available; the install hears about the chapter", func() bool {
+		return hasTitle(capturedFor("ann-phone"), "Available: Blue Lock") && hasTitle(capturedFor("install"), "Blue Lock: 1 new chapter")
 	})
+	// the chapter was out when the series was added: followers aren't told
+	// about a series catching up, only about new releases
+	if hasTitle(capturedFor("ann-phone"), "Blue Lock: 1 new chapter") {
+		t.Fatalf("a follower was told about the backlog: %s", titles(capturedFor("ann-phone")))
+	}
 	waitFor(t, 5*time.Second, "bob hears it's available", func() bool { return hasTitle(capturedFor("bob-phone"), "Available: Blue Lock") })
 	if hasTitle(capturedFor("bob-phone"), "Blue Lock: 1 new chapter") {
 		t.Fatal("bob's target got chapters though it only wants request updates")

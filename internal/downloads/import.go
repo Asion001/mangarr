@@ -201,7 +201,7 @@ func (m *Manager) importChapter(ctx context.Context, jc *jobCtx, proc ProcessRes
 		m.bus.Publish(events.Event{Type: evType, SeriesID: jc.series.ID, Payload: events.ChapterImportedPayload{
 			SeriesTitle: jc.series.Title, Chapter: jc.chapter.NumberKey, NumberSort: jc.chapter.NumberSort, Title: jc.chapter.Title,
 			Source: file.SourceName, Scanlator: file.Scanlator, Upgrade: event == model.HistoryUpgraded, Upscaled: upscaled,
-			CoverURL: jc.series.Metadata.CoverURL}})
+			CoverURL: jc.series.Metadata.CoverURL, Backlog: Backlog(&jc.series, &jc.chapter)}})
 	}
 	m.bus.Publish(events.Event{Type: EventFileWritten, SeriesID: jc.series.ID, Payload: target})
 	if proc.Encoded > 0 {
@@ -277,4 +277,11 @@ func (m *Manager) comicInfo(ctx context.Context, jc *jobCtx, pageCount int, writ
 		in.Notes = "Downloaded by mangarr from " + jc.link.SourceName
 	}
 	return comicinfo.Build(in)
+}
+
+// Backlog reports whether a chapter was listed when its series was added
+// (within the hour of the first refresh): downloading it catches up on the
+// series rather than bringing a new release.
+func Backlog(ser *model.Series, ch *model.Chapter) bool {
+	return !ser.AddedAt.IsZero() && ch.FirstSeenAt.Before(ser.AddedAt.Add(time.Hour))
 }

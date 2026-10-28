@@ -65,6 +65,9 @@ type ChapterImportedPayload struct {
 	Upgrade     bool    `json:"upgrade"`
 	Upscaled    bool    `json:"upscaled"`
 	CoverURL    string  `json:"coverUrl"`
+	// Backlog: the chapter was already out when the series was added, so
+	// it's catching up rather than a new release.
+	Backlog bool `json:"backlog,omitempty"`
 }
 
 type MessagePayload struct {

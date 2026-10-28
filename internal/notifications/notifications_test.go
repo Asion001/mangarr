@@ -77,3 +77,13 @@ func TestDigestAndFiltering(t *testing.T) {
 		t.Fatalf("filtering: %+v", rec.msgs)
 	}
 }
+
+func TestNewReleases(t *testing.T) {
+	items := []events.ChapterImportedPayload{{Chapter: "1", Backlog: true}, {Chapter: "2"}, {Chapter: "3", Backlog: true}}
+	if got := NewReleases(items); len(got) != 1 || got[0].Chapter != "2" {
+		t.Fatalf("new releases = %+v", got)
+	}
+	if got := NewReleases(items[:1]); len(got) != 0 {
+		t.Fatalf("a series catching up = %+v", got)
+	}
+}
