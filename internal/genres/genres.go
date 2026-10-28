@@ -86,6 +86,12 @@ func Name(s string) string {
 	return strings.TrimSpace(s)
 }
 
+// Known reports whether s is a genre this package knows by any of its names.
+func Known(s string) bool {
+	_, ok := byKey[key(s)]
+	return ok
+}
+
 // Normalize renames the known genres in list to their English names and
 // drops empties and repeats, keeping the first one's place.
 func Normalize(list []string) []string {

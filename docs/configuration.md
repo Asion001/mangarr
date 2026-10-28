@@ -254,6 +254,20 @@ MANGARR_MODULE_KOMGA_API_KEY=...
 | `_INCLUDE_SPOILER_TAGS` | bool | Include spoiler tags |
 | `_MIN_TAG_RANK` | int | Minimum tag rank. Only AniList tags with at least this relevance (0-100) are imported |
 
+### `metadata/kitsu` — Kitsu
+
+| Suffix | Type | Description |
+|---|---|---|
+| `_ENDPOINT` | string | API endpoint |
+| `_USER_AGENT` | string | User-Agent |
+
+### `metadata/mangadex` — MangaDex
+
+| Suffix | Type | Description |
+|---|---|---|
+| `_ENDPOINT` | string | API endpoint |
+| `_USER_AGENT` | string | User-Agent. MangaDex refuses requests without an identifiable User-Agent |
+
 ### `metadata/mangaupdates` — MangaUpdates
 
 | Suffix | Type | Description |

@@ -1,0 +1,207 @@
+{
+ "data": {
+  "id": "38",
+  "type": "manga",
+  "attributes": {
+   "slug": "one-piece",
+   "description": "Gol D. Roger was known as the Pirate King.",
+   "titles": {
+    "en": "One Piece",
+    "en_jp": "One Piece",
+    "en_us": "One Piece",
+    "ja_jp": "ONE PIECE"
+   },
+   "canonicalTitle": "One Piece",
+   "abbreviatedTitles": [
+    "Budak Getah",
+    "Đảo Hải Tặc",
+    "Большой куш"
+   ],
+   "startDate": "1997-07-22",
+   "ageRating": "G",
+   "subtype": "manga",
+   "status": "current",
+   "posterImage": {
+    "original": "https://media.kitsu.app/manga/38/poster_image/85c98b3ebfea8a1cfe8c8f837b6b5fc8.jpg"
+   },
+   "chapterCount": null
+  },
+  "relationships": {
+   "categories": {
+    "data": [
+     {
+      "type": "categories",
+      "id": "160"
+     },
+     {
+      "type": "categories",
+      "id": "47"
+     },
+     {
+      "type": "categories",
+      "id": "156"
+     },
+     {
+      "type": "categories",
+      "id": "150"
+     },
+     {
+      "type": "categories",
+      "id": "167"
+     },
+     {
+      "type": "categories",
+      "id": "157"
+     },
+     {
+      "type": "categories",
+      "id": "243"
+     },
+     {
+      "type": "categories",
+      "id": "11"
+     },
+     {
+      "type": "categories",
+      "id": "184"
+     }
+    ]
+   },
+   "mappings": {
+    "data": [
+     {
+      "type": "mappings",
+      "id": "31025"
+     },
+     {
+      "type": "mappings",
+      "id": "257092"
+     },
+     {
+      "type": "mappings",
+      "id": "323438"
+     }
+    ]
+   },
+   "staff": {
+    "data": [
+     {
+      "type": "mediaStaff",
+      "id": "112871"
+     }
+    ]
+   }
+  }
+ },
+ "included": [
+  {
+   "type": "categories",
+   "id": "160",
+   "attributes": {
+    "title": "Comedy"
+   }
+  },
+  {
+   "type": "categories",
+   "id": "47",
+   "attributes": {
+    "title": "Super Power"
+   }
+  },
+  {
+   "type": "categories",
+   "id": "156",
+   "attributes": {
+    "title": "Fantasy"
+   }
+  },
+  {
+   "type": "categories",
+   "id": "150",
+   "attributes": {
+    "title": "Action"
+   }
+  },
+  {
+   "type": "categories",
+   "id": "167",
+   "attributes": {
+    "title": "Friendship"
+   }
+  },
+  {
+   "type": "categories",
+   "id": "157",
+   "attributes": {
+    "title": "Adventure"
+   }
+  },
+  {
+   "type": "categories",
+   "id": "243",
+   "attributes": {
+    "title": "Shounen"
+   }
+  },
+  {
+   "type": "categories",
+   "id": "11",
+   "attributes": {
+    "title": "Pirate"
+   }
+  },
+  {
+   "type": "categories",
+   "id": "184",
+   "attributes": {
+    "title": "Drama"
+   }
+  },
+  {
+   "type": "mappings",
+   "id": "31025",
+   "attributes": {
+    "externalSite": "myanimelist/manga",
+    "externalId": "13"
+   }
+  },
+  {
+   "type": "mappings",
+   "id": "257092",
+   "attributes": {
+    "externalSite": "anilist/manga",
+    "externalId": "30013"
+   }
+  },
+  {
+   "type": "mappings",
+   "id": "323438",
+   "attributes": {
+    "externalSite": "mangaupdates",
+    "externalId": "pb8uwds"
+   }
+  },
+  {
+   "type": "mediaStaff",
+   "id": "112871",
+   "attributes": {
+    "role": "Story & Art"
+   },
+   "relationships": {
+    "person": {
+     "data": {
+      "type": "people",
+      "id": "952"
+     }
+    }
+   }
+  },
+  {
+   "type": "people",
+   "id": "952",
+   "attributes": {
+    "name": "Eiichiro Oda"
+   }
+  }
+ ]
+}

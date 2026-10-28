@@ -1,0 +1,108 @@
+{
+ "result": "ok",
+ "data": {
+  "id": "a1c7c817-4e59-43b7-9365-09675a149a6f",
+  "type": "manga",
+  "attributes": {
+   "title": {
+    "ja-ro": "One Piece"
+   },
+   "altTitles": [
+    {
+     "ja": "ワンピース"
+    },
+    {
+     "uk": "Ван Піс"
+    },
+    {
+     "ru": "One Piece. Большой куш"
+    },
+    {
+     "ru": "Ван Пис"
+    },
+    {
+     "en": "One Piece"
+    }
+   ],
+   "description": {
+    "en": "From Viz:\nAs a child, Monkey D. Luffy was inspired to become a pirate.\n\n\n\n**Note:** won an [award](https://example.com).",
+    "ru": "Описание."
+   },
+   "links": {
+    "al": "30013",
+    "mal": "13",
+    "mu": "pb8uwds",
+    "kt": "one-piece"
+   },
+   "originalLanguage": "ja",
+   "lastVolume": "",
+   "lastChapter": "",
+   "publicationDemographic": "shounen",
+   "status": "ongoing",
+   "year": 1997,
+   "contentRating": "suggestive",
+   "tags": [
+    {
+     "attributes": {
+      "name": {
+       "en": "Sci-Fi"
+      },
+      "group": "genre"
+     }
+    },
+    {
+     "attributes": {
+      "name": {
+       "en": "Monsters"
+      },
+      "group": "theme"
+     }
+    },
+    {
+     "attributes": {
+      "name": {
+       "en": "Action"
+      },
+      "group": "genre"
+     }
+    },
+    {
+     "attributes": {
+      "name": {
+       "en": "Animals"
+      },
+      "group": "theme"
+     }
+    },
+    {
+     "attributes": {
+      "name": {
+       "en": "Comedy"
+      },
+      "group": "genre"
+     }
+    }
+   ]
+  },
+  "relationships": [
+   {
+    "type": "author",
+    "attributes": {
+     "name": "Oda Eiichirou (尾田栄一郎)"
+    }
+   },
+   {
+    "type": "artist",
+    "attributes": {
+     "name": "Oda Eiichirou (尾田栄一郎)"
+    }
+   },
+   {
+    "type": "cover_art",
+    "attributes": {
+     "fileName": "2f4aca53-64c7-46ac-ae85-3bc9b3169890.png"
+    }
+   }
+  ]
+ }
+}

@@ -12,8 +12,9 @@ a module is in [modules.md](modules.md). Planned work and bugs live in
                │ pipeline: fetch pages → validate → [upscale/encode] → CBZ → import    │
                │ ─────────────────── module registry (Go interfaces) ───────────────── │
                │ source: native (own sites), suwayomi │ metadata: anilist, shikimori,   │
-               │ mangaupdates │ library: komga, kavita │ notify: telegram, discord,    │
-               │ ntfy, gotify, apprise, webhook │ upscale: local, workers              │
+               │ mangaupdates, mangadex, kitsu │ library: komga, kavita │ notify:      │
+               │ telegram, discord, ntfy, gotify, apprise, webhook │ upscale: local,   │
+               │ workers                                                               │
                │ worker task ledger ◄── /api/v1/worker/ ──────────────────────────────  │
                └────┬─────────────────┬───────────────┬────────────────────┬───────────┘
                     ▼                 ▼               ▼                    ▲
