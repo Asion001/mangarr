@@ -15,9 +15,10 @@ import { useSettingsDoc } from "../settings/useSettingsDoc";
 type Finding = S["DuplicateFinding"];
 type Side = S["DuplicateTitle"];
 type Ref = { moduleId: number; provider: string; id: string };
-type Tab = "review" | "metadata" | "auto" | "dismissed";
+type Tab = "review" | "metadata" | "primary" | "auto" | "dismissed";
+type Primary = NonNullable<S["DuplicatesList"]["primary"]>;
 
-const providerName = (p: string) => ({ anilist: "AniList", shikimori: "Shikimori", mal: "MyAnimeList", mangaupdates: "MangaUpdates", kitsu: "Kitsu" })[p] ?? p;
+const providerName = (p: string) => ({ anilist: "AniList", shikimori: "Shikimori", mal: "MyAnimeList", mangaupdates: "MangaUpdates", kitsu: "Kitsu", mangadex: "MangaDex" })[p] ?? p;
 
 /** reason says in words why two titles look like one work. */
 function reason(r: Finding["reasons"][number]): string {
@@ -31,7 +32,8 @@ function reason(r: Finding["reasons"][number]): string {
   return r.code;
 }
 
-/** DuplicatesPage lists titles that look like one work and titles without metadata. */
+/** DuplicatesPage (Library check) lists titles that look like one work,
+ * titles without metadata, and titles not on the primary provider. */
 export function DuplicatesPage() {
   const qc = useQueryClient();
   const toast = useToast();
@@ -46,6 +48,7 @@ export function DuplicatesPage() {
   const lists = useMemo(() => ({
     review: findings.filter((f) => f.kind === "pair" && f.state === "open"),
     metadata: findings.filter((f) => f.kind === "metadata" && (f.state === "open" || f.state === "none")),
+    primary: findings.filter((f) => f.kind === "primary" && (f.state === "open" || f.state === "none")),
     auto: findings.filter((f) => f.state === "auto" && (f.kind === "pair" || !findings.some((p) => p.kind === "pair" && p.state === "auto" && (p.seriesA === f.seriesA || p.seriesB === f.seriesA)))),
     dismissed: findings.filter((f) => f.state === "dismissed"),
   }), [findings]);
@@ -63,8 +66,8 @@ export function DuplicatesPage() {
   return (
     <>
       <PageHeader
-        title={t("Duplicate titles")}
-        subtitle={data?.scanning ? t("Checking the library…") : lastChecked ? t("Titles that look like the same work. Last checked {when}.", { when: relative(lastChecked) }) : t("Titles that look like the same work.")}
+        title={t("Library check")}
+        subtitle={data?.scanning ? t("Checking the library…") : lastChecked ? t("Duplicates, titles without metadata, and titles to move to the primary provider. Last checked {when}.", { when: relative(lastChecked) }) : t("Duplicates, titles without metadata, and titles to move to the primary provider.")}
         actions={
           <div className="flex flex-wrap items-center justify-end gap-3">
             {cfg.value && (
@@ -88,8 +91,9 @@ export function DuplicatesPage() {
             value={tab}
             onChange={setTab}
             tabs={[
-              { value: "review", label: `${t("To review")} · ${lists.review.length}` },
+              { value: "review", label: `${t("Duplicates")} · ${lists.review.length}` },
               { value: "metadata", label: `${t("No metadata")} · ${lists.metadata.length}` },
+              ...(data.primary ? [{ value: "primary" as Tab, label: `${t("Not on {provider}", { provider: data.primary.name })} · ${lists.primary.length}` }] : []),
               { value: "auto", label: `${t("Done by itself")} · ${lists.auto.length}` },
               { value: "dismissed", label: `${t("Not duplicates")} · ${lists.dismissed.length}` },
             ]}
@@ -99,6 +103,7 @@ export function DuplicatesPage() {
             <EmptyState title={t("No duplicates to review")}>{t("Titles that look like the same work show up here after a scan.")}</EmptyState>
           ))}
           {tab === "metadata" && <MetadataList findings={lists.metadata} onDone={refresh} onSearchAgain={scan} />}
+          {tab === "primary" && data.primary && <PrimaryList primary={data.primary} findings={lists.primary} onDone={refresh} onSearchAgain={scan} />}
           {tab === "auto" && <SettledList findings={lists.auto} onDone={refresh} />}
           {tab === "dismissed" && <SettledList findings={lists.dismissed} onDone={refresh} restore />}
         </>
@@ -297,6 +302,99 @@ function MetadataList({ findings, onDone, onSearchAgain }: { findings: Finding[]
               try {
                 await unwrap(api.PUT("/api/v1/series/{id}/metadata", { params: { path: { id: searching.id } }, body: { moduleId: c.moduleId, provider: c.provider, id: c.id } }));
                 toast.success(t("Metadata linked"));
+                setSearching(null);
+                await unwrap(api.POST("/api/v1/duplicates/scan", { body: { seriesIds: [searching.id] } }));
+                onDone();
+              } catch (e) {
+                toast.fromError(e);
+              }
+            }}
+          />
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+/** PrimaryList is the titles linked to lower providers only, with what the
+ * primary provider has for them, to move them over in a batch. */
+function PrimaryList({ primary, findings, onDone, onSearchAgain }: { primary: Primary; findings: Finding[]; onDone: () => void; onSearchAgain: (ids: number[]) => Promise<void> }) {
+  const toast = useToast();
+  const [picked, setPicked] = useState<Set<number>>(new Set());
+  const [searching, setSearching] = useState<Side | null>(null);
+  const sorted = useMemo(() => [...findings].sort((x, y) => Number(!x.match) - Number(!y.match) || Number(y.sure) - Number(x.sure) || (y.match?.score ?? 0) - (x.match?.score ?? 0) || x.a.title.localeCompare(y.a.title)), [findings]);
+  const chosen = sorted.filter((f) => picked.has(f.seriesA));
+  const withMatch = chosen.filter((f) => f.match);
+  const all = sorted.length > 0 && chosen.length === sorted.length;
+  const toggle = (id: number) => setPicked((p) => {
+    const next = new Set(p);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    return next;
+  });
+  const move = async (ids: number[]) => {
+    try {
+      const r = await unwrap(api.POST("/api/v1/duplicates/link", { body: { seriesIds: ids, kind: "primary" } }));
+      toast.success(t("Moved {count} titles to {provider}", { count: r.linked, provider: primary.name }));
+      setPicked(new Set());
+      onDone();
+    } catch (e) {
+      toast.fromError(e);
+    }
+  };
+  if (!sorted.length) return <EmptyState title={t("Every title is on {provider}", { provider: primary.name })}>{t("Titles linked to other providers only show up here after a scan.")}</EmptyState>;
+  return (
+    <div>
+      <p className="mb-2 text-xs text-muted">{t("Titles linked to a lower provider only. The scan looked each one up at {provider} by its ids first, then by name.", { provider: primary.name })}</p>
+      <div className="sticky top-0 z-10 mb-2 flex flex-wrap items-center gap-3 rounded-lg border border-border bg-panel px-3 py-2 text-sm">
+        <label className="flex items-center gap-2">
+          <input type="checkbox" className="size-4 accent-accent" checked={all} onChange={(e) => setPicked(new Set(e.target.checked ? sorted.map((f) => f.seriesA) : []))} />
+          {chosen.length ? t("{count} selected", { count: chosen.length }) : t("Select all")}
+        </label>
+        {chosen.length > 0 && <span className="text-xs text-muted">{t("{count} have a {provider} match", { count: withMatch.length, provider: primary.name })}</span>}
+        <span className="flex-1" />
+        <Button size="sm" disabled={!chosen.length} icon={<RefreshCw className="size-3.5" />} onClick={() => onSearchAgain(chosen.map((f) => f.seriesA)).then(() => setPicked(new Set()))}>{t("Look up selected again")}</Button>
+        <Button size="sm" variant="primary" disabled={!withMatch.length} onClick={() => move(withMatch.map((f) => f.seriesA))}>{t("Move {count} to {provider}", { count: withMatch.length, provider: primary.name })}</Button>
+      </div>
+      <ul className="divide-y divide-border rounded-lg border border-border bg-panel">
+        {sorted.map((f) => (
+          <li key={f.id} className="flex flex-wrap items-center gap-3 px-3 py-2.5">
+            <input type="checkbox" aria-label={t("Select {title}", { title: f.a.title })} className="size-4 accent-accent" checked={picked.has(f.seriesA)} onChange={() => toggle(f.seriesA)} />
+            <Cover src={apiUrl(f.a.coverUrl)} alt="" className="aspect-[2/3] w-10 shrink-0" />
+            <div className="min-w-48 flex-1 text-sm">
+              <Link to={`/series/${f.a.id}`} className="font-medium hover:underline">{f.a.title}</Link>
+              {f.a.language && <span className="ml-2 text-xs text-muted">{f.a.language.toUpperCase()}</span>}
+              <div className="text-xs text-muted">{t("Now: {providers}", { providers: (f.a.providers ?? []).filter((p) => p !== "mal").map(providerName).join(" · ") || "—" })}</div>
+              <div className="mt-0.5 text-xs">
+                {f.match ? (
+                  <>
+                    <span className="text-muted">{primary.name}: </span>
+                    <span className="font-medium">{f.match.title}</span>
+                    {f.match.year ? <span className="text-muted"> · {f.match.year}</span> : null}{" "}
+                    <Badge tone={f.match.how === "id" ? "ok" : "warn"}>
+                      {f.match.how === "id" ? t("same {provider} id", { provider: providerName(f.match.by ?? "") }) : t("by name, {percent}%", { percent: Math.round(f.match.score * 100) })}
+                    </Badge>
+                  </>
+                ) : (
+                  <span className="text-muted">{t("{provider} has no entry for it", { provider: primary.name })}</span>
+                )}
+              </div>
+            </div>
+            <Button size="sm" onClick={() => setSearching(f.a)}>{f.match ? t("Other…") : t("Search {provider}…", { provider: primary.name })}</Button>
+            {f.match && <Button size="sm" variant="primary" onClick={() => move([f.seriesA])}>{t("Move")}</Button>}
+          </li>
+        ))}
+      </ul>
+      {searching && (
+        <Modal open size="lg" title={t("{provider} for {title}", { provider: primary.name, title: searching.title })} onClose={() => setSearching(null)}>
+          <MetadataSearch
+            initialQuery={searching.title}
+            language={searching.language}
+            moduleId={primary.moduleId}
+            onPick={async (c) => {
+              try {
+                await unwrap(api.POST("/api/v1/series/{id}/metadata/refs", { params: { path: { id: searching.id } }, body: { moduleId: c.moduleId, provider: c.provider, id: c.id } }));
+                toast.success(t("Moved to {provider}", { provider: primary.name }));
                 setSearching(null);
                 await unwrap(api.POST("/api/v1/duplicates/scan", { body: { seriesIds: [searching.id] } }));
                 onDone();

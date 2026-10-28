@@ -131,7 +131,7 @@ func (s *Server) registerMyMessenger() {
 	// Discord: sign in with the identify scope; the link token is the OAuth state
 	huma.Register(s.api, huma.Operation{OperationID: "me-messenger-discord-link", Method: http.MethodGet, Path: "/api/v1/me/messenger/discord/link", Tags: tags,
 		Summary: "Start linking Discord (redirects to Discord)"},
-		func(ctx context.Context, _ *struct{}) (*messengerRedirect, error) {
+		func(ctx context.Context, _ *struct{}) (*redirectOutput, error) {
 			p, err := me(ctx)
 			if err != nil {
 				return s.messengerBack("", err), nil
@@ -145,7 +145,7 @@ func (s *Server) registerMyMessenger() {
 			if err != nil {
 				return nil, toHTTPError(err)
 			}
-			return &messengerRedirect{Status: http.StatusSeeOther, Location: messenger.DiscordAuthorizeURL(m.Discord.ClientID, redirect, state)}, nil
+			return &redirectOutput{Status: http.StatusSeeOther, Location: messenger.DiscordAuthorizeURL(m.Discord.ClientID, redirect, state)}, nil
 		})
 	huma.Register(s.api, huma.Operation{OperationID: "me-messenger-discord-callback", Method: http.MethodGet, Path: "/api/v1/me/messenger/discord/callback", Tags: tags,
 		Security: []map[string][]string{}, Summary: "Where Discord sends people back after they sign in"},
@@ -153,7 +153,7 @@ func (s *Server) registerMyMessenger() {
 			Code  string `query:"code"`
 			State string `query:"state"`
 			Error string `query:"error"`
-		}) (*messengerRedirect, error) {
+		}) (*redirectOutput, error) {
 			if in.Error != "" || in.Code == "" || in.State == "" {
 				return s.messengerBack("", errors.New("Discord didn't link the account")), nil
 			}
@@ -192,18 +192,18 @@ func (s *Server) registerMyMessenger() {
 		})
 }
 
-type messengerRedirect struct {
+type redirectOutput struct {
 	Status   int
 	Location string `header:"Location"`
 }
 
 // messengerBack returns to My account, saying what was linked or why not.
-func (s *Server) messengerBack(linked string, err error) *messengerRedirect {
+func (s *Server) messengerBack(linked string, err error) *redirectOutput {
 	q := url.Values{}
 	if err != nil {
 		q.Set("messenger_error", err.Error())
 	} else {
 		q.Set("linked", linked)
 	}
-	return &messengerRedirect{Status: http.StatusSeeOther, Location: s.app.Cfg.URLBase + "/account/notifications?" + q.Encode()}
+	return &redirectOutput{Status: http.StatusSeeOther, Location: s.app.Cfg.URLBase + "/account/notifications?" + q.Encode()}
 }

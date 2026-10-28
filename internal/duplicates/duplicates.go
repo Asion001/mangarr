@@ -33,6 +33,9 @@ import (
 const (
 	KindPair     = "pair"
 	KindMetadata = "metadata"
+	// KindPrimary is a title linked to lower metadata providers only, with
+	// what the primary provider has for it.
+	KindPrimary = "primary"
 )
 
 // States of a finding.
@@ -68,13 +71,17 @@ type Match struct {
 	Score    float64  `json:"score"`
 	// IDs are the series' ids at every provider that knows it.
 	IDs map[string]string `json:"ids,omitempty"`
+	// How the primary provider's series was found: by the id another
+	// provider gives (By names that provider) or by name.
+	How string `json:"how,omitempty" enum:",id,name"`
+	By  string `json:"by,omitempty"`
 }
 
 // Finding is one thing the scan found.
 type Finding struct {
 	bun.BaseModel `bun:"table:duplicate_findings"`
 	ID            int64    `bun:"id,pk,autoincrement" json:"id"`
-	Kind          string   `bun:"kind,notnull" json:"kind" enum:"pair,metadata"`
+	Kind          string   `bun:"kind,notnull" json:"kind" enum:"pair,metadata,primary"`
 	SeriesA       int64    `bun:"series_a,notnull" json:"seriesA"`
 	SeriesB       int64    `bun:"series_b,notnull" json:"seriesB"`
 	KeepID        int64    `bun:"keep_id,notnull" json:"keepId"`
@@ -101,6 +108,7 @@ func (f *Finding) Other() int64 {
 type SeriesService interface {
 	SetWork(ctx context.Context, seriesID, workID int64) error
 	LinkMetadata(ctx context.Context, id int64, ref metadataagg.Ref) (*model.Series, error)
+	AddMetadataRef(ctx context.Context, id int64, ref metadataagg.Ref) (*model.Series, error)
 	Get(ctx context.Context, id int64) (*model.Series, error)
 	Merge(ctx context.Context, keepID, dropID int64) error
 }
@@ -114,6 +122,12 @@ type Service struct {
 	// Lookup finds the metadata series for a title; imports.MatchTitleCandidate
 	// when nil (tests replace it).
 	Lookup func(ctx context.Context, title string, alts []string) (*metadataagg.Candidate, float64)
+	// AtPrimary finds a title at the primary provider; the aggregator's
+	// FindAtPrimary when nil (tests replace it).
+	AtPrimary func(ctx context.Context, k metadataagg.Known) (c *metadataagg.Candidate, how, by string, score float64)
+	// Primary names the primary provider's implementation; the
+	// aggregator's when nil.
+	Primary func() string
 	// Changed is told when findings change.
 	Changed func()
 }
@@ -123,6 +137,8 @@ var ErrNotFound = errors.New("finding not found")
 // Result counts what a scan did.
 type Result struct {
 	LookedUp, Found, Pairs, Grouped, Linked int
+	// AtPrimary counts titles looked up at the primary provider.
+	AtPrimary int
 }
 
 // title is what the scan knows about one series.
@@ -292,6 +308,11 @@ func (s *Service) Scan(ctx context.Context, only []int64, progress func(string))
 		}
 	}
 
+	// 1b. find titles linked to lower providers at the primary one
+	if err := s.scanPrimary(ctx, titles, prev, only, now, progress, &res); err != nil {
+		return res, err
+	}
+
 	// 2. pair titles of different works
 	progress("comparing titles")
 	pairs := pairUp(titles)
@@ -365,6 +386,83 @@ func (s *Service) Scan(ctx context.Context, only []int64, progress func(string))
 		s.Changed()
 	}
 	return res, nil
+}
+
+// scanPrimary records, for every title the primary provider is not linked
+// to, what that provider has for it.
+func (s *Service) scanPrimary(ctx context.Context, titles []*title, prev map[string]*Finding, only []int64, now time.Time, progress func(string), res *Result) error {
+	var primary string
+	if s.Primary != nil {
+		primary = s.Primary()
+	} else if s.Metadata != nil {
+		if def := s.Metadata.Primary(); def != nil {
+			primary = def.Implementation
+		}
+	}
+	var todo []*title
+	for _, t := range titles {
+		f := prev[key(KindPrimary, t.ID, 0)]
+		if primary != "" && t.hasProvider() && t.Metadata.ExternalIDs[primary] == "" {
+			todo = append(todo, t)
+			continue
+		}
+		if f != nil && f.State != StateDone {
+			// moved since, no provider at all, or no primary one any more
+			if _, err := s.DB.NewDelete().Model((*Finding)(nil)).Where("id = ?", f.ID).Exec(ctx); err != nil {
+				return err
+			}
+			delete(prev, key(KindPrimary, t.ID, 0))
+		}
+	}
+	for i, t := range todo {
+		f := prev[key(KindPrimary, t.ID, 0)]
+		fresh := f != nil && f.State != StateDone && (f.Match == nil || f.Match.Provider == primary) &&
+			(f.State == StateDismissed || now.Sub(f.CheckedAt) < recheck)
+		if len(only) > 0 {
+			fresh = !slices.Contains(only, t.ID)
+		}
+		if fresh {
+			continue
+		}
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		progress(fmt.Sprintf("looking up %d of %d at the primary provider: %s", i+1, len(todo), t.Title))
+		res.AtPrimary++
+		m := s.atPrimary(ctx, t)
+		state := StateNone
+		if m != nil {
+			state = StateOpen
+		}
+		if f == nil {
+			f = &Finding{Kind: KindPrimary, SeriesA: t.ID, KeepID: t.ID, Reasons: []Reason{}}
+			prev[key(KindPrimary, t.ID, 0)] = f
+		}
+		f.Match, f.State, f.Sure, f.CheckedAt, f.UpdatedAt = m, state, m != nil && m.How == metadataagg.FoundByID, now, now
+		if err := s.save(ctx, f); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// atPrimary asks the primary provider about a title by its ids and names.
+func (s *Service) atPrimary(ctx context.Context, t *title) *Match {
+	find := s.AtPrimary
+	if find == nil {
+		find = s.Metadata.FindAtPrimary
+	}
+	k := metadataagg.Known{IDs: t.Metadata.ExternalIDs, Year: t.Metadata.Year, Format: t.Metadata.Format}
+	k.Names = append([]string{t.Title}, t.Metadata.AltTitles...)
+	for _, n := range t.Metadata.Titles {
+		k.Names = append(k.Names, n)
+	}
+	c, how, by, score := find(ctx, k)
+	if c == nil {
+		return nil
+	}
+	return &Match{Ref: metadataagg.Ref{ModuleID: c.ModuleID, Provider: c.Provider, ID: c.ID}, Title: c.Title, CoverURL: c.CoverURL,
+		Year: c.Year, Authors: c.Authors, Score: score, How: how, By: by}
 }
 
 func key(kind string, a, b int64) string { return fmt.Sprintf("%s:%d:%d", kind, a, b) }
@@ -668,13 +766,17 @@ func (s *Service) close(ctx context.Context, seriesID int64, state string) {
 }
 
 // Link links the matches found for these titles. It returns how many were
-// linked; titles with nothing found are skipped.
-func (s *Service) Link(ctx context.Context, seriesIDs []int64) (int, error) {
+// linked; titles with nothing found are skipped. kind is KindMetadata (link
+// the match) or KindPrimary (add the primary provider's match to the others).
+func (s *Service) Link(ctx context.Context, kind string, seriesIDs []int64) (int, error) {
 	if len(seriesIDs) == 0 {
 		return 0, nil
 	}
+	if kind == "" {
+		kind = KindMetadata
+	}
 	var list []Finding
-	if err := s.DB.NewSelect().Model(&list).Where("kind = ? AND series_a IN (?)", KindMetadata, bun.In(seriesIDs)).Scan(ctx); err != nil {
+	if err := s.DB.NewSelect().Model(&list).Where("kind = ? AND series_a IN (?)", kind, bun.In(seriesIDs)).Scan(ctx); err != nil {
 		return 0, err
 	}
 	n := 0
@@ -696,7 +798,11 @@ func (s *Service) Link(ctx context.Context, seriesIDs []int64) (int, error) {
 }
 
 func (s *Service) link(ctx context.Context, f *Finding, state string) error {
-	if _, err := s.Series.LinkMetadata(ctx, f.SeriesA, f.Match.Ref); err != nil {
+	add := s.Series.LinkMetadata
+	if f.Kind == KindPrimary {
+		add = s.Series.AddMetadataRef
+	}
+	if _, err := add(ctx, f.SeriesA, f.Match.Ref); err != nil {
 		return err
 	}
 	f.State, f.UpdatedAt = state, time.Now().UTC()
@@ -712,7 +818,7 @@ func (s *Service) SetDismissed(ctx context.Context, id int64, dismissed bool) er
 	f.State = StateDismissed
 	if !dismissed {
 		f.State = StateOpen
-		if f.Kind == KindMetadata && f.Match == nil {
+		if (f.Kind == KindMetadata || f.Kind == KindPrimary) && f.Match == nil {
 			f.State = StateNone
 		}
 	}

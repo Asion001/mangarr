@@ -11294,5 +11294,153 @@
   "the primary provider": {
     "ru": "основном источнике",
     "uk": "основному джерелі"
+  },
+  "Library check": {
+    "ru": "Проверка библиотеки",
+    "uk": "Перевірка бібліотеки"
+  },
+  "Duplicates, titles without metadata, and titles to move to the primary provider. Last checked {when}.": {
+    "ru": "Дубликаты, тайтлы без метаданных и тайтлы для переноса на основной источник. Последняя проверка {when}.",
+    "uk": "Дублікати, тайтли без метаданих і тайтли для перенесення на основне джерело. Остання перевірка {when}."
+  },
+  "Duplicates, titles without metadata, and titles to move to the primary provider.": {
+    "ru": "Дубликаты, тайтлы без метаданных и тайтлы для переноса на основной источник.",
+    "uk": "Дублікати, тайтли без метаданих і тайтли для перенесення на основне джерело."
+  },
+  "Not on {provider}": {
+    "ru": "Нет в {provider}",
+    "uk": "Немає в {provider}"
+  },
+  "Moved {count} titles to {provider}": {
+    "ru": "Перенесено тайтлов в {provider}: {count}",
+    "uk": "Перенесено тайтлів до {provider}: {count}"
+  },
+  "Every title is on {provider}": {
+    "ru": "Все тайтлы есть в {provider}",
+    "uk": "Усі тайтли є в {provider}"
+  },
+  "Titles linked to other providers only show up here after a scan.": {
+    "ru": "Тайтлы, привязанные только к другим источникам, появятся здесь после проверки.",
+    "uk": "Тайтли, прив'язані лише до інших джерел, з'являться тут після перевірки."
+  },
+  "Titles linked to a lower provider only. The scan looked each one up at {provider} by its ids first, then by name.": {
+    "ru": "Тайтлы, привязанные только к источникам ниже. Проверка искала каждый в {provider} сначала по id, затем по названию.",
+    "uk": "Тайтли, прив'язані лише до джерел нижче. Перевірка шукала кожен у {provider} спершу за id, потім за назвою."
+  },
+  "{count} have a {provider} match": {
+    "ru": "С совпадением в {provider}: {count}",
+    "uk": "Зі збігом у {provider}: {count}"
+  },
+  "Look up selected again": {
+    "ru": "Найти выбранные снова",
+    "uk": "Знайти вибрані знову"
+  },
+  "Move {count} to {provider}": {
+    "ru": "Перенести {count} в {provider}",
+    "uk": "Перенести {count} до {provider}"
+  },
+  "Now: {providers}": {
+    "ru": "Сейчас: {providers}",
+    "uk": "Зараз: {providers}"
+  },
+  "same {provider} id": {
+    "ru": "тот же id {provider}",
+    "uk": "той самий id {provider}"
+  },
+  "by name, {percent}%": {
+    "ru": "по названию, {percent}%",
+    "uk": "за назвою, {percent}%"
+  },
+  "{provider} has no entry for it": {
+    "ru": "В {provider} его нет",
+    "uk": "У {provider} його немає"
+  },
+  "Search {provider}…": {
+    "ru": "Искать в {provider}…",
+    "uk": "Шукати в {provider}…"
+  },
+  "{provider} for {title}": {
+    "ru": "{provider} для «{title}»",
+    "uk": "{provider} для «{title}»"
+  },
+  "Moved to {provider}": {
+    "ru": "Перенесено в {provider}",
+    "uk": "Перенесено до {provider}"
+  },
+  "Metadata…": {
+    "ru": "Метаданные…",
+    "uk": "Метадані…"
+  },
+  "Metadata saved": {
+    "ru": "Метаданные сохранены",
+    "uk": "Метадані збережено"
+  },
+  "The providers fill the info again": {
+    "ru": "Данные снова заполняют источники",
+    "uk": "Дані знову заповнюють джерела"
+  },
+  "Metadata · {title}": {
+    "ru": "Метаданные · {title}",
+    "uk": "Метадані · {title}"
+  },
+  "Match": {
+    "ru": "Совпадение",
+    "uk": "Збіг"
+  },
+  "Pick info": {
+    "ru": "Выбрать данные",
+    "uk": "Вибрати дані"
+  },
+  "you picked {provider}": {
+    "ru": "вы выбрали {provider}",
+    "uk": "ви вибрали {provider}"
+  },
+  "you set it": {
+    "ru": "задано вами",
+    "uk": "задано вами"
+  },
+  "now from {provider}": {
+    "ru": "сейчас из {provider}",
+    "uk": "зараз з {provider}"
+  },
+  "Back to automatic": {
+    "ru": "Вернуть автоматически",
+    "uk": "Повернути автоматично"
+  },
+  "No metadata provider is linked to this title. Find its match on the Match tab first.": {
+    "ru": "К этому тайтлу не привязан ни один источник метаданных. Сначала найдите совпадение на вкладке «Совпадение».",
+    "uk": "До цього тайтлу не прив'язано жодного джерела метаданих. Спершу знайдіть збіг на вкладці «Збіг»."
+  },
+  "What each linked provider says. Pick one per field; a picked field keeps your choice when the title refreshes. Linked: {providers}.": {
+    "ru": "Что говорит каждый привязанный источник. Выберите один на поле; выбранное поле сохранится при обновлении тайтла. Привязаны: {providers}.",
+    "uk": "Що каже кожне прив'язане джерело. Виберіть одне на поле; вибране поле збережеться при оновленні тайтлу. Прив'язані: {providers}."
+  },
+  "Cover": {
+    "ru": "Обложка",
+    "uk": "Обкладинка"
+  },
+  "All of them together": {
+    "ru": "Все вместе",
+    "uk": "Усі разом"
+  },
+  "Metadata provider": {
+    "ru": "Источник метаданных",
+    "uk": "Джерело метаданих"
+  },
+  "Nothing on {skipped}, showing {provider}": {
+    "ru": "В {skipped} ничего нет, показан {provider}",
+    "uk": "У {skipped} нічого немає, показано {provider}"
+  },
+  "Open on {provider}": {
+    "ru": "Открыть в {provider}",
+    "uk": "Відкрити в {provider}"
+  },
+  "Change the cover…": {
+    "ru": "Сменить обложку…",
+    "uk": "Змінити обкладинку…"
+  },
+  "Open on {site}": {
+    "ru": "Открыть на {site}",
+    "uk": "Відкрити на {site}"
   }
 }

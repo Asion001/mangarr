@@ -421,7 +421,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** What the duplicate scan found: titles that look like one work, and titles without metadata */
+        /** What the library check found: titles that look like one work, titles without metadata, and titles not on the primary provider */
         get: operations["duplicates-list"];
         put?: never;
         post?: never;
@@ -440,7 +440,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Link the metadata found for these titles */
+        /** Link the metadata found for these titles; with kind primary, add the primary provider's match to what they have */
         post: operations["duplicates-link"];
         delete?: never;
         options?: never;
@@ -2366,7 +2366,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Search metadata modules (merged by priority) for a new series */
+        /** Search the metadata providers one at a time by priority (or one of them) for a series */
         get: operations["series-lookup"];
         put?: never;
         post?: never;
@@ -2612,6 +2612,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/series/{id}/metadata/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What each linked metadata provider says about a series, to pick the cover and info from */
+        get: operations["series-metadata-options"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/series/{id}/metadata/picks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Take fields from a provider of your choice (they are locked), or hand them back to the providers */
+        put: operations["series-metadata-picks"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/series/{id}/metadata/refresh": {
         parameters: {
             query?: never;
@@ -2622,6 +2656,23 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["series-metadata-refresh"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/series/{id}/metadata/refs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Link one more provider's series next to the ones linked (move a title to the primary provider) */
+        post: operations["series-metadata-add"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3202,6 +3253,23 @@ export interface paths {
         };
         /** Fetch details and chapters of a manga at a source (preview before adding); cached for an hour unless fresh=true */
         get: operations["sources-manga"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sources/{moduleId}/{sourceId}/open": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Go to a manga's page on its source's site (to look at it before adding) */
+        get: operations["sources-open"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5085,7 +5153,7 @@ export interface components {
             /** Format: int64 */
             keepId: number;
             /** @enum {string} */
-            kind: "pair" | "metadata";
+            kind: "pair" | "metadata" | "primary";
             match?: components["schemas"]["Match"];
             reasons: components["schemas"]["Reason"][];
             sameLanguage: boolean;
@@ -5111,6 +5179,7 @@ export interface components {
             /** Format: int64 */
             id: number;
             language: string;
+            providers: string[];
             sources: string[];
             title: string;
             /** Format: int64 */
@@ -5126,6 +5195,8 @@ export interface components {
             match?: components["schemas"]["MetadataRef"];
         };
         "Duplicates-linkRequest": {
+            /** @enum {string} */
+            kind?: "metadata" | "primary";
             seriesIds: number[];
         };
         "Duplicates-linkResponse": {
@@ -5141,7 +5212,14 @@ export interface components {
         };
         DuplicatesList: {
             findings: components["schemas"]["DuplicateFinding"][];
+            primary?: components["schemas"]["DuplicatesPrimary"];
             scanning: boolean;
+        };
+        DuplicatesPrimary: {
+            implementation: string;
+            /** Format: int64 */
+            moduleId: number;
+            name: string;
         };
         EditionOptions: {
             language: string;
@@ -5843,6 +5921,16 @@ export interface components {
             mine: boolean;
             status: string;
         };
+        LookupResponse: {
+            errors: string[];
+            /** Format: int64 */
+            moduleId?: number;
+            modules: components["schemas"]["MetadataModule"][];
+            /** Format: int64 */
+            providers: number;
+            results: components["schemas"]["LookupResult"][];
+            skipped: string[];
+        };
         LookupResult: {
             adaptations?: components["schemas"]["Adaptation"][];
             adult?: boolean;
@@ -5895,7 +5983,10 @@ export interface components {
         };
         Match: {
             authors?: string[];
+            by?: string;
             coverUrl?: string;
+            /** @enum {string} */
+            how?: "" | "id" | "name";
             id: string;
             ids?: {
                 [key: string]: string;
@@ -5981,6 +6072,68 @@ export interface components {
         };
         Metadata: {
             mapToPrimary: boolean;
+        };
+        MetadataCover: {
+            label?: string;
+            url: string;
+        };
+        MetadataModule: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+            provider: string;
+        };
+        MetadataOption: {
+            adaptations?: components["schemas"]["Adaptation"][];
+            adult?: boolean;
+            altTitles?: string[];
+            artists?: string[];
+            authors?: string[];
+            country?: string;
+            coverUrl?: string;
+            covers?: components["schemas"]["MetadataCover"][];
+            description?: string;
+            error?: string;
+            externalIds?: {
+                [key: string]: string;
+            };
+            format?: string;
+            genres?: string[];
+            id: string;
+            links?: {
+                [key: string]: string;
+            };
+            /** Format: int64 */
+            moduleId: number;
+            moduleName: string;
+            provider: string;
+            publisher?: string;
+            status?: string;
+            tags?: string[];
+            title: string;
+            titles?: {
+                [key: string]: string;
+            };
+            /** Format: int64 */
+            totalChapters?: number;
+            url?: string;
+            /** Format: int64 */
+            year?: number;
+        };
+        MetadataPicks: {
+            automatic?: ("title" | "description" | "coverUrl" | "status" | "year" | "genres" | "tags")[];
+            coverUrl?: string;
+            description?: string;
+            from?: {
+                [key: string]: string;
+            };
+            genres?: string[];
+            /** @enum {string} */
+            status?: "unknown" | "ongoing" | "completed" | "hiatus" | "cancelled";
+            tags?: string[];
+            title?: string;
+            /** Format: int64 */
+            year?: number;
         };
         MetadataRef: {
             id: string;
@@ -7295,11 +7448,8 @@ export interface components {
             sourceId: string;
             sourceName: string;
         };
-        "Series-lookupResponse": {
-            errors: string[];
-            /** Format: int64 */
-            providers: number;
-            results: components["schemas"]["LookupResult"][];
+        "Series-metadata-optionsResponse": {
+            options: components["schemas"]["MetadataOption"][];
         };
         "Series-rename-previewRequest": {
             folders: boolean;
@@ -13830,6 +13980,7 @@ export interface operations {
             query?: {
                 q?: string;
                 lang?: string;
+                moduleId?: number;
             };
             header?: {
                 "Accept-Language"?: string;
@@ -13845,7 +13996,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Series-lookupResponse"];
+                    "application/json": components["schemas"]["LookupResponse"];
                 };
             };
             /** @description Error */
@@ -14474,6 +14625,72 @@ export interface operations {
             };
         };
     };
+    "series-metadata-options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Series-metadata-optionsResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "series-metadata-picks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MetadataPicks"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeriesResource"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "series-metadata-refresh": {
         parameters: {
             query?: never;
@@ -14492,6 +14709,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Command"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "series-metadata-add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MetadataRef"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeriesResource"];
                 };
             };
             /** @description Error */
@@ -16107,6 +16359,40 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["MangaDetailsResult"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "sources-open": {
+        parameters: {
+            query?: {
+                url?: string;
+                engineRef?: string;
+            };
+            header?: never;
+            path: {
+                moduleId: number;
+                sourceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {

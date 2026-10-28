@@ -2,7 +2,7 @@ import { t as tr, t } from "../../lib/i18n/core";
 import { LanguageMenu } from "../../components/LanguageChooser";
 import { useMemo, useState } from "react";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, ChevronDown, Search, SlidersHorizontal } from "lucide-react";
+import { Check, ChevronDown, ExternalLink, Search, SlidersHorizontal } from "lucide-react";
 import { api, apiUrl, unwrap, type Catalog, type S, type SearchGroup, type SourceManga } from "../../api/client";
 import { useCatalogs } from "../../api/queries";
 import { Cover } from "../../components/Cover";
@@ -173,8 +173,24 @@ export function SearchInput({ query, setQuery, placeholder }: { query: string; s
   );
 }
 
+/** OpenOnSite links a source's manga to its page on the site. */
+function OpenOnSite({ m, g, className }: { m: SourceManga; g: PickGroup; className?: string }) {
+  return (
+    <a
+      href={apiUrl(`api/v1/sources/${g.moduleId}/${g.sourceId}/open`, { url: m.url, engineRef: m.engineRef })}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`inline-flex items-center gap-1 text-[11px] text-accent-2 hover:underline ${className ?? ""}`}
+    >
+      {tr("Open on {site}", { site: g.sourceName })}
+      <ExternalLink className="size-3" />
+    </a>
+  );
+}
+
 function ResultTile({ m, g, selected, linked, onPick }: { m: SourceManga; g: PickGroup; selected: boolean; linked?: boolean; onPick: () => void }) {
   return (
+    <div className="flex min-w-0 flex-col">
     <button
       type="button"
       onClick={onPick}
@@ -192,6 +208,8 @@ function ResultTile({ m, g, selected, linked, onPick }: { m: SourceManga; g: Pic
       {m.chapterCount != null && <span className="absolute left-2 top-2 rounded bg-black/70 px-1.5 text-[10px] text-white">{m.chapterCount}{" " + t("ch")}</span>}
       <span className="line-clamp-2 text-xs">{m.title}</span>
     </button>
+    <OpenOnSite m={m} g={g} className="px-1" />
+    </div>
   );
 }
 
@@ -297,6 +315,7 @@ export function HeroMatch({ c, selected, linked, onUse }: { c: QuickCandidate; s
         <h3 className="text-lg font-semibold">{c.manga.title}</h3>
         <div className="flex flex-wrap gap-1.5">
           <Badge tone="accent">{c.sourceName}</Badge>
+          <OpenOnSite m={c.manga} g={g} />
           {ch && <Badge tone="info">{ch.count}{" " + t("chapters")}</Badge>}
           {ch?.status && <Badge>{ch.status}</Badge>}
           {ch?.latestName && <Badge>{t("latest:") + " "}{ch.latestName}</Badge>}

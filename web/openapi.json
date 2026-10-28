@@ -3051,7 +3051,8 @@
           "kind": {
             "enum": [
               "pair",
-              "metadata"
+              "metadata",
+              "primary"
             ],
             "type": "string"
           },
@@ -3142,6 +3143,12 @@
           "language": {
             "type": "string"
           },
+          "providers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "sources": {
             "items": {
               "type": "string"
@@ -3165,7 +3172,8 @@
           "chapters",
           "files",
           "sources",
-          "hasMetadata"
+          "hasMetadata",
+          "providers"
         ],
         "type": "object"
       },
@@ -3205,6 +3213,13 @@
       "Duplicates-linkRequest": {
         "additionalProperties": false,
         "properties": {
+          "kind": {
+            "enum": [
+              "metadata",
+              "primary"
+            ],
+            "type": "string"
+          },
           "seriesIds": {
             "items": {
               "format": "int64",
@@ -3267,6 +3282,9 @@
             },
             "type": "array"
           },
+          "primary": {
+            "$ref": "#/components/schemas/DuplicatesPrimary"
+          },
           "scanning": {
             "type": "boolean"
           }
@@ -3274,6 +3292,27 @@
         "required": [
           "findings",
           "scanning"
+        ],
+        "type": "object"
+      },
+      "DuplicatesPrimary": {
+        "additionalProperties": false,
+        "properties": {
+          "implementation": {
+            "type": "string"
+          },
+          "moduleId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "moduleId",
+          "name",
+          "implementation"
         ],
         "type": "object"
       },
@@ -5536,6 +5575,51 @@
         ],
         "type": "object"
       },
+      "LookupResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "moduleId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "modules": {
+            "items": {
+              "$ref": "#/components/schemas/MetadataModule"
+            },
+            "type": "array"
+          },
+          "providers": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/LookupResult"
+            },
+            "type": "array"
+          },
+          "skipped": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "results",
+          "errors",
+          "providers",
+          "modules",
+          "skipped"
+        ],
+        "type": "object"
+      },
       "LookupResult": {
         "additionalProperties": false,
         "properties": {
@@ -5719,7 +5803,18 @@
             },
             "type": "array"
           },
+          "by": {
+            "type": "string"
+          },
           "coverUrl": {
+            "type": "string"
+          },
+          "how": {
+            "enum": [
+              "",
+              "id",
+              "name"
+            ],
             "type": "string"
           },
           "id": {
@@ -6033,6 +6128,228 @@
         "required": [
           "mapToPrimary"
         ],
+        "type": "object"
+      },
+      "MetadataCover": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "type": "object"
+      },
+      "MetadataModule": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "provider"
+        ],
+        "type": "object"
+      },
+      "MetadataOption": {
+        "additionalProperties": false,
+        "properties": {
+          "adaptations": {
+            "items": {
+              "$ref": "#/components/schemas/Adaptation"
+            },
+            "type": "array"
+          },
+          "adult": {
+            "type": "boolean"
+          },
+          "altTitles": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "artists": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "authors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "country": {
+            "type": "string"
+          },
+          "coverUrl": {
+            "type": "string"
+          },
+          "covers": {
+            "items": {
+              "$ref": "#/components/schemas/MetadataCover"
+            },
+            "type": "array"
+          },
+          "description": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          },
+          "externalIds": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "format": {
+            "type": "string"
+          },
+          "genres": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "id": {
+            "type": "string"
+          },
+          "links": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "moduleId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "moduleName": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "publisher": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "title": {
+            "type": "string"
+          },
+          "titles": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "totalChapters": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "url": {
+            "type": "string"
+          },
+          "year": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "moduleId",
+          "moduleName",
+          "provider",
+          "id",
+          "title"
+        ],
+        "type": "object"
+      },
+      "MetadataPicks": {
+        "additionalProperties": false,
+        "properties": {
+          "automatic": {
+            "items": {
+              "enum": [
+                "title",
+                "description",
+                "coverUrl",
+                "status",
+                "year",
+                "genres",
+                "tags"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "coverUrl": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "from": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "genres": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "unknown",
+              "ongoing",
+              "completed",
+              "hiatus",
+              "cancelled"
+            ],
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "title": {
+            "type": "string"
+          },
+          "year": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
         "type": "object"
       },
       "MetadataRef": {
@@ -10378,30 +10695,18 @@
         ],
         "type": "object"
       },
-      "Series-lookupResponse": {
+      "Series-metadata-optionsResponse": {
         "additionalProperties": false,
         "properties": {
-          "errors": {
+          "options": {
             "items": {
-              "type": "string"
-            },
-            "type": "array"
-          },
-          "providers": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "results": {
-            "items": {
-              "$ref": "#/components/schemas/LookupResult"
+              "$ref": "#/components/schemas/MetadataOption"
             },
             "type": "array"
           }
         },
         "required": [
-          "results",
-          "errors",
-          "providers"
+          "options"
         ],
         "type": "object"
       },
@@ -15661,7 +15966,7 @@
             "description": "Error"
           }
         },
-        "summary": "What the duplicate scan found: titles that look like one work, and titles without metadata",
+        "summary": "What the library check found: titles that look like one work, titles without metadata, and titles not on the primary provider",
         "tags": [
           "Duplicates"
         ]
@@ -15702,7 +16007,7 @@
             "description": "Error"
           }
         },
-        "summary": "Link the metadata found for these titles",
+        "summary": "Link the metadata found for these titles; with kind primary, add the primary provider's match to what they have",
         "tags": [
           "Duplicates"
         ]
@@ -21842,6 +22147,15 @@
             }
           },
           {
+            "explode": false,
+            "in": "query",
+            "name": "moduleId",
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
             "in": "header",
             "name": "Accept-Language",
             "schema": {
@@ -21854,7 +22168,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Series-lookupResponse"
+                  "$ref": "#/components/schemas/LookupResponse"
                 }
               }
             },
@@ -21871,7 +22185,7 @@
             "description": "Error"
           }
         },
-        "summary": "Search metadata modules (merged by priority) for a new series",
+        "summary": "Search the metadata providers one at a time by priority (or one of them) for a series",
         "tags": [
           "Series"
         ]
@@ -22940,6 +23254,100 @@
         ]
       }
     },
+    "/api/v1/series/{id}/metadata/options": {
+      "get": {
+        "operationId": "series-metadata-options",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Series-metadata-optionsResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "What each linked metadata provider says about a series, to pick the cover and info from",
+        "tags": [
+          "Series"
+        ]
+      }
+    },
+    "/api/v1/series/{id}/metadata/picks": {
+      "put": {
+        "operationId": "series-metadata-picks",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MetadataPicks"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeriesResource"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Take fields from a provider of your choice (they are locked), or hand them back to the providers",
+        "tags": [
+          "Series"
+        ]
+      }
+    },
     "/api/v1/series/{id}/metadata/refresh": {
       "post": {
         "operationId": "series-metadata-refresh",
@@ -22976,6 +23384,58 @@
             "description": "Error"
           }
         },
+        "tags": [
+          "Series"
+        ]
+      }
+    },
+    "/api/v1/series/{id}/metadata/refs": {
+      "post": {
+        "operationId": "series-metadata-add",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MetadataRef"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeriesResource"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Link one more provider's series next to the ones linked (move a title to the primary provider)",
         "tags": [
           "Series"
         ]
@@ -25023,6 +25483,73 @@
           }
         },
         "summary": "Fetch details and chapters of a manga at a source (preview before adding); cached for an hour unless fresh=true",
+        "tags": [
+          "Sources"
+        ]
+      }
+    },
+    "/api/v1/sources/{moduleId}/{sourceId}/open": {
+      "get": {
+        "operationId": "sources-open",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "moduleId",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "sourceId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "url",
+            "schema": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "engineRef",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content",
+            "headers": {
+              "Location": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Go to a manga's page on its source's site (to look at it before adding)",
         "tags": [
           "Sources"
         ]

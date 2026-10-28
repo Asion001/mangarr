@@ -224,7 +224,7 @@ export function Layout() {
     { to: "/wanted", section: "manage", label: "Wanted", icon: <AlertCircle className="size-4" />, need: "library.edit" },
     { to: "/sources", section: "manage", label: "Sources", icon: <Compass className="size-4" />, need: "library.edit" },
     { to: "/cleanup", section: "manage", label: "Cleanup", icon: <Eraser className="size-4" />, need: "admin" },
-    { to: "/duplicates", section: "manage", label: "Duplicates", icon: <CopyCheck className="size-4" />, need: "admin" },
+    { to: "/duplicates", section: "manage", label: "Library check", icon: <CopyCheck className="size-4" />, need: "admin" },
     {
       to: "/settings",
       section: "admin",

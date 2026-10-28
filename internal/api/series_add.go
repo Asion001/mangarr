@@ -97,38 +97,47 @@ func (s *Server) existingByExternalID(ctx context.Context) func(ids map[string]s
 	}
 }
 
+// LookupResponse is a metadata search's answer.
+type LookupResponse struct {
+	Results []LookupResult `json:"results"`
+	Errors  []string       `json:"errors"`
+	// Providers is how many metadata modules are set up; 0 means none is,
+	// so an empty result says nothing about the title.
+	Providers int `json:"providers"`
+	// Modules are the providers that can be searched, by priority.
+	Modules []metadataagg.Module `json:"modules" nullable:"false"`
+	// ModuleID is the provider the results are from.
+	ModuleID int64 `json:"moduleId,omitempty"`
+	// Skipped are the providers above it that found nothing.
+	Skipped []string `json:"skipped" nullable:"false"`
+}
+
 func (s *Server) registerSeriesAdd() {
 	tags := []string{"Series"}
 	huma.Register(s.api, huma.Operation{OperationID: "series-lookup", Method: http.MethodGet, Path: "/api/v1/series/lookup", Tags: tags,
-		Summary: "Search metadata modules (merged by priority) for a new series"},
+		Summary: "Search the metadata providers one at a time by priority (or one of them) for a series"},
 		func(ctx context.Context, in *struct {
 			Query string `query:"q" minLength:"1"`
 			Lang  string `query:"lang" required:"false"`
+			// ModuleID searches just that provider; without it the providers
+			// are asked by priority and the first that has results answers.
+			ModuleID int64 `query:"moduleId" required:"false"`
 			// without a lang, results are titled in the interface language
 			AcceptLanguage string `header:"Accept-Language"`
-		}) (*struct {
-			Body struct {
-				Results []LookupResult `json:"results"`
-				Errors  []string       `json:"errors"`
-				// Providers is how many metadata modules were searched; 0 means
-				// none is set up, so an empty result says nothing about the title.
-				Providers int `json:"providers"`
-			}
-		}, error) {
+		}) (*struct{ Body LookupResponse }, error) {
 			lang := in.Lang
 			if lang == "" {
 				lang = uiLanguage(in.AcceptLanguage)
 			}
-			cands, errs := s.app.Metadata.SearchLanguage(ctx, in.Query, lang, 10)
-			out := &struct {
-				Body struct {
-					Results   []LookupResult `json:"results"`
-					Errors    []string       `json:"errors"`
-					Providers int            `json:"providers"`
-				}
-			}{}
-			out.Body.Results, out.Body.Errors = []LookupResult{}, []string{}
-			out.Body.Providers = len(s.app.Modules.Active(modules.KindMetadata))
+			cands, shown, skipped, errs := s.app.Metadata.SearchFirst(ctx, in.Query, lang, 10, in.ModuleID)
+			out := &struct{ Body LookupResponse }{}
+			out.Body.Results, out.Body.Errors, out.Body.Skipped = []LookupResult{}, []string{}, skipped
+			if out.Body.Skipped == nil {
+				out.Body.Skipped = []string{}
+			}
+			out.Body.Modules = s.app.Metadata.Modules()
+			out.Body.Providers = len(out.Body.Modules)
+			out.Body.ModuleID = shown
 			existing := s.existingByExternalID(ctx)
 			requested := s.requestedByExternalID(ctx)
 			sc := access.From(ctx).ContentScope()

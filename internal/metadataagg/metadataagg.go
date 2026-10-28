@@ -136,6 +136,109 @@ func (a *Aggregator) SearchModule(ctx context.Context, moduleID int64, q string,
 	return nil, errors.New("metadata module not found or disabled")
 }
 
+// Module is an active metadata module, as a search shows it.
+type Module struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+	// Provider is its implementation ("anilist").
+	Provider string `json:"provider"`
+}
+
+// Modules lists the active metadata modules, highest priority first.
+func (a *Aggregator) Modules() []Module {
+	out := []Module{}
+	for _, m := range modules.ActiveAs[metadata.Module](a.mods, modules.KindMetadata) {
+		out = append(out, Module{ID: m.Def.ID, Name: m.Def.Name, Provider: m.Def.Implementation})
+	}
+	return out
+}
+
+// SearchFirst asks the modules one at a time, by priority, and returns the
+// results of the first that has any (or only moduleID's, when it is set).
+// shown is the module the results are from, skipped the ones above it that
+// had nothing.
+func (a *Aggregator) SearchFirst(ctx context.Context, q, language string, limit int, moduleID int64) (list []Candidate, shown int64, skipped []string, errs []error) {
+	for _, m := range modules.ActiveAs[metadata.Module](a.mods, modules.KindMetadata) {
+		if moduleID != 0 && m.Def.ID != moduleID {
+			continue
+		}
+		var found []metadata.SeriesMetadata
+		var err error
+		if localized, ok := m.Instance.(metadata.LanguageSearcher); ok && language != "" {
+			found, err = localized.SearchLanguage(ctx, q, language, limit)
+		} else {
+			found, err = m.Instance.Search(ctx, q, limit)
+		}
+		if err != nil {
+			errs = append(errs, fmt.Errorf("%s: %w", m.Def.Name, err))
+		}
+		if len(found) == 0 {
+			if moduleID != 0 {
+				return nil, m.Def.ID, nil, errs
+			}
+			skipped = append(skipped, m.Def.Name)
+			continue
+		}
+		for _, md := range found {
+			list = append(list, Candidate{SeriesMetadata: md, ModuleID: m.Def.ID, ModuleName: m.Def.Name})
+		}
+		return list, m.Def.ID, skipped, errs
+	}
+	return nil, 0, skipped, errs
+}
+
+// Option is what one linked provider says about a series, to pick fields from.
+type Option struct {
+	metadata.SeriesMetadata
+	ModuleID   int64  `json:"moduleId"`
+	ModuleName string `json:"moduleName"`
+	// Covers are all its covers, when it has more than one.
+	Covers []metadata.Cover `json:"covers,omitempty"`
+	// Error is why the provider could not be asked.
+	Error string `json:"error,omitempty"`
+}
+
+// Options asks every active provider a series is linked to (ids by
+// provider) what it has, by priority.
+func (a *Aggregator) Options(ctx context.Context, ids map[string]string, language string) []Option {
+	mods := modules.ActiveAs[metadata.Module](a.mods, modules.KindMetadata)
+	out := make([]Option, len(mods))
+	var wg sync.WaitGroup
+	for i, m := range mods {
+		id := ids[m.Def.Implementation]
+		if id == "" {
+			continue
+		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			o := Option{ModuleID: m.Def.ID, ModuleName: m.Def.Name}
+			o.Provider, o.ID = m.Def.Implementation, id
+			var md *metadata.SeriesMetadata
+			var err error
+			if localized, ok := m.Instance.(metadata.LanguageGetter); ok && language != "" {
+				md, err = localized.GetLanguage(ctx, id, language)
+			} else {
+				md, err = m.Instance.Get(ctx, id)
+			}
+			if err != nil {
+				o.Error = err.Error()
+				out[i] = o
+				return
+			}
+			o.SeriesMetadata = *md
+			if cl, ok := m.Instance.(metadata.CoverLister); ok {
+				if covers, err := cl.Covers(ctx, id); err == nil && len(covers) > 1 {
+					o.Covers = covers
+				}
+			}
+			out[i] = o
+		}()
+	}
+	wg.Wait()
+	return slices.DeleteFunc(out, func(o Option) bool { return o.ModuleID == 0 })
+}
+
 func findSame(list []Candidate, c Candidate) int {
 	for i, x := range list {
 		if x.Provider == c.Provider {

@@ -43,6 +43,17 @@ func (f *fakeSeries) LinkMetadata(ctx context.Context, id int64, ref metadataagg
 	return s, err
 }
 
+func (f *fakeSeries) AddMetadataRef(ctx context.Context, id int64, ref metadataagg.Ref) (*model.Series, error) {
+	f.linked[id] = ref
+	s, err := f.Get(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	s.Metadata.ExternalIDs[ref.Provider] = ref.ID
+	_, err = f.d.NewUpdate().Model(s).WherePK().Exec(ctx)
+	return s, err
+}
+
 func (f *fakeSeries) Merge(ctx context.Context, keepID, dropID int64) error {
 	_, err := f.d.NewDelete().Model((*model.Series)(nil)).Where("id = ?", dropID).Exec(ctx)
 	return err
@@ -159,7 +170,7 @@ func TestScan(t *testing.T) {
 		if soloMeta == nil || soloMeta.State != StateOpen || soloMeta.Sure || soloMeta.Match.ID != "5" {
 			t.Fatalf("solo metadata %+v", soloMeta)
 		}
-		n, err := svc.Link(ctx, []int64{solo, unknown})
+		n, err := svc.Link(ctx, KindMetadata, []int64{solo, unknown})
 		if err != nil || n != 1 || fake.linked[solo].ID != "5" {
 			t.Fatalf("link: %d %v %v", n, err, fake.linked[solo])
 		}
@@ -193,6 +204,59 @@ func TestScan(t *testing.T) {
 		}
 		if !slices.Equal(lookups, []string{"Мой сосед-вампир"}) {
 			t.Fatalf("lookups %v", lookups)
+		}
+
+		// with MangaUpdates primary, titles linked to AniList only are looked
+		// up there, by the ids they have first
+		var asked []string
+		svc.Primary = func() string { return "mangaupdates" }
+		svc.AtPrimary = func(ctx context.Context, k metadataagg.Known) (*metadataagg.Candidate, string, string, float64) {
+			asked = append(asked, k.Names[0])
+			if k.IDs["anilist"] == "1" {
+				return candidate("mangaupdates", "mu1", "Berserk", nil), metadataagg.FoundByID, "anilist", 1
+			}
+			return nil, "", "", 0
+		}
+		if _, err := svc.Scan(ctx, nil, nil); err != nil {
+			t.Fatal(err)
+		}
+		list, _ = svc.List(ctx)
+		var berserkAt *Finding
+		primaries := 0
+		for i, f := range list {
+			if f.Kind == KindPrimary {
+				primaries++
+				if f.SeriesA == berserk {
+					berserkAt = &list[i]
+				}
+			}
+		}
+		if berserkAt == nil || berserkAt.State != StateOpen || berserkAt.Match.How != "id" || berserkAt.Match.By != "anilist" || !berserkAt.Sure {
+			t.Fatalf("berserk at the primary provider: %+v (asked %v)", berserkAt, asked)
+		}
+		if n, err := svc.Link(ctx, KindPrimary, []int64{berserk}); err != nil || n != 1 {
+			t.Fatalf("move: %d %v", n, err)
+		}
+		if s, _ := fake.Get(ctx, berserk); s.Metadata.ExternalIDs["anilist"] != "1" || s.Metadata.ExternalIDs["mangaupdates"] != "mu1" {
+			t.Fatalf("moved ids %v", s.Metadata.ExternalIDs)
+		}
+		// moved titles drop off the next scan, the others are not asked again
+		asked = nil
+		if _, err := svc.Scan(ctx, nil, nil); err != nil {
+			t.Fatal(err)
+		}
+		list, _ = svc.List(ctx)
+		after := 0
+		for _, f := range list {
+			if f.Kind == KindPrimary {
+				after++
+				if f.SeriesA == berserk && f.State != StateDone {
+					t.Fatalf("moved title still listed: %+v", f)
+				}
+			}
+		}
+		if len(asked) != 0 || after > primaries {
+			t.Fatalf("second scan asked %v, %d findings (was %d)", asked, after, primaries)
 		}
 	})
 }

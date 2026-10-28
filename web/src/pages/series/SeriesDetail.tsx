@@ -16,6 +16,7 @@ import { useToast } from "../../lib/toast";
 import { SourcesPanel } from "./SourcesPanel";
 import { ChaptersTable, readable } from "./ChaptersTable";
 import { EditSeriesModal } from "./EditSeriesModal";
+import { MetadataModal, type MetadataTab } from "./MetadataModal";
 import { RenameModal } from "./Organize";
 import { useAccount } from "../../lib/account";
 import { AddLanguageModal, RequestLanguageModal } from "./AddLanguage";
@@ -46,6 +47,7 @@ export function SeriesDetail() {
   const toast = useToast();
   const nav = useNavigate();
   const [edit, setEdit] = useState(false);
+  const [metadata, setMetadata] = useState<MetadataTab | null>(null);
   const [renaming, setRenaming] = useState(false);
   const [del, setDel] = useState(false);
   const [deleteFiles, setDeleteFiles] = useState(false);
@@ -97,6 +99,7 @@ export function SeriesDetail() {
   const lists = !!account && !s.preview;
   const manageItems: MenuItem[] = [
     { label: t("Edit…"), icon: <Pencil className="size-4" />, onSelect: () => setEdit(true) },
+    { label: t("Metadata…"), icon: <BookText className="size-4" />, onSelect: () => setMetadata("pick") },
     s.monitored
       ? { label: t("Stop monitoring"), icon: <EyeOff className="size-4" />, onSelect: () => void setMonitored(false) }
       : { label: t("Monitor"), icon: <Eye className="size-4" />, onSelect: () => void setMonitored(true) },
@@ -129,7 +132,13 @@ export function SeriesDetail() {
       {s.preview && <PreviewBanner series={s} />}
       {/* on a phone the cover sits beside the title and everything else runs full width under them */}
       <div className="mb-6 grid grid-cols-[6.5rem_minmax(0,1fr)] gap-4 sm:flex sm:items-start sm:gap-9">
-        <Cover src={apiUrl(s.coverUrl)} alt={name} className="aspect-[2/3] w-full rounded-lg sm:w-50 sm:flex-none" />
+        {manage ? (
+          <button type="button" onClick={() => setMetadata("pick")} title={t("Change the cover…")} className="w-full rounded-lg sm:w-50 sm:flex-none">
+            <Cover src={apiUrl(s.coverUrl)} alt={name} className="aspect-[2/3] w-full rounded-lg" />
+          </button>
+        ) : (
+          <Cover src={apiUrl(s.coverUrl)} alt={name} className="aspect-[2/3] w-full rounded-lg sm:w-50 sm:flex-none" />
+        )}
         <div className="contents sm:flex sm:min-w-0 sm:flex-1 sm:flex-col sm:gap-4 sm:pt-1">
           <div className="flex min-w-0 flex-col gap-2 self-end sm:self-auto">
             <h1 className="text-xl font-bold leading-tight sm:text-3xl">{name}</h1>
@@ -231,7 +240,8 @@ export function SeriesDetail() {
       <ChaptersTable key={String(manage)} seriesId={id} seriesTitle={s.title} manage={manage} nextChapterId={readTarget?.id} editions={s.editions ?? []} />
       {!s.preview && <Recommendations seriesId={id} />}
 
-      {manage && edit && <EditSeriesModal series={s} onClose={() => setEdit(false)} />}
+      {manage && edit && <EditSeriesModal series={s} onClose={() => setEdit(false)} onMetadata={() => { setEdit(false); setMetadata("match"); }} />}
+      {manage && metadata && <MetadataModal series={s} tab={metadata} onClose={() => setMetadata(null)} />}
       {manage && renaming && <RenameModal seriesIds={[id]} onClose={() => setRenaming(false)} />}
       {adds && addingLang && <AddLanguageModal series={s} onClose={() => setAddingLang(false)} />}
       {asksLang && addingLang && <RequestLanguageModal series={s} onClose={() => setAddingLang(false)} />}

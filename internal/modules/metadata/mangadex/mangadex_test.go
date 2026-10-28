@@ -102,3 +102,22 @@ func TestSearchLanguage(t *testing.T) {
 		t.Fatalf("got %+v", list)
 	}
 }
+
+func TestCovers(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/cover" || r.URL.Query().Get("manga[]") != onePiece {
+			t.Errorf("asked %s", r.URL)
+		}
+		_, _ = w.Write([]byte(`{"data":[{"attributes":{"fileName":"b.jpg","volume":"110","locale":"ja"}},{"attributes":{"fileName":"a.png","volume":"1","locale":"uk"}},{"attributes":{"fileName":""}}]}`))
+	}))
+	defer server.Close()
+	m := &Module{s: &Settings{Endpoint: server.URL, UserAgent: "mangarr-test"}, http: server.Client()}
+	got, err := m.Covers(context.Background(), onePiece)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []metadata.Cover{{URL: coversURL + onePiece + "/b.jpg", Label: "vol. 110"}, {URL: coversURL + onePiece + "/a.png", Label: "vol. 1 uk"}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("covers %+v", got)
+	}
+}

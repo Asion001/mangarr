@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -242,6 +243,28 @@ func (s *Server) registerSources() {
 				return nil, sourceError(err)
 			}
 			return &struct{ Body *MangaDetailsResult }{&MangaDetailsResult{Details: res.Details, Chapters: res.Chapters, Cached: cached}}, nil
+		})
+
+	huma.Register(s.api, huma.Operation{OperationID: "sources-open", Method: http.MethodGet, Path: "/api/v1/sources/{moduleId}/{sourceId}/open", Tags: tags,
+		Summary: "Go to a manga's page on its source's site (to look at it before adding)"},
+		func(ctx context.Context, in *struct {
+			ModuleID  int64  `path:"moduleId"`
+			SourceID  string `path:"sourceId"`
+			URL       string `query:"url" minLength:"1"`
+			EngineRef string `query:"engineRef"`
+		}) (*redirectOutput, error) {
+			if err := s.allowedCatalog(ctx, in.ModuleID, in.SourceID); err != nil {
+				return nil, err
+			}
+			res, _, err := s.mangaDetails(ctx, in.ModuleID, source.MangaRef{SourceID: in.SourceID, URL: in.URL, EngineRef: in.EngineRef}, false)
+			if err != nil {
+				return nil, sourceError(err)
+			}
+			web := res.Details.WebURL
+			if u, err := url.Parse(web); err != nil || (u.Scheme != "http" && u.Scheme != "https") {
+				return nil, huma.Error404NotFound("the source gives no page for this manga")
+			}
+			return &redirectOutput{Status: http.StatusFound, Location: web}, nil
 		})
 
 	huma.Register(s.api, huma.Operation{OperationID: "sources-thumbnail", Method: http.MethodGet, Path: "/api/v1/sources/{moduleId}/{sourceId}/thumbnail", Tags: tags,

@@ -121,6 +121,12 @@ Read wherever the engine runs: in the server, or on a worker with the upscale ro
 |---|---|---|---|
 | `MANGARR_DUPLICATES_AUTO_GROUP` | bool | `true` | Group titles that are surely the same work in another language, and link the metadata found for them. |
 
+### metadata
+
+| Variable | Type | Default | Description |
+|---|---|---|---|
+| `MANGARR_METADATA_MAP_TO_PRIMARY` | bool | `true` | Look a title found at a lower metadata provider up at the primary one (the first by priority) too, so its info comes from the primary one first. |
+
 ### readsync
 
 | Variable | Type | Default | Description |

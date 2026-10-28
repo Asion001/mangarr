@@ -6,9 +6,8 @@ import { api, unwrap, type Series, type UpdateRequest } from "../../api/client";
 import { useProfiles, useRootFolders, useTags } from "../../api/queries";
 import { Button, Field, Input, Modal, Select, Switch, TagInput, Textarea } from "../../components/ui";
 import { useToast } from "../../lib/toast";
-import { MetadataSearch } from "./MetadataSearch";
 
-export function EditSeriesModal({ series, onClose }: { series: Series; onClose: () => void }) {
+export function EditSeriesModal({ series, onClose, onMetadata }: { series: Series; onClose: () => void; onMetadata: () => void }) {
   const qc = useQueryClient();
   const toast = useToast();
   const { data: profiles } = useProfiles();
@@ -24,7 +23,6 @@ export function EditSeriesModal({ series, onClose }: { series: Series; onClose: 
   const [tagIds, setTagIds] = useState<number[]>(series.tags ?? []);
   const [blocked, setBlocked] = useState<string[]>(series.blockedScanlators ?? []);
   const [locks, setLocks] = useState<string[]>(series.metadata.locks ?? []);
-  const [relink, setRelink] = useState(false);
   const { data: roots } = useRootFolders();
   const [rootId, setRootId] = useState(series.rootFolderId);
   const [folder, setFolder] = useState(series.path);
@@ -66,26 +64,6 @@ export function EditSeriesModal({ series, onClose }: { series: Series; onClose: 
     }
   };
 
-  if (relink) {
-    return (
-      <Modal open onClose={() => setRelink(false)} title={t("Fix metadata match")} size="lg">
-        <MetadataSearch
-          initialQuery={series.title}
-          onPick={async (c) => {
-            try {
-              await unwrap(api.PUT("/api/v1/series/{id}/metadata", { params: { path: { id: series.id } }, body: { moduleId: c.moduleId, provider: c.provider, id: c.id } }));
-              qc.invalidateQueries({ queryKey: ["series"] });
-              toast.success(tr("Metadata updated"));
-              onClose();
-            } catch (e) {
-              toast.fromError(e);
-            }
-          }}
-        />
-      </Modal>
-    );
-  }
-
   return (
     <Modal
       open
@@ -94,7 +72,7 @@ export function EditSeriesModal({ series, onClose }: { series: Series; onClose: 
       size="lg"
       footer={
         <>
-          <Button onClick={() => setRelink(true)} className="mr-auto">{t("Fix metadata match…")}</Button>
+          <Button onClick={onMetadata} className="mr-auto">{t("Metadata…")}</Button>
           <Button onClick={onClose}>{t("Cancel")}</Button>
           <Button variant="primary" loading={saving} onClick={save}>{t("Save")}</Button>
         </>

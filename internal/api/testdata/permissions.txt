@@ -184,7 +184,10 @@ series-lists GET /api/v1/series/{id}/lists -> signedin
 series-lists-save PUT /api/v1/series/{id}/lists -> signedin
 series-lookup GET /api/v1/series/lookup -> library.add | library.edit | requests.create
 series-lookup-get GET /api/v1/series/lookup/{moduleId}/{id} -> library.add | library.edit | requests.create
+series-metadata-add POST /api/v1/series/{id}/metadata/refs -> library.edit
 series-metadata-link PUT /api/v1/series/{id}/metadata -> library.edit
+series-metadata-options GET /api/v1/series/{id}/metadata/options -> library.edit
+series-metadata-picks PUT /api/v1/series/{id}/metadata/picks -> library.edit
 series-metadata-refresh POST /api/v1/series/{id}/metadata/refresh -> library.edit
 series-query GET /api/v1/series/search -> signedin
 series-recommendations GET /api/v1/series/{id}/recommendations -> signedin
@@ -210,6 +213,7 @@ settings-get-duplicates GET /api/v1/settings/duplicates -> admin
 settings-get-general GET /api/v1/settings/general -> admin
 settings-get-media GET /api/v1/settings/media -> admin
 settings-get-messenger GET /api/v1/settings/messenger -> admin
+settings-get-metadata GET /api/v1/settings/metadata -> admin
 settings-get-reading GET /api/v1/settings/reading -> admin
 settings-get-readsync GET /api/v1/settings/readsync -> admin
 settings-get-schedule GET /api/v1/settings/schedule -> admin
@@ -226,6 +230,7 @@ settings-put-duplicates PUT /api/v1/settings/duplicates -> admin
 settings-put-general PUT /api/v1/settings/general -> admin
 settings-put-media PUT /api/v1/settings/media -> admin
 settings-put-messenger PUT /api/v1/settings/messenger -> admin
+settings-put-metadata PUT /api/v1/settings/metadata -> admin
 settings-put-reading PUT /api/v1/settings/reading -> admin
 settings-put-readsync PUT /api/v1/settings/readsync -> admin
 settings-put-schedule PUT /api/v1/settings/schedule -> admin
@@ -242,6 +247,7 @@ sources-browse GET /api/v1/sources/{moduleId}/{sourceId}/browse -> library.add |
 sources-defaults-search POST /api/v1/sources/defaults-search -> library.add | library.edit | requests.manage
 sources-list GET /api/v1/sources -> library.add | library.edit | requests.manage
 sources-manga GET /api/v1/sources/{moduleId}/{sourceId}/manga -> library.add | library.edit | requests.manage
+sources-open GET /api/v1/sources/{moduleId}/{sourceId}/open -> library.add | library.edit | requests.manage
 sources-quick-search POST /api/v1/sources/quick-search -> library.add | library.edit | requests.manage
 sources-search GET /api/v1/sources/search -> library.add | library.edit | requests.manage
 sources-thumbnail GET /api/v1/sources/{moduleId}/{sourceId}/thumbnail -> library.add | library.edit | requests.manage

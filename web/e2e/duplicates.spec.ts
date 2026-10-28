@@ -20,6 +20,10 @@ const findings = [
   finding(2, "metadata", side(300, "Возвращение мага 8-го класса", "ru"), undefined, { match: match("The 8th Class Mage Returns", "8", 0.86) }),
   finding(3, "metadata", side(301, "Мой сосед-вампир", "ru"), undefined, { state: "none" }),
   finding(4, "metadata", side(302, "Ранкер, который живёт второй раз", "ru"), undefined, { match: match("Second Life Ranker", "9", 0.93) }),
+  finding(6, "primary", side(500, "Absolute Sword Sense", "en", { hasMetadata: true, providers: ["mangadex"] }), undefined, {
+    match: { ...match("Absolute Sword Sense", "21", 1), how: "id", by: "mal" },
+  }),
+  finding(7, "primary", side(501, "Мой сосед-вампир", "ru", { hasMetadata: true, providers: ["mangadex"] }), undefined, { state: "none", sure: false }),
 ];
 
 async function mock(page: Page, calls: { path: string; body: unknown }[]) {
@@ -33,7 +37,7 @@ async function mock(page: Page, calls: { path: string; body: unknown }[]) {
       if (path.endsWith("/duplicates/link")) return route.fulfill({ json: { linked: 2 } });
       return route.fulfill({ status: 204 });
     }
-    if (path.endsWith("/api/v1/duplicates")) return route.fulfill({ json: { findings, scanning: false } });
+    if (path.endsWith("/api/v1/duplicates")) return route.fulfill({ json: { findings, scanning: false, primary: { moduleId: 1, name: "AniList", implementation: "anilist" } } });
     if (path.endsWith("/settings/duplicates")) return route.fulfill({ json: { autoGroup: true } });
     if (path.endsWith("/settings/locks")) return route.fulfill({ json: {} });
     if (path.endsWith("/health")) return route.fulfill({ json: { checks: [] } });
@@ -78,4 +82,18 @@ test("a pair in one language is merged into the title picked to keep", async ({ 
   await page.getByRole("region", { name: "Solo Leveling · Поднятие уровня в одиночку" }).getByRole("button", { name: "Merge into the left one" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Merge", exact: true }).click();
   await expect.poll(() => calls.find((c) => c.path.endsWith("/duplicates/5/merge"))?.body).toEqual({ keepId: 401 });
+});
+
+test("titles not on the primary provider are moved to it", async ({ page }) => {
+  const calls: { path: string; body: unknown }[] = [];
+  await mock(page, calls);
+  await page.goto("/duplicates");
+  await expect(page.getByRole("heading", { name: "Library check" })).toBeVisible();
+  await page.getByRole("button", { name: /Not on AniList · 2/ }).click();
+  await expect(page.getByText("Now: MangaDex").first()).toBeVisible();
+  await expect(page.getByText("same MyAnimeList id")).toBeVisible();
+  await expect(page.getByText("AniList has no entry for it")).toBeVisible();
+  await page.getByRole("checkbox", { name: /Select all/ }).check();
+  await page.getByRole("button", { name: "Move 1 to AniList" }).click();
+  await expect.poll(() => calls.find((c) => c.path.endsWith("/duplicates/link"))?.body).toEqual({ seriesIds: [500], kind: "primary" });
 });

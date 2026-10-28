@@ -840,6 +840,26 @@ func (s *Service) LinkMetadata(ctx context.Context, id int64, ref metadataagg.Re
 	return s.Get(ctx, ser.ID)
 }
 
+// AddMetadataRef links one more provider's series next to the ones linked
+// (moving a title to the primary provider), then refreshes the metadata.
+func (s *Service) AddMetadataRef(ctx context.Context, id int64, ref metadataagg.Ref) (*model.Series, error) {
+	ser, err := s.Get(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if ser.Metadata.ExternalIDs == nil {
+		ser.Metadata.ExternalIDs = map[string]string{}
+	}
+	ser.Metadata.ExternalIDs[ref.Provider] = ref.ID
+	if _, err := s.db.NewUpdate().Model(ser).Column("metadata").WherePK().Exec(ctx); err != nil {
+		return nil, err
+	}
+	if _, err := s.RefreshMetadata(ctx, id); err != nil {
+		return nil, err
+	}
+	return s.Get(ctx, id)
+}
+
 // cleanNames trims names and drops empty and duplicate ones.
 func cleanNames(names []string) []string {
 	out := []string{}

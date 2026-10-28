@@ -13,6 +13,7 @@ import (
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/modules"
 	"github.com/Asion001/mangarr/internal/modules/metadata"
+	"github.com/Asion001/mangarr/internal/series"
 	"github.com/Asion001/mangarr/internal/settings"
 )
 
@@ -138,6 +139,61 @@ func TestMapToPrimary(t *testing.T) {
 			r, err = e.App.Metadata.Resolve(e.Ctx, metadataagg.Ref{ModuleID: low, Provider: "lowmeta", ID: "lowmeta:Vagabond"}, nil)
 			if err != nil || r.Metadata.ExternalIDs["topmeta"] != "" {
 				t.Fatalf("mapping off: %v %v", r.Metadata.ExternalIDs, err)
+			}
+		})
+	}
+}
+
+// TestPickMetadata: a title moved to the primary provider keeps its other
+// providers, fields picked from one of them stay through a refresh, and
+// handing them back takes the providers' again.
+func TestPickMetadata(t *testing.T) {
+	for name, dsn := range dbtest.DSNs(t) {
+		t.Run(name, func(t *testing.T) {
+			e := newTestApp(t, dsn)
+			ids := map[string]int64{}
+			for i, impl := range []string{"topmeta", "lowmeta"} {
+				def := &model.ProviderDefinition{Kind: "metadata", Implementation: impl, Name: impl, Enabled: true, Priority: i + 1}
+				if err := e.App.Modules.Create(e.Ctx, def); err != nil {
+					t.Fatal(err)
+				}
+				ids[impl] = def.ID
+			}
+			mod := e.addFakeModule(t, "pick-metadata")
+			ser, err := e.App.Series.Add(e.Ctx, series.AddRequest{Title: "Kenpuu Denki", RootFolderID: e.RFID, Monitor: model.MonitorNone, NoRefresh: true,
+				Sources: []series.SourceLink{{ModuleID: mod, SourceID: "A", URL: "/A/kenpuu", SourceName: "Source A", Lang: "en"}}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, impl := range []string{"lowmeta", "topmeta"} {
+				if _, err := e.App.Series.AddMetadataRef(e.Ctx, ser.ID, metadataagg.Ref{ModuleID: ids[impl], Provider: impl, ID: impl + ":Berserk"}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			got, _ := e.App.Series.Get(e.Ctx, ser.ID)
+			if got.Metadata.ExternalIDs["lowmeta"] == "" || got.Metadata.ExternalIDs["topmeta"] == "" || got.Metadata.Provenance["title"] != "topmeta" {
+				t.Fatalf("after the move: ids %v, provenance %v", got.Metadata.ExternalIDs, got.Metadata.Provenance)
+			}
+			if opts := e.App.Metadata.Options(e.Ctx, got.Metadata.ExternalIDs, ""); len(opts) != 2 || opts[0].Provider != "topmeta" {
+				t.Fatalf("options %+v", opts)
+			}
+			mine := "Berserk (my pick)"
+			if _, err := e.App.Series.PickMetadata(e.Ctx, ser.ID, series.MetadataPicks{Title: &mine, Genres: []string{"Dark Fantasy"}, From: map[string]string{"genres": "lowmeta"}}); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := e.App.Series.RefreshMetadata(e.Ctx, ser.ID); err != nil {
+				t.Fatal(err)
+			}
+			got, _ = e.App.Series.Get(e.Ctx, ser.ID)
+			if got.Title != mine || len(got.Metadata.Genres) != 1 || got.Metadata.Provenance["genres"] != "lowmeta" || !got.Metadata.Locked("title") {
+				t.Fatalf("picks lost: %q %v %v", got.Title, got.Metadata.Genres, got.Metadata.Provenance)
+			}
+			if _, err := e.App.Series.PickMetadata(e.Ctx, ser.ID, series.MetadataPicks{Automatic: []string{"title"}}); err != nil {
+				t.Fatal(err)
+			}
+			got, _ = e.App.Series.Get(e.Ctx, ser.ID)
+			if got.Title != "Berserk" || got.Metadata.Locked("title") || !got.Metadata.Locked("genres") {
+				t.Fatalf("back to automatic: %q locks %v", got.Title, got.Metadata.Locks)
 			}
 		})
 	}

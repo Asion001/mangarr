@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"slices"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/uptrace/bun"
@@ -28,6 +29,8 @@ type DuplicateTitle struct {
 	Sources     []string `json:"sources" nullable:"false"`
 	Authors     []string `json:"authors,omitempty"`
 	HasMetadata bool     `json:"hasMetadata"`
+	// Providers are the metadata providers linked to it.
+	Providers []string `json:"providers" nullable:"false"`
 }
 
 type DuplicateFinding struct {
@@ -40,6 +43,14 @@ type DuplicatesList struct {
 	Findings []DuplicateFinding `json:"findings" nullable:"false"`
 	// Scanning is true while a scan is queued or running.
 	Scanning bool `json:"scanning"`
+	// Primary is the primary metadata provider, when one is set up.
+	Primary *DuplicatesPrimary `json:"primary,omitempty"`
+}
+
+type DuplicatesPrimary struct {
+	ModuleID       int64  `json:"moduleId"`
+	Name           string `json:"name"`
+	Implementation string `json:"implementation"`
 }
 
 func duplicatesError(err error) error {
@@ -52,7 +63,7 @@ func duplicatesError(err error) error {
 func (s *Server) registerDuplicates() {
 	tags := []string{"Duplicates"}
 	huma.Register(s.api, huma.Operation{OperationID: "duplicates-list", Method: http.MethodGet, Path: "/api/v1/duplicates", Tags: tags,
-		Summary: "What the duplicate scan found: titles that look like one work, and titles without metadata"},
+		Summary: "What the library check found: titles that look like one work, titles without metadata, and titles not on the primary provider"},
 		func(ctx context.Context, _ *struct{}) (*struct{ Body DuplicatesList }, error) {
 			list, err := s.app.Duplicates.List(ctx)
 			if err != nil {
@@ -84,6 +95,9 @@ func (s *Server) registerDuplicates() {
 				return nil, toHTTPError(err)
 			}
 			out.Scanning = n > 0
+			if def := s.app.Metadata.Primary(); def != nil {
+				out.Primary = &DuplicatesPrimary{ModuleID: def.ID, Name: def.Name, Implementation: def.Implementation}
+			}
 			return &struct{ Body DuplicatesList }{out}, nil
 		})
 	type commandResult struct{ Body *model.Command }
@@ -135,17 +149,18 @@ func (s *Server) registerDuplicates() {
 			return nil, duplicatesError(s.app.Duplicates.SetDismissed(ctx, in.ID, in.Body.Dismissed))
 		})
 	huma.Register(s.api, huma.Operation{OperationID: "duplicates-link", Method: http.MethodPost, Path: "/api/v1/duplicates/link", Tags: tags,
-		Summary: "Link the metadata found for these titles"},
+		Summary: "Link the metadata found for these titles; with kind primary, add the primary provider's match to what they have"},
 		func(ctx context.Context, in *struct {
 			Body struct {
 				SeriesIDs []int64 `json:"seriesIds" minItems:"1"`
+				Kind      string  `json:"kind,omitempty" enum:"metadata,primary"`
 			}
 		}) (*struct {
 			Body struct {
 				Linked int `json:"linked"`
 			}
 		}, error) {
-			n, err := s.app.Duplicates.Link(ctx, in.Body.SeriesIDs)
+			n, err := s.app.Duplicates.Link(ctx, in.Body.Kind, in.Body.SeriesIDs)
 			out := &struct {
 				Body struct {
 					Linked int `json:"linked"`
@@ -192,11 +207,16 @@ func (s *Server) duplicateTitles(ctx context.Context, list []duplicates.Finding)
 	}
 	for _, ser := range series {
 		has := false
-		for _, v := range ser.Metadata.ExternalIDs {
+		providers := []string{}
+		for k, v := range ser.Metadata.ExternalIDs {
 			has = has || v != ""
+			if v != "" {
+				providers = append(providers, k)
+			}
 		}
+		slices.Sort(providers)
 		out[ser.ID] = DuplicateTitle{ID: ser.ID, WorkID: ser.WorkID, Title: ser.Title, Language: ser.Language, CoverURL: seriesCoverURL(ser),
-			AddedAt: ser.AddedAt.UTC().Format("2006-01-02T15:04:05Z"), Sources: []string{}, Authors: ser.Metadata.Authors, HasMetadata: has}
+			AddedAt: ser.AddedAt.UTC().Format("2006-01-02T15:04:05Z"), Sources: []string{}, Authors: ser.Metadata.Authors, HasMetadata: has, Providers: providers}
 	}
 	for _, src := range sources {
 		if t, ok := out[src.SeriesID]; ok && src.SourceName != "" {

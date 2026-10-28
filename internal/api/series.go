@@ -193,6 +193,54 @@ func (s *Server) registerSeries() {
 			return &struct{ Body SeriesResource }{s.seriesResource(ctx, *ser, nil, true)}, nil
 		})
 
+	huma.Register(s.api, huma.Operation{OperationID: "series-metadata-add", Method: http.MethodPost, Path: "/api/v1/series/{id}/metadata/refs", Tags: tags,
+		Summary: "Link one more provider's series next to the ones linked (move a title to the primary provider)"},
+		func(ctx context.Context, in *struct {
+			ID   int64 `path:"id"`
+			Body metadataagg.Ref
+		}) (*struct{ Body SeriesResource }, error) {
+			ser, err := s.app.Series.AddMetadataRef(ctx, in.ID, in.Body)
+			if err != nil {
+				return nil, seriesError(err)
+			}
+			return &struct{ Body SeriesResource }{s.seriesResource(ctx, *ser, nil, true)}, nil
+		})
+
+	huma.Register(s.api, huma.Operation{OperationID: "series-metadata-options", Method: http.MethodGet, Path: "/api/v1/series/{id}/metadata/options", Tags: tags,
+		Summary: "What each linked metadata provider says about a series, to pick the cover and info from"},
+		func(ctx context.Context, in *struct {
+			ID int64 `path:"id"`
+		}) (*struct {
+			Body struct {
+				Options []metadataagg.Option `json:"options" nullable:"false"`
+			}
+		}, error) {
+			ser, err := s.app.Series.Get(ctx, in.ID)
+			if err != nil {
+				return nil, seriesError(err)
+			}
+			out := &struct {
+				Body struct {
+					Options []metadataagg.Option `json:"options" nullable:"false"`
+				}
+			}{}
+			out.Body.Options = s.app.Metadata.Options(ctx, ser.Metadata.ExternalIDs, ser.Language)
+			return out, nil
+		})
+
+	huma.Register(s.api, huma.Operation{OperationID: "series-metadata-picks", Method: http.MethodPut, Path: "/api/v1/series/{id}/metadata/picks", Tags: tags,
+		Summary: "Take fields from a provider of your choice (they are locked), or hand them back to the providers"},
+		func(ctx context.Context, in *struct {
+			ID   int64 `path:"id"`
+			Body series.MetadataPicks
+		}) (*struct{ Body SeriesResource }, error) {
+			ser, err := s.app.Series.PickMetadata(ctx, in.ID, in.Body)
+			if err != nil {
+				return nil, seriesError(err)
+			}
+			return &struct{ Body SeriesResource }{s.seriesResource(ctx, *ser, nil, true)}, nil
+		})
+
 	huma.Register(s.api, huma.Operation{OperationID: "series-cover", Method: http.MethodGet, Path: "/api/v1/series/{id}/cover", Tags: tags},
 		func(ctx context.Context, in *struct {
 			ID   int64  `path:"id"`

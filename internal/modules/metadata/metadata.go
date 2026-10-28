@@ -70,6 +70,19 @@ type ExternalLookup interface {
 	LookupExternal(ctx context.Context, provider, id string) (*SeriesMetadata, error)
 }
 
+// Cover is one of the covers a provider has for a series.
+type Cover struct {
+	URL string `json:"url"`
+	// Label says which one it is ("vol. 12"), when there are several.
+	Label string `json:"label,omitempty"`
+}
+
+// CoverLister is implemented by providers that have more than one cover
+// for a series (one per volume).
+type CoverLister interface {
+	Covers(ctx context.Context, id string) ([]Cover, error)
+}
+
 // ErrNotFound is returned when a provider has no such series.
 var ErrNotFound = errors.New("metadata not found")
 

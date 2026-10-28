@@ -159,6 +159,42 @@ func (m *Module) GetLanguage(ctx context.Context, id, language string) (*metadat
 	return &md, nil
 }
 
+// Covers lists a series' volume covers, the latest volume first.
+func (m *Module) Covers(ctx context.Context, id string) ([]metadata.Cover, error) {
+	id = strings.TrimSpace(id)
+	if !uuidRe.MatchString(id) {
+		return nil, fmt.Errorf("invalid MangaDex id %q", id)
+	}
+	values := url.Values{"manga[]": {id}, "limit": {"24"}, "order[volume]": {"desc"}}
+	var out struct {
+		Data []struct {
+			Attributes struct {
+				FileName string `json:"fileName"`
+				Volume   string `json:"volume"`
+				Locale   string `json:"locale"`
+			} `json:"attributes"`
+		} `json:"data"`
+	}
+	if err := m.call(ctx, "/cover?"+values.Encode(), &out); err != nil {
+		return nil, err
+	}
+	covers := []metadata.Cover{}
+	for _, c := range out.Data {
+		if c.Attributes.FileName == "" {
+			continue
+		}
+		cv := metadata.Cover{URL: coversURL + id + "/" + c.Attributes.FileName}
+		if v := c.Attributes.Volume; v != "" {
+			cv.Label = "vol. " + v
+		}
+		if l := c.Attributes.Locale; l != "" && l != "ja" {
+			cv.Label = strings.TrimSpace(cv.Label + " " + l)
+		}
+		covers = append(covers, cv)
+	}
+	return covers, nil
+}
+
 // LookupExternal only knows MangaDex's own ids: its API can't find a series
 // by another provider's id, so other providers join it by title.
 func (m *Module) LookupExternal(ctx context.Context, provider, id string) (*metadata.SeriesMetadata, error) {
