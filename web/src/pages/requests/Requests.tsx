@@ -436,7 +436,7 @@ function ManageTab() {
         ))}
       </div>
       {picked.length > 0 && (
-        <div className="sticky bottom-3 z-10 mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-accent bg-panel-2 px-3 py-2 shadow-lg">
+        <div className="sticky bottom-[calc(0.75rem+var(--tabbar-h))] z-20 mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-accent bg-panel-2 px-3 py-2 shadow-lg">
           <span className="mr-1 text-sm font-semibold">{t("{count} selected", { count: picked.length })}</span>
           {pending > 0 && (
             <>
