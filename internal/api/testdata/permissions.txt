@@ -155,6 +155,7 @@ recycle-read-page GET /api/v1/recycle-bin/{id}/pages/{page} -> admin
 recycle-reprocess POST /api/v1/recycle-bin/reprocess -> admin
 recycle-rescan POST /api/v1/recycle-bin/rescan -> admin
 recycle-restore POST /api/v1/recycle-bin/restore -> admin
+requests-bulk POST /api/v1/requests/bulk -> requests.manage | library.manage
 requests-count GET /api/v1/requests/count -> requests.manage | library.manage
 requests-create POST /api/v1/requests -> requests.create
 requests-decline POST /api/v1/requests/{id}/decline -> requests.manage | library.manage

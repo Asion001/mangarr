@@ -2119,6 +2119,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/requests/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Handle many requests at once: approve (add each with the sources Quick search is confident about, in the background), decline, set the language, or delete */
+        post: operations["requests-bulk"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/requests/count": {
         parameters: {
             query?: never;
@@ -7078,6 +7095,19 @@ export interface components {
             note?: string;
             /** Format: int64 */
             userId: number;
+        };
+        "Requests-bulkRequest": {
+            /** @enum {string} */
+            action: "approve" | "decline" | "language" | "delete";
+            ids: number[];
+            /** @description language: the language to ask for (empty: the server's defaults) */
+            language?: string;
+            /** @description decline: what the requesters are told */
+            reason?: string;
+        };
+        "Requests-bulkResponse": {
+            /** Format: int64 */
+            changed: number;
         };
         "Requests-countResponse": {
             /** Format: int64 */
@@ -13168,6 +13198,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Requests-createResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "requests-bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Requests-bulkRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Requests-bulkResponse"];
                 };
             };
             /** @description Error */

@@ -3,7 +3,7 @@ import { t as tr, t } from "../../lib/i18n/core";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { BookOpen, Check, Clock, Inbox, Link2, PlusCircle, Trash2, Undo2, X } from "lucide-react";
+import { BookOpen, Check, Clock, Inbox, Languages, Link2, PlusCircle, Search, Trash2, Undo2, X } from "lucide-react";
 import { api, unwrap, type LookupResult, type S } from "../../api/client";
 import { Cover } from "../../components/Cover";
 import { Badge, Button, Card, EmptyState, ErrorBox, Field, Input, Loading, Modal, PageHeader, Select, Tabs, Textarea } from "../../components/ui";
@@ -209,9 +209,73 @@ function MineTab() {
   );
 }
 
+type Kind = "title" | "language" | "monitor";
+const kindOf = (r: Request): Kind => (r.kind === "monitor" ? "monitor" : r.workId ? "language" : "title");
+
+/** sorters for the manager's list; the server answers newest first */
+const sorters: Record<string, (a: Request, b: Request) => number> = {
+  oldest: (a, b) => a.createdAt.localeCompare(b.createdAt) || a.id - b.id,
+  asked: (a, b) => b.count - a.count,
+  title: (a, b) => a.title.localeCompare(b.title),
+  year: (a, b) => (b.metadata.year ?? 0) - (a.metadata.year ?? 0),
+};
+
+/** counted lists the values of a field with how many requests have each, most first. */
+function counted(list: Request[], keys: (r: Request) => string[]) {
+  const n = new Map<string, number>();
+  for (const r of list) for (const k of keys(r)) n.set(k, (n.get(k) ?? 0) + 1);
+  return [...n.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+}
+
 function ManageTab() {
   const [status, setStatus] = useQueryParam("status", "pending");
+  const [q, setQ] = useQueryParam("q");
+  const [kind, setKind] = useQueryParam("type");
+  const [by, setBy] = useQueryParam("by");
+  const [lang, setLang] = useQueryParam("lang");
+  const [sort, setSort] = useQueryParam("sort");
   const { data, isLoading, error } = useRequests(true, status === "all" ? "" : status);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [bulk, setBulk] = useState<"decline" | "language" | null>(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const all = data ?? [];
+  const words = norm(q).split(" ").filter(Boolean);
+  const shown = all
+    .filter((r) => !kind || kindOf(r) === kind)
+    .filter((r) => !by || r.requesters.some((x) => String(x.userId) === by))
+    .filter((r) => !lang || (r.language || "-") === lang)
+    .filter((r) => words.every((w) => norm([r.title, r.seriesTitle ?? "", ...(r.metadata.altTitles ?? [])].join(" ")).includes(w)));
+  if (sorters[sort]) shown.sort(sorters[sort]);
+  const people = counted(all, (r) => r.requesters.map((x) => String(x.userId)));
+  const nameOf = (id: string) => all.flatMap((r) => r.requesters).find((x) => String(x.userId) === id)?.name ?? id;
+  const langs = counted(all, (r) => [r.language || "-"]);
+  const kinds = counted(all, (r) => [kindOf(r)]);
+  const picked = shown.filter((r) => selected.has(r.id));
+  const toggle = (id: number, on: boolean) => {
+    const next = new Set(selected);
+    if (on) next.add(id);
+    else next.delete(id);
+    setSelected(next);
+  };
+  const runBulk = async (action: "approve" | "decline" | "language" | "delete", extra: { reason?: string; language?: string } = {}) => {
+    const ids = picked.filter((r) => (action === "delete" ? r.status !== "pending" : r.status === "pending")).map((r) => r.id);
+    if (!ids.length) return;
+    setBulkBusy(true);
+    try {
+      const res = await unwrap(api.POST("/api/v1/requests/bulk", { body: { ids, action, ...extra } }));
+      qc.invalidateQueries({ queryKey: ["requests"] });
+      setSelected(new Set());
+      setBulk(null);
+      if (action === "approve") toast.info(tr("Adding {count} titles", { count: res.changed }), tr("Those without a confident source stay pending with the reason on them."));
+      else toast.success(tr("{count} requests changed", { count: res.changed }));
+    } catch (e) {
+      toast.fromError(e);
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+  const pending = picked.filter((r) => r.status === "pending").length;
+  const handled = picked.length - pending;
   const nav = useNavigate();
   const qc = useQueryClient();
   const toast = useToast();
@@ -241,15 +305,81 @@ function ManageTab() {
   };
   return (
     <>
-      <div className="mb-3 flex items-center gap-2">
-        <Select value={status} onChange={(e) => setStatus(e.target.value)} className="w-44">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <div className="relative w-full sm:w-64">
+          <Search className="absolute left-2.5 top-2.5 size-4 text-muted" />
+          <Input className="pl-8" placeholder={t("Filter by title…")} defaultValue={q} onChange={(e) => setQ(e.target.value)} />
+        </div>
+        <Select aria-label={t("Status")} value={status} onChange={(e) => (setStatus(e.target.value), setSelected(new Set()))} className="w-auto">
           <option value="pending">{t("Pending")}</option>
           <option value="approved">{t("Approved")}</option>
           <option value="available">{t("Available")}</option>
           <option value="declined">{t("Declined")}</option>
           <option value="all">{t("All")}</option>
         </Select>
+        {(kinds.length > 1 || kind) && (
+          <Select aria-label={t("Type")} value={kind} onChange={(e) => setKind(e.target.value)} className="w-auto">
+            <option value="">{t("Type: any")}</option>
+            {kinds.map(([k, n]) => (
+              <option key={k} value={k}>
+                {(k === "monitor" ? tr("Download (in library)") : k === "language" ? tr("Another language") : tr("New title")) + ` (${n})`}
+              </option>
+            ))}
+          </Select>
+        )}
+        {(people.length > 1 || by) && (
+          <Select aria-label={t("Asked by")} value={by} onChange={(e) => setBy(e.target.value)} className="w-auto">
+            <option value="">{t("Asked by: anyone")}</option>
+            {people.map(([id, n]) => (
+              <option key={id} value={id}>
+                {nameOf(id)} ({n})
+              </option>
+            ))}
+          </Select>
+        )}
+        {(langs.length > 1 || lang) && (
+          <Select aria-label={t("Language")} value={lang} onChange={(e) => setLang(e.target.value)} className="w-auto">
+            <option value="">{t("Language: any")}</option>
+            {langs.map(([l, n]) => (
+              <option key={l} value={l}>
+                {(l === "-" ? tr("Default languages") : languageName(l)) + ` (${n})`}
+              </option>
+            ))}
+          </Select>
+        )}
+        <Select aria-label={t("Sort")} value={sort} onChange={(e) => setSort(e.target.value)} className="w-auto">
+          <option value="">{t("Sort: newest")}</option>
+          <option value="oldest">{t("Sort: oldest")}</option>
+          <option value="asked">{t("Sort: most asked for")}</option>
+          <option value="title">{t("Sort: title A–Z")}</option>
+          <option value="year">{t("Sort: year")}</option>
+        </Select>
       </div>
+      {shown.length > 0 && (
+        <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-muted">
+          <input
+            type="checkbox"
+            aria-label={t("Select all shown")}
+            className="size-4 accent-primary"
+            checked={picked.length > 0 && picked.length === shown.length}
+            ref={(el) => {
+              if (el) el.indeterminate = picked.length > 0 && picked.length < shown.length;
+            }}
+            onChange={(e) => setSelected(e.target.checked ? new Set(shown.map((r) => r.id)) : new Set())}
+          />
+          <span>{picked.length ? t("{count} selected", { count: picked.length }) : t("{count} requests", { count: shown.length })}</span>
+          {picked.length > 0 && picked.length < shown.length && (
+            <button type="button" className="text-accent-2 hover:underline" onClick={() => setSelected(new Set(shown.map((r) => r.id)))}>
+              {t("Select all {count} matching", { count: shown.length })}
+            </button>
+          )}
+          {picked.length > 0 && (
+            <button type="button" className="text-accent-2 hover:underline" onClick={() => setSelected(new Set())}>
+              {t("Clear")}
+            </button>
+          )}
+        </div>
+      )}
       {isLoading && <Loading />}
       {error && <ErrorBox error={error} />}
       {data && data.length === 0 && (
@@ -258,11 +388,14 @@ function ManageTab() {
         </EmptyState>
       )}
       <div className="flex flex-col gap-2">
-        {data?.map((r) => (
+        {data && data.length > 0 && shown.length === 0 && <p className="text-sm text-muted">{t("No requests match.")}</p>}
+        {shown.map((r) => (
           <RequestRow
             key={r.id}
             r={r}
             showRequesters
+            selected={selected.has(r.id)}
+            onSelect={(on) => toggle(r.id, on)}
             actions={
               <>
                 {r.kind === "monitor" ? (
@@ -298,16 +431,60 @@ function ManageTab() {
           />
         ))}
       </div>
-      {declining && <DeclineModal r={declining} onClose={() => setDeclining(null)} />}
+      {picked.length > 0 && (
+        <div className="sticky bottom-3 z-10 mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-accent bg-panel-2 px-3 py-2 shadow-lg">
+          <span className="mr-1 text-sm font-semibold">{t("{count} selected", { count: picked.length })}</span>
+          {pending > 0 && (
+            <>
+              <Button size="sm" variant="primary" icon={<Check className="size-4" />} loading={bulkBusy} onClick={() => void runBulk("approve")}>
+                {t("Approve {count}", { count: pending })}
+              </Button>
+              <Button size="sm" icon={<X className="size-4" />} disabled={bulkBusy} onClick={() => setBulk("decline")}>{t("Decline…")}</Button>
+              <Button size="sm" icon={<Languages className="size-4" />} disabled={bulkBusy} onClick={() => setBulk("language")}>{t("Language…")}</Button>
+            </>
+          )}
+          {handled > 0 && (
+            <Button size="sm" variant="ghost" icon={<Trash2 className="size-4" />} disabled={bulkBusy} onClick={() => void runBulk("delete")}>
+              {t("Delete {count}", { count: handled })}
+            </Button>
+          )}
+        </div>
+      )}
+      {bulk === "decline" && <DeclineModal title={t("Decline {count} requests", { count: pending })} busy={bulkBusy} onClose={() => setBulk(null)} onDecline={(reason) => runBulk("decline", { reason })} />}
+      {bulk === "language" && <LanguageModal count={pending} busy={bulkBusy} onClose={() => setBulk(null)} onSave={(language) => runBulk("language", { language })} />}
+      {declining && (
+        <DeclineModal
+          title={`Decline ${declining.title}`}
+          onClose={() => setDeclining(null)}
+          onDecline={async (reason) => {
+            try {
+              await unwrap(api.POST("/api/v1/requests/{id}/decline", { params: { path: { id: declining.id } }, body: { reason: reason || undefined } }));
+              qc.invalidateQueries({ queryKey: ["requests"] });
+              setDeclining(null);
+            } catch (e) {
+              toast.fromError(e);
+            }
+          }}
+        />
+      )}
       {linking && <LinkModal r={linking} onClose={() => setLinking(null)} />}
     </>
   );
 }
 
-function RequestRow({ r, actions, showRequesters }: { r: Request; actions?: React.ReactNode; showRequesters?: boolean }) {
+function RequestRow({ r, actions, showRequesters, selected, onSelect }: {
+  r: Request;
+  actions?: React.ReactNode;
+  showRequesters?: boolean;
+  selected?: boolean;
+  onSelect?: (on: boolean) => void;
+}) {
   const md = r.metadata;
   return (
-    <div className="flex flex-wrap gap-3 rounded-lg border border-border bg-panel p-3 sm:flex-nowrap">
+    <div className={`flex flex-wrap gap-3 rounded-lg border bg-panel p-3 sm:flex-nowrap ${selected ? "border-accent/60" : "border-border"}`}>
+      {onSelect && (
+        <input type="checkbox" className="size-4 shrink-0 self-center accent-primary" aria-label={`${t("Select")} ${r.title}`} checked={!!selected} onChange={(e) => onSelect(e.target.checked)} />
+      )}
       <Cover src={md.coverUrl} alt={r.title} className="aspect-[2/3] w-14 shrink-0" />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
@@ -355,38 +532,55 @@ function RequestRow({ r, actions, showRequesters }: { r: Request; actions?: Reac
   );
 }
 
-function DeclineModal({ r, onClose }: { r: Request; onClose: () => void }) {
-  const qc = useQueryClient();
-  const toast = useToast();
+function DeclineModal({ title, busy, onClose, onDecline }: { title: string; busy?: boolean; onClose: () => void; onDecline: (reason: string) => Promise<void> | void }) {
   const [reason, setReason] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [sending, setSending] = useState(false);
   const decline = async () => {
-    setBusy(true);
+    setSending(true);
     try {
-      await unwrap(api.POST("/api/v1/requests/{id}/decline", { params: { path: { id: r.id } }, body: { reason: reason.trim() || undefined } }));
-      qc.invalidateQueries({ queryKey: ["requests"] });
-      onClose();
-    } catch (e) {
-      toast.fromError(e);
+      await onDecline(reason.trim());
     } finally {
-      setBusy(false);
+      setSending(false);
     }
   };
   return (
     <Modal
       open
       onClose={onClose}
-      title={`Decline ${r.title}`}
+      title={title}
       size="sm"
       footer={
         <>
           <Button onClick={onClose}>{t("Cancel")}</Button>
-          <Button variant="danger" loading={busy} onClick={decline}>{t("Decline")}</Button>
+          <Button variant="danger" loading={busy || sending} onClick={() => void decline()}>{t("Decline")}</Button>
         </>
       }
     >
       <Field label={t("Reason (the requesters see it)")}>
         <Input value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} placeholder={t("e.g. no source has it")} />
+      </Field>
+    </Modal>
+  );
+}
+
+/** LanguageModal picks the language selected requests ask for. */
+function LanguageModal({ count, busy, onClose, onSave }: { count: number; busy: boolean; onClose: () => void; onSave: (language: string) => void }) {
+  const [language, setLanguage] = useState("");
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={t("Language of {count} requests", { count })}
+      size="sm"
+      footer={
+        <>
+          <Button onClick={onClose}>{t("Cancel")}</Button>
+          <Button variant="primary" loading={busy} onClick={() => onSave(language)}>{t("Save")}</Button>
+        </>
+      }
+    >
+      <Field label={t("Language")} help={t("Download requests keep theirs.")}>
+        <LanguageSelect offered value={language} onChange={setLanguage} placeholder={t("The server's default languages")} />
       </Field>
     </Modal>
   );

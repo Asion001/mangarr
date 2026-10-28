@@ -144,4 +144,57 @@ func (s *Server) registerRequests() {
 		func(ctx context.Context, in *IDPath) (*struct{}, error) {
 			return nil, requestError(s.app.Requests.Delete(ctx, in.ID))
 		})
+
+	huma.Register(s.api, huma.Operation{OperationID: "requests-bulk", Method: http.MethodPost, Path: "/api/v1/requests/bulk", Tags: tags,
+		Summary: "Handle many requests at once: approve (add each with the sources Quick search is confident about, in the background), decline, set the language, or delete"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				IDs      []int64 `json:"ids" minItems:"1" maxItems:"5000"`
+				Action   string  `json:"action" enum:"approve,decline,language,delete"`
+				Reason   string  `json:"reason,omitempty" maxLength:"500" doc:"decline: what the requesters are told"`
+				Language string  `json:"language,omitempty" doc:"language: the language to ask for (empty: the server's defaults)"`
+			}
+		}) (*struct {
+			Body struct {
+				Changed int `json:"changed"`
+			}
+		}, error) {
+			p := access.From(ctx)
+			out := &struct {
+				Body struct {
+					Changed int `json:"changed"`
+				}
+			}{}
+			ids := in.Body.IDs
+			switch in.Body.Action {
+			case "approve":
+				if _, err := s.app.Queue.Push(ctx, "ApproveRequests", map[string]any{"ids": ids, "userId": p.UserID}, "manual"); err != nil {
+					return nil, toHTTPError(err)
+				}
+				out.Body.Changed = len(ids)
+			case "language":
+				n, err := s.app.Requests.SetLanguage(ctx, ids, in.Body.Language)
+				if err != nil {
+					return nil, requestError(err)
+				}
+				out.Body.Changed = n
+			default:
+				for _, id := range ids {
+					var err error
+					if in.Body.Action == "decline" {
+						err = s.app.Requests.Decline(ctx, id, in.Body.Reason, p)
+					} else {
+						err = s.app.Requests.Delete(ctx, id)
+					}
+					if errors.Is(err, requests.ErrNotFound) {
+						continue // handled meanwhile
+					}
+					if err != nil {
+						return nil, requestError(err)
+					}
+					out.Body.Changed++
+				}
+			}
+			return out, nil
+		})
 }

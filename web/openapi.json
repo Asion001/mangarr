@@ -9733,6 +9733,56 @@
         ],
         "type": "object"
       },
+      "Requests-bulkRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "approve",
+              "decline",
+              "language",
+              "delete"
+            ],
+            "type": "string"
+          },
+          "ids": {
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "maxItems": 5000,
+            "minItems": 1,
+            "type": "array"
+          },
+          "language": {
+            "description": "language: the language to ask for (empty: the server's defaults)",
+            "type": "string"
+          },
+          "reason": {
+            "description": "decline: what the requesters are told",
+            "maxLength": 500,
+            "type": "string"
+          }
+        },
+        "required": [
+          "ids",
+          "action"
+        ],
+        "type": "object"
+      },
+      "Requests-bulkResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "changed": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "changed"
+        ],
+        "type": "object"
+      },
       "Requests-countResponse": {
         "additionalProperties": false,
         "properties": {
@@ -20962,6 +21012,47 @@
           }
         },
         "summary": "Ask for a series found with the series lookup, or another language of a series (joins an open request for it)",
+        "tags": [
+          "Requests"
+        ]
+      }
+    },
+    "/api/v1/requests/bulk": {
+      "post": {
+        "operationId": "requests-bulk",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Requests-bulkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Requests-bulkResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Handle many requests at once: approve (add each with the sources Quick search is confident about, in the background), decline, set the language, or delete",
         "tags": [
           "Requests"
         ]

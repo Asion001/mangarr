@@ -402,15 +402,67 @@ func (s *Service) autoApproves(ctx context.Context, groupID int64) bool {
 func (s *Service) autoAdd(id int64) {
 	ctx, cancel := context.WithTimeout(s.context(), 3*time.Minute)
 	defer cancel()
+	s.add(ctx, id, nil)
+}
+
+// Approve adds pending requests one after another the way automatic
+// approval does; those without a confident source keep waiting, with the
+// reason on them. handler is who approved them.
+func (s *Service) Approve(ctx context.Context, ids []int64, handler *access.Principal, progress func(done, added int)) error {
+	added := 0
+	for i, id := range ids {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		one, cancel := context.WithTimeout(ctx, 3*time.Minute)
+		if s.add(one, id, handler) {
+			added++
+		}
+		cancel()
+		if progress != nil {
+			progress(i+1, added)
+		}
+	}
+	return nil
+}
+
+// SetLanguage changes the language pending requests ask for.
+func (s *Service) SetLanguage(ctx context.Context, ids []int64, lang string) (int, error) {
+	lang = strings.ToLower(strings.TrimSpace(lang))
+	if lang != "" {
+		_, offered, err := s.Series.Offered(ctx)
+		if err != nil {
+			return 0, err
+		}
+		if !slices.Contains(offered, lang) {
+			return 0, ValidationError{"this server isn't set up for that language"}
+		}
+	}
+	res, err := s.DB.NewUpdate().Model((*model.Request)(nil)).Set("language = ?", lang).Set("reason = ''").Set("updated_at = ?", time.Now().UTC()).
+		Where("id IN (?) AND status = ? AND kind = ''", bun.In(ids), model.RequestPending).Exec(ctx)
+	if err != nil {
+		return 0, err
+	}
+	n, _ := res.RowsAffected()
+	for _, id := range ids {
+		s.Bus.Changed("request", "updated", id)
+	}
+	return int(n), nil
+}
+
+// add adds a pending request's series with the sources Quick search is
+// confident about, reporting whether it was added.
+func (s *Service) add(ctx context.Context, id int64, handler *access.Principal) bool {
 	var r model.Request
 	if err := s.DB.NewSelect().Model(&r).Where("id = ?", id).Scan(ctx); err != nil || r.Status != model.RequestPending {
-		return
+		return false
 	}
 	if r.Kind == model.RequestKindMonitor {
-		if err := s.Monitor(ctx, id, nil); err != nil {
+		if err := s.Monitor(ctx, id, handler); err != nil {
 			s.attemptFailed(ctx, id, "Automatic download failed.", err)
+			return false
 		}
-		return
+		return true
 	}
 	langs, err := s.Series.Languages(ctx)
 	if r.Language != "" {
@@ -419,7 +471,7 @@ func (s *Service) autoAdd(id int64) {
 	if err != nil || len(langs) == 0 {
 		s.Log.Info("request waits for a manager: no language to add it in", "request", r.Title)
 		s.attemptFailed(ctx, id, "Set a language on a root folder (or default search languages) so requests know where to go; choose sources and retry Add.", err)
-		return
+		return false
 	}
 	// each language's edition gets every source of its default list that
 	// has the title, in list order: the first is primary, the rest fallbacks
@@ -442,7 +494,7 @@ func (s *Service) autoAdd(id int64) {
 	if len(links) == 0 {
 		s.Log.Info("request waits for a manager: no confident source", "request", r.Title, "languages", langs)
 		s.attemptFailed(ctx, id, "No confident source match was found; choose a source and retry Add.", nil)
-		return
+		return false
 	}
 	add := series.AddEditionsRequest{Sources: links, Monitor: model.MonitorAll, MonitorNew: model.MonitorAll, SearchMissing: true}
 	if r.WorkID != nil {
@@ -452,23 +504,24 @@ func (s *Service) autoAdd(id int64) {
 	}
 	if add.WorkID == 0 && add.Metadata == nil {
 		s.attemptFailed(ctx, id, "This request has no metadata to add it by; choose sources and add it.", nil)
-		return
+		return false
 	}
 	res, err := s.Series.AddEditions(ctx, add)
 	if err != nil && (res == nil || len(res.Editions) == 0) {
 		s.Log.Warn("request waits for a manager: couldn't add it", "request", r.Title, "err", err)
 		s.attemptFailed(ctx, id, "Automatic add failed.", err)
-		return
+		return false
 	}
 	if err != nil {
 		s.Log.Warn("request added in some languages only", "request", r.Title, "err", err)
 	}
 	ser := res.Editions[0]
 	s.Log.Info("request added automatically", "request", r.Title, "series", ser.ID, "sources", names)
-	if err := s.Link(ctx, id, ser.ID, nil); err != nil {
+	if err := s.Link(ctx, id, ser.ID, handler); err != nil {
 		s.Log.Warn("request added but could not be linked", "request", r.Title, "series", ser.ID, "err", err)
 		s.attemptFailed(ctx, id, fmt.Sprintf("Series %d was added, but request fulfilment failed; use Link to retry.", ser.ID), err)
 	}
+	return true
 }
 
 // firstLang keeps a catalog's own language unless it spans several.
@@ -627,7 +680,7 @@ func asks(p *access.Principal) int64 {
 
 // List returns requests, newest first.
 func (s *Service) List(ctx context.Context, p *access.Principal, f Filter) ([]Request, error) {
-	q := s.DB.NewSelect().Model((*model.Request)(nil)).Order("created_at DESC", "id DESC").Limit(500)
+	q := s.DB.NewSelect().Model((*model.Request)(nil)).Order("created_at DESC", "id DESC").Limit(5000)
 	if f.Status != "" {
 		q = q.Where("status = ?", f.Status)
 	}

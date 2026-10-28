@@ -34,6 +34,7 @@ type fakeMeta struct{}
 var fakeMetaSeries = map[string]metadata.SeriesMetadata{
 	"42": {Provider: "fakemeta", ID: "42", Title: "Blue Lock", Year: 2018, ExternalIDs: map[string]string{"mangaupdates": "bl"}},
 	"7":  {Provider: "fakemeta", ID: "7", Title: "Kaiju No. 8", Year: 2020},
+	"9":  {Provider: "fakemeta", ID: "9", Title: "Dandadan", Year: 2021},
 }
 
 func (fakeMeta) Test(context.Context) error { return nil }
@@ -115,6 +116,8 @@ func testRequests(t *testing.T, dsn string) {
 		{URL: "/bl/1", Name: "Chapter 1", Number: 1, Uploaded: time.Now()}}})
 	sc.AddManga(&fakesource.Manga{SourceID: "A", URL: "/k8", Title: "Kaiju No. 8", Status: source.StatusOngoing, Chapters: []fakesource.Chapter{
 		{URL: "/k8/1", Name: "Chapter 1", Number: 1, Uploaded: time.Now()}}})
+	sc.AddManga(&fakesource.Manga{SourceID: "A", URL: "/dd", Title: "Dandadan", Status: source.StatusOngoing, Chapters: []fakesource.Chapter{
+		{URL: "/dd/1", Name: "Chapter 1", Number: 1, Uploaded: time.Now()}}})
 	e := newTestApp(t, dsn)
 	e.App.Notifications.DigestQuiet = 50 * time.Millisecond
 	src := e.addFakeModule(t, "requests")
@@ -338,6 +341,30 @@ func testRequests(t *testing.T, dsn string) {
 		r, _ := e.App.Requests.Get(ctx, pCarl, auto.ID)
 		return r.Status != model.RequestPending && r.SeriesID != nil && r.SeriesTitle == "Kaiju No. 8"
 	})
+
+	// a manager handles requests in bulk: the language of pending ones, then
+	// approving adds them the way automatic approval does
+	dd, _, err := e.App.Requests.Create(ctx, pAnn, requests.CreateInput{ModuleID: meta.ID, MetaID: "9"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.App.Requests.SetLanguage(ctx, []int64{dd.ID}, "xx"); !errors.As(err, new(requests.ValidationError)) {
+		t.Fatalf("bulk language the server isn't set up for: %v", err)
+	}
+	if n, err := e.App.Requests.SetLanguage(ctx, []int64{dd.ID, auto.ID}, "ru"); err != nil || n != 1 {
+		t.Fatalf("bulk language changed %d (only the pending one): %v", n, err)
+	}
+	if n, err := e.App.Requests.SetLanguage(ctx, []int64{dd.ID}, ""); err != nil || n != 1 {
+		t.Fatalf("back to the default languages: %d %v", n, err)
+	}
+	handled := 0
+	if err := e.App.Requests.Approve(ctx, []int64{dd.ID, auto.ID}, pBoss, func(done, _ int) { handled = done }); err != nil || handled != 2 {
+		t.Fatalf("approve: %d handled, %v", handled, err)
+	}
+	r, _ := e.App.Requests.Get(ctx, pBoss, dd.ID)
+	if r.Status == model.RequestPending || r.SeriesTitle != "Dandadan" || r.HandledBy != "boss" {
+		t.Fatalf("approved in bulk: %+v", r)
+	}
 }
 
 func titles(msgs []notify.Message) string {
