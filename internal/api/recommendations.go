@@ -130,11 +130,15 @@ func (s *Server) registerRecommendations() {
 			p := access.From(ctx)
 			outside := p.Can(access.LibraryAdd) || p.Can(access.LibraryEdit) || p.Can(access.RequestsCreate)
 			sc := p.ContentScope()
+			hideAdult := s.app.Metadata.AdultHidden(ctx)
 			requested := s.requestedByExternalID(ctx)
 			shown := map[int64]bool{}
 			item := func(md metadata.SeriesMetadata, def model.ProviderDefinition) (RecommendationItem, bool) {
 				if sc != nil && !sc.AllowsContent("", md.Adult, append(append([]string{}, md.Genres...), md.Tags...)) {
 					return RecommendationItem{}, false // past the group's content limits
+				}
+				if md.Adult && hideAdult {
+					return RecommendationItem{}, false
 				}
 				it := RecommendationItem{LookupResult: LookupResult{Candidate: metadataagg.Candidate{SeriesMetadata: md, ModuleID: def.ID, ModuleName: def.Name}}}
 				if info, ok := inLibrary(md); ok {

@@ -46,9 +46,33 @@ type Aggregator struct {
 	// MapToPrimary says whether a match at a lower provider is looked up at
 	// the primary one (the first by priority) too; on when nil.
 	MapToPrimary func(ctx context.Context) bool
+	// HideAdult says whether searches leave adult (18+) titles out; off when
+	// nil.
+	HideAdult func(ctx context.Context) bool
 }
 
 func New(m *modules.Manager, log *slog.Logger) *Aggregator { return &Aggregator{mods: m, log: log} }
+
+// AdultHidden reports whether adult titles are left out of searches.
+func (a *Aggregator) AdultHidden(ctx context.Context) bool {
+	return a != nil && a.HideAdult != nil && a.HideAdult(ctx)
+}
+
+// searchContext marks ctx for the providers when adult titles are hidden.
+func (a *Aggregator) searchContext(ctx context.Context) (context.Context, bool) {
+	if !a.AdultHidden(ctx) {
+		return ctx, false
+	}
+	return metadata.WithoutAdult(ctx), true
+}
+
+// withoutAdult drops the adult titles a provider could not filter itself.
+func withoutAdult(list []metadata.SeriesMetadata, hide bool) []metadata.SeriesMetadata {
+	if !hide {
+		return list
+	}
+	return slices.DeleteFunc(list, func(md metadata.SeriesMetadata) bool { return md.Adult })
+}
 
 // HasProviders reports whether any metadata module is active.
 func (a *Aggregator) HasProviders() bool {
@@ -63,6 +87,7 @@ func (a *Aggregator) Search(ctx context.Context, q string, limit int) ([]Candida
 // SearchLanguage asks providers that support localized searches to return
 // titles in language. Other providers remain part of the merged result set.
 func (a *Aggregator) SearchLanguage(ctx context.Context, q, language string, limit int) ([]Candidate, []error) {
+	ctx, hide := a.searchContext(ctx)
 	mods := modules.ActiveAs[metadata.Module](a.mods, modules.KindMetadata)
 	results := make([][]Candidate, len(mods))
 	errs := make([]error, len(mods))
@@ -82,7 +107,7 @@ func (a *Aggregator) SearchLanguage(ctx context.Context, q, language string, lim
 				errs[i] = fmt.Errorf("%s: %w", m.Def.Name, err)
 				return
 			}
-			for _, md := range list {
+			for _, md := range withoutAdult(list, hide) {
 				results[i] = append(results[i], Candidate{SeriesMetadata: md, ModuleID: m.Def.ID, ModuleName: m.Def.Name})
 			}
 		}()
@@ -119,6 +144,7 @@ func (a *Aggregator) ModuleIDs() []int64 {
 // SearchModule asks one metadata module, so a caller can go down the
 // modules by priority and stop at the first that knows the title.
 func (a *Aggregator) SearchModule(ctx context.Context, moduleID int64, q string, limit int) ([]Candidate, error) {
+	ctx, hide := a.searchContext(ctx)
 	for _, m := range modules.ActiveAs[metadata.Module](a.mods, modules.KindMetadata) {
 		if m.Def.ID != moduleID {
 			continue
@@ -127,6 +153,7 @@ func (a *Aggregator) SearchModule(ctx context.Context, moduleID int64, q string,
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", m.Def.Name, err)
 		}
+		list = withoutAdult(list, hide)
 		out := make([]Candidate, 0, len(list))
 		for _, md := range list {
 			out = append(out, Candidate{SeriesMetadata: md, ModuleID: m.Def.ID, ModuleName: m.Def.Name})
@@ -158,6 +185,7 @@ func (a *Aggregator) Modules() []Module {
 // shown is the module the results are from, skipped the ones above it that
 // had nothing.
 func (a *Aggregator) SearchFirst(ctx context.Context, q, language string, limit int, moduleID int64) (list []Candidate, shown int64, skipped []string, errs []error) {
+	ctx, hide := a.searchContext(ctx)
 	for _, m := range modules.ActiveAs[metadata.Module](a.mods, modules.KindMetadata) {
 		if moduleID != 0 && m.Def.ID != moduleID {
 			continue
@@ -172,6 +200,7 @@ func (a *Aggregator) SearchFirst(ctx context.Context, q, language string, limit 
 		if err != nil {
 			errs = append(errs, fmt.Errorf("%s: %w", m.Def.Name, err))
 		}
+		found = withoutAdult(found, hide)
 		if len(found) == 0 {
 			if moduleID != 0 {
 				return nil, m.Def.ID, nil, errs
@@ -422,12 +451,13 @@ func (a *Aggregator) findAt(ctx context.Context, m modules.Typed[metadata.Module
 	}
 	var best *Candidate
 	score := 0.0
+	sctx, hide := a.searchContext(ctx)
 	for _, q := range names[:min(len(names), 3)] {
-		list, err := m.Instance.Search(ctx, q, 5)
+		list, err := m.Instance.Search(sctx, q, 5)
 		if err != nil {
 			continue
 		}
-		for _, md := range list {
+		for _, md := range withoutAdult(list, hide) {
 			if md.Format != "" && k.Format != "" && metadata.IsNovel(md.Format) != metadata.IsNovel(k.Format) {
 				continue // the novel of a manga goes by the same name
 			}

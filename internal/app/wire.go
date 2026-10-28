@@ -41,6 +41,10 @@ func (a *App) wire(ctx context.Context) error {
 		cfg, _ := a.Settings.Metadata(ctx)
 		return cfg.MapToPrimary
 	}
+	a.Metadata.HideAdult = func(ctx context.Context) bool {
+		cfg, _ := a.Settings.Sources(ctx)
+		return cfg.HideNSFW
+	}
 	a.DLQueue = downloads.NewQueue(a.DB, a.Bus)
 	a.Searcher = downloads.NewSearcher(a.DB, a.DLQueue, log.With("component", "search"))
 	a.Refresher = refresh.New(a.DB, a.Bus, a.Modules, a.Settings, a.Searcher, a.Library, log.With("component", "refresh"))

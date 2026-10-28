@@ -137,7 +137,7 @@ Read wherever the engine runs: in the server, or on a worker with the upscale ro
 
 | Variable | Type | Default | Description |
 |---|---|---|---|
-| `MANGARR_SOURCES_HIDE_NSFW` | bool | `true` | Hide NSFW catalogs in search and browse. |
+| `MANGARR_SOURCES_HIDE_NSFW` | bool | `true` | Hide NSFW catalogs and adult (18+) titles from the metadata providers in search and browse. |
 | `MANGARR_SOURCES_DEFAULT_LANGUAGES` | list | `` | Catalog languages searched by default (empty = all). |
 | `MANGARR_SOURCES_LANGUAGE_DEFAULTS` | json | `` | Default catalogs, root folder and profile for each edition language. |
 | `MANGARR_SOURCES_QUICK_SEARCH_ENABLED` | bool | `true` | Search catalogs one by one and stop at the first confident match. |

@@ -54,7 +54,7 @@ export function SearchSettingsPage() {
                 checked={v.hideNsfw}
                 env={doc.lock("hideNsfw")}
                 onChange={(hideNsfw) => doc.patch({ hideNsfw })}
-                label={t("Hide NSFW catalogs everywhere (search, browse, add series)")}
+                label={t("Hide NSFW catalogs and adult titles everywhere (search, browse, add series)")}
               />
               <div className="flex max-w-md flex-col gap-2 text-sm">
                 <span className="font-medium">{t("Search languages by default")}</span>

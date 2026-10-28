@@ -121,6 +121,9 @@ func (m *Module) SearchLanguage(ctx context.Context, query, language string, lim
 		limit = 10
 	}
 	values := url.Values{"search": {query}, "limit": {strconv.Itoa(limit)}}
+	if metadata.AdultHidden(ctx) {
+		values.Set("censored", "true") // leaves hentai out
+	}
 	var list []manga
 	if err := m.get(ctx, "/api/mangas?"+values.Encode(), &list); err != nil {
 		return nil, err
@@ -239,6 +242,11 @@ func (m *Module) convert(item manga, requestedLanguage string) metadata.SeriesMe
 		Links:         map[string]string{"Shikimori": pageURL, "MyAnimeList": "https://myanimelist.net/manga/" + strconv.Itoa(malID)},
 		ExternalIDs:   map[string]string{"shikimori": strconv.Itoa(item.ID), "mal": strconv.Itoa(malID)},
 		TotalChapters: item.Chapters, Format: format(item.Kind), Country: country(item.Kind), URL: pageURL,
+	}
+	for _, g := range item.Genres {
+		if g.Name == "Hentai" || g.Name == "Erotica" {
+			out.Adult = true
+		}
 	}
 	if len(item.Publishers) > 0 {
 		out.Publisher = item.Publishers[0].Name

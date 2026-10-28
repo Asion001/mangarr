@@ -222,7 +222,7 @@ type ReadAhead struct {
 
 // Sources controls which catalogs are used, quick search and throttling.
 type Sources struct {
-	HideNSFW bool `json:"hideNsfw" desc:"Hide NSFW catalogs in search and browse."`
+	HideNSFW bool `json:"hideNsfw" desc:"Hide NSFW catalogs and adult (18+) titles from the metadata providers in search and browse."`
 	// DefaultLanguages limits searches to these catalog languages (empty = all).
 	DefaultLanguages []string          `json:"defaultLanguages" desc:"Catalog languages searched by default (empty = all)."`
 	LanguageDefaults []LanguageDefault `json:"languageDefaults" desc:"Default catalogs, root folder and profile for each edition language."`

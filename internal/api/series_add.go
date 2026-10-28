@@ -177,6 +177,9 @@ func (s *Server) registerSeriesAdd() {
 			if sc := access.From(ctx).ContentScope(); sc != nil && !sc.AllowsContent("", md.Adult, append(append([]string{}, md.Genres...), md.Tags...)) {
 				return nil, huma.Error404NotFound("not found")
 			}
+			if md.Adult && s.app.Metadata.AdultHidden(ctx) {
+				return nil, huma.Error404NotFound("adult titles are hidden (Settings → Sources)")
+			}
 			c := metadataagg.Candidate{SeriesMetadata: *md, ModuleID: def.ID, ModuleName: def.Name}
 			ids := lookupIDs(*md)
 			return &struct{ Body LookupResult }{LookupResult{Candidate: c, ExistingSeriesID: s.existingByExternalID(ctx)(ids), Request: s.requestedByExternalID(ctx)(ids)}}, nil

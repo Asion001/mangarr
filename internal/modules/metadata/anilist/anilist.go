@@ -267,8 +267,13 @@ func (m *Module) Search(ctx context.Context, q string, limit int) ([]metadata.Se
 			Media []media `json:"media"`
 		} `json:"Page"`
 	}
-	err := m.query(ctx, `query ($s: String, $n: Int) { Page(perPage: $n) { media(search: $s, type: MANGA, sort: SEARCH_MATCH) { `+searchFields+` } } }`,
-		map[string]any{"s": q, "n": limit}, &out)
+	// isAdult: null (the default) finds both
+	vars := map[string]any{"s": q, "n": limit}
+	if metadata.AdultHidden(ctx) {
+		vars["adult"] = false
+	}
+	err := m.query(ctx, `query ($s: String, $n: Int, $adult: Boolean) { Page(perPage: $n) { media(search: $s, type: MANGA, sort: SEARCH_MATCH, isAdult: $adult) { `+searchFields+` } } }`,
+		vars, &out)
 	if err != nil {
 		return nil, err
 	}

@@ -103,8 +103,11 @@ type manga struct {
 
 // includes and ratings go on every query: the people and cover come with the
 // series, and adult series are found too (MangaDex leaves them out by default).
-const includes = "includes[]=author&includes[]=artist&includes[]=cover_art" +
-	"&contentRating[]=safe&contentRating[]=suggestive&contentRating[]=erotica&contentRating[]=pornographic"
+const includes = includesSafe + "&contentRating[]=erotica&contentRating[]=pornographic"
+
+// includesSafe leaves the adult series out, for searches that hide them.
+const includesSafe = "includes[]=author&includes[]=artist&includes[]=cover_art" +
+	"&contentRating[]=safe&contentRating[]=suggestive"
 
 // Test always asks MangaDex, even while calls are paused, so a health check
 // or the settings test sees the real state (and a success ends the pause).
@@ -128,7 +131,11 @@ func (m *Module) SearchLanguage(ctx context.Context, q, language string, limit i
 	var out struct {
 		Data []manga `json:"data"`
 	}
-	if err := m.call(ctx, "/manga?"+values.Encode()+"&"+includes, &out); err != nil {
+	with := includes
+	if metadata.AdultHidden(ctx) {
+		with = includesSafe
+	}
+	if err := m.call(ctx, "/manga?"+values.Encode()+"&"+with, &out); err != nil {
 		return nil, err
 	}
 	res := make([]metadata.SeriesMetadata, 0, len(out.Data))

@@ -114,3 +114,17 @@ type Recommendations struct {
 type Recommender interface {
 	Recommendations(ctx context.Context, id string) (*Recommendations, error)
 }
+
+type withoutAdultKey struct{}
+
+// WithoutAdult marks a search as one whose adult (18+) results are not
+// wanted, so a provider that can filter them out itself does.
+func WithoutAdult(ctx context.Context) context.Context {
+	return context.WithValue(ctx, withoutAdultKey{}, true)
+}
+
+// AdultHidden reports whether ctx came from WithoutAdult.
+func AdultHidden(ctx context.Context) bool {
+	hidden, _ := ctx.Value(withoutAdultKey{}).(bool)
+	return hidden
+}

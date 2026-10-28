@@ -13,6 +13,7 @@ import (
 
 	"github.com/Asion001/mangarr/internal/auth"
 	"github.com/Asion001/mangarr/internal/model"
+	"github.com/Asion001/mangarr/internal/settings"
 )
 
 // TestSeriesRecommendations: AniList's related and recommended titles come
@@ -120,6 +121,10 @@ func TestSeriesRecommendations(t *testing.T) {
 			t.Fatalf("got related %v similar %v errors %v, want %v and %v", titles(got.Related), titles(got.Similar), got.Errors, related, similar)
 		}
 	}
+	// adult titles show only while NSFW is shown
+	if err := a.Settings.Set(ctx, settings.KeySources, settings.Sources{HideNSFW: false}); err != nil {
+		t.Fatal(err)
+	}
 	boss := caller{t, login(t, srv.URL, "boss", "boss-pass-1"), srv.URL}
 	expect(boss, []string{"Base Two"}, []string{"Plain on AniList", "Grown", "Splatter", "Clean", "Bloody"})
 	if r := got.Related[0]; r.Relation != "sequel" || r.ExistingSeriesID != 0 {
@@ -133,6 +138,10 @@ func TestSeriesRecommendations(t *testing.T) {
 	}
 	expect(caller{t, login(t, srv.URL, "kid", "kid-pass-1"), srv.URL}, []string{"Base Two"}, []string{"Plain on AniList", "Clean"})
 	expect(caller{t, login(t, srv.URL, "reader", "reader-pass-1"), srv.URL}, []string{}, []string{"Plain on AniList", "Bloody"})
+	if err := a.Settings.Set(ctx, settings.KeySources, settings.Sources{HideNSFW: true}); err != nil {
+		t.Fatal(err)
+	}
+	expect(boss, []string{"Base Two"}, []string{"Plain on AniList", "Splatter", "Clean", "Bloody"})
 	if n := calls.Load(); n != 1 {
 		t.Fatalf("AniList asked %d times; the answer should be cached", n)
 	}
