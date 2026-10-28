@@ -56,9 +56,14 @@ func (m *Manager) setStatus(ctx context.Context, job *model.DownloadJob, status 
 	now := time.Now().UTC()
 	job.Status, job.UpdatedAt = status, now
 	cols := []string{"status", "updated_at"}
-	if status == model.JobDownloading && job.StartedAt == nil {
-		job.StartedAt = &now
-		cols = append(cols, "started_at")
+	if status == model.JobDownloading {
+		// a new attempt: the last one's error no longer describes the job
+		job.Error = ""
+		cols = append(cols, "error")
+		if job.StartedAt == nil {
+			job.StartedAt = &now
+			cols = append(cols, "started_at")
+		}
 	}
 	// compare-and-set: a job paused meanwhile keeps its paused status, and
 	// one handed back to the queue (Release on shutdown) stays queued

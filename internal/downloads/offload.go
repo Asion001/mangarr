@@ -12,7 +12,6 @@ import (
 	"github.com/Asion001/mangarr/internal/cbz"
 	"github.com/Asion001/mangarr/internal/imagecheck"
 	"github.com/Asion001/mangarr/internal/model"
-	"github.com/Asion001/mangarr/internal/modules"
 	"github.com/Asion001/mangarr/internal/modules/source"
 	"github.com/Asion001/mangarr/internal/progress"
 	"github.com/Asion001/mangarr/internal/sourcegov"
@@ -154,18 +153,13 @@ func (m *Manager) requeue(ctx context.Context, job *model.DownloadJob) {
 // make. It returns source.ErrUnsupported when the module's pages can only
 // be fetched here.
 func (m *Manager) pageSpecs(ctx context.Context, jc *jobCtx) ([]PageSpec, error) {
-	mod, _, err := modules.GetAs[source.Module](m.mods, jc.link.ModuleID)
+	mod, ref, err := m.sourceFor(ctx, jc)
 	if err != nil {
-		return nil, infraError{err}
+		return nil, err
 	}
 	fetchable, ok := mod.(source.Fetchable)
 	if !ok {
 		return nil, source.ErrUnsupported
-	}
-	ref := source.ChapterRef{
-		Manga:     source.MangaRef{SourceID: jc.link.SourceID, URL: jc.link.MangaURL, EngineRef: jc.link.EngineRef, TitleHint: firstNonEmpty(jc.link.Title, jc.series.Title)},
-		URL:       jc.release.ChapterURL,
-		EngineRef: jc.release.EngineRef,
 	}
 	pctx, cancel := context.WithTimeout(ctx, 3*time.Minute)
 	list, err := mod.Pages(pctx, ref)

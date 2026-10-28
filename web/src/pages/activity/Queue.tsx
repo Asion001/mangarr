@@ -226,7 +226,7 @@ export function QueuePage({ mode }: { mode: "downloads" | "processing" }) {
           </Badge>
         )}
         {j.error && (
-          <div className="mt-1 max-w-sm truncate text-xs text-err" title={j.error}>
+          <div className={`mt-1 max-w-sm truncate text-xs ${j.status === "failed" ? "text-err" : "text-warn"}`} title={j.error}>
             {j.error}
           </div>
         )}
@@ -529,7 +529,7 @@ function QueueCard({ manage, job, position, selected, onToggle, live, status }: 
             : job.status === "failed" || job.status === "completed" ? <span className="flex-1"><Progress value={job.progress} tone={job.status === "failed" ? "err" : "ok"} /></span>
             : <span className="text-xs text-muted">{relative(job.updatedAt)}</span>}
         </div>
-        {job.error && <div className="mt-1 truncate text-xs text-err" title={job.error}>{job.error}</div>}
+        {job.error && <div className={`mt-1 truncate text-xs ${job.status === "failed" ? "text-err" : "text-warn"}`} title={job.error}>{job.error}</div>}
       </div>
     </li>
   );

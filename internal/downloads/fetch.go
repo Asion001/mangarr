@@ -28,18 +28,65 @@ type PageFile struct {
 	Height int
 }
 
-// fetchPages downloads and validates every page into workDir.
-func (m *Manager) fetchPages(ctx context.Context, jc *jobCtx, workDir string) ([]PageFile, error) {
+// sourceFor returns the module that serves a job's release and the chapter
+// to ask it for. A link whose module was disabled or removed goes to another
+// enabled module with the same catalog, as the built-in sites have under
+// their Keiyoushi ids: the job then works on copies of the link and release
+// re-pointed there, without the engine ids, which belong to the module that
+// issued them. With no such module the release can't be had here at all.
+func (m *Manager) sourceFor(ctx context.Context, jc *jobCtx) (source.Module, source.ChapterRef, error) {
 	mod, _, err := modules.GetAs[source.Module](m.mods, jc.link.ModuleID)
 	if err != nil {
-		return nil, infraError{err}
+		if l, ok := m.mods.Get(jc.link.ModuleID); ok && l.Def.Enabled && l.Err != nil {
+			// misconfigured: ours to fix, so keep retrying
+			return nil, source.ChapterRef{}, infraError{err}
+		}
+		alt, ok := m.otherModuleFor(ctx, jc.link.ModuleID, jc.link.SourceID)
+		if !ok {
+			return nil, source.ChapterRef{}, permanent(fmt.Errorf("%w, and no enabled source module has %s", err, firstNonEmpty(jc.link.SourceName, "this catalog")))
+		}
+		from, link, rel := jc.link.ModuleID, *jc.link, *jc.release
+		link.ModuleID, link.EngineRef, rel.EngineRef = alt.Def.ID, "", ""
+		jc.link, jc.release = &link, &rel
+		mod = alt.Instance
+		m.log.Info("source module unavailable, downloading through another", "job", jc.job.ID, "from", from, "to", alt.Def.Name, "catalog", link.SourceName)
 	}
-	dl, _ := m.settings.Downloads(ctx)
-	ref := source.ChapterRef{
+	return mod, source.ChapterRef{
 		Manga:     source.MangaRef{SourceID: jc.link.SourceID, URL: jc.link.MangaURL, EngineRef: jc.link.EngineRef, TitleHint: firstNonEmpty(jc.link.Title, jc.series.Title)},
 		URL:       jc.release.ChapterURL,
 		EngineRef: jc.release.EngineRef,
+	}, nil
+}
+
+// otherModuleFor finds an enabled source module other than moduleID that has
+// catalog sourceID, by module priority.
+func (m *Manager) otherModuleFor(ctx context.Context, moduleID int64, sourceID string) (modules.Typed[source.Module], bool) {
+	for _, t := range modules.ActiveAs[source.Module](m.mods, modules.KindSource) {
+		if t.Def.ID == moduleID {
+			continue
+		}
+		lctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		list, err := t.Instance.Sources(lctx)
+		cancel()
+		if err != nil {
+			continue
+		}
+		for _, si := range list {
+			if si.ID == sourceID {
+				return t, true
+			}
+		}
 	}
+	return modules.Typed[source.Module]{}, false
+}
+
+// fetchPages downloads and validates every page into workDir.
+func (m *Manager) fetchPages(ctx context.Context, jc *jobCtx, workDir string) ([]PageFile, error) {
+	mod, ref, err := m.sourceFor(ctx, jc)
+	if err != nil {
+		return nil, err
+	}
+	dl, _ := m.settings.Downloads(ctx)
 	pctx, cancel := context.WithTimeout(ctx, 3*time.Minute)
 	list, err := mod.Pages(pctx, ref)
 	cancel()
