@@ -59,6 +59,10 @@ type Module struct {
 
 	mu      sync.Mutex
 	lastReq time.Time
+	// limit is AniList's requests a minute, from its X-RateLimit-Limit header.
+	limit int
+	// resume holds every call back after a 429 until AniList's Retry-After.
+	resume time.Time
 	// backoff pauses calls while AniList is down.
 	backoff metadata.Backoff
 }
@@ -145,17 +149,66 @@ func (m *Module) query(ctx context.Context, q string, vars map[string]any, out a
 	return err
 }
 
-func (m *Module) send(ctx context.Context, q string, vars map[string]any, out any) error {
-	// AniList allows ~30-90 requests/minute; keep a small gap between calls.
-	m.mu.Lock()
-	if wait := 700*time.Millisecond - time.Since(m.lastReq); wait > 0 {
-		time.Sleep(wait)
-	}
-	m.lastReq = time.Now()
-	m.mu.Unlock()
+// defaultLimit is AniList's rate limit until a response says otherwise. Its
+// docs say 90 a minute, but it has long run in a degraded mode of 30.
+const defaultLimit = 30
 
+// wait spaces calls to AniList's rate limit and holds them back after a 429.
+// Going over it gets every call refused, and calls made while refused stretch
+// the wait to a minute.
+func (m *Module) wait(ctx context.Context) error {
+	for {
+		m.mu.Lock()
+		limit := m.limit
+		if limit <= 0 {
+			limit = defaultLimit
+		}
+		// A little under the limit, so clock skew doesn't tip a minute over it.
+		next := m.lastReq.Add(time.Minute / time.Duration(limit) * 11 / 10)
+		if m.resume.After(next) {
+			next = m.resume
+		}
+		d := time.Until(next)
+		if d <= 0 {
+			m.lastReq = time.Now()
+			m.mu.Unlock()
+			return nil
+		}
+		m.mu.Unlock()
+		// Check again after the wait: another call may have taken the slot,
+		// or hit a 429 meanwhile.
+		t := time.NewTimer(d)
+		select {
+		case <-ctx.Done():
+			t.Stop()
+			return ctx.Err()
+		case <-t.C:
+		}
+	}
+}
+
+// observe notes AniList's rate limit headers.
+func (m *Module) observe(resp *http.Response) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if n, err := strconv.Atoi(resp.Header.Get("X-RateLimit-Limit")); err == nil && n > 0 {
+		m.limit = n
+	}
+	if resp.StatusCode == http.StatusTooManyRequests {
+		retry, _ := strconv.Atoi(resp.Header.Get("Retry-After"))
+		if retry <= 0 || retry > 120 {
+			retry = 60
+		}
+		m.resume = time.Now().Add(time.Duration(retry) * time.Second)
+	}
+}
+
+func (m *Module) send(ctx context.Context, q string, vars map[string]any, out any) error {
 	body, _ := json.Marshal(map[string]any{"query": q, "variables": vars})
 	for attempt := 0; ; attempt++ {
+		if err := m.wait(ctx); err != nil {
+			return err
+		}
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, m.s.Endpoint, bytes.NewReader(body))
 		if err != nil {
 			return err
@@ -168,16 +221,8 @@ func (m *Module) send(ctx context.Context, q string, vars map[string]any, out an
 		}
 		raw, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
 		resp.Body.Close()
+		m.observe(resp)
 		if resp.StatusCode == http.StatusTooManyRequests && attempt < 2 {
-			retry, _ := strconv.Atoi(resp.Header.Get("Retry-After"))
-			if retry <= 0 || retry > 60 {
-				retry = 10
-			}
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After(time.Duration(retry) * time.Second):
-			}
 			continue
 		}
 		if resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500 {

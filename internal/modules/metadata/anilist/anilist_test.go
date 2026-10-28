@@ -8,7 +8,9 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/Asion001/mangarr/internal/modules/metadata"
 )
@@ -128,5 +130,44 @@ func TestAdaptationsEmptyAndTitles(t *testing.T) {
 		if len(got.Adaptations) != 0 || (got.Adaptations != nil) != fetched {
 			t.Fatalf("%s: adaptations %#v, fetched %v", raw, got.Adaptations, fetched)
 		}
+	}
+}
+
+func TestRateLimit(t *testing.T) {
+	var mu sync.Mutex
+	var calls []time.Time
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		calls = append(calls, time.Now())
+		n := len(calls)
+		mu.Unlock()
+		// A high limit keeps the test quick; the first call is refused.
+		w.Header().Set("X-RateLimit-Limit", "600")
+		if n == 1 {
+			w.Header().Set("Retry-After", "1")
+			w.WriteHeader(http.StatusTooManyRequests)
+			return
+		}
+		_, _ = w.Write([]byte(`{"data":{"Media":{"id":1}}}`))
+	}))
+	defer server.Close()
+	m := &Module{s: &Settings{Endpoint: server.URL}, http: server.Client()}
+	if _, err := m.Get(context.Background(), "1"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := m.Get(context.Background(), "1"); err != nil {
+		t.Fatal(err)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if len(calls) != 3 {
+		t.Fatalf("calls = %d, want 3", len(calls))
+	}
+	if gap := calls[1].Sub(calls[0]); gap < time.Second {
+		t.Errorf("retried after %v, before Retry-After", gap)
+	}
+	// 600 a minute is 100ms apart, plus the margin.
+	if gap := calls[2].Sub(calls[1]); gap < 100*time.Millisecond || gap > 900*time.Millisecond {
+		t.Errorf("calls %v apart, want the header's limit", gap)
 	}
 }
