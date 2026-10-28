@@ -417,27 +417,6 @@ func (s *Service) autoAdd(id int64) {
 	s.add(ctx, id, nil)
 }
 
-// Approve adds pending requests one after another the way automatic
-// approval does; those without a confident source keep waiting, with the
-// reason on them. handler is who approved them.
-func (s *Service) Approve(ctx context.Context, ids []int64, handler *access.Principal, progress func(done, added int)) error {
-	added := 0
-	for i, id := range ids {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		one, cancel := context.WithTimeout(ctx, 3*time.Minute)
-		if s.add(one, id, handler) {
-			added++
-		}
-		cancel()
-		if progress != nil {
-			progress(i+1, added)
-		}
-	}
-	return nil
-}
-
 // SetLanguage changes the language pending requests ask for.
 func (s *Service) SetLanguage(ctx context.Context, ids []int64, lang string) (int, error) {
 	lang = strings.ToLower(strings.TrimSpace(lang))
@@ -564,17 +543,24 @@ func (s *Service) attemptFailed(ctx context.Context, id int64, message string, c
 // Link marks a request fulfilled by a series (approved, or available when it
 // already has chapters). handler is who did it (nil: automatic).
 func (s *Service) Link(ctx context.Context, id, seriesID int64, handler *access.Principal) error {
+	_, err := s.link(ctx, id, seriesID, handler, true)
+	return err
+}
+
+// link links a request to a series, telling its requesters when tell is
+// set; it reports whether the request changed.
+func (s *Service) link(ctx context.Context, id, seriesID int64, handler *access.Principal, tell bool) (bool, error) {
 	var r model.Request
 	if err := s.DB.NewSelect().Model(&r).Where("id = ?", id).Scan(ctx); err != nil {
-		return notFound(err)
+		return false, notFound(err)
 	}
 	var ser model.Series
 	if err := s.DB.NewSelect().Model(&ser).Column("id", "title").Where("id = ?", seriesID).Scan(ctx); err != nil {
-		return fmt.Errorf("series: %w", notFound(err))
+		return false, fmt.Errorf("series: %w", notFound(err))
 	}
 	files, err := s.DB.NewSelect().Model((*model.ChapterFile)(nil)).Where("series_id = ?", seriesID).Count(ctx)
 	if err != nil {
-		return err
+		return false, err
 	}
 	now := time.Now().UTC()
 	r.SeriesID, r.HandledAt, r.UpdatedAt, r.Reason = &seriesID, &now, now, ""
@@ -593,19 +579,22 @@ func (s *Service) Link(ctx context.Context, id, seriesID int64, handler *access.
 		Where("id = ?", id).Where("NOT (series_id IS NOT NULL AND series_id = ? AND status IN (?))", seriesID, bun.In([]string{model.RequestApproved, model.RequestAvailable})).
 		Exec(ctx)
 	if err != nil {
-		return err
+		return false, err
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
 		if handledBy != nil {
 			_, err = s.DB.NewUpdate().Model((*model.Request)(nil)).Set("handled_by = ?", *handledBy).Where("id = ? AND handled_by IS NULL", id).Exec(ctx)
 		}
-		return err
+		return false, err
 	}
 	users := s.requesters(ctx, id)
 	for _, u := range users {
 		s.follow(ctx, seriesID, u)
 	}
 	s.Bus.Changed("request", "updated", id)
+	if !tell {
+		return true, nil
+	}
 	if r.Kind == model.RequestKindMonitor {
 		s.tell(users, seriesID, "Downloading: "+ser.Title, "The chapters you asked for are being downloaded; you'll hear when they arrive.")
 	} else if r.Status == model.RequestAvailable {
@@ -613,7 +602,7 @@ func (s *Service) Link(ctx context.Context, id, seriesID int64, handler *access.
 	} else {
 		s.tell(users, seriesID, "Approved: "+ser.Title, "The series you asked for was added; you'll hear when its first chapter arrives.")
 	}
-	return nil
+	return true, nil
 }
 
 // Decline turns a request down.
@@ -641,6 +630,98 @@ func (s *Service) Decline(ctx context.Context, id int64, reason string, handler 
 		body = "Your request was declined: " + r.Reason
 	}
 	s.tell(s.requesters(ctx, id), 0, "Declined: "+r.Title, body)
+	return nil
+}
+
+// ForBatch loads the pending requests among ids that can be handled in an
+// import (titles and languages, not downloads or users' imports).
+func (s *Service) ForBatch(ctx context.Context, ids []int64) ([]model.Request, error) {
+	var rs []model.Request
+	err := s.DB.NewSelect().Model(&rs).Where("id IN (?) AND status = ? AND kind = '' AND import_id IS NULL", bun.In(ids), model.RequestPending).
+		Order("created_at").Scan(ctx)
+	return rs, err
+}
+
+// Names lists who asked for each request, by request id.
+func (s *Service) Names(ctx context.Context, ids []int64) (map[int64][]string, error) {
+	var rows []struct {
+		RequestID   int64  `bun:"request_id"`
+		Username    string `bun:"username"`
+		DisplayName string `bun:"display_name"`
+	}
+	err := s.DB.NewSelect().TableExpr("request_users AS ru").ColumnExpr("ru.request_id, u.username, u.display_name").
+		Join("JOIN users AS u ON u.id = ru.user_id").Where("ru.request_id IN (?)", bun.In(ids)).OrderExpr("ru.created_at").Scan(ctx, &rows)
+	out := map[int64][]string{}
+	for _, r := range rows {
+		name := r.Username
+		if r.DisplayName != "" {
+			name = r.DisplayName
+		}
+		out[r.RequestID] = append(out[r.RequestID], name)
+	}
+	return out, err
+}
+
+// InBatch marks requests as handled in an import.
+func (s *Service) InBatch(ctx context.Context, ids []int64, importID int64) error {
+	if _, err := s.DB.NewUpdate().Model((*model.Request)(nil)).Set("import_id = ?", importID).Set("reason = ''").Set("updated_at = ?", time.Now().UTC()).
+		Where("id IN (?)", bun.In(ids)).Exec(ctx); err != nil {
+		return err
+	}
+	for _, id := range ids {
+		s.Bus.Changed("request", "updated", id)
+	}
+	return nil
+}
+
+// BatchAdded links the requests an import of requests added to their
+// series, quietly, then (when the import says so) tells each requester once
+// which of their requests were added.
+func (s *Service) BatchAdded(ctx context.Context, importID int64, handler *access.Principal) error {
+	var imp model.Import
+	if err := s.DB.NewSelect().Model(&imp).Where("id = ?", importID).Scan(ctx); err != nil {
+		return notFound(err)
+	}
+	var entries []model.ImportEntry
+	if err := s.DB.NewSelect().Model(&entries).Where("import_id = ? AND state = ? AND series_id IS NOT NULL", importID, model.EntryImported).
+		Order("position").Scan(ctx); err != nil {
+		return err
+	}
+	added := map[int64][]string{}
+	var users []int64
+	for _, e := range entries {
+		if e.Data.RequestID == 0 {
+			continue
+		}
+		changed, err := s.link(ctx, e.Data.RequestID, *e.SeriesID, handler, false)
+		if err != nil {
+			s.Log.Warn("link a request added in a batch", "request", e.Data.RequestID, "err", err)
+			continue
+		}
+		if !changed {
+			continue
+		}
+		for _, u := range s.requesters(ctx, e.Data.RequestID) {
+			if len(added[u]) == 0 {
+				users = append(users, u)
+			}
+			added[u] = append(added[u], e.Title)
+		}
+	}
+	if !imp.Options.TellRequesters {
+		return nil
+	}
+	for _, u := range users {
+		titles := added[u]
+		body := titles[0] + " was added to the library."
+		if len(titles) > 1 {
+			body = strings.Join(titles, ", ") + " were added to the library."
+		}
+		if len(titles) > 3 {
+			body = fmt.Sprintf("%s and %d more were added to the library.", strings.Join(titles[:3], ", "), len(titles)-3)
+		}
+		s.tell([]int64{u}, 0, fmt.Sprintf("Added: %d of your requests", len(titles)), body)
+	}
 	return nil
 }
 
@@ -924,8 +1005,8 @@ func (s *Service) seriesAdded(seriesID int64) {
 		return
 	}
 	for _, r := range pending {
-		if r.Kind == model.RequestKindMonitor {
-			continue
+		if r.Kind == model.RequestKindMonitor || r.ImportID != nil {
+			continue // handled in an import (BatchAdded)
 		}
 		same := sameSeries(r.Metadata.ExternalIDs, ser.Metadata.ExternalIDs) || (r.WorkID != nil && ser.WorkID == *r.WorkID)
 		// a request for one language waits for that language's edition
@@ -955,6 +1036,9 @@ func (s *Service) chapterImported(seriesID int64) {
 			continue // someone else got there first
 		}
 		s.Bus.Changed("request", "updated", r.ID)
+		if r.ImportID != nil {
+			continue // added in a batch: told once, when it was added
+		}
 		title := r.Title
 		var ser model.Series
 		if err := s.DB.NewSelect().Model(&ser).Column("title").Where("id = ?", seriesID).Scan(ctx); err == nil {

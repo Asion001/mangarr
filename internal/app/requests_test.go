@@ -16,6 +16,7 @@ import (
 	"github.com/Asion001/mangarr/internal/auth"
 	"github.com/Asion001/mangarr/internal/dbtest"
 	"github.com/Asion001/mangarr/internal/events"
+	"github.com/Asion001/mangarr/internal/imports"
 	"github.com/Asion001/mangarr/internal/metadataagg"
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/modules"
@@ -342,8 +343,7 @@ func testRequests(t *testing.T, dsn string) {
 		return r.Status != model.RequestPending && r.SeriesID != nil && r.SeriesTitle == "Kaiju No. 8"
 	})
 
-	// a manager handles requests in bulk: the language of pending ones, then
-	// approving adds them the way automatic approval does
+	// a manager handles requests in bulk: the language of pending ones
 	dd, _, err := e.App.Requests.Create(ctx, pAnn, requests.CreateInput{ModuleID: meta.ID, MetaID: "9"})
 	if err != nil {
 		t.Fatal(err)
@@ -357,13 +357,37 @@ func testRequests(t *testing.T, dsn string) {
 	if n, err := e.App.Requests.SetLanguage(ctx, []int64{dd.ID}, ""); err != nil || n != 1 {
 		t.Fatalf("back to the default languages: %d %v", n, err)
 	}
-	handled := 0
-	if err := e.App.Requests.Approve(ctx, []int64{dd.ID, auto.ID}, pBoss, func(done, _ int) { handled = done }); err != nil || handled != 2 {
-		t.Fatalf("approve: %d handled, %v", handled, err)
+	// adding them together: an import of requests, sources found first,
+	// added with the import's options, each requester told once
+	rs, err := e.App.Requests.ForBatch(ctx, []int64{dd.ID, auto.ID})
+	if err != nil || len(rs) != 1 || rs[0].ID != dd.ID {
+		t.Fatalf("requests for a batch = %+v %v", rs, err)
 	}
-	r, _ := e.App.Requests.Get(ctx, pBoss, dd.ID)
-	if r.Status == model.RequestPending || r.SeriesTitle != "Dandadan" || r.HandledBy != "boss" {
-		t.Fatalf("approved in bulk: %+v", r)
+	names, err := e.App.Requests.Names(ctx, []int64{dd.ID})
+	if err != nil || len(names[dd.ID]) != 1 || names[dd.ID][0] != "ann" {
+		t.Fatalf("names = %v %v", names, err)
+	}
+	imp, err := e.App.Imports.CreateFromRequests(ctx, rs, names)
+	if err != nil || imp.Options.Monitor != model.MonitorAll || !imp.Options.TellRequesters || imp.Options.ReadState {
+		t.Fatalf("import of requests = %+v %v", imp, err)
+	}
+	if err := e.App.Requests.InBatch(ctx, []int64{dd.ID}, imp.ID); err != nil {
+		t.Fatal(err)
+	}
+	e.runCommand(t, "MapImport", map[string]any{"importId": imp.ID})
+	entries, _, err := e.App.Imports.Entries(ctx, imp.ID, imports.EntryFilter{}, 0, 0)
+	if err != nil || len(entries) != 1 || entries[0].State != model.EntryReady || entries[0].Data.RequestID != dd.ID || entries[0].Data.Categories[0] != "ann" {
+		t.Fatalf("entries = %+v %v", entries, err)
+	}
+	before := len(capturedFor("ann-phone"))
+	e.runCommand(t, "RunImport", map[string]any{"importId": imp.ID})
+	waitFor(t, 10*time.Second, "linked in the batch", func() bool {
+		r, _ := e.App.Requests.Get(ctx, pBoss, dd.ID)
+		return r.Status != model.RequestPending && r.SeriesTitle == "Dandadan"
+	})
+	waitFor(t, 5*time.Second, "ann told once", func() bool { return hasTitle(capturedFor("ann-phone")[before:], "Added: 1 of your requests") })
+	if hasTitle(capturedFor("ann-phone")[before:], "Approved: Dandadan") {
+		t.Fatalf("a batch told per title: %s", titles(capturedFor("ann-phone")[before:]))
 	}
 }
 

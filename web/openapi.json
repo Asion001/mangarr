@@ -888,8 +888,15 @@
             },
             "type": "array"
           },
+          "lang": {
+            "type": "string"
+          },
           "readUpTo": {
             "$ref": "#/components/schemas/ReadUpTo"
+          },
+          "requestId": {
+            "format": "int64",
+            "type": "integer"
           },
           "sourceId": {
             "type": "string"
@@ -4804,6 +4811,9 @@
             "type": "integer"
           },
           "searchMissing": {
+            "type": "boolean"
+          },
+          "tellRequesters": {
             "type": "boolean"
           },
           "userId": {
@@ -9798,7 +9808,7 @@
         "properties": {
           "action": {
             "enum": [
-              "approve",
+              "add",
               "decline",
               "language",
               "delete"
@@ -9827,19 +9837,6 @@
         "required": [
           "ids",
           "action"
-        ],
-        "type": "object"
-      },
-      "Requests-bulkResponse": {
-        "additionalProperties": false,
-        "properties": {
-          "changed": {
-            "format": "int64",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "changed"
         ],
         "type": "object"
       },
@@ -9924,6 +9921,23 @@
         },
         "required": [
           "seriesId"
+        ],
+        "type": "object"
+      },
+      "RequestsBulkResult": {
+        "additionalProperties": false,
+        "properties": {
+          "changed": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "importId": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "changed"
         ],
         "type": "object"
       },
@@ -21095,7 +21109,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Requests-bulkResponse"
+                  "$ref": "#/components/schemas/RequestsBulkResult"
                 }
               }
             },
@@ -21112,7 +21126,7 @@
             "description": "Error"
           }
         },
-        "summary": "Handle many requests at once: approve (add each with the sources Quick search is confident about, in the background), decline, set the language, or delete",
+        "summary": "Handle many requests at once: add (they become an import whose sources are found first, reviewed and added together; downloads start at once), decline, set the language, or delete",
         "tags": [
           "Requests"
         ]

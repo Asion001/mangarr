@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Asion001/mangarr/internal/access"
 	"github.com/Asion001/mangarr/internal/events"
 	"github.com/Asion001/mangarr/internal/jobs"
 	"github.com/Asion001/mangarr/internal/model"
@@ -67,23 +66,6 @@ func (a *App) wireRequests() {
 			n, err := a.UserImport.Place(ctx, body.UserID, body.Items, PlacePause)
 			r.Progress("%d of %d titles placed", n, len(body.Items))
 			return err
-		}})
-	a.Queue.Register(jobs.Definition{Name: "ApproveRequests", Description: "Add requested titles with the sources Quick search is confident about",
-		Handler: func(ctx context.Context, r *jobs.Run) error {
-			var body struct {
-				IDs    []int64 `json:"ids"`
-				UserID int64   `json:"userId"`
-			}
-			if err := r.Body(&body); err != nil {
-				return err
-			}
-			var handler *access.Principal
-			if body.UserID != 0 {
-				handler, _ = a.Auth.UserPrincipal(ctx, body.UserID)
-			}
-			return a.Requests.Approve(ctx, body.IDs, handler, func(done, added int) {
-				r.Progress("%d of %d handled, %d added", done, len(body.IDs), added)
-			})
 		}})
 	// kept progress is written once a request's title is added and listed
 	a.Bus.Subscribe(func(events.Event) {

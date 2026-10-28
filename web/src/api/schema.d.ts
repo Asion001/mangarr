@@ -2128,7 +2128,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Handle many requests at once: approve (add each with the sources Quick search is confident about, in the background), decline, set the language, or delete */
+        /** Handle many requests at once: add (they become an import whose sources are found first, reviewed and added together; downloads start at once), decline, set the language, or delete */
         post: operations["requests-bulk"];
         delete?: never;
         options?: never;
@@ -4388,7 +4388,10 @@ export interface components {
             excludedScanlators?: string[];
             favorite: boolean;
             genres?: string[];
+            lang?: string;
             readUpTo?: components["schemas"]["ReadUpTo"];
+            /** Format: int64 */
+            requestId?: number;
             sourceId: string;
             sourceName?: string;
             status: string;
@@ -5592,6 +5595,7 @@ export interface components {
             /** Format: int64 */
             rootFolderId: number;
             searchMissing: boolean;
+            tellRequesters?: boolean;
             /** Format: int64 */
             userId: number;
         };
@@ -7119,16 +7123,12 @@ export interface components {
         };
         "Requests-bulkRequest": {
             /** @enum {string} */
-            action: "approve" | "decline" | "language" | "delete";
+            action: "add" | "decline" | "language" | "delete";
             ids: number[];
             /** @description language: the language to ask for (empty: the server's defaults) */
             language?: string;
             /** @description decline: what the requesters are told */
             reason?: string;
-        };
-        "Requests-bulkResponse": {
-            /** Format: int64 */
-            changed: number;
         };
         "Requests-countResponse": {
             /** Format: int64 */
@@ -7160,6 +7160,12 @@ export interface components {
         "Requests-linkRequest": {
             /** Format: int64 */
             seriesId: number;
+        };
+        RequestsBulkResult: {
+            /** Format: int64 */
+            changed: number;
+            /** Format: int64 */
+            importId?: number;
         };
         Result: {
             /** Format: int64 */
@@ -13251,7 +13257,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Requests-bulkResponse"];
+                    "application/json": components["schemas"]["RequestsBulkResult"];
                 };
             };
             /** @description Error */

@@ -13,7 +13,13 @@ export type ImportResource = S["ImportResource"];
 export const useImports = () => useQuery({ queryKey: ["imports"], queryFn: () => unwrap(api.GET("/api/v1/imports")) });
 
 export const formatLabel = (imp: Pick<ImportResource, "format" | "info">) =>
-  imp.format === "account" ? Object.values(imp.info.sources ?? {})[0] ?? tr("Site account") : imp.format === "aidoku" ? "Aidoku" : "Mihon / Tachiyomi";
+  imp.format === "account"
+    ? Object.values(imp.info.sources ?? {})[0] ?? tr("Site account")
+    : imp.format === "requests"
+      ? tr("Requests")
+      : imp.format === "aidoku"
+        ? "Aidoku"
+        : "Mihon / Tachiyomi";
 
 export function statusTone(s: string) {
   return s === "done" ? "ok" : s === "failed" ? "err" : s === "review" ? "accent" : "info";

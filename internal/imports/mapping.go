@@ -190,6 +190,8 @@ func (m *mapper) mapEntry(ctx context.Context, e *model.ImportEntry) {
 			m.mapAidoku(ctx, e)
 		case backupimport.FormatAccount:
 			m.mapAccount(ctx, e)
+		case backupimport.FormatRequests:
+			// nothing but a title: found by title below
 		default:
 			m.mapMihon(e)
 		}
@@ -507,7 +509,7 @@ func (m *mapper) findByTitle(ctx context.Context, e *model.ImportEntry) {
 	if strings.TrimSpace(d.Title) == "" {
 		return
 	}
-	res, err := m.s.Search.Quick(ctx, sourcesearch.QuickSearchInput{Query: d.Title}, sourcesearch.QuickOptions{Budget: 30 * time.Second})
+	res, err := m.s.Search.Quick(ctx, sourcesearch.QuickSearchInput{Query: d.Title, Titles: d.AltTitles, Lang: d.Lang}, sourcesearch.QuickOptions{Budget: 30 * time.Second})
 	if err != nil {
 		return
 	}

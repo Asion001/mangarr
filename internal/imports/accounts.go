@@ -100,6 +100,30 @@ func accountOptions(imp *model.Import, moduleID int64, lists map[string]string) 
 	}
 }
 
+// CreateFromRequests stores pending requests as an import, so their sources
+// are found first and they're added together with the import's options.
+// askedBy names who asked for each request; they are the entries' lists.
+func (s *Service) CreateFromRequests(ctx context.Context, rs []model.Request, askedBy map[int64][]string) (*model.Import, error) {
+	b := &backupimport.Backup{Format: backupimport.FormatRequests, CreatedAt: time.Now().UTC(), Sources: map[string]string{}, Categories: []string{},
+		Entries: []backupimport.BackupManga{}}
+	for _, r := range rs {
+		m := backupimport.BackupManga{Title: r.Title, AltTitles: r.Metadata.AltTitles, Description: r.Metadata.Description, Genres: r.Metadata.Genres,
+			ThumbnailURL: r.Metadata.CoverURL, Status: "unknown", Favorite: true, RequestID: r.ID, Lang: r.Language, Trackers: map[string]string{},
+			Categories: askedBy[r.ID]}
+		for k, v := range r.Metadata.ExternalIDs {
+			m.Trackers[k] = v
+		}
+		if r.Metadata.Provider != "" && r.Metadata.ID != "" {
+			m.Trackers[r.Metadata.Provider] = r.Metadata.ID
+		}
+		b.Entries = append(b.Entries, m)
+	}
+	return s.create(ctx, fmt.Sprintf("Requests (%d)", len(rs)), b, nil, func(imp *model.Import) {
+		imp.Options.OnlyFavorites, imp.Options.ReadState, imp.Options.CategoryTags, imp.Options.BlockScanlators = false, false, false, false
+		imp.Options.Monitor, imp.Options.FindByTitle, imp.Options.TellRequesters = model.MonitorAll, true, true
+	})
+}
+
 // CreateRequested stores the titles a user asked for from their own library
 // as an import for the admins to review; the read state goes to the user.
 // moduleID is the source module that read a site account (Format account).

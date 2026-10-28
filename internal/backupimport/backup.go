@@ -21,6 +21,9 @@ const (
 	// FormatAccount is a manga site account read through its source (not a
 	// file): entries carry the source id and ReadUpTo instead of chapters.
 	FormatAccount = "account"
+	// FormatRequests are requests handled together: entries carry a title,
+	// its metadata ids and RequestID, and sources are found by title.
+	FormatRequests = "requests"
 )
 
 // Tracker names used in BackupManga.Trackers (match metadata provider names).
@@ -73,6 +76,10 @@ type BackupManga struct {
 	// ReadUpTo is how far the title was read, for sources that keep only
 	// that (a site account) instead of each chapter's state.
 	ReadUpTo *ReadUpTo `json:"readUpTo,omitempty"`
+	// RequestID is the request an entry stands for, and Lang the language
+	// it asks for (FormatRequests).
+	RequestID int64  `json:"requestId,omitempty"`
+	Lang      string `json:"lang,omitempty"`
 }
 
 // ReadUpTo is a reading position: chapters numbered below Chapter are read,

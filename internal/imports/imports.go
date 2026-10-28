@@ -538,8 +538,12 @@ func (s *Service) Delete(ctx context.Context, id int64) error {
 	if _, err := s.DB.NewDelete().Model((*model.ImportEntry)(nil)).Where("import_id = ?", id).Exec(ctx); err != nil {
 		return err
 	}
-	// the request a user's import stands for goes with it
-	if _, err := s.DB.NewDelete().Model((*model.Request)(nil)).Where("import_id = ?", id).Exec(ctx); err != nil {
+	// the request a user's import stands for goes with it; requests handled
+	// in it wait again
+	if _, err := s.DB.NewDelete().Model((*model.Request)(nil)).Where("import_id = ? AND kind = ?", id, model.RequestKindImport).Exec(ctx); err != nil {
+		return err
+	}
+	if _, err := s.DB.NewUpdate().Model((*model.Request)(nil)).Set("import_id = NULL").Where("import_id = ?", id).Exec(ctx); err != nil {
 		return err
 	}
 	if _, err := s.DB.NewDelete().Model(imp).WherePK().Exec(ctx); err != nil {

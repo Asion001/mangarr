@@ -88,6 +88,10 @@ func (a *App) wireImports(ctx context.Context) error {
 			if err := a.UserImport.Added(ctx, body.ImportID, nil); err != nil {
 				a.Log.Warn("finish a user's import", "import", body.ImportID, "err", err)
 			}
+			// an import of requests: link them, tell each requester once
+			if err := a.Requests.BatchAdded(ctx, body.ImportID, nil); err != nil {
+				a.Log.Warn("link the requests of an import", "import", body.ImportID, "err", err)
+			}
 			if err == nil {
 				r.Progress("%d added, %d merged, %d failed", res.Added, res.Merged, res.Failed)
 				if res.Added > 0 {

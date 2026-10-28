@@ -301,10 +301,13 @@ the run of the library.
   metadata filled in and links the request, **Link** points it at a series
   that's already there under another name, **Decline** gives a reason.
 - Many at once: filter the list by title, type, who asked and language, sort
-  it, tick requests (or select all that match) and **Approve**, **Decline**,
-  change their **Language** or **Delete** them together. Approve adds each
-  title the way automatic approval does (below); those Quick search can't
-  place stay pending with the reason on them.
+  it, tick requests (or select all that match) and **Decline**, change their
+  **Language** or **Delete** them together. Administrators also get **Find
+  sources and add**: the requests become an import on the **Import** page,
+  where sources are found by title first, then you pick the root folder,
+  profile and what to monitor, check the matches (filter by who asked) and
+  add them in one go. Each requester gets one message listing what was added
+  instead of one per title. Deleting that import puts the requests back.
 - A request becomes *Approved* when the series is in the library and
   *Available* when its first chapter is imported. Whoever asked follows the
   series and hears about each step.

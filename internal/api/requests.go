@@ -8,12 +8,19 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/Asion001/mangarr/internal/access"
+	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/requests"
 )
 
 func init() { register((*Server).registerRequests) }
 
 type RequestView = requests.Request
+
+type requestsBulkResult struct {
+	Changed int `json:"changed"`
+	// ImportID is the import the requests to add went into (action add).
+	ImportID int64 `json:"importId,omitempty"`
+}
 
 func requestError(err error) error {
 	var av requests.AvailableError
@@ -146,32 +153,55 @@ func (s *Server) registerRequests() {
 		})
 
 	huma.Register(s.api, huma.Operation{OperationID: "requests-bulk", Method: http.MethodPost, Path: "/api/v1/requests/bulk", Tags: tags,
-		Summary: "Handle many requests at once: approve (add each with the sources Quick search is confident about, in the background), decline, set the language, or delete"},
+		Summary: "Handle many requests at once: add (they become an import whose sources are found first, reviewed and added together; downloads start at once), decline, set the language, or delete"},
 		func(ctx context.Context, in *struct {
 			Body struct {
 				IDs      []int64 `json:"ids" minItems:"1" maxItems:"5000"`
-				Action   string  `json:"action" enum:"approve,decline,language,delete"`
+				Action   string  `json:"action" enum:"add,decline,language,delete"`
 				Reason   string  `json:"reason,omitempty" maxLength:"500" doc:"decline: what the requesters are told"`
 				Language string  `json:"language,omitempty" doc:"language: the language to ask for (empty: the server's defaults)"`
 			}
-		}) (*struct {
-			Body struct {
-				Changed int `json:"changed"`
-			}
-		}, error) {
+		}) (*struct{ Body requestsBulkResult }, error) {
 			p := access.From(ctx)
-			out := &struct {
-				Body struct {
-					Changed int `json:"changed"`
-				}
-			}{}
+			out := &struct{ Body requestsBulkResult }{}
 			ids := in.Body.IDs
 			switch in.Body.Action {
-			case "approve":
-				if _, err := s.app.Queue.Push(ctx, "ApproveRequests", map[string]any{"ids": ids, "userId": p.UserID}, "manual"); err != nil {
+			case "add":
+				if !p.IsAdmin() {
+					return nil, huma.Error403Forbidden("adding requests together goes through Import, which is for administrators")
+				}
+				// downloads of titles already here need no sources
+				for _, id := range ids {
+					if r, err := s.app.Requests.Get(ctx, p, id); err == nil && r.Kind == model.RequestKindMonitor && r.Status == model.RequestPending {
+						if err := s.app.Requests.Monitor(ctx, id, p); err == nil {
+							out.Body.Changed++
+						}
+					}
+				}
+				rs, err := s.app.Requests.ForBatch(ctx, ids)
+				if err != nil || len(rs) == 0 {
+					return out, requestError(err)
+				}
+				batch := make([]int64, len(rs))
+				for i, r := range rs {
+					batch[i] = r.ID
+				}
+				names, err := s.app.Requests.Names(ctx, batch)
+				if err != nil {
 					return nil, toHTTPError(err)
 				}
-				out.Body.Changed = len(ids)
+				imp, err := s.app.Imports.CreateFromRequests(ctx, rs, names)
+				if err != nil {
+					return nil, importError(err)
+				}
+				if err := s.app.Requests.InBatch(ctx, batch, imp.ID); err != nil {
+					return nil, toHTTPError(err)
+				}
+				if _, err := s.app.Queue.Push(ctx, "MapImport", map[string]any{"importId": imp.ID}, "requests"); err != nil {
+					return nil, toHTTPError(err)
+				}
+				out.Body.Changed += len(rs)
+				out.Body.ImportID = imp.ID
 			case "language":
 				n, err := s.app.Requests.SetLanguage(ctx, ids, in.Body.Language)
 				if err != nil {

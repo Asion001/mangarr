@@ -86,6 +86,9 @@ type ImportOptions struct {
 	FindByTitle bool `json:"findByTitle"`
 	// BlockScanlators copies the app's excluded scanlators to the series.
 	BlockScanlators bool `json:"blockScanlators"`
+	// TellRequesters sends each person whose requests an import of
+	// requests added one message listing them (instead of one per title).
+	TellRequesters bool `json:"tellRequesters,omitempty"`
 }
 
 // ImportCategory overrides options for one backup category.

@@ -228,6 +228,7 @@ function counted(list: Request[], keys: (r: Request) => string[]) {
 }
 
 function ManageTab() {
+  const { isAdmin } = useAccount();
   const [status, setStatus] = useQueryParam("status", "pending");
   const [q, setQ] = useQueryParam("q");
   const [kind, setKind] = useQueryParam("type");
@@ -257,8 +258,8 @@ function ManageTab() {
     else next.delete(id);
     setSelected(next);
   };
-  const runBulk = async (action: "approve" | "decline" | "language" | "delete", extra: { reason?: string; language?: string } = {}) => {
-    const ids = picked.filter((r) => (action === "delete" ? r.status !== "pending" : r.status === "pending")).map((r) => r.id);
+  const runBulk = async (action: "add" | "decline" | "language" | "delete", extra: { reason?: string; language?: string } = {}) => {
+    const ids = (action === "add" ? addable : picked.filter((r) => (action === "delete" ? r.status !== "pending" : r.status === "pending"))).map((r) => r.id);
     if (!ids.length) return;
     setBulkBusy(true);
     try {
@@ -266,7 +267,7 @@ function ManageTab() {
       qc.invalidateQueries({ queryKey: ["requests"] });
       setSelected(new Set());
       setBulk(null);
-      if (action === "approve") toast.info(tr("Adding {count} titles", { count: res.changed }), tr("Those without a confident source stay pending with the reason on them."));
+      if (action === "add" && res.importId) nav(`/import/${res.importId}`);
       else toast.success(tr("{count} requests changed", { count: res.changed }));
     } catch (e) {
       toast.fromError(e);
@@ -275,6 +276,8 @@ function ManageTab() {
     }
   };
   const pending = picked.filter((r) => r.status === "pending").length;
+  // titles and downloads waiting for a manager, not ones already in an import
+  const addable = picked.filter((r) => r.status === "pending" && r.kind !== "import" && !r.importId);
   const handled = picked.length - pending;
   const nav = useNavigate();
   const qc = useQueryClient();
@@ -440,9 +443,11 @@ function ManageTab() {
           <span className="mr-1 text-sm font-semibold">{t("{count} selected", { count: picked.length })}</span>
           {pending > 0 && (
             <>
-              <Button size="sm" variant="primary" icon={<Check className="size-4" />} loading={bulkBusy} onClick={() => void runBulk("approve")}>
-                {t("Approve {count}", { count: pending })}
-              </Button>
+              {isAdmin && addable.length > 0 && (
+                <Button size="sm" variant="primary" icon={<Search className="size-4" />} loading={bulkBusy} onClick={() => void runBulk("add")}>
+                  {t("Find sources and add {count}…", { count: addable.length })}
+                </Button>
+              )}
               <Button size="sm" icon={<X className="size-4" />} disabled={bulkBusy} onClick={() => setBulk("decline")}>{t("Decline…")}</Button>
               <Button size="sm" icon={<Languages className="size-4" />} disabled={bulkBusy} onClick={() => setBulk("language")}>{t("Language…")}</Button>
             </>
@@ -503,6 +508,11 @@ function RequestRow({ r, actions, showRequesters, selected, onSelect }: {
           {md.format && <Badge>{md.format}</Badge>}
           {r.kind === "monitor" && <Badge tone="accent">{t("Download")}</Badge>}
           {r.import && <Badge tone="accent">{t("Import")}</Badge>}
+          {!r.import && r.importId && r.status === "pending" && (
+            <Link to={`/import/${r.importId}`}>
+              <Badge tone="accent">{t("in review")}</Badge>
+            </Link>
+          )}
           {r.import && <Badge>{r.import.imported > 0 ? t("{done} of {count} added", { done: r.import.imported, count: r.import.titles }) : t("{count} titles", { count: r.import.titles })}</Badge>}
           {r.language && <Badge tone="info">{languageName(r.language)}</Badge>}
           <Badge tone={statusTone[r.status]}>{statusLabel[r.status]}</Badge>

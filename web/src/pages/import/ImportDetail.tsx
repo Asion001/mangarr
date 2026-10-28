@@ -191,7 +191,7 @@ export function ImportDetailPage() {
       <div className="mb-3 flex flex-wrap items-center gap-2">
         {(lists.length > 0 || list) && (
           <Select aria-label={t("List")} className="w-auto max-w-full" value={list} onChange={(e) => pick(setList)(e.target.value)}>
-            <option value="">{t("List: any")}</option>
+            <option value="">{d.format === "requests" ? t("Asked by: anyone") : t("List: any")}</option>
             {lists.map(([name, n]) => (
               <option key={name} value={name}>
                 {name} ({n})
@@ -243,7 +243,7 @@ export function ImportDetailPage() {
         <thead>
           <tr>
             <Th className="w-8" />
-            <Th>{d.format === "account" ? t("Manga in the account") : t("Manga in the backup")}</Th>
+            <Th>{d.format === "account" ? t("Manga in the account") : d.format === "requests" ? t("Requests") : t("Manga in the backup")}</Th>
             <Th>{t("Source")}</Th>
             <Th>{t("Metadata")}</Th>
             <Th>{t("Status")}</Th>
@@ -456,6 +456,8 @@ function OptionsCard({ imp, disabled, onSaved }: { imp: S["ImportResource"]; dis
   const set = <K extends keyof Options>(k: K, v: Options[K]) => save({ ...o, [k]: v });
   const cats = imp.info.categories ?? [];
   const account = imp.format === "account";
+  // an import of requests: nothing was read, the lists are who asked
+  const requests = imp.format === "requests";
   const catRule = (c: string) => o.categories?.[c] ?? {};
   const setCat = (c: string, patch: Partial<S["ImportCategory"]>) => save({ ...o, categories: { ...(o.categories ?? {}), [c]: { ...catRule(c), ...patch } } });
 
@@ -493,8 +495,10 @@ function OptionsCard({ imp, disabled, onSaved }: { imp: S["ImportResource"]; dis
         <div className="flex flex-col gap-2">
           <Switch checked={o.searchMissing} onChange={(v) => set("searchMissing", v)} label={t("Download monitored chapters right away")} />
           <Switch checked={o.monitorNew === "all"} onChange={(v) => set("monitorNew", v ? "all" : "none")} label={t("Monitor new chapters")} />
-          {!account && <Switch checked={o.onlyFavorites} onChange={(v) => set("onlyFavorites", v)} label={t("Only library manga (not history)")} />}
+          {!account && !requests && <Switch checked={o.onlyFavorites} onChange={(v) => set("onlyFavorites", v)} label={t("Only library manga (not history)")} />}
+          {requests && <Switch checked={!!o.tellRequesters} onChange={(v) => set("tellRequesters", v)} label={t("Tell requesters once, with a list")} />}
         </div>
+        {!requests && (
         <div className="flex flex-col gap-2">
           <Switch checked={o.readState} onChange={(v) => set("readState", v)} label={t("Import read chapters")} />
           {o.readState && (
@@ -513,14 +517,17 @@ function OptionsCard({ imp, disabled, onSaved }: { imp: S["ImportResource"]; dis
             <Switch checked={o.pushProgress} onChange={(v) => set("pushProgress", v)} label={t("Mark them read in Komga/Kavita once downloaded")} />
           )}
         </div>
+        )}
+        {!requests && (
         <div className="flex flex-col gap-2">
           <Switch checked={o.matchMetadata} onChange={(v) => set("matchMetadata", v)} label={t("Link metadata (tracker ids, titles)")} />
           {!account && <Switch checked={o.findByTitle} onChange={(v) => set("findByTitle", v)} label={t("Search by title when a source can't be matched")} />}
           {!account && <Switch checked={o.blockScanlators} onChange={(v) => set("blockScanlators", v)} label={t("Keep excluded scanlators blocked")} />}
           <Switch checked={o.categoryTags} onChange={(v) => set("categoryTags", v)} label={account ? t("Tag series with their lists") : t("Tag series with their categories")} />
         </div>
+        )}
       </fieldset>
-      {cats.length > 0 && (
+      {cats.length > 0 && !requests && (
         <div className="mt-4">
           <div className="mb-2 text-sm font-medium">{account ? t("Lists") : t("Categories")}</div>
           <div className="grid gap-2">
