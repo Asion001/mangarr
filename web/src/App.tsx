@@ -37,6 +37,7 @@ const WantedPage = lazy(() => retryWhenBack(() => import("./pages/activity/Wante
 const SourcesPage = lazy(() => retryWhenBack(() => import("./pages/sources/Sources"), (m) => ({ default: m.SourcesPage })));
 const SearchSettingsPage = lazy(() => retryWhenBack(() => import("./pages/settings/SearchSettings"), (m) => ({ default: m.SearchSettingsPage })));
 const SchedulePage = lazy(() => retryWhenBack(() => import("./pages/settings/Schedule"), (m) => ({ default: m.SchedulePage })));
+const DuplicatesPage = lazy(() => retryWhenBack(() => import("./pages/duplicates/Duplicates"), (m) => ({ default: m.DuplicatesPage })));
 const CleanupPage = lazy(() => retryWhenBack(() => import("./pages/settings/Cleanup"), (m) => ({ default: m.CleanupPage })));
 const ModulesPage = lazy(() => retryWhenBack(() => import("./pages/settings/Modules"), (m) => ({ default: m.ModulesPage })));
 const ProfilesPage = lazy(() => retryWhenBack(() => import("./pages/settings/Profiles"), (m) => ({ default: m.ProfilesPage })));
@@ -151,6 +152,7 @@ export function App() {
           <Route path="sources" element={<Need perm="library.edit"><SourcesPage /></Need>} />
           <Route path="sources/:tab" element={<Need perm="library.edit"><SourcesPage /></Need>} />
           <Route path="cleanup" element={<Need perm="admin"><CleanupPage /></Need>} />
+          <Route path="duplicates" element={<Need perm="admin"><DuplicatesPage /></Need>} />
           <Route path="settings" element={<Need perm="admin"><SettingsHome /></Need>} />
           <Route path="settings/media" element={<Need perm="admin"><MediaPage /></Need>} />
           <Route path="settings/profiles" element={<Need perm="admin"><ProfilesPage /></Need>} />

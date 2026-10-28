@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Asion001/mangarr/internal/duplicates"
 	"github.com/Asion001/mangarr/internal/events"
 	"github.com/Asion001/mangarr/internal/imports"
 	"github.com/Asion001/mangarr/internal/jobs"
@@ -30,6 +31,22 @@ func (a *App) wireImports(ctx context.Context) error {
 			_, err := a.Queue.Push(ctx, name, body, "import")
 			return err
 		}}
+
+	a.Duplicates = &duplicates.Service{DB: a.DB, Series: a.Series, Metadata: a.Metadata, Settings: a.Settings,
+		Log: a.Log.With("component", "duplicates"), Changed: func() { a.Bus.Changed("duplicates", "updated", 0) }}
+	a.Queue.Register(jobs.Definition{Name: "FindDuplicates", Description: "Find titles that are one work, and the metadata of titles that have none",
+		Handler: func(ctx context.Context, r *jobs.Run) error {
+			var body struct {
+				SeriesIDs []int64 `json:"seriesIds"`
+			}
+			_ = r.Body(&body)
+			res, err := a.Duplicates.Scan(ctx, body.SeriesIDs, func(s string) { r.Progress("%s", s) })
+			r.Progress("looked up %d (%d found), %d possible duplicates, %d grouped, %d linked", res.LookedUp, res.Found, res.Pairs, res.Grouped, res.Linked)
+			return err
+		}})
+	if err := a.Scheduler.Add(ctx, jobs.Task{Name: "FindDuplicates", Interval: 7 * 24 * time.Hour}); err != nil {
+		return err
+	}
 
 	a.Queue.Register(jobs.Definition{Name: "MapImport", Description: "Match a backup's manga to catalogs and metadata",
 		Handler: func(ctx context.Context, r *jobs.Run) error {
@@ -69,6 +86,10 @@ func (a *App) wireImports(ctx context.Context) error {
 			res, err := a.Imports.Run(ctx, body.ImportID, func(s string) { r.Progress("%s", s) })
 			if err == nil {
 				r.Progress("%d added, %d merged, %d failed", res.Added, res.Merged, res.Failed)
+				if res.Added > 0 {
+					// an import that missed the metadata adds a second title for one already here
+					_, _ = a.Queue.Push(ctx, "FindDuplicates", nil, "import")
+				}
 			}
 			return err
 		}})

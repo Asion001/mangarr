@@ -3020,6 +3020,256 @@
         ],
         "type": "object"
       },
+      "DuplicateFinding": {
+        "additionalProperties": false,
+        "properties": {
+          "a": {
+            "$ref": "#/components/schemas/DuplicateTitle"
+          },
+          "b": {
+            "$ref": "#/components/schemas/DuplicateTitle"
+          },
+          "checkedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "keepId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "kind": {
+            "enum": [
+              "pair",
+              "metadata"
+            ],
+            "type": "string"
+          },
+          "match": {
+            "$ref": "#/components/schemas/Match"
+          },
+          "reasons": {
+            "items": {
+              "$ref": "#/components/schemas/Reason"
+            },
+            "type": "array"
+          },
+          "sameLanguage": {
+            "type": "boolean"
+          },
+          "seriesA": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "seriesB": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "state": {
+            "enum": [
+              "open",
+              "auto",
+              "done",
+              "dismissed",
+              "none"
+            ],
+            "type": "string"
+          },
+          "sure": {
+            "type": "boolean"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "a",
+          "id",
+          "kind",
+          "seriesA",
+          "seriesB",
+          "keepId",
+          "sameLanguage",
+          "sure",
+          "reasons",
+          "state",
+          "checkedAt",
+          "updatedAt"
+        ],
+        "type": "object"
+      },
+      "DuplicateTitle": {
+        "additionalProperties": false,
+        "properties": {
+          "addedAt": {
+            "type": "string"
+          },
+          "authors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "chapters": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "coverUrl": {
+            "type": "string"
+          },
+          "files": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "hasMetadata": {
+            "type": "boolean"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "language": {
+            "type": "string"
+          },
+          "sources": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "title": {
+            "type": "string"
+          },
+          "workId": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "language",
+          "coverUrl",
+          "addedAt",
+          "chapters",
+          "files",
+          "sources",
+          "hasMetadata"
+        ],
+        "type": "object"
+      },
+      "Duplicates": {
+        "additionalProperties": false,
+        "properties": {
+          "autoGroup": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "autoGroup"
+        ],
+        "type": "object"
+      },
+      "Duplicates-dismissRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "dismissed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "dismissed"
+        ],
+        "type": "object"
+      },
+      "Duplicates-groupRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "match": {
+            "$ref": "#/components/schemas/MetadataRef"
+          }
+        },
+        "type": "object"
+      },
+      "Duplicates-linkRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "seriesIds": {
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "seriesIds"
+        ],
+        "type": "object"
+      },
+      "Duplicates-linkResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "linked": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "linked"
+        ],
+        "type": "object"
+      },
+      "Duplicates-mergeRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "keepId": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "keepId"
+        ],
+        "type": "object"
+      },
+      "Duplicates-scanRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "seriesIds": {
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "DuplicatesList": {
+        "additionalProperties": false,
+        "properties": {
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/DuplicateFinding"
+            },
+            "type": "array"
+          },
+          "scanning": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "findings",
+          "scanning"
+        ],
+        "type": "object"
+      },
       "EditionOptions": {
         "additionalProperties": false,
         "properties": {
@@ -5364,6 +5614,55 @@
           "details",
           "chapters",
           "cached"
+        ],
+        "type": "object"
+      },
+      "Match": {
+        "additionalProperties": false,
+        "properties": {
+          "authors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "coverUrl": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "ids": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "moduleId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "score": {
+            "format": "double",
+            "type": "number"
+          },
+          "title": {
+            "type": "string"
+          },
+          "year": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "title",
+          "score",
+          "moduleId",
+          "provider",
+          "id"
         ],
         "type": "object"
       },
@@ -8561,6 +8860,30 @@
         "required": [
           "status",
           "count"
+        ],
+        "type": "object"
+      },
+      "Reason": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "enum": [
+              "id",
+              "mal",
+              "name",
+              "author"
+            ],
+            "type": "string"
+          },
+          "params": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          }
+        },
+        "required": [
+          "code"
         ],
         "type": "object"
       },
@@ -15143,6 +15466,254 @@
         "summary": "Browse a Discover shelf with cursor paging",
         "tags": [
           "Discover"
+        ]
+      }
+    },
+    "/api/v1/duplicates": {
+      "get": {
+        "operationId": "duplicates-list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DuplicatesList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "What the duplicate scan found: titles that look like one work, and titles without metadata",
+        "tags": [
+          "Duplicates"
+        ]
+      }
+    },
+    "/api/v1/duplicates/link": {
+      "post": {
+        "operationId": "duplicates-link",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Duplicates-linkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Duplicates-linkResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Link the metadata found for these titles",
+        "tags": [
+          "Duplicates"
+        ]
+      }
+    },
+    "/api/v1/duplicates/scan": {
+      "post": {
+        "operationId": "duplicates-scan",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Duplicates-scanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Command"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Scan the library for duplicates now; with seriesIds, look those titles up at the metadata providers again",
+        "tags": [
+          "Duplicates"
+        ]
+      }
+    },
+    "/api/v1/duplicates/{id}/dismissed": {
+      "put": {
+        "operationId": "duplicates-dismiss",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Duplicates-dismissRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Mark a finding as not duplicates (or bring it back)",
+        "tags": [
+          "Duplicates"
+        ]
+      }
+    },
+    "/api/v1/duplicates/{id}/group": {
+      "post": {
+        "operationId": "duplicates-group",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Duplicates-groupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Make the pair one title and link the metadata found for it (or the given match)",
+        "tags": [
+          "Duplicates"
+        ]
+      }
+    },
+    "/api/v1/duplicates/{id}/merge": {
+      "post": {
+        "operationId": "duplicates-merge",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Duplicates-mergeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Merge a same-language pair into keepId: sources, files it lacks and progress move over, the other title is deleted",
+        "tags": [
+          "Duplicates"
         ]
       }
     },
@@ -22775,6 +23346,74 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Downloads"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "tags": [
+          "Settings"
+        ]
+      }
+    },
+    "/api/v1/settings/duplicates": {
+      "get": {
+        "operationId": "settings-get-duplicates",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Duplicates"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "tags": [
+          "Settings"
+        ]
+      },
+      "put": {
+        "operationId": "settings-put-duplicates",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Duplicates"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Duplicates"
                 }
               }
             },

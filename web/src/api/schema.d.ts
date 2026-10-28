@@ -414,6 +414,108 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/duplicates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What the duplicate scan found: titles that look like one work, and titles without metadata */
+        get: operations["duplicates-list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/duplicates/link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Link the metadata found for these titles */
+        post: operations["duplicates-link"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/duplicates/scan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Scan the library for duplicates now; with seriesIds, look those titles up at the metadata providers again */
+        post: operations["duplicates-scan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/duplicates/{id}/dismissed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Mark a finding as not duplicates (or bring it back) */
+        put: operations["duplicates-dismiss"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/duplicates/{id}/group": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Make the pair one title and link the metadata found for it (or the given match) */
+        post: operations["duplicates-group"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/duplicates/{id}/merge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Merge a same-language pair into keepId: sources, files it lacks and progress move over, the other title is deleted */
+        post: operations["duplicates-merge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/groups": {
         parameters: {
             query?: never;
@@ -2693,6 +2795,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/settings/duplicates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["settings-get-duplicates"];
+        put: operations["settings-put-duplicates"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/settings/general": {
         parameters: {
             query?: never;
@@ -4921,6 +5039,74 @@ export interface components {
             dsn: string;
             overwrite?: boolean;
         };
+        DuplicateFinding: {
+            a: components["schemas"]["DuplicateTitle"];
+            b?: components["schemas"]["DuplicateTitle"];
+            /** Format: date-time */
+            checkedAt: string;
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            keepId: number;
+            /** @enum {string} */
+            kind: "pair" | "metadata";
+            match?: components["schemas"]["Match"];
+            reasons: components["schemas"]["Reason"][];
+            sameLanguage: boolean;
+            /** Format: int64 */
+            seriesA: number;
+            /** Format: int64 */
+            seriesB: number;
+            /** @enum {string} */
+            state: "open" | "auto" | "done" | "dismissed" | "none";
+            sure: boolean;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        DuplicateTitle: {
+            addedAt: string;
+            authors?: string[];
+            /** Format: int64 */
+            chapters: number;
+            coverUrl: string;
+            /** Format: int64 */
+            files: number;
+            hasMetadata: boolean;
+            /** Format: int64 */
+            id: number;
+            language: string;
+            sources: string[];
+            title: string;
+            /** Format: int64 */
+            workId?: number;
+        };
+        Duplicates: {
+            autoGroup: boolean;
+        };
+        "Duplicates-dismissRequest": {
+            dismissed: boolean;
+        };
+        "Duplicates-groupRequest": {
+            match?: components["schemas"]["MetadataRef"];
+        };
+        "Duplicates-linkRequest": {
+            seriesIds: number[];
+        };
+        "Duplicates-linkResponse": {
+            /** Format: int64 */
+            linked: number;
+        };
+        "Duplicates-mergeRequest": {
+            /** Format: int64 */
+            keepId: number;
+        };
+        "Duplicates-scanRequest": {
+            seriesIds?: number[];
+        };
+        DuplicatesList: {
+            findings: components["schemas"]["DuplicateFinding"][];
+            scanning: boolean;
+        };
         EditionOptions: {
             language: string;
             /** Format: int64 */
@@ -5640,6 +5826,22 @@ export interface components {
             cached: boolean;
             chapters: components["schemas"]["SourceChapter"][];
             details: components["schemas"]["SourceMangaDetails"];
+        };
+        Match: {
+            authors?: string[];
+            coverUrl?: string;
+            id: string;
+            ids?: {
+                [key: string]: string;
+            };
+            /** Format: int64 */
+            moduleId: number;
+            provider: string;
+            /** Format: double */
+            score: number;
+            title: string;
+            /** Format: int64 */
+            year?: number;
         };
         "Me-list-renameRequest": {
             name: string;
@@ -6601,6 +6803,13 @@ export interface components {
             count: number;
             /** @enum {string} */
             status: "reading" | "planned" | "completed" | "onhold" | "dropped";
+        };
+        Reason: {
+            /** @enum {string} */
+            code: "id" | "mal" | "name" | "author";
+            params?: {
+                [key: string]: string;
+            };
         };
         RecommendationItem: {
             adaptations?: components["schemas"]["Adaptation"][];
@@ -9015,6 +9224,200 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["DiscoverShelfPage"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "duplicates-list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DuplicatesList"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "duplicates-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Duplicates-linkRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Duplicates-linkResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "duplicates-scan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Duplicates-scanRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Command"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "duplicates-dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Duplicates-dismissRequest"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "duplicates-group": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Duplicates-groupRequest"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "duplicates-merge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Duplicates-mergeRequest"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {
@@ -14449,6 +14852,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Downloads"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "settings-get-duplicates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Duplicates"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "settings-put-duplicates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Duplicates"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Duplicates"];
                 };
             };
             /** @description Error */

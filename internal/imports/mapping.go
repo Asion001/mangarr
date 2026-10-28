@@ -590,6 +590,17 @@ func SlugTitle(link string) string {
 // MatchTitleMetadata finds the metadata series for a title by searching its
 // title, then up to two other titles, and keeping a confident match.
 func MatchTitleMetadata(ctx context.Context, agg *metadataagg.Aggregator, title string, alts []string) *model.ImportMetadata {
+	c, score := MatchTitleCandidate(ctx, agg, title, alts)
+	if c == nil {
+		return nil
+	}
+	return &model.ImportMetadata{ModuleID: c.ModuleID, Provider: c.Provider, ID: c.ID, Title: c.Title, CoverURL: c.CoverURL,
+		How: model.MatchTitle, Score: score}
+}
+
+// MatchTitleCandidate is MatchTitleMetadata's search: the confident match
+// with everything the provider said about it, and its score.
+func MatchTitleCandidate(ctx context.Context, agg *metadataagg.Aggregator, title string, alts []string) (*metadataagg.Candidate, float64) {
 	names := []string{}
 	for _, n := range append([]string{title}, alts...) {
 		if n = strings.TrimSpace(n); n != "" && !slices.Contains(names, n) {
@@ -597,7 +608,7 @@ func MatchTitleMetadata(ctx context.Context, agg *metadataagg.Aggregator, title 
 		}
 	}
 	if agg == nil || len(names) == 0 {
-		return nil
+		return nil, 0
 	}
 	for _, q := range names[:min(len(names), 3)] {
 		cands, errs := searchMetadata(ctx, agg, q)
@@ -606,7 +617,7 @@ func MatchTitleMetadata(ctx context.Context, agg *metadataagg.Aggregator, title 
 			// find must not be imported without metadata, so wait it out once
 			select {
 			case <-ctx.Done():
-				return nil
+				return nil, 0
 			case <-time.After(wait):
 			}
 			cands, _ = searchMetadata(ctx, agg, q)
@@ -614,6 +625,9 @@ func MatchTitleMetadata(ctx context.Context, agg *metadataagg.Aggregator, title 
 		best, score := -1, 0.0
 		for i, c := range cands {
 			cn := append([]string{c.Title}, c.AltTitles...)
+			for _, n := range c.Titles {
+				cn = append(cn, n)
+			}
 			for _, n := range names {
 				if sc := titlematch.Best(cn, n); sc > score {
 					best, score = i, sc
@@ -621,12 +635,10 @@ func MatchTitleMetadata(ctx context.Context, agg *metadataagg.Aggregator, title 
 			}
 		}
 		if best >= 0 && score >= MetadataThreshold {
-			c := cands[best]
-			return &model.ImportMetadata{ModuleID: c.ModuleID, Provider: c.Provider, ID: c.ID, Title: c.Title, CoverURL: c.CoverURL,
-				How: model.MatchTitle, Score: score}
+			return &cands[best], score
 		}
 	}
-	return nil
+	return nil, 0
 }
 
 func searchMetadata(ctx context.Context, agg *metadataagg.Aggregator, q string) ([]metadataagg.Candidate, []error) {

@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"fmt"
+	"github.com/Asion001/mangarr/internal/duplicates"
 	"strings"
 	"time"
 
@@ -36,6 +37,8 @@ type MoreServices struct {
 	Rescanner  *libsync.Rescanner
 	Health     *health.Checker
 	Backups    *backup.Service
+	// Duplicates finds titles that are one work, and titles without metadata.
+	Duplicates *duplicates.Service
 }
 
 // wireMore registers library sync, notifications, health, backups and

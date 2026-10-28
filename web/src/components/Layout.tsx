@@ -23,6 +23,7 @@ import {
   Menu,
   X,
   LogOut,
+  CopyCheck,
   Eraser,
   Download,
   FileUp,
@@ -142,7 +143,7 @@ export function Layout() {
   }, [ready]);
   const drawer = useRef<HTMLElement>(null);
   const attemptedRoute = useRef("");
-  const management = /^(\/add|\/activity|\/wanted|\/sources|\/settings|\/system|\/cleanup|\/import)(\/|$)/.test(loc.pathname);
+  const management = /^(\/add|\/activity|\/wanted|\/sources|\/settings|\/system|\/cleanup|\/duplicates|\/import)(\/|$)/.test(loc.pathname);
   const routePermission: Perm[] = loc.pathname.startsWith("/add") ? ["library.add", "requests.manage"] : loc.pathname.startsWith("/activity") ? ["queue.manage"] : /^(\/wanted|\/sources)(\/|$)/.test(loc.pathname) ? ["library.edit"] : ["admin"];
   const routeKey = loc.pathname + loc.search;
   useEffect(() => {
@@ -223,6 +224,7 @@ export function Layout() {
     { to: "/wanted", section: "manage", label: "Wanted", icon: <AlertCircle className="size-4" />, need: "library.edit" },
     { to: "/sources", section: "manage", label: "Sources", icon: <Compass className="size-4" />, need: "library.edit" },
     { to: "/cleanup", section: "manage", label: "Cleanup", icon: <Eraser className="size-4" />, need: "admin" },
+    { to: "/duplicates", section: "manage", label: "Duplicates", icon: <CopyCheck className="size-4" />, need: "admin" },
     {
       to: "/settings",
       section: "admin",

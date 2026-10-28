@@ -115,6 +115,12 @@ Read wherever the engine runs: in the server, or on a worker with the upscale ro
 | `MANGARR_CLEANUP_EXCLUDE_TAGS` | list | `keep` | Series with these tags are never cleaned up. |
 | `MANGARR_CLEANUP_USE_RECYCLE_BIN` | bool | `true` | Move cleaned files to the recycle bin. |
 
+### duplicates
+
+| Variable | Type | Default | Description |
+|---|---|---|---|
+| `MANGARR_DUPLICATES_AUTO_GROUP` | bool | `true` | Group titles that are surely the same work in another language, and link the metadata found for them. |
+
 ### readsync
 
 | Variable | Type | Default | Description |

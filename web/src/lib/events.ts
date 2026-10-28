@@ -22,6 +22,7 @@ const map: Record<string, string[][]> = {
   progress: [["progress"], ["series"], ["me-library-accounts"]],
   reading: [["reading"], ["settings"], ["discover"], ["updates"]],
   updates: [["updates"]],
+  duplicates: [["duplicates"]],
   database: [["database"]],
   users: [["users"], ["auth"]],
   request: [["requests"], ["lookup"]],

@@ -822,7 +822,8 @@ func (s *Service) LinkMetadata(ctx context.Context, id int64, ref metadataagg.Re
 	if err != nil {
 		return nil, err
 	}
-	resolved, err := s.agg.Resolve(ctx, ref, nil)
+	// an edition in another language keeps the name its provider gives in that language
+	resolved, err := s.agg.ResolveLanguage(ctx, ref, nil, ser.Language)
 	if err != nil {
 		return nil, err
 	}

@@ -36,6 +36,12 @@ database-test POST /api/v1/system/database/test -> admin
 discover GET /api/v1/discover -> signedin
 discover-shelf GET /api/v1/discover/{shelf} -> signedin
 discover-thumbnail GET /api/v1/discover/thumbnail -> public
+duplicates-dismiss PUT /api/v1/duplicates/{id}/dismissed -> admin
+duplicates-group POST /api/v1/duplicates/{id}/group -> admin
+duplicates-link POST /api/v1/duplicates/link -> admin
+duplicates-list GET /api/v1/duplicates -> admin
+duplicates-merge POST /api/v1/duplicates/{id}/merge -> admin
+duplicates-scan POST /api/v1/duplicates/scan -> admin
 extensions-action POST /api/v1/modules/{id}/extensions/{pkg}/{action} -> admin
 extensions-list GET /api/v1/modules/{id}/extensions -> admin
 groups-create POST /api/v1/groups -> admin
@@ -199,6 +205,7 @@ series-work-update PUT /api/v1/series/{id}/work -> library.edit
 settings-get-appearance GET /api/v1/settings/appearance -> admin
 settings-get-cleanup GET /api/v1/settings/cleanup -> admin
 settings-get-downloads GET /api/v1/settings/downloads -> admin
+settings-get-duplicates GET /api/v1/settings/duplicates -> admin
 settings-get-general GET /api/v1/settings/general -> admin
 settings-get-media GET /api/v1/settings/media -> admin
 settings-get-messenger GET /api/v1/settings/messenger -> admin
@@ -214,6 +221,7 @@ settings-messenger-test POST /api/v1/settings/messenger/test -> admin
 settings-put-appearance PUT /api/v1/settings/appearance -> admin
 settings-put-cleanup PUT /api/v1/settings/cleanup -> admin
 settings-put-downloads PUT /api/v1/settings/downloads -> admin
+settings-put-duplicates PUT /api/v1/settings/duplicates -> admin
 settings-put-general PUT /api/v1/settings/general -> admin
 settings-put-media PUT /api/v1/settings/media -> admin
 settings-put-messenger PUT /api/v1/settings/messenger -> admin
