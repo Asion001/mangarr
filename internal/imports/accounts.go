@@ -79,21 +79,40 @@ func (s *Service) CreateFromAccount(ctx context.Context, moduleID int64, sourceI
 	if err != nil {
 		return nil, err
 	}
-	return s.create(ctx, name+" account", b, nil, func(imp *model.Import) {
-		imp.Info.ModuleID, imp.Info.Lists = moduleID, lists
-		// all of an account's titles are in its lists, so none is history only
-		imp.Options.OnlyFavorites = false
-		// a title in the account is the source manga itself
-		imp.Options.FindByTitle = false
-		imp.Options.BlockScanlators = false
-		for list, status := range lists {
-			if status == source.ListDropped {
-				if imp.Options.Categories == nil {
-					imp.Options.Categories = map[string]model.ImportCategory{}
-				}
-				imp.Options.Categories[list] = model.ImportCategory{Skip: true}
+	return s.create(ctx, name+" account", b, nil, func(imp *model.Import) { accountOptions(imp, moduleID, lists) })
+}
+
+// accountOptions sets up an import of a site account read by moduleID.
+func accountOptions(imp *model.Import, moduleID int64, lists map[string]string) {
+	imp.Info.ModuleID, imp.Info.Lists = moduleID, lists
+	// all of an account's titles are in its lists, so none is history only
+	imp.Options.OnlyFavorites = false
+	// a title in the account is the source manga itself
+	imp.Options.FindByTitle = false
+	imp.Options.BlockScanlators = false
+	for list, status := range lists {
+		if status == source.ListDropped {
+			if imp.Options.Categories == nil {
+				imp.Options.Categories = map[string]model.ImportCategory{}
 			}
+			imp.Options.Categories[list] = model.ImportCategory{Skip: true}
 		}
+	}
+}
+
+// CreateRequested stores the titles a user asked for from their own library
+// as an import for the admins to review; the read state goes to the user.
+// moduleID is the source module that read a site account (Format account).
+func (s *Service) CreateRequested(ctx context.Context, name string, b *backupimport.Backup, moduleID int64, lists map[string]string, userID int64) (*model.Import, error) {
+	return s.create(ctx, name, b, nil, func(imp *model.Import) {
+		if b.Format == backupimport.FormatAccount {
+			accountOptions(imp, moduleID, lists)
+		} else {
+			imp.Info.Lists = lists
+			imp.Options.OnlyFavorites = false // the user asked for each of them
+		}
+		imp.RequestedBy = &userID
+		imp.Options.ReadState, imp.Options.UserID = true, userID
 	})
 }
 

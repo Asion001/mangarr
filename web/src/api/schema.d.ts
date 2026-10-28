@@ -5262,6 +5262,7 @@ export interface components {
             /** Format: date-time */
             exported: string;
             format: string;
+            origin?: components["schemas"]["ExportOrigin"];
             reader?: unknown;
             /** @description mangarr version that exported it */
             server?: string;
@@ -5284,6 +5285,11 @@ export interface components {
             outcome?: string;
             /** Format: int64 */
             page?: number;
+        };
+        ExportOrigin: {
+            format: string;
+            /** Format: int64 */
+            moduleId?: number;
         };
         ExportProgress: {
             /** Format: date-time */
@@ -5604,6 +5610,9 @@ export interface components {
             info: components["schemas"]["ImportInfo"];
             options: components["schemas"]["ImportOptions"];
             progress: string;
+            /** Format: int64 */
+            requestedBy?: number;
+            requestedByName?: string;
             /** @enum {string} */
             status: "mapping" | "review" | "running" | "done" | "failed";
             /** Format: date-time */
@@ -5621,6 +5630,15 @@ export interface components {
             thumbnailUrl?: string;
             title: string;
             url: string;
+        };
+        ImportSummary: {
+            /** Format: int64 */
+            imported: number;
+            lists: {
+                [key: string]: number;
+            };
+            /** Format: int64 */
+            titles: number;
         };
         "Imports-entries-updateResponse": {
             /** Format: int64 */
@@ -7051,8 +7069,11 @@ export interface components {
             handledBy?: string;
             /** Format: int64 */
             id: number;
+            import?: components["schemas"]["ImportSummary"];
+            /** Format: int64 */
+            importId?: number;
             /** @enum {string} */
-            kind?: "" | "monitor";
+            kind?: "" | "monitor" | "import";
             language?: string;
             metadata: components["schemas"]["RequestMetadata"];
             mine: boolean;

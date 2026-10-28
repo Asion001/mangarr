@@ -135,7 +135,7 @@ draws them).
 - **Import from a manga site account** (Senkuro, MangaLib) — the account's
   lists and how far you read each title, through the same review. Users bring
   their own library too: progress for titles on the server at once, the rest
-  as requests for an admin to approve.
+  as one import for an admin to review by list.
 - **UI in English, Russian and Ukrainian**, chosen per account, with a
   reading mode that keeps the editing controls out of the way.
 - SQLite by default, **PostgreSQL** with one button (System → Database

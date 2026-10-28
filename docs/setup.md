@@ -298,6 +298,11 @@ the run of the library.
   **Requests → To handle**: **Add series** opens the usual add flow with the
   metadata filled in and links the request, **Link** points it at a series
   that's already there under another name, **Decline** gives a reason.
+- Many at once: filter the list by title, type, who asked and language, sort
+  it, tick requests (or select all that match) and **Approve**, **Decline**,
+  change their **Language** or **Delete** them together. Approve adds each
+  title the way automatic approval does (below); those Quick search can't
+  place stay pending with the reason on them.
 - A request becomes *Approved* when the series is in the library and
   *Available* when its first chapter is imported. Whoever asked follows the
   series and hears about each step.
@@ -836,11 +841,14 @@ Every signed-in user can do the same for themselves under **My account → Your
 data → Bring my library**, from an app backup or a site account. The review
 shows which titles are on this server: those get the user's progress (and a
 follow) at once, never lowering progress that's further along. Titles that
-aren't here can be ticked to **ask for them**: each becomes an ordinary
-request (matched to AniList or another metadata provider), so the usual
-approval applies, and groups that auto-approve requests add them right away.
-The user's progress for a requested title is kept and written once the title
-is added and its chapters are listed.
+aren't here can be ticked to **ask for them**: together they go to the
+admins as one import on the **Import** page, named after the user, with
+their lists and progress, and one request under **Requests → To handle**
+stands for it (**Review in Import**). The import is reviewed like an admin's
+own: filter it by list, pick the titles and import them. The read state goes
+to the user who asked, along with a follow and their lists, and they hear
+how many of their titles were added. Declining the request deletes the
+import.
 
 ## 15. PostgreSQL (optional)
 

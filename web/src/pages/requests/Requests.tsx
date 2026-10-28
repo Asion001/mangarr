@@ -6,7 +6,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { BookOpen, Check, Clock, Inbox, Languages, Link2, PlusCircle, Search, Trash2, Undo2, X } from "lucide-react";
 import { api, unwrap, type LookupResult, type S } from "../../api/client";
 import { Cover } from "../../components/Cover";
-import { Badge, Button, Card, EmptyState, ErrorBox, Field, Input, Loading, Modal, PageHeader, Select, Tabs, Textarea } from "../../components/ui";
+import { Badge, Button, ButtonLink, Card, EmptyState, ErrorBox, Field, Input, Loading, Modal, PageHeader, Select, Tabs, Textarea } from "../../components/ui";
 import { useAccount } from "../../lib/account";
 import { languageName, relative } from "../../lib/format";
 import { LanguageSelect, useOfferedLanguages } from "../../components/LanguageSelect";
@@ -209,8 +209,8 @@ function MineTab() {
   );
 }
 
-type Kind = "title" | "language" | "monitor";
-const kindOf = (r: Request): Kind => (r.kind === "monitor" ? "monitor" : r.workId ? "language" : "title");
+type Kind = "title" | "language" | "monitor" | "import";
+const kindOf = (r: Request): Kind => (r.kind === "monitor" ? "monitor" : r.kind === "import" ? "import" : r.workId ? "language" : "title");
 
 /** sorters for the manager's list; the server answers newest first */
 const sorters: Record<string, (a: Request, b: Request) => number> = {
@@ -322,7 +322,7 @@ function ManageTab() {
             <option value="">{t("Type: any")}</option>
             {kinds.map(([k, n]) => (
               <option key={k} value={k}>
-                {(k === "monitor" ? tr("Download (in library)") : k === "language" ? tr("Another language") : tr("New title")) + ` (${n})`}
+                {(k === "monitor" ? tr("Download (in library)") : k === "language" ? tr("Another language") : k === "import" ? tr("Library import") : tr("New title")) + ` (${n})`}
               </option>
             ))}
           </Select>
@@ -398,7 +398,11 @@ function ManageTab() {
             onSelect={(on) => toggle(r.id, on)}
             actions={
               <>
-                {r.kind === "monitor" ? (
+                {r.kind === "import" ? (
+                  r.importId && (
+                    <ButtonLink size="sm" variant="primary" to={`/import/${r.importId}`}>{t("Review in Import →")}</ButtonLink>
+                  )
+                ) : r.kind === "monitor" ? (
                   (r.status === "pending" || r.status === "declined") && (
                     <Button size="sm" variant="primary" icon={<PlusCircle className="size-4" />} loading={monitoring === r.id} onClick={() => void monitor(r)}>{t("Monitor and download")}</Button>
                   )
@@ -417,7 +421,7 @@ function ManageTab() {
                     onClick={() => nav(`/add/${r.metadata.moduleId}/${encodeURIComponent(r.metadata.id!)}/sources?request=${r.id}${r.language ? `&lang=${encodeURIComponent(r.language)}` : ""}`)}
                   >{t("Add series")}</Button>
                 )}
-                {(r.status === "pending" || r.status === "declined") && r.kind !== "monitor" && (
+                {(r.status === "pending" || r.status === "declined") && r.kind !== "monitor" && r.kind !== "import" && (
                   <Button size="sm" icon={<Link2 className="size-4" />} onClick={() => setLinking(r)}>{t("Link")}</Button>
                 )}
                 {r.status === "pending" && (
@@ -498,6 +502,8 @@ function RequestRow({ r, actions, showRequesters, selected, onSelect }: {
           {md.year ? <Badge>{md.year}</Badge> : null}
           {md.format && <Badge>{md.format}</Badge>}
           {r.kind === "monitor" && <Badge tone="accent">{t("Download")}</Badge>}
+          {r.import && <Badge tone="accent">{t("Import")}</Badge>}
+          {r.import && <Badge>{r.import.imported > 0 ? t("{done} of {count} added", { done: r.import.imported, count: r.import.titles }) : t("{count} titles", { count: r.import.titles })}</Badge>}
           {r.language && <Badge tone="info">{languageName(r.language)}</Badge>}
           <Badge tone={statusTone[r.status]}>{statusLabel[r.status]}</Badge>
           {r.count > 1 && <Badge title={t("People who asked for it")}>{r.count}{" " + t("people")}</Badge>}
@@ -514,6 +520,14 @@ function RequestRow({ r, actions, showRequesters, selected, onSelect }: {
             </span>
           )}
         </div>
+        {r.import && Object.keys(r.import.lists).length > 0 && (
+          <div className="mt-0.5 text-xs text-muted">
+            {Object.entries(r.import.lists)
+              .sort((a, b) => b[1] - a[1])
+              .map(([name, n]) => `${name} ${n}`)
+              .join(" · ")}
+          </div>
+        )}
         {r.requesters
           .filter((x) => x.note)
           .map((x) => (

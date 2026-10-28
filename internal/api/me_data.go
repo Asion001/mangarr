@@ -138,7 +138,7 @@ func (s *Server) registerMyData() {
 				}
 			}
 			if len(ask) > 0 {
-				if _, err := s.app.Queue.Push(ctx, "RequestImportedTitles", map[string]any{"userId": acc.UserID, "titles": ask}, "import"); err != nil {
+				if _, err := s.app.Queue.Push(ctx, "RequestImportedTitles", map[string]any{"userId": acc.UserID, "titles": ask, "origin": in.Body.Data.Origin}, "import"); err != nil {
 					return nil, toHTTPError(err)
 				}
 				res.Requested = len(ask)
@@ -174,6 +174,8 @@ func (s *Server) registerMyData() {
 				return nil, err
 			}
 			acc, _ := s.myAccount(ctx)
-			return &struct{ Body *userdata.Export }{userdata.FromBackup(b, acc.Username, lists)}, nil
+			d := userdata.FromBackup(b, acc.Username, lists)
+			d.Origin.ModuleID = in.Body.ModuleID
+			return &struct{ Body *userdata.Export }{d}, nil
 		})
 }

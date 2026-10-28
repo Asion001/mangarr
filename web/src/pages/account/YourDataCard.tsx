@@ -217,7 +217,7 @@ function ImportReview({ data, from, onClose }: { data: Export; from: string; onC
         <div className="flex w-full flex-wrap items-center justify-between gap-3">
           <span className="text-xs text-muted">
             {t("Progress already further here is kept. Importing again adds nothing twice.")}
-            {ask.length > 0 && " " + t("{count} titles not here will be asked for.", { count: n(ask.length) })}
+            {ask.length > 0 && " " + t("{count} titles not here go to the admins as one request, with your lists and progress.", { count: n(ask.length) })}
           </span>
           <div className="flex gap-2">
             <Button onClick={onClose}>{t("Cancel")}</Button>

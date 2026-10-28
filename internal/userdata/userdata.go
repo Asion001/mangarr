@@ -48,6 +48,16 @@ type Export struct {
 	UI     *ExportUI       `json:"ui,omitempty"`
 	Reader json.RawMessage `json:"reader,omitempty"`
 	Titles []ExportTitle   `json:"titles"`
+	// Origin says what the titles were read from, when that was another
+	// app's backup or a site account.
+	Origin *ExportOrigin `json:"origin,omitempty"`
+}
+
+// ExportOrigin is the backup format (mihon, aidoku, account) and, for a
+// site account, the source module that read it.
+type ExportOrigin struct {
+	Format   string `json:"format"`
+	ModuleID int64  `json:"moduleId,omitempty"`
 }
 
 type ExportUI struct {
@@ -823,7 +833,7 @@ func firstNonBlank(values ...string) string {
 // title's status or Favorites, whatever the site calls them, and the rest
 // stay lists by name.
 func FromBackup(b *backupimport.Backup, user string, statuses map[string]string) *Export {
-	d := &Export{Format: Format, Version: Version, Exported: b.CreatedAt, User: user, Titles: []ExportTitle{}}
+	d := &Export{Format: Format, Version: Version, Exported: b.CreatedAt, User: user, Titles: []ExportTitle{}, Origin: &ExportOrigin{Format: b.Format}}
 	if d.Exported.IsZero() {
 		d.Exported = time.Now().UTC()
 	}

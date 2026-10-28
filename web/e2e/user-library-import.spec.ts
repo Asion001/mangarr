@@ -28,7 +28,7 @@ async function mockAccount(page:Page) {
   return sent;
 }
 
-test('brings a site library: progress for titles here, requests for the rest',async({page})=>{
+test('brings a site library: progress for titles here, one request for the rest',async({page})=>{
   const sent=await mockAccount(page);
   await page.goto('/account');
   const card=page.locator('section',{has:page.getByRole('heading',{name:'Your data',exact:true})});
@@ -43,7 +43,7 @@ test('brings a site library: progress for titles here, requests for the rest',as
   await expect(dialog.getByRole('row',{name:/Blue Lock/}).getByText('ch. 12, p. 3')).toBeVisible();
   await expect(dialog.getByText('Reading history and time')).toHaveCount(0);
   await dialog.getByRole('row',{name:/Dropped one/}).getByRole('checkbox',{name:'Ask for it'}).uncheck();
-  await expect(dialog.getByText('1 titles not here will be asked for.')).toBeVisible();
+  await expect(dialog.getByText('1 titles not here go to the admins as one request, with your lists and progress.')).toBeVisible();
   await dialog.getByRole('button',{name:'Import 1 titles'}).click();
   await expect(page.getByText(/1 titles asked for/)).toBeVisible();
   expect(sent.import.options).toMatchObject({progress:true,follows:true,request:[1]});

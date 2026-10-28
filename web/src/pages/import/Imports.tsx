@@ -100,6 +100,11 @@ export function ImportsPage() {
                   <Link to={`/import/${imp.id}`} className="font-medium hover:text-accent-2">
                     {imp.fileName}
                   </Link>
+                  {imp.requestedByName && (
+                    <span className="ml-2">
+                      <Badge tone="accent">{t("asked by {name}", { name: imp.requestedByName })}</Badge>
+                    </span>
+                  )}
                   {imp.format === "account"
                     ? imp.info.categories.length > 0 && <div className="text-xs text-muted">{t("Lists") + ": " + imp.info.categories.length}</div>
                     : imp.info.backupDate && <div className="text-xs text-muted">{t("made") + " "}{date(imp.info.backupDate)}</div>}

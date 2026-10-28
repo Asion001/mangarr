@@ -23,6 +23,7 @@ var PlacePause = 1500 * time.Millisecond
 func (a *App) wireRequests() {
 	a.Requests = &requests.Service{DB: a.DB, Bus: a.Bus, Mods: a.Modules, Series: a.Series, Search: a.Search,
 		Log: a.Log.With("component", "requests"), Tell: a.Notifications.SendToUsers,
+		DropImport: func(ctx context.Context, id int64) error { return a.Imports.Delete(ctx, id) },
 		QueueSearch: func(ctx context.Context, seriesID int64) error {
 			_, err := a.Queue.Push(ctx, "SearchMissing", map[string]any{"seriesId": seriesID}, "request")
 			return err
@@ -32,11 +33,12 @@ func (a *App) wireRequests() {
 
 	a.UserImport = &userimport.Service{DB: a.DB, Mods: a.Modules, Metadata: a.Metadata, Requests: a.Requests,
 		Log: a.Log.With("component", "userimport")}
-	a.Queue.Register(jobs.Definition{Name: "RequestImportedTitles", Description: "Ask for the titles of a user's import that aren't in the library",
+	a.Queue.Register(jobs.Definition{Name: "RequestImportedTitles", Description: "Send the titles of a user's import that aren't in the library to the admins as one import",
 		Handler: func(ctx context.Context, r *jobs.Run) error {
 			var body struct {
 				UserID int64                  `json:"userId"`
 				Titles []userdata.ExportTitle `json:"titles"`
+				Origin *userdata.ExportOrigin `json:"origin"`
 			}
 			if err := r.Body(&body); err != nil || body.UserID == 0 {
 				return fmt.Errorf("userId required")
@@ -45,8 +47,12 @@ func (a *App) wireRequests() {
 			if err != nil || p == nil {
 				return fmt.Errorf("user %d can't make requests", body.UserID)
 			}
-			res, err := a.UserImport.Request(ctx, p, body.Titles)
-			r.Progress("%d requested, %d already here, %d not found", res.Requested, res.Here, len(res.Unmatched))
+			imp, err := a.UserImport.RequestLibrary(ctx, p, body.Titles, body.Origin)
+			if err != nil {
+				return err
+			}
+			r.Progress("%d titles sent for review", len(body.Titles))
+			_, err = a.Queue.Push(ctx, "MapImport", map[string]any{"importId": imp.ID}, "request")
 			return err
 		}})
 	a.Queue.Register(jobs.Definition{Name: "PlaceImportedProgress", Description: "Look up at the site the chapters a user's import reached and write that progress",

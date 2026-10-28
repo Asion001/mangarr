@@ -7,7 +7,7 @@ import (
 	"github.com/Asion001/mangarr/internal/auth"
 	"github.com/Asion001/mangarr/internal/backupimport"
 	"github.com/Asion001/mangarr/internal/dbtest"
-	"github.com/Asion001/mangarr/internal/metadataagg"
+	"github.com/Asion001/mangarr/internal/imports"
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/modules/source"
 	"github.com/Asion001/mangarr/internal/readinglists"
@@ -19,8 +19,8 @@ import (
 )
 
 // TestUserImport: a user brings a library from another app. A title on the
-// server gets their progress and a follow at once; one that isn't becomes a
-// request, and its progress is written once the request brings it in.
+// server gets their progress and a follow at once; those that aren't go to
+// the admins as one import, which brings their progress and lists along.
 func TestUserImport(t *testing.T) {
 	for dialect, dsn := range dbtest.DSNs(t) {
 		t.Run(dialect, func(t *testing.T) {
@@ -122,28 +122,36 @@ func TestUserImport(t *testing.T) {
 				t.Fatal("ann follows what she imported")
 			}
 
-			res, err := e.App.UserImport.Request(ctx, pAnn, []userdata.ExportTitle{d.Titles[1]})
-			if err != nil || res.Requested != 1 {
-				t.Fatalf("request = %+v %v", res, err)
+			// the title that isn't here goes to the admins as one import
+			imp, err := e.App.UserImport.RequestLibrary(ctx, pAnn, []userdata.ExportTitle{d.Titles[1]}, &userdata.ExportOrigin{Format: backupimport.FormatAccount, ModuleID: src})
+			if err != nil || imp.RequestedBy == nil || *imp.RequestedBy != ann.ID || imp.Options.UserID != ann.ID || imp.FileName != "ann's library" {
+				t.Fatalf("import = %+v %v", imp, err)
 			}
 			var req model.Request
-			if err := e.App.DB.NewSelect().Model(&req).Scan(ctx); err != nil || req.Title != "Kaiju No. 8" || req.Status != model.RequestPending {
+			if err := e.App.DB.NewSelect().Model(&req).Scan(ctx); err != nil || req.Kind != model.RequestKindImport || req.ImportID == nil || *req.ImportID != imp.ID || req.Status != model.RequestPending {
 				t.Fatalf("request = %+v %v", req, err)
 			}
-			// an admin adds it; once its chapters are listed ann's progress is there
-			k8, err := e.App.Series.Add(ctx, series.AddRequest{Metadata: &metadataagg.Ref{ModuleID: meta.ID, Provider: "fakemeta", ID: "7"},
-				Sources: []series.SourceLink{{ModuleID: src, SourceID: "A", URL: "/k8"}}, RootFolderID: e.RFID, Monitor: model.MonitorNone})
-			if err != nil {
+			// an admin reviews and runs it; ann gets her progress and lists
+			e.runCommand(t, "MapImport", map[string]any{"importId": imp.ID})
+			entries, _, err := e.App.Imports.Entries(ctx, imp.ID, imports.EntryFilter{List: "Planned"}, 0, 0)
+			if err != nil || len(entries) != 1 || entries[0].State != model.EntryReady {
+				t.Fatalf("entries = %+v %v", entries, err)
+			}
+			e.runCommand(t, "RunImport", map[string]any{"importId": imp.ID})
+			var k8 model.Series
+			if err := e.App.DB.NewSelect().Model(&k8).Where("title = ?", "Kaiju No. 8").Scan(ctx); err != nil {
 				t.Fatal(err)
 			}
-			e.runCommand(t, "RefreshSeries", map[string]any{"seriesId": k8.ID})
-			waitFor(t, 10*time.Second, "kept progress written", func() bool {
-				_ = e.App.UserImport.ApplyReady(ctx)
-				st := states(k8.ID)
-				return st[1].Completed
-			})
+			waitFor(t, 10*time.Second, "imported progress written", func() bool { return states(k8.ID)[1].Completed })
 			if got := entry(k8.ID); got.Status != model.ReadPlanned {
 				t.Fatalf("kaiju lists = %+v", got)
+			}
+			if n, _ := e.App.DB.NewSelect().Model((*model.Follow)(nil)).Where("user_id = ? AND series_id = ?", ann.ID, k8.ID).Count(ctx); n != 1 {
+				t.Fatal("ann follows what her import added")
+			}
+			r, err := e.App.Requests.Get(ctx, pAnn, req.ID)
+			if err != nil || r.Status != model.RequestApproved || r.Import == nil || r.Import.Titles != 1 || r.Import.Imported != 1 || r.Import.Lists["Planned"] != 1 {
+				t.Fatalf("request after the import = %+v %v", r, err)
 			}
 			if n, _ := e.App.DB.NewSelect().Model((*model.RequestedProgress)(nil)).Count(ctx); n != 0 {
 				t.Fatalf("kept progress left behind: %d", n)

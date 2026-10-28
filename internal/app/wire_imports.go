@@ -84,6 +84,10 @@ func (a *App) wireImports(ctx context.Context) error {
 				return fmt.Errorf("importId required")
 			}
 			res, err := a.Imports.Run(ctx, body.ImportID, func(s string) { r.Progress("%s", s) })
+			// a user's import: their follows and lists, and their request
+			if err := a.UserImport.Added(ctx, body.ImportID, nil); err != nil {
+				a.Log.Warn("finish a user's import", "import", body.ImportID, "err", err)
+			}
 			if err == nil {
 				r.Progress("%d added, %d merged, %d failed", res.Added, res.Merged, res.Failed)
 				if res.Added > 0 {
@@ -112,6 +116,7 @@ func (a *App) wireImports(ctx context.Context) error {
 		}(e.SeriesID)
 	}, events.ChapterImported)
 
+	a.UserImport.Imports = a.Imports
 	remap, err := a.Imports.Recover(ctx)
 	if err != nil {
 		return err

@@ -33,6 +33,8 @@ type ImportResource struct {
 	Counts map[string]int `json:"counts"`
 	// Busy is true while the import is being matched or run.
 	Busy bool `json:"busy"`
+	// RequestedByName names the user who asked for it (RequestedBy).
+	RequestedByName string `json:"requestedByName,omitempty"`
 }
 
 // ImportEntryView is an entry without its chapter list (see the counts).
@@ -128,7 +130,17 @@ func (s *Server) importResource(ctx context.Context, imp *model.Import) (*Import
 	if err != nil {
 		return nil, err
 	}
-	return &ImportResource{Import: *imp, Counts: counts, Busy: s.app.Imports.Busy(imp.ID)}, nil
+	res := &ImportResource{Import: *imp, Counts: counts, Busy: s.app.Imports.Busy(imp.ID)}
+	if imp.RequestedBy != nil {
+		var u model.User
+		if err := s.app.DB.NewSelect().Model(&u).Column("username", "display_name").Where("id = ?", *imp.RequestedBy).Scan(ctx); err == nil {
+			res.RequestedByName = u.Username
+			if u.DisplayName != "" {
+				res.RequestedByName = u.DisplayName
+			}
+		}
+	}
+	return res, nil
 }
 
 func (s *Server) registerImports() {

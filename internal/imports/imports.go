@@ -493,6 +493,10 @@ func (s *Service) SetOptions(ctx context.Context, id int64, opts model.ImportOpt
 	if imp.Status == model.ImportRunning {
 		return nil, ErrBusy
 	}
+	if imp.RequestedBy != nil {
+		// the progress is the user's who asked for it
+		opts.ReadState, opts.UserID = true, *imp.RequestedBy
+	}
 	onlyFavChanged := opts.OnlyFavorites != imp.Options.OnlyFavorites
 	imp.Options, imp.UpdatedAt = opts, time.Now().UTC()
 	if _, err := s.DB.NewUpdate().Model(imp).Column("options", "updated_at").WherePK().Exec(ctx); err != nil {
@@ -532,6 +536,10 @@ func (s *Service) Delete(ctx context.Context, id int64) error {
 		return err
 	}
 	if _, err := s.DB.NewDelete().Model((*model.ImportEntry)(nil)).Where("import_id = ?", id).Exec(ctx); err != nil {
+		return err
+	}
+	// the request a user's import stands for goes with it
+	if _, err := s.DB.NewDelete().Model((*model.Request)(nil)).Where("import_id = ?", id).Exec(ctx); err != nil {
 		return err
 	}
 	if _, err := s.DB.NewDelete().Model(imp).WherePK().Exec(ctx); err != nil {

@@ -39,8 +39,11 @@ type Import struct {
 	Options       ImportOptions `bun:"options,notnull" json:"options"`
 	Info          ImportInfo    `bun:"info,notnull" json:"info"`
 	Error         string        `bun:"error,notnull" json:"error"`
-	CreatedAt     time.Time     `bun:"created_at,notnull" json:"createdAt"`
-	UpdatedAt     time.Time     `bun:"updated_at,notnull" json:"updatedAt"`
+	// RequestedBy is the user who asked for this import from their own
+	// library: their progress and lists go with it.
+	RequestedBy *int64    `bun:"requested_by" json:"requestedBy,omitempty"`
+	CreatedAt   time.Time `bun:"created_at,notnull" json:"createdAt"`
+	UpdatedAt   time.Time `bun:"updated_at,notnull" json:"updatedAt"`
 }
 
 // ImportInfo describes the backup itself.

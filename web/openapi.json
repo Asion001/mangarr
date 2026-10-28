@@ -3670,6 +3670,9 @@
           "format": {
             "type": "string"
           },
+          "origin": {
+            "$ref": "#/components/schemas/ExportOrigin"
+          },
           "reader": {},
           "server": {
             "description": "mangarr version that exported it",
@@ -3738,6 +3741,22 @@
           "number",
           "completed",
           "at"
+        ],
+        "type": "object"
+      },
+      "ExportOrigin": {
+        "additionalProperties": false,
+        "properties": {
+          "format": {
+            "type": "string"
+          },
+          "moduleId": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "format"
         ],
         "type": "object"
       },
@@ -4848,6 +4867,13 @@
           "progress": {
             "type": "string"
           },
+          "requestedBy": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "requestedByName": {
+            "type": "string"
+          },
           "status": {
             "enum": [
               "mapping",
@@ -4920,6 +4946,32 @@
           "url",
           "title",
           "how"
+        ],
+        "type": "object"
+      },
+      "ImportSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "imported": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "lists": {
+            "additionalProperties": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "type": "object"
+          },
+          "titles": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "titles",
+          "imported",
+          "lists"
         ],
         "type": "object"
       },
@@ -9586,10 +9638,18 @@
             "format": "int64",
             "type": "integer"
           },
+          "import": {
+            "$ref": "#/components/schemas/ImportSummary"
+          },
+          "importId": {
+            "format": "int64",
+            "type": "integer"
+          },
           "kind": {
             "enum": [
               "",
-              "monitor"
+              "monitor",
+              "import"
             ],
             "type": "string"
           },

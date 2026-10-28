@@ -499,7 +499,7 @@ function OptionsCard({ imp, disabled, onSaved }: { imp: S["ImportResource"]; dis
           <Switch checked={o.readState} onChange={(v) => set("readState", v)} label={t("Import read chapters")} />
           {o.readState && (
             <Field label={t("Whose progress")}>
-              <Select value={o.userId} onChange={(e) => set("userId", Number(e.target.value))}>
+              <Select value={o.userId} disabled={!!imp.requestedBy} title={imp.requestedBy ? t("The user who asked for this import gets the progress.") : undefined} onChange={(e) => set("userId", Number(e.target.value))}>
                 {!o.userId && <option value={0}>{t("The first administrator")}</option>}
                 {users?.map((u) => (
                   <option key={u.id} value={u.id}>

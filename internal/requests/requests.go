@@ -44,6 +44,8 @@ type Service struct {
 	Series *series.Service
 	Search *sourcesearch.Service
 	Log    *slog.Logger
+	// DropImport deletes the import a declined kind "import" request stands for.
+	DropImport func(ctx context.Context, importID int64) error
 	// QueueSearch searches for a series' missing chapters (in the background).
 	QueueSearch func(ctx context.Context, seriesID int64) error
 	// Tell sends users a message on their own notification targets.
@@ -91,6 +93,16 @@ type Request struct {
 	Count int `json:"count"`
 	// Mine: you asked for it.
 	Mine bool `json:"mine"`
+	// Import counts the titles of a kind "import" request.
+	Import *ImportSummary `json:"import,omitempty"`
+}
+
+// ImportSummary is how far a user's library import is.
+type ImportSummary struct {
+	Titles   int `json:"titles"`
+	Imported int `json:"imported"`
+	// Lists counts the titles per list they were in.
+	Lists map[string]int `json:"lists"`
 }
 
 // Lookup fetches a metadata result (the source of truth for a request).
@@ -457,6 +469,9 @@ func (s *Service) add(ctx context.Context, id int64, handler *access.Principal) 
 	if err := s.DB.NewSelect().Model(&r).Where("id = ?", id).Scan(ctx); err != nil || r.Status != model.RequestPending {
 		return false
 	}
+	if r.Kind == model.RequestKindImport {
+		return false // handled on the Import page
+	}
 	if r.Kind == model.RequestKindMonitor {
 		if err := s.Monitor(ctx, id, handler); err != nil {
 			s.attemptFailed(ctx, id, "Automatic download failed.", err)
@@ -616,11 +631,67 @@ func (s *Service) Decline(ctx context.Context, id int64, reason string, handler 
 		return err
 	}
 	s.Bus.Changed("request", "updated", id)
+	if r.Kind == model.RequestKindImport && r.ImportID != nil && s.DropImport != nil {
+		if err := s.DropImport(ctx, *r.ImportID); err != nil {
+			s.Log.Warn("drop the import of a declined request", "import", *r.ImportID, "err", err)
+		}
+	}
 	body := "Your request was declined."
 	if r.Reason != "" {
 		body = "Your request was declined: " + r.Reason
 	}
 	s.tell(s.requesters(ctx, id), 0, "Declined: "+r.Title, body)
+	return nil
+}
+
+// CreateImport makes the one request that stands for a user's library
+// import (its titles are reviewed on the Import page).
+func (s *Service) CreateImport(ctx context.Context, p *access.Principal, importID int64, title string, titles int) (*Request, error) {
+	now := time.Now().UTC()
+	r := &model.Request{Title: title, Kind: model.RequestKindImport, ImportID: &importID, Status: model.RequestPending, CreatedAt: now, UpdatedAt: now}
+	err := s.DB.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		if _, err := tx.NewInsert().Model(r).Exec(ctx); err != nil {
+			return err
+		}
+		_, err := tx.NewInsert().Model(&model.RequestUser{RequestID: r.ID, UserID: p.UserID, CreatedAt: now}).Exec(ctx)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	who := p.DisplayName
+	if who == "" {
+		who = p.Username
+	}
+	s.Bus.Publish(events.Event{Type: events.RequestCreated, Payload: events.MessagePayload{Title: "New request: " + title,
+		Message: fmt.Sprintf("%s asked for %d titles from their library; review them under Import.", who, titles)}})
+	s.Bus.Changed("request", "created", r.ID)
+	return s.Get(ctx, p, r.ID)
+}
+
+// ImportAdded marks the request of a user's import approved once some of
+// its titles are added, and tells the user.
+func (s *Service) ImportAdded(ctx context.Context, importID int64, added int, handler *access.Principal) error {
+	var r model.Request
+	if err := s.DB.NewSelect().Model(&r).Where("import_id = ?", importID).Limit(1).Scan(ctx); err != nil {
+		return notFound(err)
+	}
+	if added == 0 {
+		return nil
+	}
+	now := time.Now().UTC()
+	if r.Status == model.RequestPending {
+		r.Status, r.Reason, r.HandledAt = model.RequestApproved, "", &now
+		if handler != nil && handler.Kind == access.KindUser {
+			r.HandledBy = &handler.UserID
+		}
+	}
+	r.UpdatedAt = now
+	if _, err := s.DB.NewUpdate().Model(&r).Column("status", "reason", "handled_by", "handled_at", "updated_at").WherePK().Exec(ctx); err != nil {
+		return err
+	}
+	s.Bus.Changed("request", "updated", r.ID)
+	s.tell(s.requesters(ctx, r.ID), 0, "Added from your library", fmt.Sprintf("%d of the titles you asked for were added, with your progress.", added))
 	return nil
 }
 
@@ -770,6 +841,33 @@ func (s *Service) views(ctx context.Context, p *access.Principal, rs []model.Req
 			}
 		}
 	}
+	imports := map[int64]*ImportSummary{}
+	var importIDs []int64
+	for _, r := range rs {
+		if r.ImportID != nil {
+			importIDs = append(importIDs, *r.ImportID)
+		}
+	}
+	if len(importIDs) > 0 {
+		var es []model.ImportEntry
+		if err := s.DB.NewSelect().Model(&es).Column("import_id", "state", "data").Where("import_id IN (?)", bun.In(importIDs)).Scan(ctx); err != nil {
+			return nil, err
+		}
+		for _, e := range es {
+			sum := imports[e.ImportID]
+			if sum == nil {
+				sum = &ImportSummary{Lists: map[string]int{}}
+				imports[e.ImportID] = sum
+			}
+			sum.Titles++
+			if e.State == model.EntryImported {
+				sum.Imported++
+			}
+			for _, c := range e.Data.Categories {
+				sum.Lists[c]++
+			}
+		}
+	}
 	titles := map[int64]string{}
 	if len(seriesIDs) > 0 {
 		var ss []model.Series
@@ -791,6 +889,12 @@ func (s *Service) views(ctx context.Context, p *access.Principal, rs []model.Req
 		}
 		if r.HandledBy != nil {
 			v.HandledBy = names[*r.HandledBy]
+		}
+		if r.ImportID != nil {
+			v.Import = imports[*r.ImportID]
+			if v.Import == nil {
+				v.Import = &ImportSummary{Lists: map[string]int{}}
+			}
 		}
 		for _, ru := range rus {
 			if ru.RequestID != r.ID {
