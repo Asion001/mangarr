@@ -101,6 +101,35 @@ func (a *Aggregator) SearchLanguage(ctx context.Context, q, language string, lim
 	return merged, outErrs
 }
 
+// ModuleIDs lists the active metadata modules, highest priority first.
+func (a *Aggregator) ModuleIDs() []int64 {
+	var ids []int64
+	for _, m := range modules.ActiveAs[metadata.Module](a.mods, modules.KindMetadata) {
+		ids = append(ids, m.Def.ID)
+	}
+	return ids
+}
+
+// SearchModule asks one metadata module, so a caller can go down the
+// modules by priority and stop at the first that knows the title.
+func (a *Aggregator) SearchModule(ctx context.Context, moduleID int64, q string, limit int) ([]Candidate, error) {
+	for _, m := range modules.ActiveAs[metadata.Module](a.mods, modules.KindMetadata) {
+		if m.Def.ID != moduleID {
+			continue
+		}
+		list, err := m.Instance.Search(ctx, q, limit)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", m.Def.Name, err)
+		}
+		out := make([]Candidate, 0, len(list))
+		for _, md := range list {
+			out = append(out, Candidate{SeriesMetadata: md, ModuleID: m.Def.ID, ModuleName: m.Def.Name})
+		}
+		return out, nil
+	}
+	return nil, errors.New("metadata module not found or disabled")
+}
+
 func findSame(list []Candidate, c Candidate) int {
 	for i, x := range list {
 		if x.Provider == c.Provider {

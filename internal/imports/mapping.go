@@ -612,44 +612,58 @@ func MatchTitleCandidate(ctx context.Context, agg *metadataagg.Aggregator, title
 	if agg == nil || len(names) == 0 {
 		return nil, 0
 	}
-	for _, q := range names[:min(len(names), 3)] {
-		cands, errs := searchMetadata(ctx, agg, q)
-		if wait := pauseLeft(errs); wait > 0 {
-			// a provider is paused (rate limited, down): a title it would
-			// find must not be imported without metadata, so wait it out once
-			select {
-			case <-ctx.Done():
-				return nil, 0
-			case <-time.After(wait):
-			}
-			cands, _ = searchMetadata(ctx, agg, q)
-		}
-		best, score := -1, 0.0
-		for i, c := range cands {
-			if metadata.IsNovel(c.Format) {
-				continue // a light novel shares its manga's name
-			}
-			cn := append([]string{c.Title}, c.AltTitles...)
-			for _, n := range c.Titles {
-				cn = append(cn, n)
-			}
-			for _, n := range names {
-				if sc := titlematch.Best(cn, n); sc > score {
-					best, score = i, sc
+	// one provider at a time, by priority: a lower one is asked only when
+	// the ones above it know none of the names
+	for _, moduleID := range agg.ModuleIDs() {
+		waited := false
+		for _, q := range names[:min(len(names), 3)] {
+			cands, err := searchMetadata(ctx, agg, moduleID, q)
+			if wait := pauseLeft([]error{err}); wait > 0 && !waited {
+				waited = true
+				// a provider is paused (rate limited, down): a title it would
+				// find must not be imported without metadata, so wait it out once
+				select {
+				case <-ctx.Done():
+					return nil, 0
+				case <-time.After(wait):
 				}
+				cands, _ = searchMetadata(ctx, agg, moduleID, q)
 			}
-		}
-		if best >= 0 && score >= MetadataThreshold {
-			return &cands[best], score
+			if c, score := bestMatch(cands, names); c != nil {
+				return c, score
+			}
 		}
 	}
 	return nil, 0
 }
 
-func searchMetadata(ctx context.Context, agg *metadataagg.Aggregator, q string) ([]metadataagg.Candidate, []error) {
+// bestMatch is the candidate one of names fits best, when it fits well enough.
+func bestMatch(cands []metadataagg.Candidate, names []string) (*metadataagg.Candidate, float64) {
+	best, score := -1, 0.0
+	for i, c := range cands {
+		if metadata.IsNovel(c.Format) {
+			continue // a light novel shares its manga's name
+		}
+		cn := append([]string{c.Title}, c.AltTitles...)
+		for _, n := range c.Titles {
+			cn = append(cn, n)
+		}
+		for _, n := range names {
+			if sc := titlematch.Best(cn, n); sc > score {
+				best, score = i, sc
+			}
+		}
+	}
+	if best >= 0 && score >= MetadataThreshold {
+		return &cands[best], score
+	}
+	return nil, 0
+}
+
+func searchMetadata(ctx context.Context, agg *metadataagg.Aggregator, moduleID int64, q string) ([]metadataagg.Candidate, error) {
 	sctx, cancel := context.WithTimeout(ctx, 45*time.Second)
 	defer cancel()
-	return agg.Search(sctx, q, 5)
+	return agg.SearchModule(sctx, moduleID, q, 5)
 }
 
 // maxPauseWait bounds how long a match waits for a paused provider.
