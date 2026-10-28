@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/uptrace/bun"
 
 	"github.com/Asion001/mangarr/internal/access"
 	"github.com/Asion001/mangarr/internal/model"
@@ -38,6 +39,11 @@ type ReadingListOwner struct {
 	ID          int64  `json:"id"`
 	Username    string `json:"username"`
 	DisplayName string `json:"displayName,omitempty"`
+}
+
+// ListsBulkResult says how many titles a bulk change reached.
+type ListsBulkResult struct {
+	Updated int `json:"updated" doc:"Titles changed; editions of one title count once"`
 }
 
 type readingListName struct {
@@ -172,6 +178,41 @@ func (s *Server) registerReadingLists() {
 			e, err := readinglists.Get(ctx, s.app.DB, userID, titleID)
 			s.app.Bus.Changed("reading", "lists", in.ID)
 			return &struct{ Body readinglists.TitleLists }{e}, toHTTPError(err)
+		})
+	huma.Register(s.api, huma.Operation{OperationID: "series-lists-bulk", Method: http.MethodPost, Path: "/api/v1/series/lists/bulk", Tags: tags,
+		Summary: "Set your status on many series' titles, or add them to or take them out of one of your lists"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				SeriesIDs []int64 `json:"seriesIds" minItems:"1" maxItems:"10000"`
+				readinglists.Bulk
+			}
+		}) (*struct{ Body ListsBulkResult }, error) {
+			userID, err := s.userOf(ctx)
+			if err != nil {
+				return nil, toHTTPError(err)
+			}
+			var list []model.Series
+			if err := s.app.DB.NewSelect().Model(&list).Where("id IN (?)", bun.In(in.Body.SeriesIDs)).Scan(ctx); err != nil {
+				return nil, toHTTPError(err)
+			}
+			// editions of one title count once; series the caller can't see don't count
+			who := access.From(ctx)
+			seen := map[int64]bool{}
+			titles := []int64{}
+			for i := range list {
+				if id := readstate.TitleID(&list[i]); who.Sees(&list[i]) && !seen[id] {
+					seen[id] = true
+					titles = append(titles, id)
+				}
+			}
+			if err := readinglists.ApplyBulk(ctx, s.app.DB, userID, titles, in.Body.Bulk); err != nil {
+				if errors.Is(err, readinglists.ErrNotFound) {
+					return nil, readingListError(err)
+				}
+				return nil, huma.Error400BadRequest(err.Error())
+			}
+			s.app.Bus.Changed("reading", "lists", 0)
+			return &struct{ Body ListsBulkResult }{ListsBulkResult{Updated: len(titles)}}, nil
 		})
 	huma.Register(s.api, huma.Operation{OperationID: "reading-list-owners", Method: http.MethodGet, Path: "/api/v1/reading-lists/owners", Tags: tags,
 		Summary: "Users with titles in a status or a list, to filter the library by theirs"},

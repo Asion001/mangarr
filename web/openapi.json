@@ -5432,6 +5432,20 @@
         },
         "type": "object"
       },
+      "ListsBulkResult": {
+        "additionalProperties": false,
+        "properties": {
+          "updated": {
+            "description": "Titles changed; editions of one title count once",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "updated"
+        ],
+        "type": "object"
+      },
       "LiveProgress": {
         "additionalProperties": false,
         "properties": {
@@ -10695,6 +10709,50 @@
           "results",
           "hasNext",
           "cached"
+        ],
+        "type": "object"
+      },
+      "Series-lists-bulkRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "status",
+              "add",
+              "remove"
+            ],
+            "type": "string"
+          },
+          "listId": {
+            "description": "For add and remove: one of your lists, Favorites too",
+            "format": "int64",
+            "type": "integer"
+          },
+          "seriesIds": {
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "maxItems": 10000,
+            "minItems": 1,
+            "type": "array"
+          },
+          "status": {
+            "description": "For status; empty clears it",
+            "enum": [
+              "reading",
+              "planned",
+              "completed",
+              "onhold",
+              "dropped",
+              ""
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "seriesIds",
+          "action"
         ],
         "type": "object"
       },
@@ -22125,6 +22183,47 @@
         "summary": "Edit many series at once (monitoring, profile, tags, root folder)",
         "tags": [
           "Series"
+        ]
+      }
+    },
+    "/api/v1/series/lists/bulk": {
+      "post": {
+        "operationId": "series-lists-bulk",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Series-lists-bulkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListsBulkResult"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Set your status on many series' titles, or add them to or take them out of one of your lists",
+        "tags": [
+          "Reading lists"
         ]
       }
     },

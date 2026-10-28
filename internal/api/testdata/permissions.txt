@@ -181,6 +181,7 @@ series-follow PUT /api/v1/series/{id}/follow -> signedin
 series-get GET /api/v1/series/{id} -> signedin
 series-list GET /api/v1/series -> signedin
 series-lists GET /api/v1/series/{id}/lists -> signedin
+series-lists-bulk POST /api/v1/series/lists/bulk -> signedin
 series-lists-save PUT /api/v1/series/{id}/lists -> signedin
 series-lookup GET /api/v1/series/lookup -> library.add | library.edit | requests.create
 series-lookup-get GET /api/v1/series/lookup/{moduleId}/{id} -> library.add | library.edit | requests.create

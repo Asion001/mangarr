@@ -2359,6 +2359,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/series/lists/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Set your status on many series' titles, or add them to or take them out of one of your lists */
+        post: operations["series-lists-bulk"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/series/lookup": {
         parameters: {
             query?: never;
@@ -5877,6 +5894,13 @@ export interface components {
             source?: string;
             statuses?: string[];
         };
+        ListsBulkResult: {
+            /**
+             * Format: int64
+             * @description Titles changed; editions of one title count once
+             */
+            updated: number;
+        };
         LiveProgress: {
             /** Format: int64 */
             bytesIn: number;
@@ -7448,6 +7472,21 @@ export interface components {
             results: components["schemas"]["SourceManga"][];
             sourceId: string;
             sourceName: string;
+        };
+        "Series-lists-bulkRequest": {
+            /** @enum {string} */
+            action: "status" | "add" | "remove";
+            /**
+             * Format: int64
+             * @description For add and remove: one of your lists, Favorites too
+             */
+            listId?: number;
+            seriesIds: number[];
+            /**
+             * @description For status; empty clears it
+             * @enum {string}
+             */
+            status?: "reading" | "planned" | "completed" | "onhold" | "dropped" | "";
         };
         "Series-metadata-optionsResponse": {
             options: components["schemas"]["MetadataOption"][];
@@ -13963,6 +14002,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EditorResult"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "series-lists-bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Series-lists-bulkRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListsBulkResult"];
                 };
             };
             /** @description Error */

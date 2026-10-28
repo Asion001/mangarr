@@ -140,4 +140,31 @@ func TestReadingLists(t *testing.T) {
 	if entry.Status != "planned" || len(entry.Lists) != 0 {
 		t.Fatalf("two after deleting its list: %+v", entry)
 	}
+
+	// a selection moves in one go: into a list, a status, out of a list
+	ids := `"seriesIds":[` + sid(one) + `,` + sid(two) + `]`
+	var res struct{ Updated int }
+	if code := ann.do("POST", "/api/v1/series/lists/bulk", `{`+ids+`,"action":"add","listId":`+fav+`}`, &res); code != 200 || res.Updated != 2 {
+		t.Fatalf("bulk add to Favorites: %d %+v", code, res)
+	}
+	if code := ann.do("POST", "/api/v1/series/lists/bulk", `{`+ids+`,"action":"status","status":"reading"}`, nil); code != 200 {
+		t.Fatalf("bulk status: %d", code)
+	}
+	if got := search(ann, "list=reading"); len(got) != 2 {
+		t.Fatalf("ann's reading after bulk: %v", got)
+	}
+	ann.do("POST", "/api/v1/series/lists/bulk", `{"seriesIds":[`+sid(one)+`],"action":"remove","listId":`+fav+`}`, nil)
+	if got := search(ann, "list="+fav); len(got) != 1 || got[0] != "Two" {
+		t.Fatalf("ann's Favorites after bulk remove: %v", got)
+	}
+	ann.do("GET", "/api/v1/series/"+sid(one)+"/lists", "", &entry)
+	if entry.Status != "reading" || len(entry.Lists) != 0 {
+		t.Fatalf("one after bulk changes: %+v", entry)
+	}
+	if code := bob.do("POST", "/api/v1/series/lists/bulk", `{`+ids+`,"action":"add","listId":`+fav+`}`, nil); code != 404 {
+		t.Fatalf("bob bulk adding to ann's list: %d", code)
+	}
+	if code := ann.do("POST", "/api/v1/series/lists/bulk", `{`+ids+`,"action":"status","status":"someday"}`, nil); code != 422 && code != 400 {
+		t.Fatalf("bulk unknown status: %d", code)
+	}
 }

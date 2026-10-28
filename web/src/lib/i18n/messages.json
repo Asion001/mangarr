@@ -11442,5 +11442,37 @@
   "Open on {site}": {
     "ru": "Открыть на {site}",
     "uk": "Відкрити на {site}"
+  },
+  "Lists updated for {count} titles": {
+    "ru": "Списки обновлены для тайтлов: {count}",
+    "uk": "Списки оновлено для тайтлів: {count}"
+  },
+  "Mark {count} series as {status}?": {
+    "ru": "Отметить серии ({count}) как «{status}»?",
+    "uk": "Позначити серії ({count}) як «{status}»?"
+  },
+  "Clear status": {
+    "ru": "Убрать статус",
+    "uk": "Прибрати статус"
+  },
+  "Clear the status of {count} series?": {
+    "ru": "Убрать статус у серий ({count})?",
+    "uk": "Прибрати статус у серій ({count})?"
+  },
+  "Add {count} series to {list}?": {
+    "ru": "Добавить серии ({count}) в «{list}»?",
+    "uk": "Додати серії ({count}) до «{list}»?"
+  },
+  "Take out of": {
+    "ru": "Убрать из",
+    "uk": "Прибрати з"
+  },
+  "Take {count} series out of {list}?": {
+    "ru": "Убрать серии ({count}) из «{list}»?",
+    "uk": "Прибрати серії ({count}) з «{list}»?"
+  },
+  "New list for {count} series": {
+    "ru": "Новый список для серий ({count})",
+    "uk": "Новий список для серій ({count})"
   }
 }

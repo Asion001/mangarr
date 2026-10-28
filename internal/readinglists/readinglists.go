@@ -190,6 +190,57 @@ func Set(ctx context.Context, db bun.IDB, userID, titleID int64, e TitleLists) e
 	})
 }
 
+// Bulk is a change to many titles at once: a status for all of them ("" is
+// none), or one list they're added to or taken out of.
+type Bulk struct {
+	Action string `json:"action" enum:"status,add,remove"`
+	Status string `json:"status,omitempty" enum:"reading,planned,completed,onhold,dropped," doc:"For status; empty clears it"`
+	ListID int64  `json:"listId,omitempty" doc:"For add and remove: one of your lists, Favorites too"`
+}
+
+// ApplyBulk makes the change b to the titles, leaving the rest of where each
+// title is as it was.
+func ApplyBulk(ctx context.Context, db bun.IDB, userID int64, titleIDs []int64, b Bulk) error {
+	switch b.Action {
+	case "status":
+		if !ValidStatus(b.Status) {
+			return errors.New("unknown status " + strconv.Quote(b.Status))
+		}
+	case "add", "remove":
+		n, err := db.NewSelect().Model((*model.ReadingList)(nil)).Where("id = ? AND user_id = ?", b.ListID, userID).Count(ctx)
+		if err != nil {
+			return err
+		}
+		if n == 0 {
+			return ErrNotFound
+		}
+	default:
+		return errors.New("unknown action " + strconv.Quote(b.Action))
+	}
+	if len(titleIDs) == 0 {
+		return nil
+	}
+	now := time.Now().UTC()
+	return db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		if b.Action == "remove" {
+			_, err := tx.NewDelete().Model((*model.ReadingListTitle)(nil)).Where("list_id = ? AND title_id IN (?)", b.ListID, bun.In(titleIDs)).Exec(ctx)
+			return err
+		}
+		for _, id := range titleIDs {
+			var err error
+			if b.Action == "status" {
+				err = setStatus(ctx, tx, userID, id, b.Status, now)
+			} else {
+				err = add(ctx, tx, b.ListID, id, now)
+			}
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
 func setStatus(ctx context.Context, db bun.IDB, userID, titleID int64, status string, now time.Time) error {
 	if status == "" {
 		_, err := db.NewDelete().Model((*model.TitleStatus)(nil)).Where("user_id = ? AND title_id = ?", userID, titleID).Exec(ctx)

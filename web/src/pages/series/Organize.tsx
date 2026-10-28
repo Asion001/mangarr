@@ -8,6 +8,7 @@ import {
   Button,
   ErrorBox,
   Field,
+  Input,
   Loading,
   Menu,
   Modal,
@@ -17,6 +18,7 @@ import {
 import { useToast } from "../../lib/toast";
 import { useAccount } from "../../lib/account";
 import { BulkSourcesModal } from "./BulkSources";
+import { readingListName, readingStatusName, readingStatuses, useReadingLists } from "../../lib/readingLists";
 
 /** RenameModal previews and applies renames to the current naming format. */
 export function RenameModal({
@@ -120,6 +122,9 @@ type Editor = {
   tagMode?: "add" | "remove" | "replace";
 };
 
+/** ListChange is a bulk change to the caller's own status and lists. */
+type ListChange = { action: "status"; status: string } | { action: "add" | "remove"; listId: number };
+
 /**
  * MassEditBar edits the selected series. Picking a value from a menu only
  * stages the change; it runs when you press Apply.
@@ -139,6 +144,7 @@ export function MassEditBar({
   const { data: profiles } = useProfiles();
   const { data: roots } = useRootFolders();
   const { data: tags } = useTags();
+  const { data: mine } = useReadingLists();
   const deletes = useAccount().can("library.delete");
   const ids = [...selected.keys()];
   const count = ids.length;
@@ -151,7 +157,9 @@ export function MassEditBar({
   const [listOpen, setListOpen] = useState(false);
   // pending keeps the series it was confirmed for: Apply changes those, even
   // if the selection changed after the question was asked
-  const [pending, setPending] = useState<{ text: string; body: Editor; ids: number[] } | null>(null);
+  const [pending, setPending] = useState<{ text: string; body: Editor | ListChange; ids: number[] } | null>(null);
+  const [naming, setNaming] = useState(false);
+  const [listName, setListName] = useState("");
   const [rootId, setRootId] = useState(0);
   const [moveFiles, setMoveFiles] = useState(true);
   const edit = async (body: Editor, done?: string, seriesIds = ids) => {
@@ -165,6 +173,32 @@ export function MassEditBar({
       toast.fromError(e);
     } finally {
       setBusy(false);
+    }
+  };
+  const changeLists = async (change: ListChange, seriesIds = ids) => {
+    setBusy(true);
+    try {
+      const r = await unwrap(api.POST("/api/v1/series/lists/bulk", { body: { seriesIds, ...change } as never }));
+      qc.invalidateQueries({ queryKey: ["me", "lists"] });
+      qc.invalidateQueries({ queryKey: ["series"] });
+      toast.success(t("Lists updated for {count} titles", { count: r.updated }));
+      setPending(null);
+    } catch (e) {
+      toast.fromError(e);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const newList = async () => {
+    const name = listName.trim();
+    if (!name) return;
+    try {
+      const made = await unwrap(api.POST("/api/v1/me/lists", { body: { name } }));
+      setListName("");
+      setNaming(false);
+      await changeLists({ action: "add", listId: made.id });
+    } catch (e) {
+      toast.fromError(e);
     }
   };
   const command = async (name: "SearchMissing" | "RefreshSeries" | "RefreshMetadata", label: string) => {
@@ -195,7 +229,8 @@ export function MassEditBar({
       setBusy(false);
     }
   };
-  const stage = (text: string, body: Editor) => setPending({ text, body, ids });
+  const stage = (text: string, body: Editor | ListChange) => setPending({ text, body, ids });
+  const lists = mine?.lists ?? [];
   // dialogs render outside the bar: its backdrop-blur would clip fixed children
   return (
     <>
@@ -225,7 +260,7 @@ export function MassEditBar({
             <div role="status" className="flex min-w-0 flex-1 flex-wrap items-center gap-2 rounded-md border border-warn/40 bg-warn/10 px-3 py-1.5 text-sm">
               <span className="min-w-0 flex-1">{pending.text}</span>
               <Button size="sm" variant="ghost" disabled={busy} onClick={() => setPending(null)}>{t("Cancel")}</Button>
-              <Button size="sm" variant="primary" loading={busy} onClick={() => void edit(pending.body, undefined, pending.ids)}>{t("Apply")}</Button>
+              <Button size="sm" variant="primary" loading={busy} onClick={() => void ("action" in pending.body ? changeLists(pending.body, pending.ids) : edit(pending.body, undefined, pending.ids))}>{t("Apply")}</Button>
             </div>
           ) : (
             <>
@@ -259,6 +294,20 @@ export function MassEditBar({
                     : [{ label: t("No tags yet — add them in Edit"), onSelect: () => undefined }]
                 }
               />
+              <Menu
+                up
+                label={t("Add to list")}
+                items={[
+                  { section: t("Status (one at a time)") },
+                  ...readingStatuses.map((st) => ({ label: readingStatusName(st), onSelect: () => stage(t("Mark {count} series as {status}?", { count, status: readingStatusName(st) }), { action: "status", status: st }) })),
+                  { label: t("Clear status"), onSelect: () => stage(t("Clear the status of {count} series?", { count }), { action: "status", status: "" }) },
+                  { section: t("My lists") },
+                  ...lists.map((l) => ({ label: readingListName(l), onSelect: () => stage(t("Add {count} series to {list}?", { count, list: readingListName(l) }), { action: "add", listId: l.id }) })),
+                  { label: t("New list…"), onSelect: () => setNaming(true) },
+                  { section: t("Take out of") },
+                  ...lists.map((l) => ({ label: readingListName(l), onSelect: () => stage(t("Take {count} series out of {list}?", { count, list: readingListName(l) }), { action: "remove", listId: l.id }) })),
+                ]}
+              />
               <Button onClick={() => setMoving(true)}>{t("Move…")}</Button>
               <Button onClick={() => setSourcing(true)}>{t("Sources…")}</Button>
               <Menu
@@ -277,6 +326,25 @@ export function MassEditBar({
           )}
         </div>
       </div>
+      {naming && (
+        <Modal
+          open
+          onClose={() => setNaming(false)}
+          title={t("New list for {count} series", { count })}
+          footer={
+            <>
+              <Button disabled={busy} onClick={() => setNaming(false)}>{t("Cancel")}</Button>
+              <Button variant="primary" type="submit" form="bulk-new-list" loading={busy} disabled={!listName.trim()}>{t("Add")}</Button>
+            </>
+          }
+        >
+          <form id="bulk-new-list" onSubmit={(e) => { e.preventDefault(); void newList(); }}>
+            <Field label={t("List name")}>
+              <Input autoFocus aria-label={t("List name")} value={listName} maxLength={100} onChange={(e) => setListName(e.target.value)} />
+            </Field>
+          </form>
+        </Modal>
+      )}
       {sourcing && <BulkSourcesModal ids={ids} onClose={() => setSourcing(false)} />}
       {deleting && (
         <Modal

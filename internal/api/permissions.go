@@ -55,6 +55,7 @@ var operationPermissions = map[string][]string{
 	"me-list-delete":                {permSignedIn},
 	"series-lists":                  {permSignedIn},
 	"series-lists-save":             {permSignedIn},
+	"series-lists-bulk":             {permSignedIn},
 	"reading-list-owners":           {access.LibraryManage},
 	"user-lists":                    {access.LibraryManage},
 	"series-unfollow":               {permSignedIn},
