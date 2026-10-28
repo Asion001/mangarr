@@ -12,7 +12,7 @@ import { languageName, relative } from "../../lib/format";
 import { LanguageSelect, useOfferedLanguages } from "../../components/LanguageSelect";
 import { useToast } from "../../lib/toast";
 import { useQueryParam } from "../../lib/urlState";
-import { MetadataSearch } from "../series/MetadataSearch";
+import { isNovel, MetadataSearch } from "../series/MetadataSearch";
 import { ReadButton } from "../series/Preview";
 
 type Request = S["Request"];
@@ -104,7 +104,8 @@ export function RequestSearch({ query, setQuery, onDone, hideInput, add }: {
             ) : (
               <span className="flex gap-2">
                 <ReadButton result={r} />
-                <Button size="sm" variant="primary" icon={<PlusCircle className="size-4" />} onClick={() => setAsking(r)}>
+                <Button size="sm" variant="primary" icon={<PlusCircle className="size-4" />} onClick={() => setAsking(r)} disabled={isNovel(r.format)}
+                  title={isNovel(r.format) ? tr("Manga sources have no chapters of novels") : undefined}>
                   {r.request ? tr("Request too") : tr("Request")}
                 </Button>
               </span>

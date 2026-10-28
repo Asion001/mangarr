@@ -228,6 +228,9 @@ func (s *Service) Create(ctx context.Context, p *access.Principal, in CreateInpu
 		if md, title, err = s.Lookup(ctx, in.ModuleID, in.MetaID); err != nil {
 			return nil, false, err
 		}
+		if metadata.IsNovel(md.Format) {
+			return nil, false, ValidationError{"that's a novel, and manga sources have no chapters of novels: ask for its manga instead"}
+		}
 	}
 	for i := range existing {
 		ser := &existing[i]
@@ -457,6 +460,11 @@ func (s *Service) add(ctx context.Context, id int64, handler *access.Principal) 
 			return false
 		}
 		return true
+	}
+	if r.WorkID == nil && metadata.IsNovel(r.Metadata.Format) {
+		// sources would find the manga by its name and file it under the novel
+		s.attemptFailed(ctx, id, "This request is for a novel; link it to its manga's series or decline it.", nil)
+		return false
 	}
 	langs, err := s.Series.Languages(ctx)
 	if r.Language != "" {

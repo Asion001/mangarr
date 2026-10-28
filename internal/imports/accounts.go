@@ -9,6 +9,7 @@ import (
 	"github.com/Asion001/mangarr/internal/backupimport"
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/modules"
+	"github.com/Asion001/mangarr/internal/modules/metadata"
 	"github.com/Asion001/mangarr/internal/modules/source"
 )
 
@@ -110,6 +111,11 @@ func (s *Service) CreateFromRequests(ctx context.Context, rs []model.Request, as
 		m := backupimport.BackupManga{Title: r.Title, AltTitles: r.Metadata.AltTitles, Description: r.Metadata.Description, Genres: r.Metadata.Genres,
 			ThumbnailURL: r.Metadata.CoverURL, Status: "unknown", Favorite: true, RequestID: r.ID, Lang: r.Language, Trackers: map[string]string{},
 			Categories: askedBy[r.ID]}
+		if metadata.IsNovel(r.Metadata.Format) {
+			// asked for by the novel: match its manga by name instead
+			b.Entries = append(b.Entries, m)
+			continue
+		}
 		for k, v := range r.Metadata.ExternalIDs {
 			m.Trackers[k] = v
 		}
