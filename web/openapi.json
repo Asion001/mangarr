@@ -5646,6 +5646,9 @@
           "adult": {
             "type": "boolean"
           },
+          "ageRating": {
+            "type": "string"
+          },
           "also": {
             "items": {
               "$ref": "#/components/schemas/MetadataRef"
@@ -6195,6 +6198,9 @@
           "adult": {
             "type": "boolean"
           },
+          "ageRating": {
+            "type": "string"
+          },
           "altTitles": {
             "items": {
               "type": "string"
@@ -6310,6 +6316,9 @@
       "MetadataPicks": {
         "additionalProperties": false,
         "properties": {
+          "ageRating": {
+            "type": "string"
+          },
           "automatic": {
             "items": {
               "enum": [
@@ -6318,6 +6327,7 @@
                 "coverUrl",
                 "status",
                 "year",
+                "ageRating",
                 "genres",
                 "tags"
               ],
@@ -9337,6 +9347,9 @@
           },
           "adult": {
             "type": "boolean"
+          },
+          "ageRating": {
+            "type": "string"
           },
           "also": {
             "items": {
@@ -13149,6 +13162,16 @@
       "UpdateRequest": {
         "additionalProperties": false,
         "properties": {
+          "ageRating": {
+            "enum": [
+              "",
+              "Everyone",
+              "Teen",
+              "Mature 17+",
+              "Adults Only 18+"
+            ],
+            "type": "string"
+          },
           "blockedScanlators": {
             "items": {
               "type": "string"

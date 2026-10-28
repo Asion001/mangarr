@@ -358,7 +358,8 @@ func (m *Module) convert(md media) metadata.SeriesMetadata {
 		}
 	}
 	out := metadata.SeriesMetadata{
-		Provider: "anilist", ID: strconv.Itoa(md.ID), Title: title, AltTitles: dedupe(alt), Titles: titles(md),
+		AgeRating: adultRating(md.IsAdult),
+		Provider:  "anilist", ID: strconv.Itoa(md.ID), Title: title, AltTitles: dedupe(alt), Titles: titles(md),
 		Description: cleanDescription(md.Description), Year: md.StartDate.Year, Genres: md.Genres,
 		CoverURL: firstNonEmpty(md.CoverImage.ExtraLarge, md.CoverImage.Large), URL: md.SiteURL,
 		Adult: md.IsAdult, TotalChapters: md.Chapters, Country: md.CountryOfOrigin,
@@ -474,4 +475,12 @@ func adaptations(m *Module, md media) []model.Adaptation {
 		out = append(out, adaptation)
 	}
 	return out
+}
+
+// adultRating is AniList's only rating: adult or not said.
+func adultRating(adult bool) string {
+	if adult {
+		return metadata.RatingAdult
+	}
+	return ""
 }

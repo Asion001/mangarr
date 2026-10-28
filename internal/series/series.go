@@ -466,6 +466,7 @@ type UpdateRequest struct {
 	Language           *string   `json:"language,omitempty"`
 	Status             *string   `json:"status,omitempty" enum:"unknown,ongoing,completed,hiatus,cancelled"`
 	Description        *string   `json:"description,omitempty"`
+	AgeRating          *string   `json:"ageRating,omitempty" enum:",Everyone,Teen,Mature 17+,Adults Only 18+"`
 	Locks              *[]string `json:"locks,omitempty"`
 	// BlockedScanlators replaces the series' blocked scanlator names.
 	BlockedScanlators *[]string `json:"blockedScanlators,omitempty"`
@@ -534,6 +535,10 @@ func (s *Service) Update(ctx context.Context, id int64, req UpdateRequest) (*mod
 	if req.Description != nil && *req.Description != ser.Metadata.Description {
 		ser.Metadata.Description = *req.Description
 		lock("description")
+	}
+	if req.AgeRating != nil && *req.AgeRating != ser.Metadata.AgeRating {
+		ser.Metadata.AgeRating = *req.AgeRating
+		lock("ageRating")
 	}
 	if req.Locks != nil {
 		ser.Metadata.Locks = *req.Locks

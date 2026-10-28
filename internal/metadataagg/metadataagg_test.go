@@ -124,3 +124,27 @@ func TestAdaptationsMergeAndApply(t *testing.T) {
 		t.Fatal("relink retained adaptations")
 	}
 }
+
+// The age rating comes from the first provider that gives one, unless any
+// says the title is adult; a picked rating stays.
+func TestAgeRatingMergeAndApply(t *testing.T) {
+	md, prov := Merge([]metadata.SeriesMetadata{{Provider: "anilist"}, {Provider: "kitsu", AgeRating: metadata.RatingTeen}, {Provider: "mangadex", AgeRating: metadata.RatingEveryone}})
+	if md.AgeRating != metadata.RatingTeen || prov["ageRating"] != "kitsu" {
+		t.Fatalf("merged %q from %q", md.AgeRating, prov["ageRating"])
+	}
+	s := &model.Series{}
+	Apply(s, &Resolved{Metadata: md, Provenance: prov})
+	if s.Metadata.AgeRating != metadata.RatingTeen {
+		t.Fatalf("applied %q", s.Metadata.AgeRating)
+	}
+	md.Adult = true
+	Apply(s, &Resolved{Metadata: md, Provenance: prov})
+	if s.Metadata.AgeRating != metadata.RatingAdult {
+		t.Fatalf("adult applied as %q", s.Metadata.AgeRating)
+	}
+	s.Metadata.AgeRating, s.Metadata.Locks = metadata.RatingMature, []string{"ageRating"}
+	Apply(s, &Resolved{Metadata: md, Provenance: prov})
+	if s.Metadata.AgeRating != metadata.RatingMature {
+		t.Fatalf("a picked rating changed to %q", s.Metadata.AgeRating)
+	}
+}

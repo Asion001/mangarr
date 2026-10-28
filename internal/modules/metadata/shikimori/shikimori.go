@@ -245,7 +245,7 @@ func (m *Module) convert(item manga, requestedLanguage string) metadata.SeriesMe
 	}
 	for _, g := range item.Genres {
 		if g.Name == "Hentai" || g.Name == "Erotica" {
-			out.Adult = true
+			out.Adult, out.AgeRating = true, metadata.RatingAdult
 		}
 	}
 	if len(item.Publishers) > 0 {

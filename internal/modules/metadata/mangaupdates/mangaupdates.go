@@ -255,8 +255,13 @@ func (m *Module) convert(s series) metadata.SeriesMetadata {
 	}
 	for _, g := range s.Genres {
 		out.Genres = append(out.Genres, g.Genre)
-		if g.Genre == "Hentai" || g.Genre == "Adult" {
-			out.Adult = true
+		switch g.Genre {
+		case "Hentai", "Adult":
+			out.Adult, out.AgeRating = true, metadata.RatingAdult
+		case "Smut", "Mature":
+			if !out.Adult {
+				out.AgeRating = metadata.RatingMature
+			}
 		}
 	}
 	cats := s.Categories

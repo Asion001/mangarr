@@ -312,7 +312,8 @@ func convert(md manga, language string) metadata.SeriesMetadata {
 		}
 	}
 	out := metadata.SeriesMetadata{
-		Provider: "mangadex", ID: md.ID, Title: title, AltTitles: dedupeExcept(alt, title), Titles: names,
+		AgeRating: contentRatings[a.ContentRating],
+		Provider:  "mangadex", ID: md.ID, Title: title, AltTitles: dedupeExcept(alt, title), Titles: names,
 		Description: cleanDescription(firstNonEmpty(a.Description[language], a.Description["en"], first(a.Description))),
 		Year:        a.Year, URL: siteURL + md.ID, Adult: a.ContentRating == "erotica" || a.ContentRating == "pornographic",
 		Links:       map[string]string{"MangaDex": siteURL + md.ID},
@@ -451,3 +452,7 @@ func dedupeExcept(values []string, except string) []string {
 var _ metadata.ExternalLookup = (*Module)(nil)
 var _ metadata.LanguageSearcher = (*Module)(nil)
 var _ metadata.LanguageGetter = (*Module)(nil)
+
+// contentRatings are MangaDex's content ratings as age ratings.
+var contentRatings = map[string]string{"safe": metadata.RatingEveryone, "suggestive": metadata.RatingTeen,
+	"erotica": metadata.RatingMature, "pornographic": metadata.RatingAdult}

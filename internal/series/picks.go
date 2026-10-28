@@ -18,17 +18,18 @@ type MetadataPicks struct {
 	CoverURL    *string  `json:"coverUrl,omitempty"`
 	Status      *string  `json:"status,omitempty" enum:"unknown,ongoing,completed,hiatus,cancelled"`
 	Year        *int     `json:"year,omitempty"`
+	AgeRating   *string  `json:"ageRating,omitempty"`
 	Genres      []string `json:"genres,omitempty"`
 	Tags        []string `json:"tags,omitempty"`
 	// From names the provider of each picked field (field -> provider).
 	From map[string]string `json:"from,omitempty"`
 	// Automatic are fields handed back to the providers: unlocked, then
 	// the metadata is refreshed.
-	Automatic []string `json:"automatic,omitempty" enum:"title,description,coverUrl,status,year,genres,tags"`
+	Automatic []string `json:"automatic,omitempty" enum:"title,description,coverUrl,status,year,ageRating,genres,tags"`
 }
 
 // sharedPicks are the picked fields every edition of a title shares.
-var sharedPicks = []string{"coverUrl", "status", "year", "genres", "tags"}
+var sharedPicks = []string{"coverUrl", "status", "year", "ageRating", "genres", "tags"}
 
 // PickMetadata applies picks to a series. The shared fields go to the
 // title's first edition too, which hands them to the others.
@@ -75,6 +76,9 @@ func (s *Service) PickMetadata(ctx context.Context, id int64, p MetadataPicks) (
 		}
 		if p.Year != nil && *p.Year > 0 && pick("year") {
 			md.Year = *p.Year
+		}
+		if p.AgeRating != nil && pick("ageRating") {
+			md.AgeRating = *p.AgeRating
 		}
 		if p.Genres != nil && pick("genres") {
 			md.Genres = cleanNames(genres.Normalize(p.Genres))

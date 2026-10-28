@@ -295,6 +295,7 @@ func convert(md manga, inc []included) metadata.SeriesMetadata {
 	out := metadata.SeriesMetadata{
 		Provider: "kitsu", ID: md.ID, Description: strings.TrimSpace(a.Description), Year: year(a.StartDate),
 		CoverURL: firstNonEmpty(a.PosterImage.Original, a.PosterImage.Large), Adult: a.AgeRating == "R18",
+		AgeRating:     ageRatings[a.AgeRating],
 		TotalChapters: a.ChapterCount, URL: siteURL + firstNonEmpty(a.Slug, md.ID),
 		ExternalIDs: map[string]string{"kitsu": md.ID},
 	}
@@ -422,3 +423,7 @@ func dedupeExcept(values []string, except string) []string {
 }
 
 var _ metadata.ExternalLookup = (*Module)(nil)
+
+// ageRatings are Kitsu's age ratings in ComicInfo's names.
+var ageRatings = map[string]string{"G": metadata.RatingEveryone, "PG": metadata.RatingTeen,
+	"R": metadata.RatingMature, "R18": metadata.RatingAdult}

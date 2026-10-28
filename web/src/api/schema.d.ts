@@ -5958,6 +5958,7 @@ export interface components {
         LookupResult: {
             adaptations?: components["schemas"]["Adaptation"][];
             adult?: boolean;
+            ageRating?: string;
             also?: components["schemas"]["MetadataRef"][];
             altTitles?: string[];
             artists?: string[];
@@ -6111,6 +6112,7 @@ export interface components {
         MetadataOption: {
             adaptations?: components["schemas"]["Adaptation"][];
             adult?: boolean;
+            ageRating?: string;
             altTitles?: string[];
             artists?: string[];
             authors?: string[];
@@ -6146,7 +6148,8 @@ export interface components {
             year?: number;
         };
         MetadataPicks: {
-            automatic?: ("title" | "description" | "coverUrl" | "status" | "year" | "genres" | "tags")[];
+            ageRating?: string;
+            automatic?: ("title" | "description" | "coverUrl" | "status" | "year" | "ageRating" | "genres" | "tags")[];
             coverUrl?: string;
             description?: string;
             from?: {
@@ -7061,6 +7064,7 @@ export interface components {
         RecommendationItem: {
             adaptations?: components["schemas"]["Adaptation"][];
             adult?: boolean;
+            ageRating?: string;
             also?: components["schemas"]["MetadataRef"][];
             altTitles?: string[];
             artists?: string[];
@@ -8182,6 +8186,8 @@ export interface components {
             kind: "series" | "chapter";
         };
         UpdateRequest: {
+            /** @enum {string} */
+            ageRating?: "" | "Everyone" | "Teen" | "Mature 17+" | "Adults Only 18+";
             blockedScanlators?: string[];
             description?: string;
             language?: string;

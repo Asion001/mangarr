@@ -20,27 +20,38 @@ type SeriesMetadata struct {
 	AltTitles []string `json:"altTitles,omitempty"`
 	// Titles are the provider's names by language ("en", "ru"), plus
 	// model.TitleRomanized and model.TitleNative for the original's.
-	Titles        map[string]string `json:"titles,omitempty"`
-	Description   string            `json:"description,omitempty"`
-	Status        string            `json:"status,omitempty"` // ongoing/completed/hiatus/cancelled/unknown
-	Year          int               `json:"year,omitempty"`
-	Authors       []string          `json:"authors,omitempty"`
-	Artists       []string          `json:"artists,omitempty"`
-	Genres        []string          `json:"genres,omitempty"`
-	Tags          []string          `json:"tags,omitempty"`
-	Publisher     string            `json:"publisher,omitempty"`
-	CoverURL      string            `json:"coverUrl,omitempty"`
-	Links         map[string]string `json:"links,omitempty"`
-	ExternalIDs   map[string]string `json:"externalIds,omitempty"` // cross ids: "mal" -> "13", "mangaupdates" -> "..."
-	Adult         bool              `json:"adult,omitempty"`
-	TotalChapters int               `json:"totalChapters,omitempty"`
-	Format        string            `json:"format,omitempty"`  // manga, manhwa, manhua, comic, oneshot, novel
-	Country       string            `json:"country,omitempty"` // ISO country of origin
-	URL           string            `json:"url,omitempty"`
+	Titles      map[string]string `json:"titles,omitempty"`
+	Description string            `json:"description,omitempty"`
+	Status      string            `json:"status,omitempty"` // ongoing/completed/hiatus/cancelled/unknown
+	Year        int               `json:"year,omitempty"`
+	Authors     []string          `json:"authors,omitempty"`
+	Artists     []string          `json:"artists,omitempty"`
+	Genres      []string          `json:"genres,omitempty"`
+	Tags        []string          `json:"tags,omitempty"`
+	Publisher   string            `json:"publisher,omitempty"`
+	CoverURL    string            `json:"coverUrl,omitempty"`
+	Links       map[string]string `json:"links,omitempty"`
+	ExternalIDs map[string]string `json:"externalIds,omitempty"` // cross ids: "mal" -> "13", "mangaupdates" -> "..."
+	Adult       bool              `json:"adult,omitempty"`
+	// AgeRating is the provider's age rating, one of the Rating values
+	// (empty when it gives none).
+	AgeRating     string `json:"ageRating,omitempty"`
+	TotalChapters int    `json:"totalChapters,omitempty"`
+	Format        string `json:"format,omitempty"`  // manga, manhwa, manhua, comic, oneshot, novel
+	Country       string `json:"country,omitempty"` // ISO country of origin
+	URL           string `json:"url,omitempty"`
 
 	// Adaptations is nil when the provider did not fetch relations.
 	Adaptations []model.Adaptation `json:"adaptations,omitempty"`
 }
+
+// The age ratings a provider's own rating is told in, as ComicInfo names them.
+const (
+	RatingEveryone = "Everyone"
+	RatingTeen     = "Teen"
+	RatingMature   = "Mature 17+"
+	RatingAdult    = "Adults Only 18+"
+)
 
 // IsNovel reports whether format is a (light) novel: text that no manga
 // source has chapters of, so a title is never matched to one by name.

@@ -644,6 +644,7 @@ func Merge(parts []metadata.SeriesMetadata) (metadata.SeriesMetadata, map[string
 		str("description", &out.Description, p.Description, p.Provider)
 		str("status", &out.Status, p.Status, p.Provider)
 		str("publisher", &out.Publisher, p.Publisher, p.Provider)
+		str("ageRating", &out.AgeRating, p.AgeRating, p.Provider)
 		str("coverUrl", &out.CoverURL, p.CoverURL, p.Provider)
 		str("format", &out.Format, p.Format, p.Provider)
 		str("country", &out.Country, p.Country, p.Provider)
@@ -790,11 +791,12 @@ func Apply(s *model.Series, r *Resolved) bool {
 	return changed
 }
 
+// ageRating is the merged rating, adult when any provider says so.
 func ageRating(md metadata.SeriesMetadata) string {
 	if md.Adult {
-		return "Adults Only 18+"
+		return metadata.RatingAdult
 	}
-	return ""
+	return md.AgeRating
 }
 
 func equalStrings(a, b []string) bool {
