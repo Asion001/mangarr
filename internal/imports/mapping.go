@@ -626,6 +626,9 @@ func MatchTitleCandidate(ctx context.Context, agg *metadataagg.Aggregator, title
 		}
 		best, score := -1, 0.0
 		for i, c := range cands {
+			if metadata.IsNovel(c.Format) {
+				continue // a light novel shares its manga's name
+			}
 			cn := append([]string{c.Title}, c.AltTitles...)
 			for _, n := range c.Titles {
 				cn = append(cn, n)

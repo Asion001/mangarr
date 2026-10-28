@@ -6,6 +6,7 @@ package metadata
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/modules"
@@ -40,6 +41,10 @@ type SeriesMetadata struct {
 	// Adaptations is nil when the provider did not fetch relations.
 	Adaptations []model.Adaptation `json:"adaptations,omitempty"`
 }
+
+// IsNovel reports whether format is a (light) novel: text that no manga
+// source has chapters of, so a title is never matched to one by name.
+func IsNovel(format string) bool { return strings.Contains(strings.ToLower(format), "novel") }
 
 type Module interface {
 	modules.Instance

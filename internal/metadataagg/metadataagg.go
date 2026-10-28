@@ -253,6 +253,9 @@ func (a *Aggregator) enrichFrom(ctx context.Context, m modules.Typed[metadata.Mo
 		if primary.Year > 0 && c.Year > 0 && abs(primary.Year-c.Year) > 1 {
 			continue
 		}
+		if c.Format != "" && metadata.IsNovel(c.Format) != metadata.IsNovel(primary.Format) {
+			continue // the novel of a manga goes by the same name
+		}
 		if md, err := m.Instance.Get(ctx, c.ID); err == nil {
 			return md
 		}
