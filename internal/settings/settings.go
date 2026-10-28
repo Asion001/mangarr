@@ -186,6 +186,13 @@ type Duplicates struct {
 
 func DefaultDuplicates() Duplicates { return Duplicates{AutoGroup: true} }
 
+// Metadata controls how titles are matched to metadata providers.
+type Metadata struct {
+	MapToPrimary bool `json:"mapToPrimary" desc:"Look a title found at a lower metadata provider up at the primary one (the first by priority) too, so its info comes from the primary one first."`
+}
+
+func DefaultMetadata() Metadata { return Metadata{MapToPrimary: true} }
+
 // ReadSync controls progress polling from library servers.
 type ReadSync struct {
 	IntervalMinutes int `json:"intervalMinutes" desc:"Minutes between progress syncs with library servers."`
@@ -437,6 +444,7 @@ var Docs = []DocInfo{
 	{KeyDownloads, "downloads", "DOWNLOADS", func() any { v := DefaultDownloads(); return &v }},
 	{KeyCleanup, "cleanup", "CLEANUP", func() any { v := DefaultCleanup(); return &v }},
 	{KeyDuplicates, "duplicates", "DUPLICATES", func() any { v := DefaultDuplicates(); return &v }},
+	{KeyMetadata, "metadata", "METADATA", func() any { v := DefaultMetadata(); return &v }},
 	{KeyReadSync, "readsync", "READSYNC", func() any { v := DefaultReadSync(); return &v }},
 	{KeySources, "sources", "SOURCES", func() any { v := DefaultSources(); return &v }},
 	{KeySchedule, "schedule", "SCHEDULE", func() any { v := Schedule{Windows: []ScheduleWindow{}}; return &v }},
@@ -470,6 +478,7 @@ const (
 	KeyDownloads       = "downloads"
 	KeyCleanup         = "cleanup"
 	KeyDuplicates      = "duplicates"
+	KeyMetadata        = "metadata"
 	KeyReadSync        = "read_sync"
 	KeySources         = "sources"
 	KeySchedule        = "schedule"
@@ -591,6 +600,11 @@ func (s *Store) Cleanup(ctx context.Context) (Cleanup, error) {
 func (s *Store) Duplicates(ctx context.Context) (Duplicates, error) {
 	v := DefaultDuplicates()
 	return v, s.Get(ctx, KeyDuplicates, &v)
+}
+
+func (s *Store) Metadata(ctx context.Context) (Metadata, error) {
+	v := DefaultMetadata()
+	return v, s.Get(ctx, KeyMetadata, &v)
 }
 
 func (s *Store) Sources(ctx context.Context) (Sources, error) {

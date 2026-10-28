@@ -153,6 +153,7 @@ func (s *Server) registerSettings() {
 	settingsDoc(s, "downloads", settings.KeyDownloads, s.app.Settings.Downloads, nil)
 	settingsDoc(s, "cleanup", settings.KeyCleanup, s.app.Settings.Cleanup, nil)
 	settingsDoc(s, "duplicates", settings.KeyDuplicates, s.app.Settings.Duplicates, nil)
+	settingsDoc(s, "metadata", settings.KeyMetadata, s.app.Settings.Metadata, nil)
 	settingsDoc(s, "appearance", settings.KeyAppearance, s.app.Settings.Appearance, nil)
 	settingsDoc(s, "reading", settings.KeyReading, s.app.Settings.Reading, func(ctx context.Context, v settings.Reading) error {
 		s.app.Komga.Reconcile(ctx) // start or stop the Komga-compatible API

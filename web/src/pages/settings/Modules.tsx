@@ -2,16 +2,17 @@ import { label as translateLabel, t as tr, t as translateUI } from "../../lib/i1
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Plus, Trash2, Pencil, PlugZap } from "lucide-react";
-import { api, unwrap, type Implementation, type ModuleResource } from "../../api/client";
+import { api, unwrap, type Implementation, type ModuleResource, type S } from "../../api/client";
 import { useModules, useSchema } from "../../api/queries";
 import { DynamicForm, defaultsOf } from "../../components/DynamicForm";
 import { Badge, Button, Confirm, EmptyState, ErrorBox, Field, IconButton, Input, Loading, Modal, PageHeader, Switch } from "../../components/ui";
 import { useToast } from "../../lib/toast";
 import { MessengerBots } from "./MessengerBots";
+import { useSettingsDoc } from "./useSettingsDoc";
 
 const titles: Record<string, { title: string; subtitle: string }> = {
   source: { title: "Source modules", subtitle: "Engines that find and download chapters (e.g. Suwayomi running Keiyoushi extensions)." },
-  metadata: { title: "Metadata", subtitle: "Providers searched by priority; their data is merged field by field." },
+  metadata: { title: "Metadata", subtitle: "Providers are searched one at a time, top first. A lower one is asked only when the ones above know nothing." },
   library: { title: "Library servers", subtitle: "Komga / Kavita: rescanned after imports; per-reader progress powers cleanup." },
   notify: { title: "Notifications", subtitle: "Where to send new-chapter digests, failures and health alerts." },
   mediaserver: { title: "Media servers", subtitle: "Jellyfin / Silo: series pages link anime adaptations to where you can watch them." },
@@ -53,6 +54,18 @@ export function ModulesPage({ kind }: { kind: string }) {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [deleting, setDeleting] = useState<ModuleResource | null>(null);
   const t = titles[kind];
+  // the primary metadata provider is the first in priority that works
+  const primary = kind === "metadata" ? mods?.filter((m) => m.enabled && !m.error).sort((a, b) => a.priority - b.priority || a.id - b.id)[0] : undefined;
+  const makePrimary = async (m: ModuleResource) => {
+    const top = Math.min(...(mods ?? []).map((x) => x.priority));
+    try {
+      await unwrap(api.PUT("/api/v1/modules/{id}", { params: { path: { id: m.id } }, body: { kind: kind as "source", implementation: m.implementation, name: m.name, enabled: m.enabled, priority: top - 1, events: m.events ?? [], settings: m.settings } }));
+      qc.invalidateQueries({ queryKey: ["modules"] });
+      toast.success(tr("{name} is the primary provider", { name: m.name }));
+    } catch (e) {
+      toast.fromError(e);
+    }
+  };
   const implOf = (name: string) => impls?.find((i) => i.name === name);
 
   const startNew = (impl: Implementation) => {
@@ -99,6 +112,7 @@ export function ModulesPage({ kind }: { kind: string }) {
         }
       />
       {kind === "notify" && <MessengerBots />}
+      {kind === "metadata" && <MapToPrimary primary={primary?.name} />}
       {kind === "notify" && (
         <div className="mb-3">
           <h2 className="text-base font-semibold">{tr("Broadcast targets")}</h2>
@@ -136,6 +150,7 @@ export function ModulesPage({ kind }: { kind: string }) {
                   env
                 </Badge>
               )}
+              {primary?.id === m.id && <Badge tone="accent">{tr("primary")}</Badge>}
               <Badge>{translateUI("priority") + " "}{m.priority}</Badge>
               {m.capabilities.map((c) => (
                 <Badge key={c} tone="info">
@@ -144,6 +159,9 @@ export function ModulesPage({ kind }: { kind: string }) {
               ))}
             </div>
             {m.error && <p className="text-xs text-err">{m.error}</p>}
+            {primary && primary.id !== m.id && m.enabled && !m.error && (
+              <Button size="sm" className="self-start" disabled={!!m.managedBy?.startsWith("env:")} onClick={() => makePrimary(m)}>{tr("Make primary")}</Button>
+            )}
           </div>
         ))}
       </div>
@@ -163,6 +181,25 @@ export function ModulesPage({ kind }: { kind: string }) {
       {draft && <ModuleEditor kind={kind} draft={draft} impl={implOf(draft.implementation)} onClose={() => setDraft(null)} />}
       <Confirm open={!!deleting} title={translateUI("Delete module")} danger confirmLabel={translateUI("Delete")} message={`Delete ${deleting?.name}?`} onConfirm={remove} onClose={() => setDeleting(null)} />
     </>
+  );
+}
+
+/** MapToPrimary is the switch for mapping matches to the primary metadata provider. */
+function MapToPrimary({ primary }: { primary?: string }) {
+  const cfg = useSettingsDoc<S["Metadata"]>("metadata");
+  if (!cfg.value) return null;
+  return (
+    <div className="mb-4 rounded-lg border border-border bg-panel p-4">
+      <Switch
+        checked={cfg.value.mapToPrimary}
+        disabled={!!cfg.lock("mapToPrimary")}
+        onChange={(v) => void cfg.save({ ...cfg.value!, mapToPrimary: v })}
+        label={tr("Map every match to the primary provider")}
+      />
+      <p className="mt-1 text-sm text-muted">
+        {tr("When a title is only found at a lower provider, look it up at {primary} by the ids that provider gives and then by its names, and link that too. The title's info then comes from {primary} first.", { primary: primary ?? tr("the primary provider") })}
+      </p>
+    </div>
   );
 }
 

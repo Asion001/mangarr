@@ -20,6 +20,7 @@ import (
 	"github.com/Asion001/mangarr/internal/modules"
 	"github.com/Asion001/mangarr/internal/modules/metadata"
 	"github.com/Asion001/mangarr/internal/modules/source"
+	"github.com/Asion001/mangarr/internal/titlematch"
 )
 
 // Ref points at a series in one metadata module instance.
@@ -35,11 +36,16 @@ type Candidate struct {
 	ModuleName string `json:"moduleName"`
 	// Also lists the same series found at other providers.
 	Also []Ref `json:"also,omitempty"`
+	// foundBy is the provider whose id found it, for FindAtPrimary.
+	foundBy string
 }
 
 type Aggregator struct {
 	mods *modules.Manager
 	log  *slog.Logger
+	// MapToPrimary says whether a match at a lower provider is looked up at
+	// the primary one (the first by priority) too; on when nil.
+	MapToPrimary func(ctx context.Context) bool
 }
 
 func New(m *modules.Manager, log *slog.Logger) *Aggregator { return &Aggregator{mods: m, log: log} }
@@ -199,6 +205,16 @@ func (a *Aggregator) ResolveLanguage(ctx context.Context, primary Ref, fallback 
 			refs = append(refs, Ref{ModuleID: m.Def.ID, Provider: md.Provider, ID: md.ID})
 		}
 	}
+	if top := mods[0]; top.Def.ID != primary.ModuleID && a.mapToPrimary(ctx) && !slices.ContainsFunc(refs, func(r Ref) bool { return r.ModuleID == top.Def.ID }) {
+		// what the other providers found tells the primary one more than
+		// the match's own name: their ids and every name they know
+		if c, _, _ := a.findAt(ctx, top, known(parts)); c != nil {
+			if md, err := top.Instance.Get(ctx, c.ID); err == nil {
+				parts = append([]metadata.SeriesMetadata{*md}, parts...)
+				refs = append(refs, Ref{ModuleID: top.Def.ID, Provider: md.Provider, ID: md.ID})
+			}
+		}
+	}
 	if fallback != nil {
 		parts = append(parts, FromSource(fallback))
 	}
@@ -210,6 +226,126 @@ func (a *Aggregator) ResolveLanguage(ctx context.Context, primary Ref, fallback 
 		merged.Title, prov["title"] = first.Title, first.Provider
 	}
 	return &Resolved{Metadata: merged, Provenance: prov, Refs: refs}, nil
+}
+
+func (a *Aggregator) mapToPrimary(ctx context.Context) bool {
+	return a.MapToPrimary == nil || a.MapToPrimary(ctx)
+}
+
+// Primary is the primary metadata module (the first by priority), or nil.
+func (a *Aggregator) Primary() *model.ProviderDefinition {
+	if mods := modules.ActiveAs[metadata.Module](a.mods, modules.KindMetadata); len(mods) > 0 {
+		def := mods[0].Def
+		return &def
+	}
+	return nil
+}
+
+// Known is what a title's providers say about it, to find it at another.
+type Known struct {
+	IDs    map[string]string
+	Names  []string
+	Year   int
+	Format string
+}
+
+func known(parts []metadata.SeriesMetadata) Known {
+	k := Known{IDs: map[string]string{}}
+	for _, p := range parts {
+		for key, v := range p.ExternalIDs {
+			if v != "" && k.IDs[key] == "" {
+				k.IDs[key] = v
+			}
+		}
+		if p.Provider != "" && p.Provider != "source" && p.ID != "" && k.IDs[p.Provider] == "" {
+			k.IDs[p.Provider] = p.ID
+		}
+		k.Names = append(append(k.Names, p.Title), p.AltTitles...)
+		for _, t := range p.Titles {
+			k.Names = append(k.Names, t)
+		}
+		if k.Year == 0 {
+			k.Year = p.Year
+		}
+		if k.Format == "" {
+			k.Format = p.Format
+		}
+	}
+	return k
+}
+
+// How a title was found at the primary provider.
+const (
+	FoundByID   = "id"
+	FoundByName = "name"
+)
+
+// NameThreshold is the name score a match by name needs.
+const NameThreshold = 0.92
+
+// FindAtPrimary looks a title up at the primary provider: by the ids the
+// other providers give first, then by its names. how is "id" (with the id's
+// provider) or "name" (with the score).
+func (a *Aggregator) FindAtPrimary(ctx context.Context, k Known) (c *Candidate, how string, detail string, score float64) {
+	mods := modules.ActiveAs[metadata.Module](a.mods, modules.KindMetadata)
+	if len(mods) == 0 {
+		return nil, "", "", 0
+	}
+	c, how, score = a.findAt(ctx, mods[0], k)
+	if c != nil && how == FoundByID {
+		detail = c.foundBy
+	}
+	return c, how, detail, score
+}
+
+func (a *Aggregator) findAt(ctx context.Context, m modules.Typed[metadata.Module], k Known) (*Candidate, string, float64) {
+	if el, ok := m.Instance.(metadata.ExternalLookup); ok {
+		keys := make([]string, 0, len(k.IDs))
+		for key := range k.IDs {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		for _, key := range keys {
+			if md, err := el.LookupExternal(ctx, key, k.IDs[key]); err == nil && md != nil && md.ID != "" {
+				return &Candidate{SeriesMetadata: *md, ModuleID: m.Def.ID, ModuleName: m.Def.Name, foundBy: key}, FoundByID, 1
+			}
+		}
+	}
+	var names []string
+	for _, n := range k.Names {
+		if n = strings.TrimSpace(n); n != "" && !slices.Contains(names, n) {
+			names = append(names, n)
+		}
+	}
+	var best *Candidate
+	score := 0.0
+	for _, q := range names[:min(len(names), 3)] {
+		list, err := m.Instance.Search(ctx, q, 5)
+		if err != nil {
+			continue
+		}
+		for _, md := range list {
+			if md.Format != "" && k.Format != "" && metadata.IsNovel(md.Format) != metadata.IsNovel(k.Format) {
+				continue // the novel of a manga goes by the same name
+			}
+			if k.Year > 0 && md.Year > 0 && abs(k.Year-md.Year) > 1 {
+				continue
+			}
+			cn := append([]string{md.Title}, md.AltTitles...)
+			for _, t := range md.Titles {
+				cn = append(cn, t)
+			}
+			for _, n := range names {
+				if sc := titlematch.Best(cn, n); sc > score {
+					best, score = &Candidate{SeriesMetadata: md, ModuleID: m.Def.ID, ModuleName: m.Def.Name}, sc
+				}
+			}
+		}
+		if score >= NameThreshold {
+			return best, FoundByName, score
+		}
+	}
+	return nil, "", 0
 }
 
 // RefFor picks the first active metadata module that knows one of these

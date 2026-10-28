@@ -6023,6 +6023,18 @@
         ],
         "type": "object"
       },
+      "Metadata": {
+        "additionalProperties": false,
+        "properties": {
+          "mapToPrimary": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "mapToPrimary"
+        ],
+        "type": "object"
+      },
       "MetadataRef": {
         "additionalProperties": false,
         "properties": {
@@ -24093,6 +24105,74 @@
           }
         },
         "summary": "Check a bot's credentials without sending anything",
+        "tags": [
+          "Settings"
+        ]
+      }
+    },
+    "/api/v1/settings/metadata": {
+      "get": {
+        "operationId": "settings-get-metadata",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Metadata"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "tags": [
+          "Settings"
+        ]
+      },
+      "put": {
+        "operationId": "settings-put-metadata",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Metadata"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Metadata"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "tags": [
           "Settings"
         ]

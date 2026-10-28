@@ -11270,5 +11270,29 @@
   "Tell requesters once, with a list": {
     "ru": "Сообщить просившим один раз, списком",
     "uk": "Повідомити тим, хто просив, один раз, списком"
+  },
+  "{name} is the primary provider": {
+    "ru": "{name} теперь основной источник",
+    "uk": "{name} тепер основне джерело"
+  },
+  "primary": {
+    "ru": "основной",
+    "uk": "основне"
+  },
+  "Make primary": {
+    "ru": "Сделать основным",
+    "uk": "Зробити основним"
+  },
+  "Map every match to the primary provider": {
+    "ru": "Сопоставлять каждое совпадение с основным источником",
+    "uk": "Зіставляти кожен збіг з основним джерелом"
+  },
+  "When a title is only found at a lower provider, look it up at {primary} by the ids that provider gives and then by its names, and link that too. The title's info then comes from {primary} first.": {
+    "ru": "Если тайтл найден только у источника ниже, искать его в {primary} по id, которые даёт тот источник, а затем по названиям, и привязать тоже. Тогда данные тайтла берутся сначала из {primary}.",
+    "uk": "Якщо тайтл знайдено лише в джерелі нижче, шукати його в {primary} за id, які дає те джерело, а потім за назвами, і прив'язати теж. Тоді дані тайтлу беруться спершу з {primary}."
+  },
+  "the primary provider": {
+    "ru": "основном источнике",
+    "uk": "основному джерелі"
   }
 }

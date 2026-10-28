@@ -37,6 +37,10 @@ func (a *App) wire(ctx context.Context) error {
 		return fmt.Errorf("root folder languages: %w", err)
 	}
 	a.Metadata = metadataagg.New(a.Modules, log.With("component", "metadata"))
+	a.Metadata.MapToPrimary = func(ctx context.Context) bool {
+		cfg, _ := a.Settings.Metadata(ctx)
+		return cfg.MapToPrimary
+	}
 	a.DLQueue = downloads.NewQueue(a.DB, a.Bus)
 	a.Searcher = downloads.NewSearcher(a.DB, a.DLQueue, log.With("component", "search"))
 	a.Refresher = refresh.New(a.DB, a.Bus, a.Modules, a.Settings, a.Searcher, a.Library, log.With("component", "refresh"))
