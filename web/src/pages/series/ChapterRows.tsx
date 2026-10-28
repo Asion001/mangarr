@@ -1,5 +1,5 @@
 import { t as tr, t } from "../../lib/i18n/core";
-import { Fragment, memo } from "react";
+import { Fragment, memo, useState } from "react";
 import { ArrowDownToLine, ArrowUpToLine, BookOpen, History, Check, ChevronDown, ChevronRight, ExternalLink, HelpCircle, Pause, Play, RotateCcw, Search, Sparkles, Eye, Trash2 } from "lucide-react";
 import { Link } from "react-router";
 import clsx from "clsx";
@@ -129,10 +129,7 @@ export const ChapterRow = memo(function ChapterRow({
               </span>
               <span className="flex items-center gap-1 text-muted">
                 {c.file.scanlator || c.file.sourceName}
-                {c.file.upscaled && (
-                  <Badge tone="accent" title={c.file.upscaleModel}>
-                    <Sparkles className="size-3" />{" " + t("upscaled")}</Badge>
-                )}
+                {c.file.upscaled && <UpscaledBadge model={c.file.upscaleModel} />}
                 {(c.file.format === "avif" || c.file.format === "jxl") && (
                   <Badge
                     tone="info"
@@ -284,7 +281,7 @@ export const ChapterMobileRow = memo(function ChapterMobileRow({
           {c.file && (
             <div className="mb-3 text-xs text-muted">
               {c.file.scanlator || c.file.sourceName} · {c.file.avgWidth}px
-              {c.file.upscaled && <> · {t("upscaled")}</>}
+              {c.file.upscaled && <> · {t("upscaled")}{c.file.upscaleModel && ` (${c.file.upscaleModel})`}</>}
               {(c.file.format === "avif" || c.file.format === "jxl") && <> · {c.file.format}</>}
               {c.file.processState === "failed" && <p className="mt-1 text-err">{c.file.processError}</p>}
             </div>
@@ -295,6 +292,22 @@ export const ChapterMobileRow = memo(function ChapterMobileRow({
     </article>
   );
 });
+
+/** UpscaledBadge names the model on hover, and on tap for touch screens with no hover. */
+function UpscaledBadge({ model }: { model?: string }) {
+  const [shown, setShown] = useState(false);
+  const badge = (
+    <Badge tone="accent" title={model}>
+      <Sparkles className="size-3" />{" " + t("upscaled")}{shown && model && ` · ${model}`}
+    </Badge>
+  );
+  if (!model) return badge;
+  return (
+    <button type="button" className="cursor-pointer" onClick={() => setShown((v) => !v)} aria-expanded={shown} aria-label={`${t("upscaled")}: ${model}`}>
+      {badge}
+    </button>
+  );
+}
 
 function ChapterManagementActions({
   chapter: c,
