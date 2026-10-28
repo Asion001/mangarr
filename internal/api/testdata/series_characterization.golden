@@ -769,7 +769,9 @@ GET /api/v1/series/lookup?term=abyss -> 200 OK
 {
   "results": [],
   "errors": [],
-  "providers": 0
+  "providers": 0,
+  "modules": [],
+  "skipped": []
 }
 
 
