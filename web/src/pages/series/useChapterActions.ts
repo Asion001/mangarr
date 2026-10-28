@@ -88,7 +88,8 @@ export function useChapterActions(seriesId: number) {
   }, [refreshQueue, toast]);
   const process = useCallback(async (ids: number[]) => {
     try {
-      await unwrap(api.POST("/api/v1/commands", { body: { name: "ProcessExisting", body: { seriesId, chapterIds: ids } } }));
+      // force: "again" includes chapters already processed with the current settings
+      await unwrap(api.POST("/api/v1/commands", { body: { name: "ProcessExisting", body: { seriesId, chapterIds: ids, force: true } } }));
       toast.info(`Queued processing for ${ids.length} chapter${ids.length === 1 ? "" : "s"}`);
       refreshQueue();
     } catch (e) {

@@ -15,7 +15,7 @@ const chapters = Array.from({ length: 120 }, (_, index) => ({
   readBy: index + 1 < 69 ? [{ userId: 1, name: "me", completed: true, page: 20, readAt: "2026-09-01T00:00:00Z" }] : index + 1 === 69 ? [{ userId: 1, name: "me", completed: false, page: 5, readAt: "2026-09-01T00:00:00Z" }] : [],
 }));
 
-async function mock(page: Page, marked: number[]) {
+async function mock(page: Page, marked: number[], commands: unknown[] = []) {
   await page.addInitScript(() => localStorage.setItem("mangarr:ui:anonymous:0", JSON.stringify({ locale: "en", mode: "editing" })));
   await page.route("**/api/v1/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
@@ -23,6 +23,10 @@ async function mock(page: Page, marked: number[]) {
     if (mark) {
       marked.push(Number(mark[1]));
       return route.fulfill({ json: {} });
+    }
+    if (path.endsWith("/commands") && route.request().method() === "POST") {
+      commands.push(route.request().postDataJSON());
+      return route.fulfill({ json: { id: 1 } });
     }
     if (path.endsWith("/auth/status")) return route.fulfill({ json: { authenticated: true, authDisabled: true, account: { kind: "anonymous", id: 0, permissions: ["admin", "library.manage", "library.delete", "queue.manage"] } } });
     if (path.endsWith("/series/1/chapters")) return route.fulfill({ json: chapters });
@@ -80,4 +84,15 @@ test("selected chapters get a bar along the bottom with the rest under More", as
 
   await page.getByRole("button", { name: "Cancel" }).click();
   await expect(bar).toHaveCount(0);
+});
+
+test("Process again reprocesses the selected chapters even when already processed", async ({ page }) => {
+  const commands: unknown[] = [];
+  await mock(page, [], commands);
+  await page.goto("/series/1");
+  await page.getByRole("checkbox", { name: "Select Chapter 70" }).check();
+  await page.getByRole("checkbox", { name: "Select Chapter 71" }).check();
+  await page.getByRole("toolbar", { name: "Selected chapters" }).getByRole("button", { name: "More" }).click();
+  await page.getByRole("dialog", { name: "2 chapters selected" }).getByRole("button", { name: "Process again" }).click();
+  await expect.poll(() => commands).toEqual([{ name: "ProcessExisting", body: { seriesId: 1, chapterIds: [70, 71], force: true } }]);
 });
