@@ -14,12 +14,14 @@ export function Cover({ src, alt, className }: { src?: string; alt: string; clas
     <div className={clsx("relative overflow-hidden rounded-md bg-panel-2", className)}>
       {src && !failed ? (
         <>
-          {odd && <img src={src} alt="" aria-hidden className="absolute inset-0 h-full w-full scale-110 object-cover opacity-50 blur-md" />}
+          {odd && <img src={src} alt="" aria-hidden referrerPolicy="no-referrer" className="absolute inset-0 h-full w-full scale-110 object-cover opacity-50 blur-md" />}
           <img
             src={src}
             alt={alt}
             loading="lazy"
             decoding="async"
+            // some providers (MangaDex) answer a link from another site with a placeholder
+            referrerPolicy="no-referrer"
             onError={() => setFailed(true)}
             onLoad={(e) => {
               const { naturalWidth: w, naturalHeight: h } = e.currentTarget;

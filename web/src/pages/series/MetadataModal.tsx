@@ -107,7 +107,7 @@ export function MetadataModal({ series, tab: initialTab = "pick", onClose }: { s
   };
   const choose = (field: Field, provider: string, value: unknown) => setPicks((ps) => ({ ...ps, [field]: { provider, value } }));
 
-  const covers = options.flatMap((o) => (o.covers?.length ? o.covers.map((c) => ({ o, url: c.url, label: c.label ? `${o.moduleName} · ${c.label}` : o.moduleName })) : o.coverUrl ? [{ o, url: o.coverUrl, label: o.moduleName }] : []));
+  const covers = options.flatMap((o) => (o.covers?.length ? o.covers.map((c) => ({ o, url: c.url, thumb: c.thumb, label: c.label ? `${o.moduleName} · ${c.label}` : o.moduleName })) : o.coverUrl ? [{ o, url: o.coverUrl, thumb: undefined, label: o.moduleName }] : []));
   const scalar = (field: "title" | "status" | "year", get: (o: Option) => string | number | undefined, current: string | number | undefined, label: string) => {
     const values = options.filter((o) => get(o));
     if (!values.length) return null;
@@ -156,11 +156,12 @@ export function MetadataModal({ series, tab: initialTab = "pick", onClose }: { s
                   <button
                     key={c.url}
                     type="button"
+                    title={c.label}
                     aria-pressed={chosen("coverUrl", c.o.provider, c.url, md.coverUrl)}
                     onClick={() => choose("coverUrl", c.o.provider, c.url)}
                     className={clsx("flex min-w-0 flex-col gap-1.5 rounded-lg border p-1.5 text-left", chosen("coverUrl", c.o.provider, c.url, md.coverUrl) ? "border-accent ring-2 ring-accent" : "border-border hover:border-accent")}
                   >
-                    <Cover src={c.url} alt="" className="aspect-[2/3] w-full rounded" />
+                    <Cover src={c.thumb || c.url} alt="" className="aspect-[2/3] w-full rounded" />
                     <span className="truncate text-xs">{c.label}</span>
                   </button>
                 ))}

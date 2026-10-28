@@ -184,6 +184,7 @@ func (m *Module) Covers(ctx context.Context, id string) ([]metadata.Cover, error
 			continue
 		}
 		cv := metadata.Cover{URL: coversURL + id + "/" + c.Attributes.FileName}
+		cv.Thumb = cv.URL + ".256.jpg"
 		if v := c.Attributes.Volume; v != "" {
 			cv.Label = "vol. " + v
 		}

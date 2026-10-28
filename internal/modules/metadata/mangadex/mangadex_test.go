@@ -116,7 +116,8 @@ func TestCovers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []metadata.Cover{{URL: coversURL + onePiece + "/b.jpg", Label: "vol. 110"}, {URL: coversURL + onePiece + "/a.png", Label: "vol. 1 uk"}}
+	want := []metadata.Cover{{URL: coversURL + onePiece + "/b.jpg", Thumb: coversURL + onePiece + "/b.jpg.256.jpg", Label: "vol. 110"},
+		{URL: coversURL + onePiece + "/a.png", Thumb: coversURL + onePiece + "/a.png.256.jpg", Label: "vol. 1 uk"}}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("covers %+v", got)
 	}

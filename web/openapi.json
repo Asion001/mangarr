@@ -6136,6 +6136,9 @@
           "label": {
             "type": "string"
           },
+          "thumb": {
+            "type": "string"
+          },
           "url": {
             "type": "string"
           }

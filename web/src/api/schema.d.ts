@@ -6075,6 +6075,7 @@ export interface components {
         };
         MetadataCover: {
             label?: string;
+            thumb?: string;
             url: string;
         };
         MetadataModule: {

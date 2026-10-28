@@ -73,6 +73,8 @@ type ExternalLookup interface {
 // Cover is one of the covers a provider has for a series.
 type Cover struct {
 	URL string `json:"url"`
+	// Thumb is a small copy to show in a list, when the provider has one.
+	Thumb string `json:"thumb,omitempty"`
 	// Label says which one it is ("vol. 12"), when there are several.
 	Label string `json:"label,omitempty"`
 }
