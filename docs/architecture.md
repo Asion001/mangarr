@@ -11,9 +11,9 @@ a module is in [modules.md](modules.md). Planned work and bugs live in
  Komga apps  ─►│ Komga-compatible API (:25600) │ web reader │ SSE live updates          │
                │ pipeline: fetch pages → validate → [upscale/encode] → CBZ → import    │
                │ ─────────────────── module registry (Go interfaces) ───────────────── │
-               │ source: native (own sites), suwayomi │ metadata: anilist, shikimori    │
-               │ library: komga, kavita │ notify: telegram, discord, ntfy, gotify,      │
-               │ apprise, webhook │ upscale: local, workers                             │
+               │ source: native (own sites), suwayomi │ metadata: anilist, shikimori,   │
+               │ mangaupdates │ library: komga, kavita │ notify: telegram, discord,    │
+               │ ntfy, gotify, apprise, webhook │ upscale: local, workers              │
                │ worker task ledger ◄── /api/v1/worker/ ──────────────────────────────  │
                └────┬─────────────────┬───────────────┬────────────────────┬───────────┘
                     ▼                 ▼               ▼                    ▲

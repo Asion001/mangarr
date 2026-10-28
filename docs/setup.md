@@ -66,7 +66,7 @@ when it loads pages. mangarr itself speaks HTTP/1.1 and cleartext HTTP/2
    Add catalogs installs more (and asks which of an extension's languages to
    turn on).
 5. Settings → Metadata → *AniList* (and *Shikimori* for Russian titles and
-   synopses).
+   synopses, *MangaUpdates* for manhwa, manhua and novels AniList lacks).
 6. Settings → Library servers → *Komga*:
    - URL `http://komga:25600`, an **admin** API key (Komga → Account →
      API keys).

@@ -1,0 +1,96 @@
+{
+ "series_id": 55099564912,
+ "title": "One Piece",
+ "url": "https://www.mangaupdates.com/series/pb8uwds/one-piece",
+ "associated": [
+  {
+   "title": "Đảo Hải Tặc"
+  },
+  {
+   "title": "Ван Пис"
+  },
+  {
+   "title": "Уан Пийс"
+  }
+ ],
+ "description": "As a child, Monkey D. Luffy was inspired to become a pirate.  \n\n\n\n**Note:** Won an [award](https://example.com) in 2012.",
+ "image": {
+  "url": {
+   "original": "https://cdn.mangaupdates.com/image/i531056.jpg",
+   "thumb": "https://cdn.mangaupdates.com/image/thumb/i531056.jpg"
+  },
+  "height": 400,
+  "width": 255
+ },
+ "type": "Manga",
+ "year": "1997",
+ "genres": [
+  {
+   "genre": "Action"
+  },
+  {
+   "genre": "Adventure"
+  },
+  {
+   "genre": "Comedy"
+  },
+  {
+   "genre": "Drama"
+  },
+  {
+   "genre": "Fantasy"
+  },
+  {
+   "genre": "Shounen"
+  }
+ ],
+ "categories": [
+  {
+   "category": "Absent Parent/s",
+   "votes": 98
+  },
+  {
+   "category": "Abuse of Power",
+   "votes": 42
+  },
+  {
+   "category": "Abusive Authority Figure/s",
+   "votes": 86
+  },
+  {
+   "category": "Adapted to Anime",
+   "votes": 270
+  },
+  {
+   "category": "Rarely Voted",
+   "votes": 2
+  }
+ ],
+ "latest_chapter": 1196,
+ "status": "115 Volumes (Ongoing)  \n",
+ "completed": false,
+ "authors": [
+  {
+   "name": "ODA Eiichiro",
+   "type": "Author"
+  },
+  {
+   "name": "ODA Eiichiro",
+   "type": "Artist"
+  }
+ ],
+ "publishers": [
+  {
+   "publisher_name": "MANGA Plus",
+   "type": "English"
+  },
+  {
+   "publisher_name": "Shueisha",
+   "type": "Original"
+  },
+  {
+   "publisher_name": "VIZ Media",
+   "type": "English"
+  }
+ ]
+}

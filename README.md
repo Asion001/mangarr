@@ -56,9 +56,9 @@ draws them).
     (Keiyoushi extensions, FlareSolverr, extension manager, per-source
     settings) for the rest. Identities are portable `(sourceId, url)`, so
     *Switch engine* moves an existing library from one to the other.
-  - `metadata` — **AniList** and **Shikimori**; all metadata modules are
-    searched by priority and merged field by field with provenance and user
-    locks.
+  - `metadata` — **AniList**, **MangaUpdates** and **Shikimori**; all
+    metadata modules are searched by priority and merged field by field with
+    provenance and user locks.
   - `library` — **Komga**, **Kavita** (rescans, path mappings, per-user
     read progress).
   - `mediaserver` — **Jellyfin** and **Silo**: anime and film adaptations

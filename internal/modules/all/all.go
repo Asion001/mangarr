@@ -7,6 +7,7 @@ import (
 	_ "github.com/Asion001/mangarr/internal/modules/mediaserver/jellyfin"
 	_ "github.com/Asion001/mangarr/internal/modules/mediaserver/silo"
 	_ "github.com/Asion001/mangarr/internal/modules/metadata/anilist"
+	_ "github.com/Asion001/mangarr/internal/modules/metadata/mangaupdates"
 	_ "github.com/Asion001/mangarr/internal/modules/metadata/shikimori"
 	_ "github.com/Asion001/mangarr/internal/modules/notify/apprise"
 	_ "github.com/Asion001/mangarr/internal/modules/notify/discord"
