@@ -562,6 +562,38 @@ type RemoveResult struct {
 	Freed     int64 `json:"freed"`
 }
 
+// MaxRemove is how many chapters one RemoveChapters call takes.
+const MaxRemove = 20000
+
+// RemoveSeriesFiles removes every downloaded chapter file of the series and
+// marks those chapters cleaned; the series stay in the library.
+func (c *Cleaner) RemoveSeriesFiles(ctx context.Context, seriesIDs []int64) (*RemoveResult, error) {
+	if len(seriesIDs) == 0 {
+		return &RemoveResult{}, nil
+	}
+	var ids []int64
+	err := c.db.NewSelect().Table("chapters").Column("id").
+		Where("series_id IN (?)", bun.In(seriesIDs)).Where("file_id IS NOT NULL").
+		Order("id").Scan(ctx, &ids)
+	if err != nil {
+		return &RemoveResult{}, err
+	}
+	result := &RemoveResult{}
+	for start := 0; start < len(ids); start += MaxRemove {
+		part, err := c.RemoveChapters(ctx, ids[start:min(start+MaxRemove, len(ids))])
+		if part != nil {
+			result.Requested += part.Requested
+			result.Removed += part.Removed
+			result.Skipped += part.Skipped
+			result.Freed += part.Freed
+		}
+		if err != nil {
+			return result, err
+		}
+	}
+	return result, nil
+}
+
 // RemoveChapters explicitly removes downloaded chapter files and marks the
 // chapters cleaned, so a refresh cannot immediately download them again.
 func (c *Cleaner) RemoveChapters(ctx context.Context, chapterIDs []int64) (*RemoveResult, error) {
@@ -577,8 +609,8 @@ func (c *Cleaner) RemoveChapters(ctx context.Context, chapterIDs []int64) (*Remo
 	if len(ids) == 0 {
 		return result, nil
 	}
-	if len(ids) > 1000 {
-		return result, errors.New("at most 1000 chapters can be deleted at once")
+	if len(ids) > MaxRemove {
+		return result, fmt.Errorf("at most %d chapters can be deleted at once", MaxRemove)
 	}
 	type row struct {
 		ChapterID   int64  `bun:"chapter_id"`

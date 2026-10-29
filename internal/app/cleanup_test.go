@@ -162,6 +162,19 @@ func TestReadSyncAndCleanup(t *testing.T) {
 			if repeat.Requested != 1 || repeat.Removed != 0 || repeat.Skipped != 1 {
 				t.Fatalf("repeat manual removal result: %+v", repeat)
 			}
+
+			// Deleting a whole series' files keeps the series and cleans every chapter that had one.
+			left := len(e.chapterFiles(t, ser.ID))
+			whole, err := e.App.Cleaner.RemoveSeriesFiles(e.Ctx, []int64{ser.ID})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if whole.Removed != left || len(e.chapterFiles(t, ser.ID)) != 0 {
+				t.Fatalf("series file removal: %+v, %d files before", whole, left)
+			}
+			if n, err := e.App.DB.NewSelect().Model((*model.Series)(nil)).Where("id = ?", ser.ID).Count(e.Ctx); err != nil || n != 1 {
+				t.Fatalf("series should stay: %d %v", n, err)
+			}
 		})
 	}
 }

@@ -153,6 +153,7 @@ export function MassEditBar({
   const [sourcing, setSourcing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteFiles, setDeleteFiles] = useState(false);
+  const [wiping, setWiping] = useState(false);
   const [busy, setBusy] = useState(false);
   const [listOpen, setListOpen] = useState(false);
   // pending keeps the series it was confirmed for: Apply changes those, even
@@ -224,6 +225,20 @@ export function MassEditBar({
       setDeleting(false);
     } catch (e) {
       toast.fromError(e, t("Stopped after {count} series", { count: done }));
+    } finally {
+      qc.invalidateQueries({ queryKey: ["series"] });
+      setBusy(false);
+    }
+  };
+  // removeFiles deletes the downloaded chapter files but keeps the series
+  const removeFiles = async () => {
+    setBusy(true);
+    try {
+      const r = await unwrap(api.POST("/api/v1/series/files/delete", { body: { seriesIds: ids } }));
+      toast.success(t("Deleted chapter files: {count}", { count: r.removed }), r.skipped ? t("{count} skipped", { count: r.skipped }) : undefined);
+      setWiping(false);
+    } catch (e) {
+      toast.fromError(e);
     } finally {
       qc.invalidateQueries({ queryKey: ["series"] });
       setBusy(false);
@@ -319,6 +334,7 @@ export function MassEditBar({
                   { label: t("Refresh metadata"), onSelect: () => void command("RefreshMetadata", t("Refreshing metadata of {count} series", { count })) },
                   { label: t("Rename files…"), onSelect: () => setRenaming(true) },
                   { section: "" },
+                  { label: t("Delete files…"), danger: true, onSelect: () => setWiping(true), hidden: !deletes },
                   { label: t("Delete series…"), danger: true, onSelect: () => setDeleting(true), hidden: !deletes },
                 ]}
               />
@@ -360,6 +376,22 @@ export function MassEditBar({
         >
           <p className="mb-3 text-sm">{t("They leave the library and stop downloading. Read progress in Komga/Kavita is not touched.")}</p>
           <Switch checked={deleteFiles} onChange={setDeleteFiles} label={t("Also delete their files from disk")} />
+        </Modal>
+      )}
+      {wiping && (
+        <Modal
+          open
+          onClose={() => setWiping(false)}
+          title={t("Delete files of {count} series", { count })}
+          footer={
+            <>
+              <Button disabled={busy} onClick={() => setWiping(false)}>{t("Cancel")}</Button>
+              <Button variant="danger" loading={busy} onClick={() => void removeFiles()}>{t("Delete files")}</Button>
+            </>
+          }
+        >
+          <p className="mb-2 text-sm">{t("Every downloaded chapter file of these series is deleted (into the recycle bin when it is on).")}</p>
+          <p className="text-sm text-muted">{t("The series stay in the library. Their chapters are kept in the list and will not download again until restored.")}</p>
         </Modal>
       )}
       {moving && (

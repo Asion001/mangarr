@@ -1753,7 +1753,7 @@
               "format": "int64",
               "type": "integer"
             },
-            "maxItems": 1000,
+            "maxItems": 20000,
             "minItems": 1,
             "type": "array"
           }
@@ -10766,6 +10766,24 @@
           "results",
           "hasNext",
           "cached"
+        ],
+        "type": "object"
+      },
+      "Series-files-deleteRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "seriesIds": {
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "maxItems": 10000,
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "seriesIds"
         ],
         "type": "object"
       },
@@ -22266,6 +22284,47 @@
         "summary": "Edit many series at once (monitoring, profile, tags, root folder)",
         "tags": [
           "Series"
+        ]
+      }
+    },
+    "/api/v1/series/files/delete": {
+      "post": {
+        "operationId": "series-files-delete",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Series-files-deleteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CleanupRemoveResult"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Delete the downloaded chapter files of whole series and mark them cleaned; the series stay",
+        "tags": [
+          "Cleanup"
         ]
       }
     },

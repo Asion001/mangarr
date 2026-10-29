@@ -177,6 +177,7 @@ series-chapters GET /api/v1/series/{id}/chapters -> signedin
 series-cover GET /api/v1/series/{id}/cover -> signedin
 series-delete DELETE /api/v1/series/{id} -> library.delete
 series-editor POST /api/v1/series/editor -> library.edit
+series-files-delete POST /api/v1/series/files/delete -> library.delete
 series-follow PUT /api/v1/series/{id}/follow -> signedin
 series-get GET /api/v1/series/{id} -> signedin
 series-list GET /api/v1/series -> signedin

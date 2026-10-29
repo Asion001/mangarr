@@ -98,13 +98,23 @@ func (s *Server) registerCleanup() {
 		Summary: "Delete downloaded chapter files and mark them cleaned"},
 		func(ctx context.Context, in *struct {
 			Body struct {
-				ChapterIDs []int64 `json:"chapterIds" minItems:"1" maxItems:"1000"`
+				ChapterIDs []int64 `json:"chapterIds" minItems:"1" maxItems:"20000"`
 			}
 		}) (*struct{ Body *cleanup.RemoveResult }, error) {
 			if len(in.Body.ChapterIDs) == 0 {
 				return nil, huma.Error422UnprocessableEntity("choose at least one chapter")
 			}
 			result, err := s.app.Cleaner.RemoveChapters(ctx, in.Body.ChapterIDs)
+			return &struct{ Body *cleanup.RemoveResult }{result}, toHTTPError(err)
+		})
+	huma.Register(s.api, huma.Operation{OperationID: "series-files-delete", Method: http.MethodPost, Path: "/api/v1/series/files/delete", Tags: ctags,
+		Summary: "Delete the downloaded chapter files of whole series and mark them cleaned; the series stay"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				SeriesIDs []int64 `json:"seriesIds" minItems:"1" maxItems:"10000"`
+			}
+		}) (*struct{ Body *cleanup.RemoveResult }, error) {
+			result, err := s.app.Cleaner.RemoveSeriesFiles(ctx, in.Body.SeriesIDs)
 			return &struct{ Body *cleanup.RemoveResult }{result}, toHTTPError(err)
 		})
 }

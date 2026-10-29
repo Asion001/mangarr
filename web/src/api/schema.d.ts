@@ -2359,6 +2359,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/series/files/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Delete the downloaded chapter files of whole series and mark them cleaned; the series stay */
+        post: operations["series-files-delete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/series/lists/bulk": {
         parameters: {
             query?: never;
@@ -7490,6 +7507,9 @@ export interface components {
             results: components["schemas"]["SourceManga"][];
             sourceId: string;
             sourceName: string;
+        };
+        "Series-files-deleteRequest": {
+            seriesIds: number[];
         };
         "Series-lists-bulkRequest": {
             /** @enum {string} */
@@ -14029,6 +14049,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EditorResult"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "series-files-delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Series-files-deleteRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CleanupRemoveResult"];
                 };
             };
             /** @description Error */

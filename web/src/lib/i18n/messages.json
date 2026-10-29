@@ -11558,5 +11558,21 @@
   "As CommunityRating (0–5), so Komga, Kavita and reading apps can show and sort by it. Files written from now on get it.": {
     "ru": "Как CommunityRating (0–5), чтобы Komga, Kavita и читалки могли показывать её и сортировать по ней. Попадает в файлы, записанные с этого момента.",
     "uk": "Як CommunityRating (0–5), щоб Komga, Kavita і читалки могли показувати її та сортувати за нею. Потрапляє у файли, записані відтепер."
+  },
+  "Delete files…": {
+    "ru": "Удалить файлы…",
+    "uk": "Видалити файли…"
+  },
+  "Delete files of {count} series": {
+    "ru": "Удалить файлы серий: {count}",
+    "uk": "Видалити файли серій: {count}"
+  },
+  "Every downloaded chapter file of these series is deleted (into the recycle bin when it is on).": {
+    "ru": "Все скачанные файлы глав этих серий будут удалены (в корзину, если она включена).",
+    "uk": "Усі завантажені файли розділів цих серій буде видалено (до кошика, якщо його ввімкнено)."
+  },
+  "The series stay in the library. Their chapters are kept in the list and will not download again until restored.": {
+    "ru": "Серии останутся в библиотеке. Главы останутся в списке и не будут скачаны снова, пока их не восстановят.",
+    "uk": "Серії залишаться в бібліотеці. Розділи залишаться в списку й не завантажуватимуться знову, доки їх не відновлять."
   }
 }
