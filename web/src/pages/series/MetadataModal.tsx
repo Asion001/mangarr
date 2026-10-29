@@ -7,10 +7,11 @@ import { Cover } from "../../components/Cover";
 import { Badge, Button, ErrorBox, Loading, Modal, Tabs } from "../../components/ui";
 import { useToast } from "../../lib/toast";
 import { MetadataSearch } from "./MetadataSearch";
+import { ageRatingLabel } from "./EditSeriesModal";
 
 type Option = S["MetadataOption"];
 type Picks = S["MetadataPicks"];
-type Field = "coverUrl" | "description" | "genres" | "title" | "status" | "year";
+type Field = "coverUrl" | "description" | "genres" | "title" | "status" | "year" | "ageRating";
 /** Pick is a provider's value for a field, or "auto" to hand it back. */
 type Pick = { provider: string; value: unknown } | "auto";
 export type MetadataTab = "match" | "pick";
@@ -69,7 +70,7 @@ export function MetadataModal({ series, tab: initialTab = "pick", onClose }: { s
     }
     void send(body, t("Metadata saved"));
   };
-  const automatic = () => void send({ automatic: ["title", "description", "coverUrl", "status", "year", "genres", "tags"] }, t("The providers fill the info again"));
+  const automatic = () => void send({ automatic: ["title", "description", "coverUrl", "status", "year", "ageRating", "genres", "tags"] }, t("The providers fill the info again"));
 
   if (tab === "match") {
     return (
@@ -108,7 +109,7 @@ export function MetadataModal({ series, tab: initialTab = "pick", onClose }: { s
   const choose = (field: Field, provider: string, value: unknown) => setPicks((ps) => ({ ...ps, [field]: { provider, value } }));
 
   const covers = options.flatMap((o) => (o.covers?.length ? o.covers.map((c) => ({ o, url: c.url, thumb: c.thumb, label: c.label ? `${o.moduleName} · ${c.label}` : o.moduleName })) : o.coverUrl ? [{ o, url: o.coverUrl, thumb: undefined, label: o.moduleName }] : []));
-  const scalar = (field: "title" | "status" | "year", get: (o: Option) => string | number | undefined, current: string | number | undefined, label: string) => {
+  const scalar = (field: "title" | "status" | "year" | "ageRating", get: (o: Option) => string | number | undefined, current: string | number | undefined, label: string, show: (v: string | number | undefined) => string = String) => {
     const values = options.filter((o) => get(o));
     if (!values.length) return null;
     const agree = values.every((o) => same(get(o), get(values[0])));
@@ -117,7 +118,7 @@ export function MetadataModal({ series, tab: initialTab = "pick", onClose }: { s
         <div className="flex flex-col gap-2">
           {values.map((o) => (
             <Choice key={o.moduleId} on={chosen(field, o.provider, get(o), current)} onClick={() => choose(field, o.provider, get(o))}>
-              <Badge tone="accent">{o.moduleName}</Badge> <span className="text-sm">{String(get(o))}</span>
+              <Badge tone="accent">{o.moduleName}</Badge> <span className="text-sm">{show(get(o))}</span>
             </Choice>
           ))}
         </div>
@@ -205,6 +206,7 @@ export function MetadataModal({ series, tab: initialTab = "pick", onClose }: { s
           {scalar("title", (o) => o.title, series.title, t("Title"))}
           {scalar("status", (o) => o.status, series.status, t("Status"))}
           {scalar("year", (o) => o.year, md.year, t("Year"))}
+          {scalar("ageRating", (o) => o.ageRating, md.ageRating, t("Age rating"), (v) => ageRatingLabel(String(v ?? "")))}
         </>
       )}
     </Modal>

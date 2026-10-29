@@ -20,6 +20,7 @@ export function EditSeriesModal({ series, onClose, onMetadata }: { series: Serie
   const [language, setLanguage] = useState(series.language);
   const [status, setStatus] = useState(series.status);
   const [description, setDescription] = useState(series.metadata.description ?? "");
+  const [ageRating, setAgeRating] = useState(series.metadata.ageRating ?? "");
   const [tagIds, setTagIds] = useState<number[]>(series.tags ?? []);
   const [blocked, setBlocked] = useState<string[]>(series.blockedScanlators ?? []);
   const [locks, setLocks] = useState<string[]>(series.metadata.locks ?? []);
@@ -45,6 +46,7 @@ export function EditSeriesModal({ series, onClose, onMetadata }: { series: Serie
             language,
             status: (status !== series.status ? status : undefined) as UpdateRequest["status"],
             description: description !== (series.metadata.description ?? "") ? description : undefined,
+            ageRating: (ageRating !== (series.metadata.ageRating ?? "") ? ageRating : undefined) as UpdateRequest["ageRating"],
             tags: tagIds,
             blockedScanlators: blocked,
             locks,
@@ -114,6 +116,15 @@ export function EditSeriesModal({ series, onClose, onMetadata }: { series: Serie
             ))}
           </Select>
         </Field>
+        <Field label={t("Age rating")} help={t("Written to ComicInfo; groups' age limits go by it.")}>
+          <Select value={ageRating} onChange={(e) => setAgeRating(e.target.value)}>
+            {ageRatings.map((r) => (
+              <option key={r} value={r}>
+                {ageRatingLabel(r)}
+              </option>
+            ))}
+          </Select>
+        </Field>
         <Field label={t("Language (BCP-47)")}>
           <Input value={language} onChange={(e) => setLanguage(e.target.value)} placeholder="en" />
         </Field>
@@ -169,4 +180,23 @@ export function EditSeriesModal({ series, onClose, onMetadata }: { series: Serie
       </div>
     </Modal>
   );
+}
+
+/** ageRatings are the ratings a title can have, ComicInfo's names; "" is none. */
+export const ageRatings = ["", "Everyone", "Teen", "Mature 17+", "Adults Only 18+"];
+
+export function ageRatingLabel(r: string) {
+  switch (r) {
+    case "":
+      return t("Not rated");
+    case "Everyone":
+      return t("Everyone");
+    case "Teen":
+      return t("Teen");
+    case "Mature 17+":
+      return t("Mature 17+");
+    case "Adults Only 18+":
+      return t("Adults Only 18+");
+  }
+  return r;
 }
