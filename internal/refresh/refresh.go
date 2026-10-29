@@ -494,6 +494,11 @@ func (r *Refresher) applyAddOptions(ctx context.Context, s *model.Series) error 
 // source's thumbnail as cover fallback).
 func (r *Refresher) writeSidecars(ctx context.Context, s *model.Series, sources []model.SeriesSource) {
 	defer library.RLockSeries(s.ID)()
+	// a series deleted meanwhile (it holds the lock while it recycles the
+	// folder) must not get its folder back
+	if n, err := r.db.NewSelect().Model((*model.Series)(nil)).Where("id = ?", s.ID).Count(ctx); err != nil || n == 0 {
+		return
+	}
 	var fallback func(ctx context.Context) (io.ReadCloser, error)
 	if len(sources) > 0 {
 		ss := sources[0]
