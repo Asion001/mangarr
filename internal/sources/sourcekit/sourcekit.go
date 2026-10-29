@@ -77,6 +77,15 @@ type Details struct {
 	Genres      []string
 	Status      string
 	WebURL      string
+	// Rating is the site's community score, when it shows one.
+	Rating *Rating
+}
+
+// Rating is a site's community score: Score out of Max (10, or 100 for a
+// percentage), from Votes people when the site says.
+type Rating struct {
+	Score, Max float64
+	Votes      int
 }
 
 // Chapter is one chapter of a manga.

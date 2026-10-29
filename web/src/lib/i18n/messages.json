@@ -11498,5 +11498,65 @@
   "Adults Only 18+": {
     "ru": "Только 18+",
     "uk": "Лише 18+"
+  },
+  "Rating": {
+    "ru": "Рейтинг",
+    "uk": "Рейтинг"
+  },
+  "Ratings": {
+    "ru": "Рейтинги",
+    "uk": "Рейтинги"
+  },
+  "Sources you follow": {
+    "ru": "Ваши источники",
+    "uk": "Ваші джерела"
+  },
+  "Each row opens the title on that site.": {
+    "ru": "Каждая строка открывает тайтл на этом сайте.",
+    "uk": "Кожен рядок відкриває тайтл на цьому сайті."
+  },
+  "{count} ratings": {
+    "ru": "Оценок: {count}",
+    "uk": "Оцінок: {count}"
+  },
+  "Average of the providers": {
+    "ru": "Среднее по источникам",
+    "uk": "Середнє за джерелами"
+  },
+  "Each score turned into 0–10, then averaged. Providers rated by fewer than 20 people are left out.": {
+    "ru": "Каждая оценка переводится в шкалу 0–10 и усредняется. Источники, где оценили меньше 20 человек, не учитываются.",
+    "uk": "Кожна оцінка переводиться в шкалу 0–10 і усереднюється. Джерела, де оцінили менше 20 людей, не враховуються."
+  },
+  "The primary provider's": {
+    "ru": "Основного источника",
+    "uk": "Основного джерела"
+  },
+  "{primary}, then the next provider by priority when it has none.": {
+    "ru": "{primary}, а если там нет — следующий источник по приоритету.",
+    "uk": "{primary}, а якщо там немає — наступне джерело за пріоритетом."
+  },
+  "The primary provider": {
+    "ru": "Основной источник",
+    "uk": "Основне джерело"
+  },
+  "Don't show scores on cards": {
+    "ru": "Не показывать оценки на карточках",
+    "uk": "Не показувати оцінки на картках"
+  },
+  "Scores are fetched with each title's info from every linked provider that has one.": {
+    "ru": "Оценки загружаются вместе с данными тайтла от каждого привязанного источника, у которого они есть.",
+    "uk": "Оцінки завантажуються разом із даними тайтлу від кожного прив'язаного джерела, яке їх має."
+  },
+  "Score shown in the library": {
+    "ru": "Оценка в библиотеке",
+    "uk": "Оцінка в бібліотеці"
+  },
+  "Write the score to ComicInfo.xml": {
+    "ru": "Записывать оценку в ComicInfo.xml",
+    "uk": "Записувати оцінку в ComicInfo.xml"
+  },
+  "As CommunityRating (0–5), so Komga, Kavita and reading apps can show and sort by it. Files written from now on get it.": {
+    "ru": "Как CommunityRating (0–5), чтобы Komga, Kavita и читалки могли показывать её и сортировать по ней. Попадает в файлы, записанные с этого момента.",
+    "uk": "Як CommunityRating (0–5), щоб Komga, Kavita і читалки могли показувати її та сортувати за нею. Потрапляє у файли, записані відтепер."
   }
 }

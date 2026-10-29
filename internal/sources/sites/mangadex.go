@@ -3,6 +3,7 @@ package sites
 import (
 	"context"
 	"fmt"
+	"math"
 	"net/url"
 	"sort"
 	"strconv"
@@ -274,7 +275,33 @@ func (m *mangadex) Details(ctx context.Context, ref sourcekit.Ref) (sourcekit.De
 			d.Genres = append(d.Genres, name)
 		}
 	}
+	d.Rating = m.rating(ctx, id)
 	return d, nil
+}
+
+// rating is the title's score from MangaDex's statistics; a failure only
+// leaves it out.
+func (m *mangadex) rating(ctx context.Context, id string) *sourcekit.Rating {
+	var out struct {
+		Statistics map[string]struct {
+			Rating struct {
+				Bayesian     float64        `json:"bayesian"`
+				Distribution map[string]int `json:"distribution"`
+			} `json:"rating"`
+		} `json:"statistics"`
+	}
+	if err := m.c.JSON(ctx, sourcekit.Request{URL: m.api + "/statistics/manga/" + id}, &out); err != nil {
+		return nil
+	}
+	st := out.Statistics[id].Rating
+	if st.Bayesian <= 0 {
+		return nil
+	}
+	votes := 0
+	for _, n := range st.Distribution {
+		votes += n
+	}
+	return &sourcekit.Rating{Score: math.Round(st.Bayesian*100) / 100, Max: 10, Votes: votes}
 }
 
 func mangadexStatus(s string) string {

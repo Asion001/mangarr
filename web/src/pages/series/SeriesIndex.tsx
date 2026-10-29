@@ -21,6 +21,7 @@ import { SetupChecklist } from "./SetupChecklist";
 import { useAccount } from "../../lib/account";
 import { useToast } from "../../lib/toast";
 import { RequestSearch } from "../requests/Requests";
+import { ScoreBadge } from "./Ratings";
 import { ColumnPicker, LibraryTable, progressOf, sortLabel, sortOrder, sorts, useLibraryColumns, type Order, type Sort } from "./LibraryTable";
 import { readingListName, readingStatusName, readingStatuses, useReadingLists, type ReadingStatus } from "../../lib/readingLists";
 import { useQuery } from "@tanstack/react-query";
@@ -513,6 +514,7 @@ export function SeriesIndex() {
                       <Badge tone="warn">{s.stats.missingCount}{" " + t("missing")}</Badge>
                     </div>
                   )}
+                  {s.score != null && <ScoreBadge score={s.score} className="absolute bottom-1.5 left-1.5 rounded bg-black/80 px-1.5 py-0.5 text-xs text-white" />}
                 </div>
                 <Progress value={p.pct} tone={p.tone} />
                 {s.stats.readCount > 0 && <ReadBar s={s} />}

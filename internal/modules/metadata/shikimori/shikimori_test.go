@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/modules"
 	"github.com/Asion001/mangarr/internal/modules/metadata"
 )
@@ -42,7 +43,7 @@ func TestSearchLanguageReturnsRussianTitles(t *testing.T) {
 func TestGetMapsDetailedMetadata(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"id":23390,"name":"Shingeki no Kyojin","russian":"Атака титанов","english":["Attack on Titan"],"japanese":["進撃の巨人"],"synonyms":["Вторжение титанов"],"image":{"original":"/cover.jpg"},"url":"/mangas/23390","kind":"manga","status":"released","chapters":141,"aired_on":"2009-09-09","description":"Описание","myanimelist_id":23390,"genres":[{"name":"Action","russian":"Экшен"}],"publishers":[{"name":"Kodansha"}]}`))
+		_, _ = w.Write([]byte(`{"id":23390,"name":"Shingeki no Kyojin","russian":"Атака титанов","english":["Attack on Titan"],"japanese":["進撃の巨人"],"synonyms":["Вторжение титанов"],"image":{"original":"/cover.jpg"},"url":"/mangas/23390","kind":"manga","status":"released","chapters":141,"aired_on":"2009-09-09","description":"Описание","myanimelist_id":23390,"genres":[{"name":"Action","russian":"Экшен"}],"publishers":[{"name":"Kodansha"}],"score":"8.56","rates_scores_stats":[{"name":10,"value":900},{"name":9,"value":100}]}`))
 	}))
 	defer server.Close()
 
@@ -57,6 +58,9 @@ func TestGetMapsDetailedMetadata(t *testing.T) {
 	}
 	if got.Title != "Attack on Titan" || got.Description != "Описание" || got.Publisher != "Kodansha" || got.Genres[0] != "Action" || got.TotalChapters != 141 || got.Status != "completed" {
 		t.Fatalf("unexpected metadata: %+v", got)
+	}
+	if want := (&model.Rating{Score: 8.56, Max: 10, Votes: 1000}); !reflect.DeepEqual(got.Rating, want) {
+		t.Errorf("rating %+v", got.Rating)
 	}
 	if len(got.AltTitles) != 4 {
 		t.Fatalf("expected all localized aliases, got %#v", got.AltTitles)

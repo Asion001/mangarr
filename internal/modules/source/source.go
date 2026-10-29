@@ -10,6 +10,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/modules"
 )
 
@@ -65,6 +66,8 @@ type MangaDetails struct {
 	Genres      []string `json:"genres,omitempty"`
 	Status      string   `json:"status"`
 	WebURL      string   `json:"webUrl,omitempty"`
+	// Rating is the site's community score, nil when it shows none.
+	Rating *model.Rating `json:"rating,omitempty"`
 }
 
 type Chapter struct {

@@ -186,12 +186,27 @@ type Duplicates struct {
 
 func DefaultDuplicates() Duplicates { return Duplicates{AutoGroup: true} }
 
-// Metadata controls how titles are matched to metadata providers.
+// Metadata controls how titles are matched to metadata providers, and
+// which of their scores the library shows.
 type Metadata struct {
 	MapToPrimary bool `json:"mapToPrimary" desc:"Look a title found at a lower metadata provider up at the primary one (the first by priority) too, so its info comes from the primary one first."`
+	// LibraryScore is the score on library cards: the providers' average,
+	// the primary provider's (then the next by priority), or none.
+	LibraryScore string `json:"libraryScore" enum:"average,primary,off" desc:"Score shown in the library: the average of the providers, the primary provider's, or none."`
+	// ComicInfoScore writes the score to ComicInfo.xml as CommunityRating.
+	ComicInfoScore bool `json:"comicInfoScore" desc:"Write the score to ComicInfo.xml as CommunityRating (0–5), for Komga, Kavita and reading apps."`
 }
 
-func DefaultMetadata() Metadata { return Metadata{MapToPrimary: true} }
+// Library scores.
+const (
+	ScoreAverage = "average"
+	ScorePrimary = "primary"
+	ScoreOff     = "off"
+)
+
+func DefaultMetadata() Metadata {
+	return Metadata{MapToPrimary: true, LibraryScore: ScoreAverage, ComicInfoScore: true}
+}
 
 // ReadSync controls progress polling from library servers.
 type ReadSync struct {

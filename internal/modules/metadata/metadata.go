@@ -35,11 +35,13 @@ type SeriesMetadata struct {
 	Adult       bool              `json:"adult,omitempty"`
 	// AgeRating is the provider's age rating, one of the Rating values
 	// (empty when it gives none).
-	AgeRating     string `json:"ageRating,omitempty"`
-	TotalChapters int    `json:"totalChapters,omitempty"`
-	Format        string `json:"format,omitempty"`  // manga, manhwa, manhua, comic, oneshot, novel
-	Country       string `json:"country,omitempty"` // ISO country of origin
-	URL           string `json:"url,omitempty"`
+	AgeRating string `json:"ageRating,omitempty"`
+	// Rating is the provider's community score, nil when it has none.
+	Rating        *model.Rating `json:"rating,omitempty"`
+	TotalChapters int           `json:"totalChapters,omitempty"`
+	Format        string        `json:"format,omitempty"`  // manga, manhwa, manhua, comic, oneshot, novel
+	Country       string        `json:"country,omitempty"` // ISO country of origin
+	URL           string        `json:"url,omitempty"`
 
 	// Adaptations is nil when the provider did not fetch relations.
 	Adaptations []model.Adaptation `json:"adaptations,omitempty"`

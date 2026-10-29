@@ -87,6 +87,9 @@ type manga struct {
 			Large    string `json:"large"`
 		} `json:"posterImage"`
 		ChapterCount int `json:"chapterCount"`
+		// AverageRating is a percentage, as text ("84.49").
+		AverageRating     string            `json:"averageRating"`
+		RatingFrequencies map[string]string `json:"ratingFrequencies"`
 	} `json:"attributes"`
 	Relationships struct {
 		Categories relation `json:"categories"`
@@ -300,6 +303,7 @@ func convert(md manga, inc []included) metadata.SeriesMetadata {
 		ExternalIDs: map[string]string{"kitsu": md.ID},
 	}
 	out.Links = map[string]string{"Kitsu": out.URL}
+	out.Rating = rating(a.AverageRating, a.RatingFrequencies)
 	out.Format, out.Country = format(a.Subtype)
 	out.Titles = titles(md, out.Country)
 	out.Title = firstNonEmpty(out.Titles["en"], a.CanonicalTitle, out.Titles[model.TitleRomanized])
@@ -427,3 +431,17 @@ var _ metadata.ExternalLookup = (*Module)(nil)
 // ageRatings are Kitsu's age ratings in ComicInfo's names.
 var ageRatings = map[string]string{"G": metadata.RatingEveryone, "PG": metadata.RatingTeen,
 	"R": metadata.RatingMature, "R18": metadata.RatingAdult}
+
+// rating is Kitsu's average rating with the number of ratings behind it.
+func rating(average string, frequencies map[string]string) *model.Rating {
+	score, err := strconv.ParseFloat(strings.TrimSpace(average), 64)
+	if err != nil || score <= 0 {
+		return nil
+	}
+	votes := 0
+	for _, n := range frequencies {
+		v, _ := strconv.Atoi(n)
+		votes += v
+	}
+	return &model.Rating{Score: score, Max: 100, Votes: votes}
+}

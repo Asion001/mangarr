@@ -28,6 +28,7 @@ import { capital, Dot, Facts, FollowButton, statusClass } from "./SeriesFacts";
 import { useSeriesActions } from "./useSeriesActions";
 import { ListsButton } from "./ListsButton";
 import { Recommendations } from "./Recommendations";
+import { RatingChip } from "./Ratings";
 
 export function SeriesDetail() {
   const id = Number(useParams().id);
@@ -150,6 +151,7 @@ export function SeriesDetail() {
                 </span>
               )}
               {(md.format || md.year) && <Dot>{[md.format ? label(capital(md.format)) : "", md.year ? String(md.year) : ""].filter(Boolean).join(", ")}</Dot>}
+              <RatingChip series={s} />
               {credits.length > 0 && <Dot>{credits.slice(0, 2).join(", ")}</Dot>}
               {editions.length > 1 || adds || asksLang ? (
                 <Menu

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"slices"
 	"testing"
 	"time"
 
@@ -161,6 +162,24 @@ func TestMatchesSeriesQueryByGenre(t *testing.T) {
 	} {
 		if matchesSeriesQuery(item, query) {
 			t.Fatalf("query should not match: %+v", query)
+		}
+	}
+}
+
+func TestSortSeriesSearchRating(t *testing.T) {
+	low, high := 6.5, 8.6
+	a, b, c := searchSeries(1, "A"), searchSeries(2, "B"), searchSeries(3, "C")
+	b.Score, c.Score = &low, &high
+	for _, order := range []string{"", "asc"} {
+		items := []SeriesResource{a, b, c}
+		sortSeriesSearch(items, "rating", order)
+		want := []string{"C", "B", "A"}
+		if order == "asc" {
+			want = []string{"B", "C", "A"}
+		}
+		// a title without a score comes last either way
+		if got := []string{items[0].Title, items[1].Title, items[2].Title}; !slices.Equal(got, want) {
+			t.Errorf("%q: %v, want %v", order, got, want)
 		}
 	}
 }

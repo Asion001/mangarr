@@ -21,6 +21,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/modules"
 	"github.com/Asion001/mangarr/internal/modules/source"
 	"github.com/Asion001/mangarr/internal/sources/sites"
@@ -188,6 +189,9 @@ func (m *Module) Manga(ctx context.Context, ref source.MangaRef, withChapters bo
 			Title: d.Title, ThumbnailURL: d.CoverURL, ChapterCount: d.Chapters},
 		Author: d.Author, Artist: d.Artist, Description: d.Description, Genres: d.Genres,
 		Status: status(d.Status), WebURL: publicURL(s.Info().BaseURL, d.WebURL),
+	}
+	if r := d.Rating; r != nil {
+		details.Rating = &model.Rating{Score: r.Score, Max: r.Max, Votes: r.Votes}
 	}
 	if details.URL == "" {
 		details.URL = ref.URL

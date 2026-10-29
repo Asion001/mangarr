@@ -27,6 +27,18 @@ func newServer(t *testing.T) *httptest.Server {
 		if r.Header.Get("User-Agent") == "" {
 			t.Error("no User-Agent")
 		}
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/statistics/manga/" + onePiece:
+			_, _ = w.Write([]byte(`{"result":"ok","statistics":{"` + onePiece + `":{"follows":9,"rating":{"average":9.1,"bayesian":9.0712,"distribution":{"1":2,"10":40}}}}}`))
+			return
+		case "/statistics/manga":
+			if got := r.URL.Query()["manga[]"]; !slices.Equal(got, []string{onePiece}) {
+				t.Errorf("statistics for %v", got)
+			}
+			_, _ = w.Write([]byte(`{"result":"ok","statistics":{"` + onePiece + `":{"rating":{"average":9.1,"bayesian":9.0712}}}}`))
+			return
+		}
 		if q := r.URL.Query(); !slices.Contains(q["contentRating[]"], "pornographic") || !slices.Contains(q["includes[]"], "cover_art") {
 			t.Errorf("query %s", r.URL.RawQuery)
 		}
@@ -53,6 +65,9 @@ func TestGet(t *testing.T) {
 	md, err := m.Get(context.Background(), onePiece)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if want := (&model.Rating{Score: 9.07, Max: 10, Votes: 42}); !reflect.DeepEqual(md.Rating, want) {
+		t.Errorf("rating %+v", md.Rating)
 	}
 	if md.Title != "One Piece" || md.Year != 1997 || md.Status != "ongoing" || md.Format != "manga" || md.Country != "JP" {
 		t.Fatalf("got %+v", md)
@@ -100,6 +115,9 @@ func TestSearchLanguage(t *testing.T) {
 	}
 	if len(list) != 1 || list[0].Title != "Ван Піс" {
 		t.Fatalf("got %+v", list)
+	}
+	if list[0].Rating == nil || list[0].Rating.Score != 9.07 {
+		t.Errorf("rating %+v", list[0].Rating)
 	}
 }
 

@@ -254,6 +254,9 @@ func (m *Manager) comicInfo(ctx context.Context, jc *jobCtx, pageCount int, writ
 	if writeVolume {
 		in.Volume = jc.chapter.Volume
 	}
+	if cfg, _ := m.settings.Metadata(ctx); cfg.ComicInfoScore {
+		in.Score, _ = s.Metadata.Score(nil)
+	}
 	if jc.release != nil {
 		in.Scanlator = jc.release.Scanlator
 		if jc.release.UploadDate != nil {

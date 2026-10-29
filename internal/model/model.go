@@ -582,18 +582,20 @@ type SeriesMetadata struct {
 	AltTitles   []string     `json:"altTitles,omitempty"`
 	// Titles are the title's names by language ("en", "ru"), plus
 	// TitleRomanized and TitleNative, as the metadata providers know them.
-	Titles        map[string]string `json:"titles,omitempty"`
-	Description   string            `json:"description,omitempty"`
-	Year          int               `json:"year,omitempty"`
-	Authors       []string          `json:"authors,omitempty"`
-	Artists       []string          `json:"artists,omitempty"`
-	Genres        []string          `json:"genres,omitempty"`
-	Tags          []string          `json:"tags,omitempty"`
-	Publisher     string            `json:"publisher,omitempty"`
-	CoverURL      string            `json:"coverUrl,omitempty"`
-	Links         map[string]string `json:"links,omitempty"`       // label -> url
-	ExternalIDs   map[string]string `json:"externalIds,omitempty"` // "anilist" -> "30013"
-	AgeRating     string            `json:"ageRating,omitempty"`
+	Titles      map[string]string `json:"titles,omitempty"`
+	Description string            `json:"description,omitempty"`
+	Year        int               `json:"year,omitempty"`
+	Authors     []string          `json:"authors,omitempty"`
+	Artists     []string          `json:"artists,omitempty"`
+	Genres      []string          `json:"genres,omitempty"`
+	Tags        []string          `json:"tags,omitempty"`
+	Publisher   string            `json:"publisher,omitempty"`
+	CoverURL    string            `json:"coverUrl,omitempty"`
+	Links       map[string]string `json:"links,omitempty"`       // label -> url
+	ExternalIDs map[string]string `json:"externalIds,omitempty"` // "anilist" -> "30013"
+	AgeRating   string            `json:"ageRating,omitempty"`
+	// Ratings are the community scores of the title, by provider ("anilist").
+	Ratings       map[string]Rating `json:"ratings,omitempty"`
 	Format        string            `json:"format,omitempty"` // manga | manhwa | manhua | comic | oneshot
 	TotalChapters int               `json:"totalChapters,omitempty"`
 	// Provenance maps a field name to the module that supplied it ("anilist", "source", "user").
@@ -649,7 +651,59 @@ type SeriesSource struct {
 	// link offers, and the chapter files that were downloaded from it.
 	Chapters *int `bun:"-" json:"chapters,omitempty"`
 	Files    *int `bun:"-" json:"files,omitempty"`
+	// Rating is the site's community score for the title, when it shows one.
+	Rating *Rating `bun:"rating,type:jsonb" json:"rating,omitempty"`
 }
+
+// Rating is a site's community score for a title, in the site's own scale.
+type Rating struct {
+	Score float64 `json:"score"`
+	// Max is the top of the scale: 10, or 100 for a percentage.
+	Max float64 `json:"max"`
+	// Votes is how many people rated it, when the site says.
+	Votes int `json:"votes,omitempty"`
+}
+
+// MinScoreVotes is how many people must have rated a title at a provider
+// for that provider's score to count in the title's average.
+const MinScoreVotes = 20
+
+// Score is the title's one score out of 10. With order (providers, the
+// first preferred) it is the first of those that has a rating; without, the
+// average of every provider's, leaving out those rated by too few people.
+// ok is false when no score fits.
+func (m SeriesMetadata) Score(order []string) (score float64, ok bool) {
+	if len(order) > 0 {
+		for _, p := range order {
+			if r, found := m.Ratings[p]; found && r.Valid() {
+				return r.OutOf10(), true
+			}
+		}
+		return 0, false
+	}
+	sum, n := 0.0, 0
+	for _, r := range m.Ratings {
+		if r.Valid() && (r.Votes == 0 || r.Votes >= MinScoreVotes) {
+			sum += r.OutOf10()
+			n++
+		}
+	}
+	if n == 0 {
+		return 0, false
+	}
+	return sum / float64(n), true
+}
+
+// OutOf10 is the score on a 0–10 scale.
+func (r Rating) OutOf10() float64 {
+	if r.Max <= 0 {
+		return 0
+	}
+	return r.Score * 10 / r.Max
+}
+
+// Valid reports whether the rating has a score within its scale.
+func (r *Rating) Valid() bool { return r != nil && r.Max > 0 && r.Score > 0 && r.Score <= r.Max }
 
 // ---- Chapters ---------------------------------------------------------------
 

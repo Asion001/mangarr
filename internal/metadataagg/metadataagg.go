@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"reflect"
 	"regexp"
 	"slices"
@@ -290,6 +291,23 @@ type Resolved struct {
 	// Missing are providers of known refs that could not be reached: what
 	// they supplied before stays, rather than going to a lower provider.
 	Missing []string
+	// Ratings are the providers' community scores, by provider.
+	Ratings map[string]model.Rating
+}
+
+// ratings are the community scores of parts, by provider; the source's
+// own score is kept on its link instead.
+func ratings(parts []metadata.SeriesMetadata) map[string]model.Rating {
+	out := map[string]model.Rating{}
+	for _, p := range parts {
+		if p.Provider == "source" || !p.Rating.Valid() {
+			continue
+		}
+		if _, ok := out[p.Provider]; !ok {
+			out[p.Provider] = *p.Rating
+		}
+	}
+	return out
 }
 
 // Resolve fetches the primary series and enriches it from the other modules.
@@ -357,7 +375,7 @@ func (a *Aggregator) ResolveLanguage(ctx context.Context, primary Ref, fallback 
 		merged.AltTitles = append(merged.AltTitles, merged.Title)
 		merged.Title, prov["title"] = first.Title, first.Provider
 	}
-	return &Resolved{Metadata: merged, Provenance: prov, Refs: refs}, nil
+	return &Resolved{Metadata: merged, Provenance: prov, Refs: refs, Ratings: ratings(parts)}, nil
 }
 
 func (a *Aggregator) mapToPrimary(ctx context.Context) bool {
@@ -520,7 +538,7 @@ func (a *Aggregator) ResolveRefs(ctx context.Context, refs []Ref, fallback *sour
 		parts = append(parts, FromSource(fallback))
 	}
 	merged, prov := Merge(parts)
-	return &Resolved{Metadata: merged, Provenance: prov, Refs: got, Missing: missing}, nil
+	return &Resolved{Metadata: merged, Provenance: prov, Refs: got, Missing: missing, Ratings: ratings(parts)}, nil
 }
 
 func (a *Aggregator) enrichFrom(ctx context.Context, m modules.Typed[metadata.Module], primary metadata.SeriesMetadata) *metadata.SeriesMetadata {
@@ -737,6 +755,9 @@ func Apply(s *model.Series, r *Resolved) bool {
 	if rating := ageRating(md); rating != "" && !cur.Locked("ageRating") && cur.AgeRating != rating {
 		cur.AgeRating, changed = rating, true
 	}
+	if applyRatings(cur, r) {
+		changed = true
+	}
 	// A fetched empty list clears removed relations; an unavailable provider
 	// leaves the last successful result intact.
 	if md.Adaptations != nil || cur.ExternalIDs["anilist"] == "" {
@@ -789,6 +810,28 @@ func Apply(s *model.Series, r *Resolved) bool {
 		}
 	}
 	return changed
+}
+
+// applyRatings replaces the title's scores with the fetched ones, keeping
+// those of providers that could not be reached.
+func applyRatings(cur *model.SeriesMetadata, r *Resolved) bool {
+	next := map[string]model.Rating{}
+	for k, v := range cur.Ratings {
+		if slices.Contains(r.Missing, k) {
+			next[k] = v
+		}
+	}
+	for k, v := range r.Ratings {
+		next[k] = v
+	}
+	if len(next) == 0 {
+		next = nil
+	}
+	if maps.Equal(cur.Ratings, next) {
+		return false
+	}
+	cur.Ratings = next
+	return true
 }
 
 // ageRating is the merged rating, adult when any provider says so.

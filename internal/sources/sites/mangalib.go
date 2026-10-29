@@ -202,7 +202,7 @@ func (m *mangalib) Details(ctx context.Context, ref sourcekit.Ref) (sourcekit.De
 		return sourcekit.Details{}, fmt.Errorf("%q is not a manga url", ref.URL)
 	}
 	q := url.Values{}
-	for _, f := range []string{"eng_name", "otherNames", "summary", "genres", "tags", "authors", "artists", "status_id", "manga_status_id"} {
+	for _, f := range []string{"eng_name", "otherNames", "summary", "genres", "tags", "authors", "artists", "status_id", "manga_status_id", "rate_avg", "rate"} {
 		q.Add("fields[]", f)
 	}
 	var out struct {
@@ -218,6 +218,10 @@ func (m *mangalib) Details(ctx context.Context, ref sourcekit.Ref) (sourcekit.De
 			Artists []struct {
 				Name string `json:"name"`
 			} `json:"artists"`
+			Rating struct {
+				Average string `json:"average"` // out of 10, as text ("9.42")
+				Votes   int    `json:"votes"`
+			} `json:"rating"`
 		} `json:"data"`
 	}
 	if err := m.c.JSON(ctx, sourcekit.Request{URL: m.api + "/api/manga/" + slug, Query: q, Headers: m.headers()}, &out); err != nil {
@@ -239,6 +243,9 @@ func (m *mangalib) Details(ctx context.Context, ref sourcekit.Ref) (sourcekit.De
 		artists = append(artists, a.Name)
 	}
 	d.Author, d.Artist = strings.Join(authors, ", "), strings.Join(artists, ", ")
+	if score, err := strconv.ParseFloat(out.Data.Rating.Average, 64); err == nil && score > 0 {
+		d.Rating = &sourcekit.Rating{Score: score, Max: 10, Votes: out.Data.Rating.Votes}
+	}
 	return d, nil
 }
 

@@ -24,7 +24,9 @@
    "posterImage": {
     "original": "https://media.kitsu.app/manga/38/poster_image/85c98b3ebfea8a1cfe8c8f837b6b5fc8.jpg"
    },
-   "chapterCount": null
+   "chapterCount": null,
+   "averageRating": "82.31",
+   "ratingFrequencies": {"2": "10", "20": "290"}
   },
   "relationships": {
    "categories": {

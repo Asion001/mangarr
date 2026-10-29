@@ -5982,6 +5982,7 @@ export interface components {
             moduleName: string;
             provider: string;
             publisher?: string;
+            rating?: components["schemas"]["Rating"];
             request?: components["schemas"]["LookupRequest"];
             status?: string;
             tags?: string[];
@@ -6096,6 +6097,9 @@ export interface components {
             settings: components["schemas"]["MessengerSettings"];
         };
         Metadata: {
+            comicInfoScore: boolean;
+            /** @enum {string} */
+            libraryScore: "average" | "primary" | "off";
             mapToPrimary: boolean;
         };
         MetadataCover: {
@@ -6135,6 +6139,7 @@ export interface components {
             moduleName: string;
             provider: string;
             publisher?: string;
+            rating?: components["schemas"]["Rating"];
             status?: string;
             tags?: string[];
             title: string;
@@ -6793,6 +6798,14 @@ export interface components {
             results: number;
             sourceName: string;
         };
+        Rating: {
+            /** Format: double */
+            max: number;
+            /** Format: double */
+            score: number;
+            /** Format: int64 */
+            votes?: number;
+        };
         "Read-markRequest": {
             read: boolean;
             /** @enum {string} */
@@ -7088,6 +7101,7 @@ export interface components {
             moduleName: string;
             provider: string;
             publisher?: string;
+            rating?: components["schemas"]["Rating"];
             relation?: string;
             request?: components["schemas"]["LookupRequest"];
             seriesCoverUrl?: string;
@@ -7562,6 +7576,9 @@ export interface components {
                 [key: string]: string;
             };
             publisher?: string;
+            ratings?: {
+                [key: string]: components["schemas"]["Rating"];
+            };
             tags?: string[];
             titles?: {
                 [key: string]: string;
@@ -7619,6 +7636,8 @@ export interface components {
             requestedBy?: components["schemas"]["SeriesRequester"][];
             /** Format: int64 */
             rootFolderId: number;
+            /** Format: double */
+            score?: number;
             sortTitle: string;
             /** Format: int64 */
             sourceCount?: number;
@@ -7683,6 +7702,7 @@ export interface components {
             nextCheckAt: string;
             /** Format: int64 */
             priority: number;
+            rating?: components["schemas"]["Rating"];
             /** Format: int64 */
             seriesId: number;
             sourceId: string;
@@ -7820,6 +7840,7 @@ export interface components {
             description?: string;
             engineRef?: string;
             genres?: string[];
+            rating?: components["schemas"]["Rating"];
             sourceId: string;
             status: string;
             thumbnailUrl?: string;
@@ -14194,7 +14215,7 @@ export interface operations {
             query?: {
                 q?: string;
                 filter?: "all" | "following" | "monitored" | "missing" | "ongoing" | "completed" | "unread" | "reading";
-                sort?: "title" | "added" | "latest" | "missing" | "size" | "read" | "progress" | "chapters" | "year" | "status" | "requested";
+                sort?: "title" | "added" | "latest" | "missing" | "size" | "read" | "progress" | "chapters" | "year" | "status" | "requested" | "rating";
                 /** @description Sort direction; each sort has its own default */
                 order?: "asc" | "desc";
                 monitored?: "yes" | "no";

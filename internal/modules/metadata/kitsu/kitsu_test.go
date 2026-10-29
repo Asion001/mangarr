@@ -55,6 +55,9 @@ func TestGet(t *testing.T) {
 	if md.Titles[model.TitleNative] != "ONE PIECE" || md.Titles[model.TitleRomanized] != "One Piece" || md.Titles["en"] != "One Piece" {
 		t.Errorf("titles %v", md.Titles)
 	}
+	if want := (&model.Rating{Score: 82.31, Max: 100, Votes: 300}); !reflect.DeepEqual(md.Rating, want) {
+		t.Errorf("rating %+v", md.Rating)
+	}
 	wantIDs := map[string]string{"kitsu": "38", "mal": "13", "anilist": "30013", "mangaupdates": "55099564912"}
 	if !reflect.DeepEqual(md.ExternalIDs, wantIDs) {
 		t.Errorf("ids %v", md.ExternalIDs)

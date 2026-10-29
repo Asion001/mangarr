@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -87,7 +88,7 @@ const senkuroSearchQuery = `query searchTachiyomiManga($query: String, $orderBy:
 const senkuroDetailsQuery = `query fetchTachiyomiManga($mangaId: ID!) {
   mangaTachiyomiInfo(mangaId: $mangaId) {
     id slug originalName { lang content } titles { lang content } alternativeNames { lang content }
-    localizations { lang description } type rating status formats translationStatus
+    localizations { lang description } type rating score status formats translationStatus
     labels { slug titles { lang content } } cover { original { url } }
     mainStaff { roles person { name } }
   }
@@ -257,6 +258,8 @@ func (s *senkuro) Details(ctx context.Context, ref sourcekit.Ref) (sourcekit.Det
 				Description string `json:"description"`
 			} `json:"localizations"`
 			Status string `json:"status"`
+			// Score is the site's users' score out of 10.
+			Score  float64 `json:"score"`
 			Labels []struct {
 				Titles []senkuroText `json:"titles"`
 			} `json:"labels"`
@@ -277,6 +280,9 @@ func (s *senkuro) Details(ctx context.Context, ref sourcekit.Ref) (sourcekit.Det
 	i := out.Info
 	d := sourcekit.Details{Manga: s.manga(i.senkuroManga), Status: senkuroStatus(i.Status),
 		WebURL: s.site + "/manga/" + i.Slug}
+	if i.Score > 0 {
+		d.Rating = &sourcekit.Rating{Score: math.Round(i.Score*100) / 100, Max: 10}
+	}
 	for _, l := range i.Localizations {
 		if strings.EqualFold(l.Lang, s.title) && l.Description != "" {
 			d.Description = l.Description

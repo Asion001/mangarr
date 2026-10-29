@@ -5723,6 +5723,9 @@
           "publisher": {
             "type": "string"
           },
+          "rating": {
+            "$ref": "#/components/schemas/Rating"
+          },
           "request": {
             "$ref": "#/components/schemas/LookupRequest"
           },
@@ -6138,12 +6141,25 @@
       "Metadata": {
         "additionalProperties": false,
         "properties": {
+          "comicInfoScore": {
+            "type": "boolean"
+          },
+          "libraryScore": {
+            "enum": [
+              "average",
+              "primary",
+              "off"
+            ],
+            "type": "string"
+          },
           "mapToPrimary": {
             "type": "boolean"
           }
         },
         "required": [
-          "mapToPrimary"
+          "mapToPrimary",
+          "libraryScore",
+          "comicInfoScore"
         ],
         "type": "object"
       },
@@ -6273,6 +6289,9 @@
           },
           "publisher": {
             "type": "string"
+          },
+          "rating": {
+            "$ref": "#/components/schemas/Rating"
           },
           "status": {
             "type": "string"
@@ -8433,6 +8452,28 @@
         ],
         "type": "object"
       },
+      "Rating": {
+        "additionalProperties": false,
+        "properties": {
+          "max": {
+            "format": "double",
+            "type": "number"
+          },
+          "score": {
+            "format": "double",
+            "type": "number"
+          },
+          "votes": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "score",
+          "max"
+        ],
+        "type": "object"
+      },
       "Read-markRequest": {
         "additionalProperties": false,
         "properties": {
@@ -9424,6 +9465,9 @@
           },
           "publisher": {
             "type": "string"
+          },
+          "rating": {
+            "$ref": "#/components/schemas/Rating"
           },
           "relation": {
             "type": "string"
@@ -11041,6 +11085,12 @@
           "publisher": {
             "type": "string"
           },
+          "ratings": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Rating"
+            },
+            "type": "object"
+          },
           "tags": {
             "items": {
               "type": "string"
@@ -11230,6 +11280,10 @@
           "rootFolderId": {
             "format": "int64",
             "type": "integer"
+          },
+          "score": {
+            "format": "double",
+            "type": "number"
           },
           "sortTitle": {
             "type": "string"
@@ -11434,6 +11488,9 @@
           "priority": {
             "format": "int64",
             "type": "integer"
+          },
+          "rating": {
+            "$ref": "#/components/schemas/Rating"
           },
           "seriesId": {
             "format": "int64",
@@ -11896,6 +11953,9 @@
               "type": "string"
             },
             "type": "array"
+          },
+          "rating": {
+            "$ref": "#/components/schemas/Rating"
           },
           "sourceId": {
             "type": "string"
@@ -22508,7 +22568,8 @@
                 "chapters",
                 "year",
                 "status",
-                "requested"
+                "requested",
+                "rating"
               ],
               "type": "string"
             }

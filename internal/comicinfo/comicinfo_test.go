@@ -17,7 +17,7 @@ func sample() Input {
 		Summary: "Pirates & <treasure>", Authors: []string{"Oda Eiichiro", "oda eiichiro"}, Artists: []string{"Oda Eiichiro"},
 		Scanlator: "TCB Scans", Genres: []string{"Action", "Adventure"}, Tags: []string{"Pirates"},
 		WebLinks: []string{"https://mangadex.org/title/x", "https://anilist.co/manga/30013"}, PageCount: 17,
-		Language: "en", ReadingDirection: "rtl", AgeRating: "Teen", ReleaseDate: &d,
+		Language: "en", ReadingDirection: "rtl", AgeRating: "Teen", Score: 8.47, ReleaseDate: &d,
 	}
 }
 
@@ -25,6 +25,9 @@ func TestBuild(t *testing.T) {
 	ci := Build(sample())
 	if ci.Number != "1044.5" || ci.Volume != 104 || ci.Manga != "YesAndRightToLeft" || ci.Writer != "Oda Eiichiro" {
 		t.Fatalf("unexpected %+v", ci)
+	}
+	if ci.CommunityRating != "4.2" {
+		t.Errorf("community rating %q", ci.CommunityRating)
 	}
 	if ci.Year != 2024 || ci.Month != 3 || ci.Day != 5 {
 		t.Fatalf("date %+v", ci)

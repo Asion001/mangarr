@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/modules/metadata"
 )
 
@@ -117,6 +118,16 @@ func TestAdaptationsEmptyAndTitles(t *testing.T) {
 	// no English name: the romaji one, and every name by language
 	if got.Title != "Kumo no Rantan" || !reflect.DeepEqual(got.Titles, map[string]string{"romanized": "Kumo no Rantan", "native": "雲のランタン"}) {
 		t.Fatal(got.Title, got.Titles)
+	}
+	if got.Rating != nil {
+		t.Errorf("no score, rating %+v", got.Rating)
+	}
+	var scored media
+	if err := json.Unmarshal([]byte(`{"averageScore":84,"stats":{"scoreDistribution":[{"amount":30},{"amount":12}]}}`), &scored); err != nil {
+		t.Fatal(err)
+	}
+	if r := m.convert(scored).Rating; !reflect.DeepEqual(r, &model.Rating{Score: 84, Max: 100, Votes: 42}) {
+		t.Errorf("rating %+v", r)
 	}
 	if len(got.Adaptations) != 1 || got.Adaptations[0].Title != "Lantern Romaji" {
 		t.Fatal(got.Adaptations)

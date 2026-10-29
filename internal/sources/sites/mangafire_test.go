@@ -22,7 +22,8 @@ const (
 	mfTitleJSON = `{"data":{"hid":"abc12","slug":"one-piece","title":"One Piece","type":"manga","status":"releasing",
 	  "poster":{"large":"https://s.example/l.jpg"},"synopsisHtml":"<p>Gol D. Roger was known as the <b>Pirate King</b>.</p>",
 	  "authors":[{"title":"Oda Eiichiro"}],"artists":[{"title":"Oda Eiichiro"}],
-	  "genres":[{"title":"Action"},{"title":"Adventure"}],"themes":[{"title":"Pirates"}]}}`
+	  "genres":[{"title":"Action"},{"title":"Adventure"}],"themes":[{"title":"Pirates"}],
+	  "rating":9.4000000000000003,"ratingCount":198}}`
 
 	mfChaptersPage1 = `{"items":[
 	  {"id":9002,"number":1100,"name":"Chapter 1100: Thank You, Bonney","createdAt":1783633137,"type":"official"},
@@ -129,6 +130,9 @@ func TestMangaFire(t *testing.T) {
 	if err != nil || d.Title != "One Piece" || d.Author != "Oda Eiichiro" || d.Status != sourcekit.StatusOngoing ||
 		d.Description != "Gol D. Roger was known as the Pirate King." || len(d.Genres) != 4 || d.Genres[0] != "Manga" {
 		t.Fatalf("details: %v %+v", err, d)
+	}
+	if d.Rating == nil || *d.Rating != (sourcekit.Rating{Score: 9.4, Max: 10, Votes: 198}) {
+		t.Errorf("rating %+v", d.Rating)
 	}
 	if _, err := f.Details(ctx, sourcekit.Ref{URL: "/title/gone1-x"}); !errors.Is(err, sourcekit.ErrNotFound) {
 		t.Fatalf("a missing title: %v", err)

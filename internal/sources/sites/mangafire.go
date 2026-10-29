@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"math"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -329,6 +330,9 @@ func (f *mangafire) Details(ctx context.Context, ref sourcekit.Ref) (sourcekit.D
 			Artists      []entity `json:"artists"`
 			Genres       []entity `json:"genres"`
 			Themes       []entity `json:"themes"`
+			// Rating is the users' score out of 10.
+			Rating      float64 `json:"rating"`
+			RatingCount int     `json:"ratingCount"`
 		} `json:"data"`
 	}
 	if err := f.get(ctx, "/api/titles/"+hid, nil, &out); err != nil {
@@ -358,6 +362,9 @@ func (f *mangafire) Details(ctx context.Context, ref sourcekit.Ref) (sourcekit.D
 	}
 	d.Genres = append(d.Genres, names(x.Genres)...)
 	d.Genres = append(d.Genres, names(x.Themes)...)
+	if x.Rating > 0 {
+		d.Rating = &sourcekit.Rating{Score: math.Round(x.Rating*100) / 100, Max: 10, Votes: x.RatingCount}
+	}
 	return d, nil
 }
 

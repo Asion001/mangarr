@@ -148,3 +148,26 @@ func TestAgeRatingMergeAndApply(t *testing.T) {
 		t.Fatalf("a picked rating changed to %q", s.Metadata.AgeRating)
 	}
 }
+
+func TestApplyRatings(t *testing.T) {
+	s := &model.Series{Metadata: model.SeriesMetadata{Ratings: map[string]model.Rating{
+		"anilist": {Score: 80, Max: 100}, "kitsu": {Score: 70, Max: 100}, "mangadex": {Score: 8, Max: 10},
+	}}}
+	parts := []metadata.SeriesMetadata{
+		{Provider: "anilist", ID: "1", Rating: &model.Rating{Score: 84, Max: 100, Votes: 9}},
+		{Provider: "mangaupdates", ID: "2"},
+		{Provider: "source", Rating: &model.Rating{Score: 9, Max: 10}},
+	}
+	// kitsu could not be reached: its score stays; mangadex's link is gone
+	r := &Resolved{Ratings: ratings(parts), Missing: []string{"kitsu"}}
+	if !Apply(s, r) {
+		t.Fatal("no change")
+	}
+	want := map[string]model.Rating{"anilist": {Score: 84, Max: 100, Votes: 9}, "kitsu": {Score: 70, Max: 100}}
+	if !reflect.DeepEqual(s.Metadata.Ratings, want) {
+		t.Fatalf("ratings %v", s.Metadata.Ratings)
+	}
+	if Apply(s, r) {
+		t.Error("changed again")
+	}
+}

@@ -14,6 +14,7 @@ import { useToast } from "../../lib/toast";
 import { useQueryParam } from "../../lib/urlState";
 import { isNovel, MetadataSearch } from "../series/MetadataSearch";
 import { ReadButton } from "../series/Preview";
+import { RatingPill } from "../series/Ratings";
 
 type Request = S["Request"];
 type Status = Request["status"];
@@ -159,7 +160,7 @@ export function AskModal({ result, onClose, onDone }: { result: LookupResult; on
         <Cover src={result.coverUrl} alt={result.title} className="aspect-[2/3] w-20 shrink-0" />
         <div className="min-w-0 text-sm">
           <div className="font-medium">{result.title}</div>
-          <div className="text-muted">{[result.year, result.format].filter(Boolean).join(" · ")}</div>
+          <div className="flex flex-wrap items-center gap-1.5 text-muted">{[result.year, result.format].filter(Boolean).join(" · ")}<RatingPill rating={result.rating} /></div>
           {result.request && <p className="mt-2 text-muted">{t("Someone asked for this already; you'll be added to their request.")}</p>}
         </div>
       </div>

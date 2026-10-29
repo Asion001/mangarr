@@ -113,6 +113,7 @@ export function ModulesPage({ kind }: { kind: string }) {
       />
       {kind === "notify" && <MessengerBots />}
       {kind === "metadata" && <MapToPrimary primary={primary?.name} />}
+      {kind === "metadata" && <Ratings primary={primary?.name} />}
       {kind === "notify" && (
         <div className="mb-3">
           <h2 className="text-base font-semibold">{tr("Broadcast targets")}</h2>
@@ -199,6 +200,46 @@ function MapToPrimary({ primary }: { primary?: string }) {
       <p className="mt-1 text-sm text-muted">
         {tr("When a title is only found at a lower provider, look it up at {primary} by the ids that provider gives and then by its names, and link that too. The title's info then comes from {primary} first.", { primary: primary ?? tr("the primary provider") })}
       </p>
+    </div>
+  );
+}
+
+/** Ratings chooses which score the library shows, and whether ComicInfo gets it. */
+function Ratings({ primary }: { primary?: string }) {
+  const cfg = useSettingsDoc<S["Metadata"]>("metadata");
+  if (!cfg.value) return null;
+  const v = cfg.value;
+  const choices: { value: S["Metadata"]["libraryScore"]; label: string; hint?: string }[] = [
+    { value: "average", label: tr("Average of the providers"), hint: tr("Each score turned into 0–10, then averaged. Providers rated by fewer than 20 people are left out.") },
+    { value: "primary", label: tr("The primary provider's"), hint: tr("{primary}, then the next provider by priority when it has none.", { primary: primary ?? tr("The primary provider") }) },
+    { value: "off", label: tr("Don't show scores on cards") },
+  ];
+  const locked = !!cfg.lock("libraryScore");
+  return (
+    <div className="mb-4 rounded-lg border border-border bg-panel p-4">
+      <h3 className="font-medium">{tr("Ratings")}</h3>
+      <p className="mt-0.5 text-sm text-muted">{tr("Scores are fetched with each title's info from every linked provider that has one.")}</p>
+      <fieldset className="mt-3 flex flex-col gap-2" disabled={locked}>
+        <legend className="mb-1 text-sm font-medium">{tr("Score shown in the library")}</legend>
+        {choices.map((c) => (
+          <label key={c.value} className="flex items-start gap-2.5 text-sm">
+            <input type="radio" name="library-score" className="mt-1 accent-accent" checked={v.libraryScore === c.value} onChange={() => void cfg.save({ ...v, libraryScore: c.value })} />
+            <span>
+              {c.label}
+              {c.hint && <span className="block text-xs text-muted">{c.hint}</span>}
+            </span>
+          </label>
+        ))}
+      </fieldset>
+      <div className="mt-3 border-t border-border pt-3">
+        <Switch
+          checked={v.comicInfoScore}
+          disabled={!!cfg.lock("comicInfoScore")}
+          onChange={(on) => void cfg.save({ ...v, comicInfoScore: on })}
+          label={tr("Write the score to ComicInfo.xml")}
+        />
+        <p className="mt-1 text-sm text-muted">{tr("As CommunityRating (0–5), so Komga, Kavita and reading apps can show and sort by it. Files written from now on get it.")}</p>
+      </div>
     </div>
   );
 }

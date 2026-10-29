@@ -25,7 +25,8 @@ const (
 	  "status":{"id":1,"label":"Онгоинг"},
 	  "summary":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Граф Фантомхайв."}]}]},
 	  "genres":[{"name":"Детектив"},{"name":"Фэнтези"}],
-	  "authors":[{"name":"TOBOSO Yana"}],"artists":[{"name":"TOBOSO Yana"}]}}`
+	  "authors":[{"name":"TOBOSO Yana"}],"artists":[{"name":"TOBOSO Yana"}],
+	  "rating":{"average":"9.42","averageFormated":"9.4","votes":93981}}}`
 
 	mlChaptersJSON = `{"data":[
 	  {"id":2290,"volume":"1","number":"1","name":"На рассвете","branches":[
@@ -99,6 +100,9 @@ func TestMangaLib(t *testing.T) {
 	if err != nil || d.Status != sourcekit.StatusOngoing || d.Author != "TOBOSO Yana" || len(d.Genres) != 2 ||
 		d.Description != "Граф Фантомхайв." || d.WebURL != "https://mangalib.example/ru/manga/41--kuroshitsuji" {
 		t.Fatalf("details: %v %+v", err, d)
+	}
+	if d.Rating == nil || *d.Rating != (sourcekit.Rating{Score: 9.42, Max: 10, Votes: 93981}) {
+		t.Errorf("rating %+v", d.Rating)
 	}
 
 	chs, err := m.Chapters(ctx, sourcekit.Ref{URL: d.URL})

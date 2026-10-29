@@ -88,6 +88,12 @@ type manga struct {
 	Status   string   `json:"status"`
 	Chapters int      `json:"chapters"`
 	AiredOn  string   `json:"aired_on"`
+	// Score is out of 10, as text ("8.56").
+	Score string `json:"score"`
+	// RatesScoresStats is how many people gave each score (full records only).
+	RatesScoresStats []struct {
+		Value int `json:"value"`
+	} `json:"rates_scores_stats"`
 
 	Description string `json:"description"`
 	MyAnimeList int    `json:"myanimelist_id"`
@@ -242,6 +248,13 @@ func (m *Module) convert(item manga, requestedLanguage string) metadata.SeriesMe
 		Links:         map[string]string{"Shikimori": pageURL, "MyAnimeList": "https://myanimelist.net/manga/" + strconv.Itoa(malID)},
 		ExternalIDs:   map[string]string{"shikimori": strconv.Itoa(item.ID), "mal": strconv.Itoa(malID)},
 		TotalChapters: item.Chapters, Format: format(item.Kind), Country: country(item.Kind), URL: pageURL,
+	}
+	if score, err := strconv.ParseFloat(strings.TrimSpace(item.Score), 64); err == nil && score > 0 {
+		votes := 0
+		for _, st := range item.RatesScoresStats {
+			votes += st.Value
+		}
+		out.Rating = &model.Rating{Score: score, Max: 10, Votes: votes}
 	}
 	for _, g := range item.Genres {
 		if g.Name == "Hentai" || g.Name == "Erotica" {

@@ -126,6 +126,8 @@ Read wherever the engine runs: in the server, or on a worker with the upscale ro
 | Variable | Type | Default | Description |
 |---|---|---|---|
 | `MANGARR_METADATA_MAP_TO_PRIMARY` | bool | `true` | Look a title found at a lower metadata provider up at the primary one (the first by priority) too, so its info comes from the primary one first. |
+| `MANGARR_METADATA_LIBRARY_SCORE` | string | `average` | Score shown in the library: the average of the providers, the primary provider's, or none. |
+| `MANGARR_METADATA_COMIC_INFO_SCORE` | bool | `true` | Write the score to ComicInfo.xml as CommunityRating (0–5), for Komga, Kavita and reading apps. |
 
 ### readsync
 

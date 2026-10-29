@@ -9,13 +9,14 @@ import { Badge, Button, Progress, Table, Td, Th } from "../../components/ui";
 import { bytes, date, languageName, relative } from "../../lib/format";
 import { genreName } from "../../lib/genres";
 import { useToast } from "../../lib/toast";
+import { outOf10 } from "./Ratings";
 
-export type Sort = "title" | "added" | "latest" | "missing" | "size" | "read" | "progress" | "chapters" | "year" | "status" | "requested";
+export type Sort = "title" | "added" | "latest" | "missing" | "size" | "read" | "progress" | "chapters" | "year" | "status" | "requested" | "rating";
 export type Order = "asc" | "desc";
-export const sorts: readonly Sort[] = ["title", "added", "latest", "missing", "progress", "chapters", "size", "read", "year", "status", "requested"];
+export const sorts: readonly Sort[] = ["title", "added", "latest", "missing", "progress", "chapters", "size", "read", "year", "rating", "status", "requested"];
 
 /** descendingSorts list the biggest or newest first unless flipped (as the server does). */
-const descendingSorts = new Set<Sort>(["added", "latest", "missing", "size", "read", "progress", "chapters", "year", "requested"]);
+const descendingSorts = new Set<Sort>(["added", "latest", "missing", "size", "read", "progress", "chapters", "year", "requested", "rating"]);
 export const sortOrder = (sort: Sort, order: string): Order => (order === "asc" || order === "desc" ? order : descendingSorts.has(sort) ? "desc" : "asc");
 
 export const sortLabels: Record<Sort, string> = {
@@ -30,6 +31,7 @@ export const sortLabels: Record<Sort, string> = {
   year: "Year",
   status: "Status",
   requested: "Requested on",
+  rating: "Rating",
 };
 export const sortLabel = (s: Sort) => t(sortLabels[s] as Parameters<typeof t>[0]);
 
@@ -71,6 +73,7 @@ const columns: Column[] = [
   { id: "languages", label: "Languages" },
   { id: "root", label: "Library folder" },
   { id: "year", label: "Year", sort: "year" },
+  { id: "rating", label: "Rating", sort: "rating" },
   { id: "genres", label: "Genres" },
   { id: "sources", label: "Sources" },
   { id: "following", label: "Following" },
@@ -232,6 +235,8 @@ function cell(id: string, s: Series, edit: boolean, roots: Map<number, string>):
       return <span className="text-muted">{roots.get(s.rootFolderId) ?? "—"}</span>;
     case "year":
       return s.metadata.year || "—";
+    case "rating":
+      return s.score != null ? <b className="font-semibold tabular-nums">{outOf10(s.score)}</b> : <span className="text-muted">—</span>;
     case "genres":
       return <span className="block max-w-[16rem] truncate text-muted" title={(s.metadata.genres ?? []).map(genreName).join(", ")}>{(s.metadata.genres ?? []).map(genreName).join(", ") || "—"}</span>;
     case "sources":

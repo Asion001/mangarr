@@ -435,10 +435,14 @@ func (r *Refresher) syncSource(ctx context.Context, s *model.Series, ss *model.S
 		if det.WebURL != "" {
 			ss.WebURL = det.WebURL
 		}
+		ss.Rating = nil
+		if det.Rating.Valid() {
+			ss.Rating = det.Rating
+		}
 		ss.LastCheckedAt, ss.LastSuccessAt = &now, &now
 		ss.ConsecutiveFailures, ss.BackoffUntil, ss.LastError = 0, nil, ""
 		ss.NextCheckAt = nextCheck
-		_, err := tx.NewUpdate().Model(ss).Column("engine_ref", "title", "web_url", "last_checked_at", "last_success_at",
+		_, err := tx.NewUpdate().Model(ss).Column("engine_ref", "title", "web_url", "rating", "last_checked_at", "last_success_at",
 			"consecutive_failures", "backoff_until", "last_error", "next_check_at").WherePK().Exec(ctx)
 		return err
 	})

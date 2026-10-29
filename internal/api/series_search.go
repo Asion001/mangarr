@@ -45,7 +45,7 @@ type SeriesRequester struct {
 type SeriesSearchQuery struct {
 	Query        string   `query:"q" maxLength:"200"`
 	Filter       string   `query:"filter" enum:"all,following,monitored,missing,ongoing,completed,unread,reading" default:"all"`
-	Sort         string   `query:"sort" enum:"title,added,latest,missing,size,read,progress,chapters,year,status,requested" default:"title"`
+	Sort         string   `query:"sort" enum:"title,added,latest,missing,size,read,progress,chapters,year,status,requested,rating" default:"title"`
 	Order        string   `query:"order,omitempty" enum:"asc,desc" doc:"Sort direction; each sort has its own default"`
 	Monitored    string   `query:"monitored,omitempty" enum:"yes,no"`
 	Status       string   `query:"status,omitempty" enum:"ongoing,completed,hiatus,cancelled"`
@@ -218,7 +218,7 @@ var seriesStatusOrder = map[string]int{"ongoing": 1, "hiatus": 2, "completed": 3
 
 // descendingSorts are the sorts that list the biggest or newest first
 // unless asked otherwise.
-var descendingSorts = map[string]bool{"added": true, "latest": true, "missing": true, "size": true, "read": true, "progress": true, "chapters": true, "year": true, "requested": true}
+var descendingSorts = map[string]bool{"added": true, "latest": true, "missing": true, "size": true, "read": true, "progress": true, "chapters": true, "year": true, "requested": true, "rating": true}
 
 // downloadedShare is the part of the monitored chapters that have a file.
 func downloadedShare(s SeriesStats) float64 {
@@ -250,7 +250,18 @@ func sortSeriesSearch(items []SeriesResource, by, order string) {
 	}
 	slices.SortStableFunc(items, func(a, b SeriesResource) int {
 		var c int
+		// titles without a score come last either way
+		if by == "rating" && (a.Score == nil) != (b.Score == nil) {
+			if a.Score == nil {
+				return 1
+			}
+			return -1
+		}
 		switch by {
+		case "rating":
+			if a.Score != nil && b.Score != nil {
+				c = cmp.Compare(*a.Score, *b.Score)
+			}
 		case "added":
 			c = a.AddedAt.Compare(b.AddedAt)
 		case "latest":

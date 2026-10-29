@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -139,10 +140,54 @@ func (m *Module) SearchLanguage(ctx context.Context, q, language string, limit i
 		return nil, err
 	}
 	res := make([]metadata.SeriesMetadata, 0, len(out.Data))
+	ids := make([]string, 0, len(out.Data))
 	for _, md := range out.Data {
 		res = append(res, convert(md, language))
+		ids = append(ids, md.ID)
+	}
+	scores := m.ratings(ctx, ids)
+	for i := range res {
+		res[i].Rating = scores[res[i].ID]
 	}
 	return res, nil
+}
+
+// ratings are the series' scores from MangaDex's statistics, by id; a
+// failure leaves them out rather than failing the search. Several series
+// at once come without the number of ratings, one alone with it.
+func (m *Module) ratings(ctx context.Context, ids []string) map[string]*model.Rating {
+	if len(ids) == 0 {
+		return nil
+	}
+	type stats struct {
+		Rating struct {
+			Bayesian     float64        `json:"bayesian"`
+			Distribution map[string]int `json:"distribution"`
+		} `json:"rating"`
+	}
+	var out struct {
+		Statistics map[string]stats `json:"statistics"`
+	}
+	path := "/statistics/manga/" + ids[0]
+	if len(ids) > 1 {
+		path = "/statistics/manga?" + url.Values{"manga[]": ids}.Encode()
+	}
+	// a failed statistics call doesn't pause MangaDex: the series came through
+	if m.backoff.Check() != nil || m.fetch(ctx, path, &out) != nil {
+		return nil
+	}
+	res := map[string]*model.Rating{}
+	for id, st := range out.Statistics {
+		if st.Rating.Bayesian <= 0 {
+			continue
+		}
+		votes := 0
+		for _, n := range st.Rating.Distribution {
+			votes += n
+		}
+		res[id] = &model.Rating{Score: math.Round(st.Rating.Bayesian*100) / 100, Max: 10, Votes: votes}
+	}
+	return res
 }
 
 func (m *Module) Get(ctx context.Context, id string) (*metadata.SeriesMetadata, error) {
@@ -163,6 +208,7 @@ func (m *Module) GetLanguage(ctx context.Context, id, language string) (*metadat
 		return nil, err
 	}
 	md := convert(out.Data, language)
+	md.Rating = m.ratings(ctx, []string{md.ID})[md.ID]
 	return &md, nil
 }
 

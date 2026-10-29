@@ -11,6 +11,7 @@ import { genreName } from "../../lib/genres";
 import { t } from "../../lib/i18n/core";
 import { AskModal } from "../requests/Requests";
 import { useOpenPreview } from "./Preview";
+import { RatingPill } from "./Ratings";
 
 type Item = S["RecommendationItem"];
 
@@ -176,7 +177,7 @@ function RelatedRow({ item, onAsk }: { item: Item; onAsk: (i: Item) => void }) {
       <Cover src={coverOf(item)} alt="" className="aspect-[2/3] w-9 shrink-0 rounded-sm" />
       <span className="min-w-0 flex-1">
         <span className="line-clamp-2 text-sm font-medium leading-snug" title={item.title}>{item.title}</span>
-        <span className="block text-xs text-muted">{meta}</span>
+        <span className="flex flex-wrap items-center gap-1.5 text-xs text-muted">{meta}<RatingPill rating={item.rating} /></span>
       </span>
     </>
   );
@@ -204,6 +205,7 @@ function Card({ item, onAsk }: { item: Item; onAsk: (i: Item) => void }) {
       ) : item.request?.mine ? (
         <span className="absolute left-1.5 top-1.5 rounded-full bg-info px-2 py-0.5 text-xs font-semibold text-bg shadow">{t("Requested")}</span>
       ) : null}
+      {item.rating && <RatingPill rating={item.rating} className="absolute bottom-1.5 left-1.5 border-none bg-black/80 text-white" />}
     </>
   );
   const title = <span className="line-clamp-2 text-sm font-medium leading-snug" title={item.title}>{item.title}</span>;

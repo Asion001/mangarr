@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/modules/metadata"
 )
 
@@ -53,6 +54,9 @@ func TestGet(t *testing.T) {
 		if md.ID != "55099564912" || md.Title != "One Piece" || md.Year != 1997 || md.Status != "ongoing" ||
 			md.Format != "manga" || md.Country != "JP" || md.Publisher != "Shueisha" || md.TotalChapters != 1196 {
 			t.Fatalf("got %+v", md)
+		}
+		if want := (&model.Rating{Score: 8.91, Max: 10, Votes: 5120}); !reflect.DeepEqual(md.Rating, want) {
+			t.Errorf("rating %+v", md.Rating)
 		}
 		if !reflect.DeepEqual(md.Authors, []string{"ODA Eiichiro"}) || !reflect.DeepEqual(md.Artists, []string{"ODA Eiichiro"}) {
 			t.Errorf("authors %v artists %v", md.Authors, md.Artists)

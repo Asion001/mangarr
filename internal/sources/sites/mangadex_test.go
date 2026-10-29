@@ -33,6 +33,9 @@ func fakeMangaDex(t *testing.T) *httptest.Server {
 			                 {"id":"a","type":"author","attributes":{"name":"Kentaro Miura"}},
 			                 {"id":"b","type":"artist","attributes":{"name":"Studio Gaga"}}]}}`))
 	})
+	mux.HandleFunc("/statistics/manga/801513ba-a712-498c-8f57-cae55b38cc92", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"statistics":{"801513ba-a712-498c-8f57-cae55b38cc92":{"rating":{"bayesian":9.5651,"distribution":{"9":3,"10":7}}}}}`))
+	})
 	mux.HandleFunc("/manga/801513ba-a712-498c-8f57-cae55b38cc92/feed", func(w http.ResponseWriter, r *http.Request) {
 		if lang := r.URL.Query().Get("translatedLanguage[]"); lang != "en" {
 			t.Errorf("feed asked for %q", lang)
@@ -81,6 +84,9 @@ func TestMangaDex(t *testing.T) {
 	if err != nil || d.Author != "Kentaro Miura" || d.Artist != "Studio Gaga" || d.Status != sourcekit.StatusHiatus ||
 		len(d.Genres) != 1 || d.WebURL == "" {
 		t.Fatalf("details: %v %+v", err, d)
+	}
+	if d.Rating == nil || *d.Rating != (sourcekit.Rating{Score: 9.57, Max: 10, Votes: 10}) {
+		t.Errorf("rating %+v", d.Rating)
 	}
 
 	chs, err := m.Chapters(ctx, sourcekit.Ref{URL: got.URL})

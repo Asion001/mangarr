@@ -24,7 +24,7 @@ const (
 	  "originalName":{"lang":"EN","content":"Berserk"},
 	  "titles":[{"lang":"EN","content":"Berserk"},{"lang":"RU","content":"Берсерк"}],
 	  "localizations":[{"lang":"RU","description":"Его зовут Гатс."}],
-	  "status":"ONGOING","labels":[{"slug":"dark-fantasy","titles":[{"lang":"RU","content":"Тёмное фэнтези"}]}],
+	  "status":"ONGOING","score":9.479999542236328,"labels":[{"slug":"dark-fantasy","titles":[{"lang":"RU","content":"Тёмное фэнтези"}]}],
 	  "cover":{"original":{"url":"https://img.example/berserk.jpeg"}},
 	  "mainStaff":[{"roles":["STORY_AND_ART"],"person":{"name":"Kentarou Miura"}},
 	               {"roles":["ART"],"person":{"name":"Studio Gaga"}}]}}}`
@@ -91,6 +91,9 @@ func TestSenkuro(t *testing.T) {
 	if err != nil || d.Status != sourcekit.StatusOngoing || d.Description != "Его зовут Гатс." ||
 		d.Author != "Kentarou Miura" || d.Artist != "Kentarou Miura, Studio Gaga" || len(d.Genres) != 1 {
 		t.Fatalf("details: %v %+v", err, d)
+	}
+	if d.Rating == nil || *d.Rating != (sourcekit.Rating{Score: 9.48, Max: 10}) {
+		t.Errorf("rating %+v", d.Rating)
 	}
 
 	chs, err := s.Chapters(ctx, sourcekit.Ref{URL: d.URL, ID: d.ID})

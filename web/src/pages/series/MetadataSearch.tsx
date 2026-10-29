@@ -8,6 +8,7 @@ import { api, unwrap, type LookupResult } from "../../api/client";
 import { Cover } from "../../components/Cover";
 import { Badge, Button, ErrorBox, Input, Loading } from "../../components/ui";
 import { useAccount } from "../../lib/account";
+import { RatingPill } from "./Ratings";
 
 /** isNovel: formats no manga source has chapters of. */
 export const isNovel = (format?: string) => /novel/i.test(format ?? "");
@@ -111,6 +112,7 @@ export function MetadataSearch({
                 {r.year ? <Badge>{r.year}</Badge> : null}
                 {r.format && <Badge tone={isNovel(r.format) ? "warn" : "default"} title={isNovel(r.format) ? tr("Manga sources have no chapters of novels") : undefined}>{r.format}</Badge>}
                 {r.status && <Badge tone="info">{r.status}</Badge>}
+                <RatingPill rating={r.rating} />
                 <Badge tone="accent">{r.moduleName}</Badge>
                 {r.also?.map((a) => (
                   <Badge key={a.provider}>{a.provider}</Badge>

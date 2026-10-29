@@ -12,8 +12,8 @@ import (
 )
 
 // The language editions of a title show the same cover and facts (status,
-// year, people, genres, tags, publisher, rating, format, length, adaptations):
-// those of the title's first edition. Only the text is each edition's own:
+// year, people, genres, tags, publisher, age rating, scores, format, length,
+// adaptations): those of the title's first edition. Only the text is each edition's own:
 // its name, description and alternative names. A field the user edited on
 // an edition (a lock) stays that edition's.
 
@@ -55,6 +55,9 @@ func overlayShared(dst, first *model.Series) bool {
 	}
 	if len(f.Adaptations) > 0 {
 		d.Adaptations = slices.Clone(f.Adaptations)
+	}
+	if len(f.Ratings) > 0 {
+		d.Ratings = maps.Clone(f.Ratings)
 	}
 	// the title's names by language fill in those the edition lacks
 	for k, v := range f.Titles {

@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"math"
 	"strconv"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/modules"
 	"github.com/Asion001/mangarr/internal/modules/library"
+	"github.com/Asion001/mangarr/internal/settings"
 	"github.com/Asion001/mangarr/internal/sourcepriority"
 )
 
@@ -81,6 +83,9 @@ type SeriesResource struct {
 	// who manage requests).
 	RequestedBy []SeriesRequester `json:"requestedBy,omitempty"`
 	RequestedAt *time.Time        `json:"requestedAt,omitempty"`
+	// Score is the title's score out of 10 as the library shows it (see
+	// settings.Metadata.LibraryScore); none when it has no ratings.
+	Score *float64 `json:"score,omitempty"`
 }
 
 type EditionSummary struct {
@@ -327,6 +332,7 @@ func (s *Server) seriesResource(ctx context.Context, ser model.Series, stats map
 	r := SeriesResource{Series: ser, Stats: stats[ser.ID],
 		CoverURL: seriesCoverURL(ser)}
 	r.DisplayTitle, _ = displayTitle(ser, uiLanguageFrom(ctx))
+	r.Score = s.libraryScore(ctx, ser.Metadata)
 	r.Adaptations = make([]AdaptationResource, len(ser.Metadata.Adaptations))
 	for i, a := range ser.Metadata.Adaptations {
 		r.Adaptations[i] = AdaptationResource{Adaptation: a, WatchLinks: []WatchLink{}}
@@ -345,6 +351,28 @@ func (s *Server) seriesResource(ctx context.Context, ser model.Series, stats map
 		s.adaptationWatchLinks(ctx, r.Adaptations)
 	}
 	return r
+}
+
+// libraryScore is a title's score as the library shows it, or nil.
+func (s *Server) libraryScore(ctx context.Context, md model.SeriesMetadata) *float64 {
+	if len(md.Ratings) == 0 {
+		return nil
+	}
+	cfg, _ := s.app.Settings.Metadata(ctx)
+	var order []string
+	switch cfg.LibraryScore {
+	case settings.ScoreOff:
+		return nil
+	case settings.ScorePrimary:
+		for _, m := range s.app.Metadata.Modules() {
+			order = append(order, m.Provider)
+		}
+	}
+	if score, ok := md.Score(order); ok {
+		score = math.Round(score*10) / 10
+		return &score
+	}
+	return nil
 }
 
 // seriesCoverURL is a series' cover, relative to the URL base, with the

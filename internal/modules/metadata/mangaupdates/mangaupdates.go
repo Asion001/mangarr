@@ -17,6 +17,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/modules"
 	"github.com/Asion001/mangarr/internal/modules/metadata"
 )
@@ -94,10 +95,12 @@ type series struct {
 		Category string `json:"category"`
 		Votes    int    `json:"votes"`
 	} `json:"categories"`
-	LatestChapter int    `json:"latest_chapter"`
-	Status        string `json:"status"`
-	Completed     bool   `json:"completed"`
-	Authors       []struct {
+	BayesianRating float64 `json:"bayesian_rating"`
+	RatingVotes    int     `json:"rating_votes"`
+	LatestChapter  int     `json:"latest_chapter"`
+	Status         string  `json:"status"`
+	Completed      bool    `json:"completed"`
+	Authors        []struct {
 		Name string `json:"name"`
 		Type string `json:"type"`
 	} `json:"authors"`
@@ -249,6 +252,9 @@ func (m *Module) convert(s series) metadata.SeriesMetadata {
 		ExternalIDs: map[string]string{"mangaupdates": id},
 	}
 	out.Format, out.Country = format(s.Type)
+	if s.BayesianRating > 0 {
+		out.Rating = &model.Rating{Score: s.BayesianRating, Max: 10, Votes: s.RatingVotes}
+	}
 	// search results carry no status, authors or categories
 	if s.Status != "" || s.Completed {
 		out.Status = status(s.Status, s.Completed)

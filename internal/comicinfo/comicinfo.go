@@ -5,6 +5,7 @@ package comicinfo
 import (
 	"encoding/json"
 	"encoding/xml"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -38,6 +39,8 @@ type ComicInfo struct {
 	Manga       string   `xml:"Manga,omitempty"`
 	SeriesGroup string   `xml:"SeriesGroup,omitempty"`
 	AgeRating   string   `xml:"AgeRating,omitempty"`
+	// CommunityRating is out of 5, with one decimal.
+	CommunityRating string `xml:"CommunityRating,omitempty"`
 }
 
 // Input is what the importer knows about a chapter.
@@ -58,10 +61,12 @@ type Input struct {
 	Language         string
 	ReadingDirection string // rtl, ltr, vertical, webtoon
 	AgeRating        string
-	TotalCount       int // set when the series has ended
-	ReleaseDate      *time.Time
-	Special          bool
-	Notes            string
+	// Score is the community score out of 10 (0: none).
+	Score       float64
+	TotalCount  int // set when the series has ended
+	ReleaseDate *time.Time
+	Special     bool
+	Notes       string
 }
 
 // Build maps an Input to ComicInfo.
@@ -85,6 +90,9 @@ func Build(in Input) ComicInfo {
 		PageCount:   in.PageCount,
 		LanguageISO: in.Language,
 		AgeRating:   in.AgeRating,
+	}
+	if in.Score > 0 {
+		ci.CommunityRating = strconv.FormatFloat(math.Round(in.Score*5)/10, 'f', 1, 64)
 	}
 	if v, err := strconv.Atoi(in.Volume); err == nil && v > 0 {
 		ci.Volume = v

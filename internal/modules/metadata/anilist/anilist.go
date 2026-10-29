@@ -72,7 +72,7 @@ type Module struct {
 const searchFields = `id idMal title { romaji english native userPreferred } synonyms status format countryOfOrigin isAdult
 chapters startDate { year } genres tags { name rank isMediaSpoiler } coverImage { extraLarge large }
 siteUrl description(asHtml: false) staff(perPage: 8) { edges { role node { name { full } } } }
-externalLinks { site url type }`
+externalLinks { site url type } averageScore stats { scoreDistribution { amount } }`
 
 const mediaFields = searchFields + `
 relations { edges { relationType node { id idMal type format title { romaji english native userPreferred }
@@ -121,9 +121,15 @@ type media struct {
 		ExtraLarge string `json:"extraLarge"`
 		Large      string `json:"large"`
 	} `json:"coverImage"`
-	SiteURL     string `json:"siteUrl"`
-	Description string `json:"description"`
-	Staff       struct {
+	SiteURL      string `json:"siteUrl"`
+	Description  string `json:"description"`
+	AverageScore int    `json:"averageScore"`
+	Stats        struct {
+		ScoreDistribution []struct {
+			Amount int `json:"amount"`
+		} `json:"scoreDistribution"`
+	} `json:"stats"`
+	Staff struct {
 		Edges []struct {
 			Role string `json:"role"`
 			Node struct {
@@ -365,6 +371,13 @@ func (m *Module) convert(md media) metadata.SeriesMetadata {
 		Adult: md.IsAdult, TotalChapters: md.Chapters, Country: md.CountryOfOrigin,
 		Links:       map[string]string{"AniList": md.SiteURL},
 		ExternalIDs: map[string]string{"anilist": strconv.Itoa(md.ID)},
+	}
+	if md.AverageScore > 0 {
+		votes := 0
+		for _, d := range md.Stats.ScoreDistribution {
+			votes += d.Amount
+		}
+		out.Rating = &model.Rating{Score: float64(md.AverageScore), Max: 100, Votes: votes}
 	}
 	if md.Relations != nil {
 		out.Adaptations = adaptations(m, md)
