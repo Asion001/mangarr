@@ -148,7 +148,9 @@ var publicPaths = map[string]bool{
 	"/api/v1/auth/setup":         true,
 	"/api/v1/auth/oidc/login":    true,
 	"/api/v1/auth/oidc/callback": true,
-	"/ping":                      true,
+	// the sign-in's state is the permission
+	"/api/v1/me/spotify/callback": true,
+	"/ping":                       true,
 	// signed: the token is the permission
 	"/api/v1/discover/thumbnail": true,
 }

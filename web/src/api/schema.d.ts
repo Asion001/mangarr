@@ -4,6 +4,42 @@
  */
 
 export interface paths {
+    "/api/v1/audio/moods": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The mood presets */
+        get: operations["audio-moods"];
+        put?: never;
+        /** Add a mood */
+        post: operations["audio-mood-create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/audio/moods/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Change a mood */
+        put: operations["audio-mood-update"];
+        post?: never;
+        /** Delete a mood (soundtracks that used it play nothing there) */
+        delete: operations["audio-mood-delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/login": {
         parameters: {
             query?: never;
@@ -1143,6 +1179,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/series/{id}/soundtrack": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set your own version of a series' soundtrack (or mute it) */
+        put: operations["me-series-soundtrack-save"];
+        post?: never;
+        /** Drop your own version: hear the shared soundtrack again */
+        delete: operations["me-series-soundtrack-reset"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/sessions": {
         parameters: {
             query?: never;
@@ -1189,6 +1243,177 @@ export interface paths {
         post?: never;
         /** Sign out one of your sessions */
         delete: operations["me-sessions-revoke"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/spotify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Whether Spotify is set up here and your account connected */
+        get: operations["me-spotify"];
+        put?: never;
+        post?: never;
+        /** Disconnect your Spotify account */
+        delete: operations["me-spotify-disconnect"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/spotify/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Where Spotify sends people back after they sign in */
+        get: operations["me-spotify-callback"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/spotify/connect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start connecting your Spotify account: open the returned link */
+        post: operations["me-spotify-connect"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/spotify/devices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Your devices Spotify can play on */
+        get: operations["me-spotify-devices"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/spotify/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Pause your Spotify */
+        put: operations["me-spotify-pause"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/spotify/play": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Play a playlist, album or track on one of your devices */
+        put: operations["me-spotify-play"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/spotify/player": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What plays on your Spotify */
+        get: operations["me-spotify-player"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/spotify/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Resume your Spotify where it was */
+        put: operations["me-spotify-resume"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/spotify/token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A short-lived Spotify token for playing in this browser */
+        get: operations["me-spotify-token"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/spotify/volume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set your Spotify's volume */
+        put: operations["me-spotify-volume"];
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1825,6 +2050,23 @@ export interface paths {
         get?: never;
         /** Save where you are in a chapter (the last page finishes it) */
         put: operations["read-progress"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/read/chapters/{id}/soundtrack": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What plays in a chapter for you (your version, else the shared one) */
+        get: operations["read-chapter-soundtrack"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -2766,6 +3008,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/series/{id}/soundtrack": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A series' shared soundtrack and your own version of it */
+        get: operations["series-soundtrack"];
+        /** Set a series' shared soundtrack (what everyone hears unless they made their own) */
+        put: operations["series-soundtrack-save"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/series/{id}/sources": {
         parameters: {
             query?: never;
@@ -3145,6 +3405,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/settings/spotify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The Spotify app soundtracks play through, and who connected */
+        get: operations["settings-get-spotify"];
+        /** Set the Spotify app's Client ID */
+        put: operations["settings-put-spotify"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/settings/sso": {
         parameters: {
             query?: never;
@@ -3337,6 +3615,23 @@ export interface paths {
         };
         /** Proxy (and cache) a manga thumbnail through its source module */
         get: operations["sources-thumbnail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/spotify/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search Spotify for playlists, albums and tracks (with your account) */
+        get: operations["spotify-search"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4456,6 +4751,28 @@ export interface components {
             enabled: number;
             stale: components["schemas"]["AttentionWorker"][];
         };
+        AudioMood: {
+            /** @description #rrggbb */
+            color: string;
+            /** Format: date-time */
+            createdAt: string;
+            genres: string[];
+            icon: string;
+            /** Format: int64 */
+            id: number;
+            name: string;
+            /** Format: int64 */
+            position: number;
+            shuffle: boolean;
+            /** @description The built-in mood this is (calm, melancholy…); empty for moods admins made */
+            slug: string;
+            spotifyImageUrl: string;
+            spotifyName: string;
+            /** @description spotify:playlist:…, spotify:album:… or spotify:track:…; empty plays nothing */
+            spotifyUri: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
         "Auth-passwordRequest": {
             /** @description Your current password */
             current?: string;
@@ -4901,6 +5218,17 @@ export interface components {
             password: string;
             username: string;
         };
+        Cue: {
+            /** Format: double */
+            chapterNumber: number;
+            /**
+             * Format: int64
+             * @description None: no music from here
+             */
+            moodId?: number;
+            /** Format: int64 */
+            page?: number;
+        };
         DBTest: {
             kind: string;
             /** Format: int64 */
@@ -5029,6 +5357,18 @@ export interface components {
             searched: boolean;
             sourceName: string;
         };
+        Device: {
+            id: string;
+            isActive: boolean;
+            name: string;
+            /** @description Computer, Smartphone, Speaker… */
+            type: string;
+            /** Format: int64 */
+            volumePercent?: number;
+        };
+        DeviceBodyBody: {
+            deviceId?: string;
+        };
         DeviceSync: {
             client: string;
             device: string;
@@ -5104,6 +5444,12 @@ export interface components {
             thumbnailUrl?: string;
             title: string;
             url: string;
+        };
+        Doc: {
+            cues: components["schemas"]["Cue"][];
+            muted?: boolean;
+            /** Format: date-time */
+            readonly updatedAt?: string;
         };
         DownloadJob: {
             /** Format: int64 */
@@ -6051,6 +6397,18 @@ export interface components {
             /** @enum {string} */
             mode: "off" | "instant" | "daily_digest" | "instant_and_digest";
         };
+        "Me-spotify-connectRequest": {
+            /** @description The mangarr page to come back to */
+            returnTo?: string;
+        };
+        "Me-spotify-connectResponse": {
+            url: string;
+        };
+        "Me-spotify-volumeRequest": {
+            deviceId?: string;
+            /** Format: int64 */
+            volume: number;
+        };
         "Me-ui-preferences-saveRequest": {
             /** @enum {string} */
             locale: "auto" | "en" | "ru" | "uk" | "ua";
@@ -6362,6 +6720,16 @@ export interface components {
             };
             tags?: number[];
         };
+        MoodBody: {
+            color: string;
+            genres?: string[];
+            icon: string;
+            name: string;
+            shuffle?: boolean;
+            spotifyImageUrl?: string;
+            spotifyName?: string;
+            spotifyUri?: string;
+        };
         MoveState: {
             /** Format: int64 */
             done: number;
@@ -6399,6 +6767,14 @@ export interface components {
             /** @enum {string} */
             mode: "off" | "instant" | "daily_digest" | "instant_and_digest";
             telegram: components["schemas"]["MessengerBot"];
+        };
+        MySpotify: {
+            available: boolean;
+            connected: boolean;
+            /** Format: date-time */
+            connectedAt?: string;
+            displayName?: string;
+            premium: boolean;
         };
         NamingPreview: {
             chapter: string;
@@ -6453,6 +6829,15 @@ export interface components {
             number: string;
             title?: string;
         };
+        NowPlaying: {
+            artists?: string;
+            contextUri?: string;
+            device?: components["schemas"]["Device"];
+            imageUrl?: string;
+            isPlaying: boolean;
+            shuffle: boolean;
+            track?: string;
+        };
         Offer: {
             build?: string;
             checksumUrl?: string;
@@ -6491,6 +6876,11 @@ export interface components {
             x: number;
             /** Format: int64 */
             y: number;
+        };
+        PageCue: {
+            mood?: components["schemas"]["AudioMood"];
+            /** Format: int64 */
+            page: number;
         };
         PageRules: {
             /** Format: int64 */
@@ -6547,6 +6937,15 @@ export interface components {
             linked: boolean;
             name: string;
             username: string;
+        };
+        Play: {
+            /** @description Empty: the active device */
+            deviceId?: string;
+            shuffle?: boolean;
+            /** @description A playlist or album (played as a context) or a track */
+            uri: string;
+            /** Format: int64 */
+            volume?: number;
         };
         PreviewPage: {
             encodedFormat: string;
@@ -7399,6 +7798,13 @@ export interface components {
             /** Format: int64 */
             importId?: number;
         };
+        Resolved: {
+            mood?: components["schemas"]["AudioMood"];
+            muted: boolean;
+            pages: components["schemas"]["PageCue"][];
+            /** @enum {string} */
+            source: "none" | "shared" | "personal";
+        };
         Result: {
             /** Format: int64 */
             duration: number;
@@ -7496,6 +7902,17 @@ export interface components {
             start: string;
             /** @enum {string} */
             throttle?: "" | "gentle" | "normal" | "fast";
+        };
+        SearchItem: {
+            imageUrl?: string;
+            name: string;
+            /** @description The playlist's owner, or the album's or track's artists */
+            subtitle?: string;
+            /** Format: int64 */
+            tracks?: number;
+            /** @enum {string} */
+            type: "playlist" | "album" | "track";
+            uri: string;
         };
         SearchResultGroup: {
             cached: boolean;
@@ -7691,6 +8108,12 @@ export interface components {
             /** Format: int64 */
             totalSize: number;
         };
+        SeriesSoundtrack: {
+            /** @description Your own version; none: you hear the shared one */
+            personal?: components["schemas"]["Doc"];
+            /** @description Set by admins; none: no music */
+            shared?: components["schemas"]["Doc"];
+        };
         SeriesSource: {
             /** Format: date-time */
             backoffUntil?: string;
@@ -7767,6 +8190,9 @@ export interface components {
             userAgent: string;
             /** Format: int64 */
             userId: number;
+        };
+        "Settings-put-spotifyRequest": {
+            clientId: string;
         };
         Shelf: {
             items: components["schemas"]["ShelfItem"][];
@@ -7913,6 +8339,28 @@ export interface components {
             languageDefaults: components["schemas"]["LanguageDefault"][];
             quickSearch: components["schemas"]["QuickSearch"];
             throttle: components["schemas"]["ThrottleConfig"];
+        };
+        SpotifyConnectedUser: {
+            /** Format: date-time */
+            connectedAt: string;
+            premium: boolean;
+            spotifyName: string;
+            /** Format: int64 */
+            userId: number;
+            username: string;
+        };
+        SpotifySettings: {
+            clientId: string;
+            /** Format: int64 */
+            readonly maxUsers: number;
+            readonly redirectUri: string;
+            readonly secure: boolean;
+            readonly users: components["schemas"]["SpotifyConnectedUser"][];
+        };
+        SpotifyToken: {
+            accessToken: string;
+            /** Format: date-time */
+            expiresAt: string;
         };
         State: {
             encodeBlocked: boolean;
@@ -8715,6 +9163,132 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    "audio-moods": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AudioMood"][];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "audio-mood-create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MoodBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AudioMood"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "audio-mood-update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MoodBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AudioMood"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "audio-mood-delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "auth-login": {
         parameters: {
             query?: never;
@@ -11269,6 +11843,72 @@ export interface operations {
             };
         };
     };
+    "me-series-soundtrack-save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Doc"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeriesSoundtrack"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "me-series-soundtrack-reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeriesSoundtrack"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "me-sessions": {
         parameters: {
             query?: never;
@@ -11335,6 +11975,339 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "me-spotify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MySpotify"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "me-spotify-disconnect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "me-spotify-callback": {
+        parameters: {
+            query?: {
+                code?: string;
+                state?: string;
+                error?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "me-spotify-connect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Me-spotify-connectRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me-spotify-connectResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "me-spotify-devices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Device"][];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "me-spotify-pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeviceBodyBody"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "me-spotify-play": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Play"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "me-spotify-player": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NowPlaying"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "me-spotify-resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeviceBodyBody"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "me-spotify-token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpotifyToken"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "me-spotify-volume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Me-spotify-volumeRequest"];
+            };
+        };
         responses: {
             /** @description No Content */
             204: {
@@ -12771,6 +13744,37 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "read-chapter-soundtrack": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Resolved"];
+                };
             };
             /** @description Error */
             default: {
@@ -15007,6 +16011,72 @@ export interface operations {
             };
         };
     };
+    "series-soundtrack": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeriesSoundtrack"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "series-soundtrack-save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Doc"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeriesSoundtrack"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "series-source-link": {
         parameters: {
             query?: never;
@@ -16162,6 +17232,68 @@ export interface operations {
             };
         };
     };
+    "settings-get-spotify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpotifySettings"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "settings-put-spotify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Settings-put-spotifyRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpotifySettings"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "settings-get-sso": {
         parameters: {
             query?: never;
@@ -16650,6 +17782,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": string;
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "spotify-search": {
+        parameters: {
+            query?: {
+                q?: string;
+                /** @description playlist, album, track (default all) */
+                type?: string[];
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchItem"][];
                 };
             };
             /** @description Error */

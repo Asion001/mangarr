@@ -406,6 +406,40 @@ Worth knowing when a page feels slow, or when you put a proxy in front:
   browser's network panel says where a slow request went, and the same id is
   in the log.
 
+### Soundtracks: music while reading (optional)
+
+The reader can play music that fits what you read. Music comes from
+Spotify, through each reader's own **Spotify Premium** account.
+
+1. Create an app at [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard)
+   (the developer account needs Premium) and tick **Web API** and
+   **Web Playback SDK**.
+2. Open **Settings → Soundtracks → Spotify**, copy the **Redirect URI**
+   into the Spotify app, and paste the app's **Client ID** back.
+3. In the Spotify dashboard, add each listener's Spotify email under
+   **User Management**. An app in development mode allows **5 people** at
+   most, so this suits a household.
+
+Spotify only signs people in over **HTTPS** (or `http://127.0.0.1`).
+A plain-HTTP server needs a reverse proxy with a certificate first, and
+**Settings → General → Public URL** set to its `https://` address; see
+[reverse-proxy.md](reverse-proxy.md).
+
+**Moods** are presets: a Spotify playlist, album or track with a colour and
+an icon. mangarr starts with eight (Calm, Melancholy, Tense, Action, Horror,
+Romance, Comedy, Mystery) without music; admins pick music for them on the
+**Moods** tab and can add more. On a title's page admins choose the mood
+everyone hears (**Default**); each reader can pick their own (**My
+version**), mute the title, or **Reset to default**.
+
+Music is off until a reader taps the speaker button in the reader's top
+bar; the choice is remembered on that device. On a computer the browser tab
+plays the music itself; on phones, where Spotify's web player doesn't run,
+mangarr starts the music on the reader's Spotify app or speaker (pick it
+under **Play music on…**). Spotify keeps playing each mood by its playlist
+or album; mangarr never mixes into Spotify's audio, it only sets its
+volume.
+
 ## 9. Single sign-on (optional)
 
 Sign in with Authentik, Authelia, Keycloak, Pocket ID, Google or any other

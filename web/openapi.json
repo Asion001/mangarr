@@ -715,6 +715,76 @@
         ],
         "type": "object"
       },
+      "AudioMood": {
+        "additionalProperties": false,
+        "properties": {
+          "color": {
+            "description": "#rrggbb",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "genres": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "icon": {
+            "type": "string"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "position": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "shuffle": {
+            "type": "boolean"
+          },
+          "slug": {
+            "description": "The built-in mood this is (calm, melancholy…); empty for moods admins made",
+            "type": "string"
+          },
+          "spotifyImageUrl": {
+            "type": "string"
+          },
+          "spotifyName": {
+            "type": "string"
+          },
+          "spotifyUri": {
+            "description": "spotify:playlist:…, spotify:album:… or spotify:track:…; empty plays nothing",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "color",
+          "icon",
+          "genres",
+          "spotifyUri",
+          "spotifyName",
+          "spotifyImageUrl",
+          "shuffle",
+          "position",
+          "createdAt",
+          "updatedAt"
+        ],
+        "type": "object"
+      },
       "Auth-passwordRequest": {
         "additionalProperties": false,
         "properties": {
@@ -2132,6 +2202,30 @@
         ],
         "type": "object"
       },
+      "Cue": {
+        "additionalProperties": false,
+        "properties": {
+          "chapterNumber": {
+            "format": "double",
+            "minimum": 0,
+            "type": "number"
+          },
+          "moodId": {
+            "description": "None: no music from here",
+            "format": "int64",
+            "type": "integer"
+          },
+          "page": {
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "chapterNumber"
+        ],
+        "type": "object"
+      },
       "DBTest": {
         "additionalProperties": false,
         "properties": {
@@ -2529,6 +2623,44 @@
         ],
         "type": "object"
       },
+      "Device": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "description": "Computer, Smartphone, Speaker…",
+            "type": "string"
+          },
+          "volumePercent": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "type",
+          "isActive"
+        ],
+        "type": "object"
+      },
+      "DeviceBodyBody": {
+        "additionalProperties": false,
+        "properties": {
+          "deviceId": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "DeviceSync": {
         "additionalProperties": false,
         "properties": {
@@ -2819,6 +2951,30 @@
           "language",
           "title",
           "url"
+        ],
+        "type": "object"
+      },
+      "Doc": {
+        "additionalProperties": false,
+        "properties": {
+          "cues": {
+            "items": {
+              "$ref": "#/components/schemas/Cue"
+            },
+            "maxItems": 500,
+            "type": "array"
+          },
+          "muted": {
+            "type": "boolean"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "readOnly": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "cues"
         ],
         "type": "object"
       },
@@ -5913,6 +6069,46 @@
         ],
         "type": "object"
       },
+      "Me-spotify-connectRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "returnTo": {
+            "description": "The mangarr page to come back to",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "Me-spotify-connectResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "type": "object"
+      },
+      "Me-spotify-volumeRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "deviceId": {
+            "type": "string"
+          },
+          "volume": {
+            "format": "int64",
+            "maximum": 100,
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "volume"
+        ],
+        "type": "object"
+      },
       "Me-ui-preferences-saveRequest": {
         "additionalProperties": false,
         "properties": {
@@ -6949,6 +7145,47 @@
         ],
         "type": "object"
       },
+      "MoodBody": {
+        "additionalProperties": false,
+        "properties": {
+          "color": {
+            "pattern": "^#[0-9a-fA-F]{6}$",
+            "type": "string"
+          },
+          "genres": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "icon": {
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 60,
+            "minLength": 1,
+            "type": "string"
+          },
+          "shuffle": {
+            "type": "boolean"
+          },
+          "spotifyImageUrl": {
+            "type": "string"
+          },
+          "spotifyName": {
+            "type": "string"
+          },
+          "spotifyUri": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "color",
+          "icon"
+        ],
+        "type": "object"
+      },
       "MoveState": {
         "additionalProperties": false,
         "properties": {
@@ -7093,6 +7330,33 @@
           "events",
           "allowInstant",
           "digestHour"
+        ],
+        "type": "object"
+      },
+      "MySpotify": {
+        "additionalProperties": false,
+        "properties": {
+          "available": {
+            "type": "boolean"
+          },
+          "connected": {
+            "type": "boolean"
+          },
+          "connectedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "premium": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "available",
+          "connected",
+          "premium"
         ],
         "type": "object"
       },
@@ -7270,6 +7534,37 @@
         ],
         "type": "object"
       },
+      "NowPlaying": {
+        "additionalProperties": false,
+        "properties": {
+          "artists": {
+            "type": "string"
+          },
+          "contextUri": {
+            "type": "string"
+          },
+          "device": {
+            "$ref": "#/components/schemas/Device"
+          },
+          "imageUrl": {
+            "type": "string"
+          },
+          "isPlaying": {
+            "type": "boolean"
+          },
+          "shuffle": {
+            "type": "boolean"
+          },
+          "track": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "isPlaying",
+          "shuffle"
+        ],
+        "type": "object"
+      },
       "Offer": {
         "additionalProperties": false,
         "properties": {
@@ -7391,6 +7686,22 @@
           "y",
           "w",
           "h"
+        ],
+        "type": "object"
+      },
+      "PageCue": {
+        "additionalProperties": false,
+        "properties": {
+          "mood": {
+            "$ref": "#/components/schemas/AudioMood"
+          },
+          "page": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "page"
         ],
         "type": "object"
       },
@@ -7572,6 +7883,32 @@
           "name",
           "implementation",
           "linked"
+        ],
+        "type": "object"
+      },
+      "Play": {
+        "additionalProperties": false,
+        "properties": {
+          "deviceId": {
+            "description": "Empty: the active device",
+            "type": "string"
+          },
+          "shuffle": {
+            "type": "boolean"
+          },
+          "uri": {
+            "description": "A playlist or album (played as a context) or a track",
+            "type": "string"
+          },
+          "volume": {
+            "format": "int64",
+            "maximum": 100,
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "uri"
         ],
         "type": "object"
       },
@@ -10344,6 +10681,37 @@
         ],
         "type": "object"
       },
+      "Resolved": {
+        "additionalProperties": false,
+        "properties": {
+          "mood": {
+            "$ref": "#/components/schemas/AudioMood"
+          },
+          "muted": {
+            "type": "boolean"
+          },
+          "pages": {
+            "items": {
+              "$ref": "#/components/schemas/PageCue"
+            },
+            "type": "array"
+          },
+          "source": {
+            "enum": [
+              "none",
+              "shared",
+              "personal"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "muted",
+          "pages"
+        ],
+        "type": "object"
+      },
       "Result": {
         "additionalProperties": false,
         "properties": {
@@ -10723,6 +11091,42 @@
           "end",
           "pauseDownloads",
           "pauseProcessing"
+        ],
+        "type": "object"
+      },
+      "SearchItem": {
+        "additionalProperties": false,
+        "properties": {
+          "imageUrl": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "subtitle": {
+            "description": "The playlist's owner, or the album's or track's artists",
+            "type": "string"
+          },
+          "tracks": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "type": {
+            "enum": [
+              "playlist",
+              "album",
+              "track"
+            ],
+            "type": "string"
+          },
+          "uri": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "uri",
+          "type",
+          "name"
         ],
         "type": "object"
       },
@@ -11440,6 +11844,20 @@
         ],
         "type": "object"
       },
+      "SeriesSoundtrack": {
+        "additionalProperties": false,
+        "properties": {
+          "personal": {
+            "$ref": "#/components/schemas/Doc",
+            "description": "Your own version; none: you hear the shared one"
+          },
+          "shared": {
+            "$ref": "#/components/schemas/Doc",
+            "description": "Set by admins; none: no music"
+          }
+        },
+        "type": "object"
+      },
       "SeriesSource": {
         "additionalProperties": false,
         "properties": {
@@ -11650,6 +12068,19 @@
           "expiresAt",
           "ip",
           "userAgent"
+        ],
+        "type": "object"
+      },
+      "Settings-put-spotifyRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "clientId": {
+            "maxLength": 64,
+            "type": "string"
+          }
+        },
+        "required": [
+          "clientId"
         ],
         "type": "object"
       },
@@ -12168,6 +12599,89 @@
           "languageDefaults",
           "quickSearch",
           "throttle"
+        ],
+        "type": "object"
+      },
+      "SpotifyConnectedUser": {
+        "additionalProperties": false,
+        "properties": {
+          "connectedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "premium": {
+            "type": "boolean"
+          },
+          "spotifyName": {
+            "type": "string"
+          },
+          "userId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "username": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "userId",
+          "username",
+          "spotifyName",
+          "premium",
+          "connectedAt"
+        ],
+        "type": "object"
+      },
+      "SpotifySettings": {
+        "additionalProperties": false,
+        "properties": {
+          "clientId": {
+            "type": "string"
+          },
+          "maxUsers": {
+            "format": "int64",
+            "readOnly": true,
+            "type": "integer"
+          },
+          "redirectUri": {
+            "readOnly": true,
+            "type": "string"
+          },
+          "secure": {
+            "readOnly": true,
+            "type": "boolean"
+          },
+          "users": {
+            "items": {
+              "$ref": "#/components/schemas/SpotifyConnectedUser"
+            },
+            "readOnly": true,
+            "type": "array"
+          }
+        },
+        "required": [
+          "clientId",
+          "redirectUri",
+          "secure",
+          "maxUsers",
+          "users"
+        ],
+        "type": "object"
+      },
+      "SpotifyToken": {
+        "additionalProperties": false,
+        "properties": {
+          "accessToken": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "accessToken",
+          "expiresAt"
         ],
         "type": "object"
       },
@@ -14791,6 +15305,164 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/audio/moods": {
+      "get": {
+        "operationId": "audio-moods",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AudioMood"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "The mood presets",
+        "tags": [
+          "Soundtracks"
+        ]
+      },
+      "post": {
+        "operationId": "audio-mood-create",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoodBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudioMood"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Add a mood",
+        "tags": [
+          "Soundtracks"
+        ]
+      }
+    },
+    "/api/v1/audio/moods/{id}": {
+      "delete": {
+        "operationId": "audio-mood-delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Delete a mood (soundtracks that used it play nothing there)",
+        "tags": [
+          "Soundtracks"
+        ]
+      },
+      "put": {
+        "operationId": "audio-mood-update",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoodBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudioMood"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Change a mood",
+        "tags": [
+          "Soundtracks"
+        ]
+      }
+    },
     "/api/v1/auth/login": {
       "post": {
         "operationId": "auth-login",
@@ -18425,6 +19097,98 @@
         ]
       }
     },
+    "/api/v1/me/series/{id}/soundtrack": {
+      "delete": {
+        "operationId": "me-series-soundtrack-reset",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeriesSoundtrack"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Drop your own version: hear the shared soundtrack again",
+        "tags": [
+          "Soundtracks"
+        ]
+      },
+      "put": {
+        "operationId": "me-series-soundtrack-save",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Doc"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeriesSoundtrack"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Set your own version of a series' soundtrack (or mute it)",
+        "tags": [
+          "Soundtracks"
+        ]
+      }
+    },
     "/api/v1/me/sessions": {
       "get": {
         "operationId": "me-sessions",
@@ -18514,6 +19278,397 @@
         "summary": "Sign out one of your sessions",
         "tags": [
           "Auth"
+        ]
+      }
+    },
+    "/api/v1/me/spotify": {
+      "delete": {
+        "operationId": "me-spotify-disconnect",
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Disconnect your Spotify account",
+        "tags": [
+          "Soundtracks"
+        ]
+      },
+      "get": {
+        "operationId": "me-spotify",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MySpotify"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Whether Spotify is set up here and your account connected",
+        "tags": [
+          "Soundtracks"
+        ]
+      }
+    },
+    "/api/v1/me/spotify/callback": {
+      "get": {
+        "operationId": "me-spotify-callback",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "code",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "state",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "error",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content",
+            "headers": {
+              "Location": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [],
+        "summary": "Where Spotify sends people back after they sign in",
+        "tags": [
+          "Soundtracks"
+        ]
+      }
+    },
+    "/api/v1/me/spotify/connect": {
+      "post": {
+        "operationId": "me-spotify-connect",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Me-spotify-connectRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Me-spotify-connectResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Start connecting your Spotify account: open the returned link",
+        "tags": [
+          "Soundtracks"
+        ]
+      }
+    },
+    "/api/v1/me/spotify/devices": {
+      "get": {
+        "operationId": "me-spotify-devices",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Device"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Your devices Spotify can play on",
+        "tags": [
+          "Soundtracks"
+        ]
+      }
+    },
+    "/api/v1/me/spotify/pause": {
+      "put": {
+        "operationId": "me-spotify-pause",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceBodyBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Pause your Spotify",
+        "tags": [
+          "Soundtracks"
+        ]
+      }
+    },
+    "/api/v1/me/spotify/play": {
+      "put": {
+        "operationId": "me-spotify-play",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Play"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Play a playlist, album or track on one of your devices",
+        "tags": [
+          "Soundtracks"
+        ]
+      }
+    },
+    "/api/v1/me/spotify/player": {
+      "get": {
+        "operationId": "me-spotify-player",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NowPlaying"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "What plays on your Spotify",
+        "tags": [
+          "Soundtracks"
+        ]
+      }
+    },
+    "/api/v1/me/spotify/resume": {
+      "put": {
+        "operationId": "me-spotify-resume",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceBodyBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Resume your Spotify where it was",
+        "tags": [
+          "Soundtracks"
+        ]
+      }
+    },
+    "/api/v1/me/spotify/token": {
+      "get": {
+        "operationId": "me-spotify-token",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpotifyToken"
+                }
+              }
+            },
+            "description": "OK",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "A short-lived Spotify token for playing in this browser",
+        "tags": [
+          "Soundtracks"
+        ]
+      }
+    },
+    "/api/v1/me/spotify/volume": {
+      "put": {
+        "operationId": "me-spotify-volume",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Me-spotify-volumeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Set your Spotify's volume",
+        "tags": [
+          "Soundtracks"
         ]
       }
     },
@@ -20523,6 +21678,48 @@
           }
         },
         "summary": "Save where you are in a chapter (the last page finishes it)",
+        "tags": [
+          "Reader"
+        ]
+      }
+    },
+    "/api/v1/read/chapters/{id}/soundtrack": {
+      "get": {
+        "operationId": "read-chapter-soundtrack",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Resolved"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "What plays in a chapter for you (your version, else the shared one)",
         "tags": [
           "Reader"
         ]
@@ -23821,6 +25018,98 @@
         ]
       }
     },
+    "/api/v1/series/{id}/soundtrack": {
+      "get": {
+        "operationId": "series-soundtrack",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeriesSoundtrack"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "A series' shared soundtrack and your own version of it",
+        "tags": [
+          "Soundtracks"
+        ]
+      },
+      "put": {
+        "operationId": "series-soundtrack-save",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Doc"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeriesSoundtrack"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Set a series' shared soundtrack (what everyone hears unless they made their own)",
+        "tags": [
+          "Soundtracks"
+        ]
+      }
+    },
     "/api/v1/series/{id}/sources": {
       "post": {
         "operationId": "series-source-link",
@@ -25179,6 +26468,76 @@
         ]
       }
     },
+    "/api/v1/settings/spotify": {
+      "get": {
+        "operationId": "settings-get-spotify",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpotifySettings"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "The Spotify app soundtracks play through, and who connected",
+        "tags": [
+          "Settings"
+        ]
+      },
+      "put": {
+        "operationId": "settings-put-spotify",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Settings-put-spotifyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpotifySettings"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Set the Spotify app's Client ID",
+        "tags": [
+          "Settings"
+        ]
+      }
+    },
     "/api/v1/settings/sso": {
       "get": {
         "operationId": "settings-get-sso",
@@ -25989,6 +27348,75 @@
         "summary": "Proxy (and cache) a manga thumbnail through its source module",
         "tags": [
           "Sources"
+        ]
+      }
+    },
+    "/api/v1/spotify/search": {
+      "get": {
+        "operationId": "spotify-search",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "maxLength": 200,
+              "type": "string"
+            }
+          },
+          {
+            "description": "playlist, album, track (default all)",
+            "explode": false,
+            "in": "query",
+            "name": "type",
+            "schema": {
+              "description": "playlist, album, track (default all)",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "format": "int64",
+              "maximum": 1000,
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SearchItem"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Search Spotify for playlists, albums and tracks (with your account)",
+        "tags": [
+          "Soundtracks"
         ]
       }
     },

@@ -43,6 +43,7 @@ const ModulesPage = lazy(() => retryWhenBack(() => import("./pages/settings/Modu
 const ProfilesPage = lazy(() => retryWhenBack(() => import("./pages/settings/Profiles"), (m) => ({ default: m.ProfilesPage })));
 const MediaPage = lazy(() => retryWhenBack(() => import("./pages/settings/Media"), (m) => ({ default: m.MediaPage })));
 const ReadingAppsPage = lazy(() => retryWhenBack(() => import("./pages/settings/ReadingApps"), (m) => ({ default: m.ReadingAppsPage })));
+const SoundtracksPage = lazy(() => retryWhenBack(() => import("./pages/settings/Soundtracks"), (m) => ({ default: m.SoundtracksPage })));
 const GeneralPage = lazy(() => retryWhenBack(() => import("./pages/settings/General"), (m) => ({ default: m.GeneralPage })));
 const DownloadsPage = lazy(() => retryWhenBack(() => import("./pages/settings/Downloads"), (m) => ({ default: m.DownloadsPage })));
 const PerformancePage = lazy(() => retryWhenBack(() => import("./pages/system/Performance"), (m) => ({ default: m.PerformancePage })));
@@ -168,6 +169,7 @@ export function App() {
           <Route path="settings/users" element={<Need perm="admin"><UsersPage /></Need>} />
           <Route path="settings/readers" element={<Navigate to="/settings/users" replace />} />
           <Route path="settings/reading" element={<Need perm="admin"><ReadingAppsPage /></Need>} />
+          <Route path="settings/soundtracks" element={<Need perm="admin"><SoundtracksPage /></Need>} />
           <Route path="settings/downloads" element={<Need perm="admin"><DownloadsPage /></Need>} />
           <Route path="settings/general" element={<Need perm="admin"><GeneralPage /></Need>} />
           <Route path="system" element={<Navigate to="/system/status" replace />} />

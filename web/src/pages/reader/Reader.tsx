@@ -3,7 +3,7 @@ import { useDocumentTitle } from "../../lib/documentTitle";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, Download, List, Maximize, Minimize, Minus, Pause, Play, Plus, Settings2 } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, Download, List, Maximize, Minimize, Minus, Pause, Play, Plus, Settings2, Volume2, VolumeX } from "lucide-react";
 import clsx from "clsx";
 import { ApiError, apiUrl, basePath, proxyGap, type S } from "../../api/client";
 import { fromServer, onServerBack, serverAnswered, serverGone, unreachable } from "../../lib/connection";
@@ -14,6 +14,9 @@ import { chapterQuery } from "./query";
 import { buildViews, indexOf, pageSrc, PagedViewer } from "./PagedViewer";
 import { WebtoonViewer } from "./WebtoonViewer";
 import { SettingsPanel } from "./SettingsPanel";
+import { SoundSheet } from "./SoundSheet";
+import { useSoundtrack } from "./sound";
+import { useSpotifyReturn } from "../../lib/soundtrack/spotify";
 import { ChapterPicker } from "./ChapterPicker";
 import { ImagePreloader, useImagePreload } from "./preload";
 import { useReadingTime } from "./time";
@@ -73,6 +76,7 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
   }, [bars]);
   const [panel, setPanel] = useState(false);
   const [pickingChapter, setPickingChapter] = useState(false);
+  const [sound, setSound] = useState(false);
   const full = useFullscreen();
   const toast = useToast();
   // webtoon auto scroll: on until paused or the strip runs out; it holds
@@ -130,6 +134,10 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
         : pos?.edge === "end"
           ? count
           : pos?.page ?? 1;
+
+  // music while reading: off until the speaker button turns it on
+  const soundtrack = useSoundtrack(ch?.id ?? 0, page);
+  useSpotifyReturn();
 
   // bounds for the pages around the current one (paged mode)
   useEffect(() => {
@@ -402,6 +410,18 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
             <ChevronDown className="size-3 shrink-0" aria-hidden="true" />
           </div>
         </button>
+        <button
+          type="button"
+          className={clsx("rounded p-2", soundtrack.on ? "bg-accent/15 text-accent-2 hover:bg-accent/25" : "hover:bg-panel-2")}
+          onClick={() => {
+            if (!soundtrack.on) soundtrack.toggleOn();
+            setSound(true);
+          }}
+          aria-label={t("Soundtrack")}
+          aria-pressed={soundtrack.on}
+        >
+          {soundtrack.on ? <Volume2 className="size-5" /> : <VolumeX className="size-5" />}
+        </button>
         <SavedHere chapterId={ch.id} />
         {ch.canDownload && (
           <a href={apiUrl(`api/v1/read/chapters/${ch.id}/file`)} download className="rounded p-2 hover:bg-panel-2" aria-label={t("Download the chapter")}>
@@ -538,6 +558,7 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
         </button>
       )}
 
+      {sound && <SoundSheet s={soundtrack} onClose={() => setSound(false)} />}
       {panel && <SettingsPanel s={s} set={set} onClose={() => setPanel(false)} hasOwn={hasOwn} saveAsDefault={saveAsDefault} reset={reset} />}
       {pickingChapter && (
         <ChapterPicker

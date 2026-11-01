@@ -11574,5 +11574,393 @@
   "The series stay in the library. Their chapters are kept in the list and will not download again until restored.": {
     "ru": "Серии останутся в библиотеке. Главы останутся в списке и не будут скачаны снова, пока их не восстановят.",
     "uk": "Серії залишаться в бібліотеці. Розділи залишаться в списку й не завантажуватимуться знову, доки їх не відновлять."
+  },
+  "(the account needs Premium) and tick Web API and Web Playback SDK.": {
+    "ru": "(аккаунту нужен Premium) и отметьте Web API и Web Playback SDK.",
+    "uk": "(акаунту потрібен Premium) і позначте Web API та Web Playback SDK."
+  },
+  "Add a Client ID on the Spotify tab to search Spotify.": {
+    "ru": "Чтобы искать в Spotify, добавьте Client ID на вкладке Spotify.",
+    "uk": "Щоб шукати в Spotify, додайте Client ID на вкладці Spotify."
+  },
+  "Add this redirect URI to the app.": {
+    "ru": "Добавьте в приложение этот Redirect URI.",
+    "uk": "Додайте до застосунку цей Redirect URI."
+  },
+  "Add each listener's Spotify email under User Management.": {
+    "ru": "Добавьте email Spotify каждого слушателя в разделе User Management.",
+    "uk": "Додайте email Spotify кожного слухача в розділі User Management."
+  },
+  "Album": {
+    "ru": "Альбом",
+    "uk": "Альбом"
+  },
+  "Albums": {
+    "ru": "Альбомы",
+    "uk": "Альбоми"
+  },
+  "Calm": {
+    "ru": "Спокойствие",
+    "uk": "Спокій"
+  },
+  "Client ID": {
+    "ru": "Client ID",
+    "uk": "Client ID"
+  },
+  "Colour": {
+    "ru": "Цвет",
+    "uk": "Колір"
+  },
+  "Colour code": {
+    "ru": "Код цвета",
+    "uk": "Код кольору"
+  },
+  "Comedy": {
+    "ru": "Комедия",
+    "uk": "Комедія"
+  },
+  "Connect Spotify": {
+    "ru": "Подключить Spotify",
+    "uk": "Підключити Spotify"
+  },
+  "Connect your Spotify account to hear it in the reader. Playing needs Spotify Premium.": {
+    "ru": "Подключите аккаунт Spotify, чтобы слышать её в читалке. Для воспроизведения нужен Spotify Premium.",
+    "uk": "Підключіть акаунт Spotify, щоб чути її в читалці. Для відтворення потрібен Spotify Premium."
+  },
+  "Connect your Spotify account to hear music while you read. Playing needs Spotify Premium.": {
+    "ru": "Подключите аккаунт Spotify, чтобы слушать музыку во время чтения. Для воспроизведения нужен Spotify Premium.",
+    "uk": "Підключіть акаунт Spotify, щоб слухати музику під час читання. Для відтворення потрібен Spotify Premium."
+  },
+  "Connect your Spotify account to search it.": {
+    "ru": "Подключите аккаунт Spotify, чтобы искать в нём.",
+    "uk": "Підключіть акаунт Spotify, щоб шукати в ньому."
+  },
+  "Connect your own account to search Spotify for moods.": {
+    "ru": "Подключите свой аккаунт, чтобы искать музыку для настроений в Spotify.",
+    "uk": "Підключіть свій акаунт, щоб шукати музику для настроїв у Spotify."
+  },
+  "Connected": {
+    "ru": "Подключён",
+    "uk": "Підключено"
+  },
+  "Connected people": {
+    "ru": "Подключившиеся",
+    "uk": "Хто підключився"
+  },
+  "Create an app at": {
+    "ru": "Создайте приложение на",
+    "uk": "Створіть застосунок на"
+  },
+  "Delete the mood?": {
+    "ru": "Удалить настроение?",
+    "uk": "Видалити настрій?"
+  },
+  "Disconnect": {
+    "ru": "Отключить",
+    "uk": "Відключити"
+  },
+  "Drama": {
+    "ru": "Драма",
+    "uk": "Драма"
+  },
+  "Edit mood": {
+    "ru": "Изменить настроение",
+    "uk": "Змінити настрій"
+  },
+  "Horror": {
+    "ru": "Ужасы",
+    "uk": "Жахи"
+  },
+  "How to set one up": {
+    "ru": "Как его настроить",
+    "uk": "Як його налаштувати"
+  },
+  "Icon": {
+    "ru": "Значок",
+    "uk": "Значок"
+  },
+  "Melancholy": {
+    "ru": "Меланхолия",
+    "uk": "Меланхолія"
+  },
+  "Mood saved": {
+    "ru": "Настроение сохранено",
+    "uk": "Настрій збережено"
+  },
+  "Moods": {
+    "ru": "Настроения",
+    "uk": "Настрої"
+  },
+  "Moods are ready-made presets: Spotify music with a colour and an icon. Readers pick a mood with one tap, and each title gets a mood that plays while it's read. Mangarr starts with these eight; change them or add more.": {
+    "ru": "Настроения — это готовые пресеты: музыка из Spotify с цветом и значком. Читатели выбирают настроение одним касанием, а у каждого тайтла есть настроение, которое звучит во время чтения. Mangarr начинает с этих восьми; меняйте их или добавляйте новые.",
+    "uk": "Настрої — це готові пресети: музика зі Spotify з кольором і значком. Читачі обирають настрій одним дотиком, а кожен тайтл має настрій, що звучить під час читання. Mangarr починає з цих восьми; змінюйте їх або додавайте нові."
+  },
+  "More results": {
+    "ru": "Ещё результаты",
+    "uk": "Ще результати"
+  },
+  "Music": {
+    "ru": "Музыка",
+    "uk": "Музика"
+  },
+  "Music comes from Spotify, which isn't set up on this server yet.": {
+    "ru": "Музыка берётся из Spotify, который на этом сервере ещё не настроен.",
+    "uk": "Музика береться зі Spotify, який на цьому сервері ще не налаштовано."
+  },
+  "Music is off": {
+    "ru": "Музыка выключена",
+    "uk": "Музику вимкнено"
+  },
+  "Music plays once Spotify is set up in Settings › Soundtracks.": {
+    "ru": "Музыка заиграет, когда Spotify будет настроен в Настройки › Саундтреки.",
+    "uk": "Музика заграє, коли Spotify буде налаштовано в Налаштування › Саундтреки."
+  },
+  "Music plays through each reader's own Spotify Premium account. Spotify allows up to {max} people per developer app, and each must be added by email in your Spotify dashboard.": {
+    "ru": "Музыка играет через собственный аккаунт Spotify Premium каждого читателя. Spotify разрешает не больше {max} человек на одно приложение разработчика, и каждого нужно добавить по email в панели Spotify.",
+    "uk": "Музика грає через власний акаунт Spotify Premium кожного читача. Spotify дозволяє не більше {max} людей на один застосунок розробника, і кожного треба додати за email у панелі Spotify."
+  },
+  "Music that plays while people read: mood presets, and the Spotify app it comes from.": {
+    "ru": "Музыка, которая играет во время чтения: пресеты настроений и приложение Spotify, откуда она берётся.",
+    "uk": "Музика, що грає під час читання: пресети настроїв і застосунок Spotify, звідки вона береться."
+  },
+  "Music · Spotify": {
+    "ru": "Музыка · Spotify",
+    "uk": "Музика · Spotify"
+  },
+  "Mute soundtrack for this title": {
+    "ru": "Выключить саундтрек для этого тайтла",
+    "uk": "Вимкнути саундтрек для цього тайтлу"
+  },
+  "My version": {
+    "ru": "Моя версия",
+    "uk": "Моя версія"
+  },
+  "Mystery": {
+    "ru": "Мистика",
+    "uk": "Містика"
+  },
+  "New mood": {
+    "ru": "Новое настроение",
+    "uk": "Новий настрій"
+  },
+  "No music": {
+    "ru": "Без музыки",
+    "uk": "Без музики"
+  },
+  "No music chosen for this mood": {
+    "ru": "Для этого настроения музыка не выбрана",
+    "uk": "Для цього настрою музику не вибрано"
+  },
+  "No music yet": {
+    "ru": "Музыки пока нет",
+    "uk": "Музики поки немає"
+  },
+  "No music yet: pick a playlist, album or track below.": {
+    "ru": "Музыки пока нет: выберите плейлист, альбом или трек ниже.",
+    "uk": "Музики поки немає: виберіть плейлист, альбом або трек нижче."
+  },
+  "No soundtrack for this title yet": {
+    "ru": "У этого тайтла пока нет саундтрека",
+    "uk": "У цього тайтлу поки немає саундтреку"
+  },
+  "Nobody connected Spotify yet. People connect from the reader's speaker button or a title's Soundtrack.": {
+    "ru": "Spotify пока никто не подключил. Подключиться можно кнопкой динамика в читалке или в разделе «Саундтрек» тайтла.",
+    "uk": "Spotify ще ніхто не підключив. Підключитися можна кнопкою динаміка в читалці або в розділі «Саундтрек» тайтлу."
+  },
+  "Not Premium: no music": {
+    "ru": "Не Premium: без музыки",
+    "uk": "Не Premium: без музики"
+  },
+  "Nothing found on Spotify.": {
+    "ru": "В Spotify ничего не найдено.",
+    "uk": "У Spotify нічого не знайдено."
+  },
+  "One tap presets": {
+    "ru": "Пресеты в одно касание",
+    "uk": "Пресети в один дотик"
+  },
+  "Open Spotify on a phone or speaker to see it here.": {
+    "ru": "Откройте Spotify на телефоне или колонке, чтобы увидеть их здесь.",
+    "uk": "Відкрийте Spotify на телефоні чи колонці, щоб побачити їх тут."
+  },
+  "Paste the app's Client ID below.": {
+    "ru": "Вставьте ниже Client ID приложения.",
+    "uk": "Вставте нижче Client ID застосунку."
+  },
+  "Picked by hand": {
+    "ru": "Выбрано вручную",
+    "uk": "Вибрано вручну"
+  },
+  "Play": {
+    "ru": "Играть",
+    "uk": "Грати"
+  },
+  "Play music on…": {
+    "ru": "Где играть музыку…",
+    "uk": "Де грати музику…"
+  },
+  "Playing on your Spotify": {
+    "ru": "Играет в вашем Spotify",
+    "uk": "Грає у вашому Spotify"
+  },
+  "Playlist": {
+    "ru": "Плейлист",
+    "uk": "Плейлист"
+  },
+  "Playlists": {
+    "ru": "Плейлисты",
+    "uk": "Плейлисти"
+  },
+  "Redirect URI": {
+    "ru": "Redirect URI",
+    "uk": "Redirect URI"
+  },
+  "Refresh devices": {
+    "ru": "Обновить устройства",
+    "uk": "Оновити пристрої"
+  },
+  "Romance": {
+    "ru": "Романтика",
+    "uk": "Романтика"
+  },
+  "Search Spotify": {
+    "ru": "Поиск в Spotify",
+    "uk": "Пошук у Spotify"
+  },
+  "Search playlists, albums or tracks": {
+    "ru": "Ищите плейлисты, альбомы или треки",
+    "uk": "Шукайте плейлисти, альбоми чи треки"
+  },
+  "Set it up": {
+    "ru": "Настроить",
+    "uk": "Налаштувати"
+  },
+  "Settings saved": {
+    "ru": "Настройки сохранены",
+    "uk": "Налаштування збережено"
+  },
+  "Shuffle": {
+    "ru": "Перемешать",
+    "uk": "Перемішати"
+  },
+  "Soundtrack": {
+    "ru": "Саундтрек",
+    "uk": "Саундтрек"
+  },
+  "Soundtrack mode": {
+    "ru": "Режим саундтрека",
+    "uk": "Режим саундтреку"
+  },
+  "Soundtrack version": {
+    "ru": "Версия саундтрека",
+    "uk": "Версія саундтреку"
+  },
+  "Soundtracks": {
+    "ru": "Саундтреки",
+    "uk": "Саундтреки"
+  },
+  "Spotify": {
+    "ru": "Spotify",
+    "uk": "Spotify"
+  },
+  "Spotify connected": {
+    "ru": "Spotify подключён",
+    "uk": "Spotify підключено"
+  },
+  "Spotify on {device}": {
+    "ru": "Spotify на {device}",
+    "uk": "Spotify на {device}"
+  },
+  "Spotify plays music only for Premium accounts.": {
+    "ru": "Spotify играет музыку только для аккаунтов Premium.",
+    "uk": "Spotify грає музику лише для акаунтів Premium."
+  },
+  "Spotify sign-in needs HTTPS. Plain-HTTP servers need a reverse proxy with a certificate first, and the public URL in Settings › General set to its https address.": {
+    "ru": "Для входа в Spotify нужен HTTPS. Серверу на обычном HTTP сначала нужен обратный прокси с сертификатом, а в Настройки › Общие — публичный URL с его https-адресом.",
+    "uk": "Для входу в Spotify потрібен HTTPS. Серверу на звичайному HTTP спершу потрібен зворотний проксі з сертифікатом, а в Налаштування › Загальні — публічний URL з його https-адресою."
+  },
+  "Spotify wasn't connected": {
+    "ru": "Spotify не подключён",
+    "uk": "Spotify не підключено"
+  },
+  "Spotify's player didn't start in this browser": {
+    "ru": "Плеер Spotify не запустился в этом браузере",
+    "uk": "Плеєр Spotify не запустився в цьому браузері"
+  },
+  "Spotify's player didn't start in this browser: pick a device to play on.": {
+    "ru": "Плеер Spotify не запустился в этом браузере: выберите устройство для воспроизведения.",
+    "uk": "Плеєр Spotify не запустився в цьому браузері: виберіть пристрій для відтворення."
+  },
+  "Tense": {
+    "ru": "Напряжение",
+    "uk": "Напруга"
+  },
+  "The mood admins picked for this title.": {
+    "ru": "Настроение, которое администраторы выбрали для этого тайтла.",
+    "uk": "Настрій, який адміністратори обрали для цього тайтлу."
+  },
+  "The mood everyone hears while reading this title, unless they make their own version.": {
+    "ru": "Настроение, которое все слышат при чтении этого тайтла, если не сделали свою версию.",
+    "uk": "Настрій, який усі чують під час читання цього тайтлу, якщо не зробили власну версію."
+  },
+  "This browser": {
+    "ru": "Этот браузер",
+    "uk": "Цей браузер"
+  },
+  "Title mood": {
+    "ru": "Настроение тайтла",
+    "uk": "Настрій тайтлу"
+  },
+  "Title soundtrack": {
+    "ru": "Саундтрек тайтла",
+    "uk": "Саундтрек тайтлу"
+  },
+  "Titles that used it play no music there until someone picks another mood.": {
+    "ru": "Тайтлы, где оно было выбрано, останутся без музыки, пока кто-нибудь не выберет другое настроение.",
+    "uk": "Тайтли, де його було обрано, залишаться без музики, доки хтось не вибере інший настрій."
+  },
+  "Titles with these genres or tags suit the mood.": {
+    "ru": "Тайтлы с этими жанрами или тегами подходят под настроение.",
+    "uk": "Тайтли з цими жанрами чи тегами пасують до настрою."
+  },
+  "Track": {
+    "ru": "Трек",
+    "uk": "Трек"
+  },
+  "Tracks": {
+    "ru": "Треки",
+    "uk": "Треки"
+  },
+  "What to find": {
+    "ru": "Что искать",
+    "uk": "Що шукати"
+  },
+  "Wherever Spotify plays now": {
+    "ru": "Там, где сейчас играет Spotify",
+    "uk": "Там, де зараз грає Spotify"
+  },
+  "You changed the soundtrack from the default.": {
+    "ru": "Вы изменили саундтрек по сравнению со стандартным.",
+    "uk": "Ви змінили саундтрек порівняно зі стандартним."
+  },
+  "You hear the default. Pick a mood to make your own version.": {
+    "ru": "Вы слышите стандартный. Выберите настроение, чтобы сделать свою версию.",
+    "uk": "Ви чуєте стандартний. Виберіть настрій, щоб зробити власну версію."
+  },
+  "Your account: {name}": {
+    "ru": "Ваш аккаунт: {name}",
+    "uk": "Ваш акаунт: {name}"
+  },
+  "Your version": {
+    "ru": "Ваша версия",
+    "uk": "Ваша версія"
+  },
+  "{count} of {max} users connected": {
+    "ru": "Подключено {count} из {max}",
+    "uk": "Підключено {count} з {max}"
+  },
+  "{count} tracks": {
+    "ru": "треков: {count}",
+    "uk": "треків: {count}"
   }
 }

@@ -1,3 +1,7 @@
+audio-mood-create POST /api/v1/audio/moods -> admin
+audio-mood-delete DELETE /api/v1/audio/moods/{id} -> admin
+audio-mood-update PUT /api/v1/audio/moods/{id} -> admin
+audio-moods GET /api/v1/audio/moods -> signedin
 auth-login POST /api/v1/auth/login -> public
 auth-logout POST /api/v1/auth/logout -> signedin
 auth-oidc-callback GET /api/v1/auth/oidc/callback -> public
@@ -92,9 +96,22 @@ me-messenger-telegram-link POST /api/v1/me/messenger/telegram/link -> signedin
 me-messenger-test POST /api/v1/me/messenger/{kind}/test -> signedin
 me-messenger-unlink DELETE /api/v1/me/messenger/{kind} -> signedin
 me-reading-stats GET /api/v1/me/reading-stats -> signedin
+me-series-soundtrack-reset DELETE /api/v1/me/series/{id}/soundtrack -> signedin
+me-series-soundtrack-save PUT /api/v1/me/series/{id}/soundtrack -> signedin
 me-sessions GET /api/v1/me/sessions -> signedin
 me-sessions-revoke DELETE /api/v1/me/sessions/{id} -> signedin
 me-sessions-revoke-others POST /api/v1/me/sessions/revoke-others -> signedin
+me-spotify GET /api/v1/me/spotify -> signedin
+me-spotify-callback GET /api/v1/me/spotify/callback -> public
+me-spotify-connect POST /api/v1/me/spotify/connect -> signedin
+me-spotify-devices GET /api/v1/me/spotify/devices -> signedin
+me-spotify-disconnect DELETE /api/v1/me/spotify -> signedin
+me-spotify-pause PUT /api/v1/me/spotify/pause -> signedin
+me-spotify-play PUT /api/v1/me/spotify/play -> signedin
+me-spotify-player GET /api/v1/me/spotify/player -> signedin
+me-spotify-resume PUT /api/v1/me/spotify/resume -> signedin
+me-spotify-token GET /api/v1/me/spotify/token -> signedin
+me-spotify-volume PUT /api/v1/me/spotify/volume -> signedin
 me-sync GET /api/v1/me/sync -> signedin
 me-ui-preferences GET /api/v1/me/ui-preferences -> signedin
 me-ui-preferences-save PUT /api/v1/me/ui-preferences -> signedin
@@ -131,6 +148,7 @@ queue-retry POST /api/v1/queue/{id}/retry -> queue.manage
 read-chapter GET /api/v1/read/chapters/{id} -> signedin
 read-chapter-bounds GET /api/v1/read/chapters/{id}/bounds -> signedin
 read-chapter-picker GET /api/v1/read/series/{id}/chapters -> signedin
+read-chapter-soundtrack GET /api/v1/read/chapters/{id}/soundtrack -> signedin
 read-file GET /api/v1/read/chapters/{id}/file -> download
 read-mark PUT /api/v1/read/chapters/{id}/mark -> signedin
 read-page GET /api/v1/read/chapters/{id}/pages/{n} -> signedin
@@ -197,6 +215,8 @@ series-refresh POST /api/v1/series/{id}/refresh -> library.edit
 series-rename POST /api/v1/series/rename -> library.edit
 series-rename-preview POST /api/v1/series/rename/preview -> library.edit
 series-search POST /api/v1/series/{id}/search -> library.edit
+series-soundtrack GET /api/v1/series/{id}/soundtrack -> signedin
+series-soundtrack-save PUT /api/v1/series/{id}/soundtrack -> admin
 series-source-link POST /api/v1/series/{id}/sources -> library.edit
 series-source-order PUT /api/v1/series/{id}/sources/order -> library.edit
 series-source-replace POST /api/v1/series/{id}/sources/{linkId}/replace -> library.edit
@@ -220,6 +240,7 @@ settings-get-reading GET /api/v1/settings/reading -> admin
 settings-get-readsync GET /api/v1/settings/readsync -> admin
 settings-get-schedule GET /api/v1/settings/schedule -> admin
 settings-get-sources GET /api/v1/settings/sources -> admin
+settings-get-spotify GET /api/v1/settings/spotify -> admin
 settings-get-sso GET /api/v1/settings/sso -> admin
 settings-locks GET /api/v1/settings/locks -> admin
 settings-messenger-personal-targets GET /api/v1/settings/messenger/personal-targets -> admin
@@ -237,6 +258,7 @@ settings-put-reading PUT /api/v1/settings/reading -> admin
 settings-put-readsync PUT /api/v1/settings/readsync -> admin
 settings-put-schedule PUT /api/v1/settings/schedule -> admin
 settings-put-sources PUT /api/v1/settings/sources -> admin
+settings-put-spotify PUT /api/v1/settings/spotify -> admin
 settings-put-sso PUT /api/v1/settings/sso -> admin
 settings-regenerate-apikey POST /api/v1/settings/general/apikey -> admin
 settings-reset-image-links POST /api/v1/settings/reading/image-links/reset -> admin
@@ -253,6 +275,7 @@ sources-open GET /api/v1/sources/{moduleId}/{sourceId}/open -> library.add | lib
 sources-quick-search POST /api/v1/sources/quick-search -> library.add | library.edit | requests.manage
 sources-search GET /api/v1/sources/search -> library.add | library.edit | requests.manage
 sources-thumbnail GET /api/v1/sources/{moduleId}/{sourceId}/thumbnail -> library.add | library.edit | requests.manage
+spotify-search GET /api/v1/spotify/search -> signedin
 stores-add POST /api/v1/modules/{id}/stores -> admin
 stores-list GET /api/v1/modules/{id}/stores -> admin
 stores-remove DELETE /api/v1/modules/{id}/stores -> admin

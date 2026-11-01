@@ -8,6 +8,7 @@ import (
 	"github.com/Asion001/mangarr/internal/cleanup"
 	"github.com/Asion001/mangarr/internal/jobs"
 	"github.com/Asion001/mangarr/internal/readsync"
+	"github.com/Asion001/mangarr/internal/soundtrack"
 )
 
 // ReaderServices are created by wireReaders.
@@ -16,6 +17,8 @@ type ReaderServices struct {
 	// Watcher applies progress pushed by library servers (Komga) live.
 	Watcher *readsync.Watcher
 	Cleaner *cleanup.Cleaner
+	// Spotify plays soundtrack music through readers' Spotify accounts.
+	Spotify *soundtrack.Spotify
 }
 
 // watcherService runs the watcher with the app.
@@ -31,6 +34,7 @@ func (a *App) wireReaders(ctx context.Context) error {
 	a.ReadSync = readsync.New(a.DB, a.Modules, a.Bus, a.Log.With("component", "readsync"))
 	a.Cleaner = cleanup.New(a.DB, a.Settings, a.Library, a.Bus, a.Log.With("component", "cleanup"))
 	a.Watcher = readsync.NewWatcher(a.ReadSync)
+	a.Spotify = soundtrack.New(a.DB, a.Settings)
 	var cleanupMu sync.Mutex
 	var cleanupAt time.Time
 	a.Watcher.OnChange = func(int64) {

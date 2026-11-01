@@ -29,6 +29,8 @@ import { useSeriesActions } from "./useSeriesActions";
 import { ListsButton } from "./ListsButton";
 import { Recommendations } from "./Recommendations";
 import { RatingChip } from "./Ratings";
+import { SeriesSoundtrack } from "./Soundtrack";
+import { useSpotifyReturn } from "../../lib/soundtrack/spotify";
 
 export function SeriesDetail() {
   const id = Number(useParams().id);
@@ -39,6 +41,7 @@ export function SeriesDetail() {
   const back = useBack("/");
   const push = usePushCommand();
   const { can, account } = useAccount();
+  useSpotifyReturn();
   const { editing } = useUIMode();
   // a preview is read-only until it is added
   const manage = can("library.edit") && editing && !s?.preview;
@@ -240,6 +243,7 @@ export function SeriesDetail() {
 
       {manage && <SourcesPanel series={s} />}
       <ChaptersTable key={String(manage)} seriesId={id} seriesTitle={s.title} manage={manage} nextChapterId={readTarget?.id} editions={s.editions ?? []} />
+      {!s.preview && <SeriesSoundtrack seriesId={id} />}
       {!s.preview && <Recommendations seriesId={id} />}
 
       {manage && edit && <EditSeriesModal series={s} onClose={() => setEdit(false)} onMetadata={() => { setEdit(false); setMetadata("match"); }} />}
