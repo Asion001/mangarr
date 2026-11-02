@@ -3,7 +3,7 @@ import { useDocumentTitle } from "../../lib/documentTitle";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, Download, List, Maximize, Minimize, Minus, Pause, Play, Plus, Settings2, Volume2, VolumeX } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, Download, List, Maximize, Minimize, Minus, MoreHorizontal, Pause, Play, Plus, Settings2, Volume2, VolumeX } from "lucide-react";
 import clsx from "clsx";
 import { ApiError, apiUrl, basePath, proxyGap, type S } from "../../api/client";
 import { fromServer, onServerBack, serverAnswered, serverGone, unreachable } from "../../lib/connection";
@@ -79,6 +79,7 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
   const [sound, setSound] = useState(false);
   const full = useFullscreen();
   const toast = useToast();
+  const homeScreenHint = () => toast.info(t("iPhone browsers can't go full screen"), t("Tap Share, then Add to Home Screen, and open mangarr from there to read without the browser bars."));
   // webtoon auto scroll: on until paused or the strip runs out; it holds
   // while the settings or the chapter list are open
   const [auto, setAuto] = useState(false);
@@ -422,33 +423,36 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
         >
           {soundtrack.on ? <Volume2 className="size-5" /> : <VolumeX className="size-5" />}
         </button>
-        <SavedHere chapterId={ch.id} />
-        {ch.canDownload && (
-          <a href={apiUrl(`api/v1/read/chapters/${ch.id}/file`)} download className="rounded p-2 hover:bg-panel-2" aria-label={t("Download the chapter")}>
-            <Download className="size-5" />
-          </a>
-        )}
+        {/* on a phone these three go in the "more" menu, so the title keeps room */}
+        <span className="hidden sm:contents">
+          <SavedHere chapterId={ch.id} />
+          {ch.canDownload && (
+            <a href={apiUrl(`api/v1/read/chapters/${ch.id}/file`)} download className="rounded p-2 hover:bg-panel-2" aria-label={t("Download the chapter")}>
+              <Download className="size-5" />
+            </a>
+          )}
+        </span>
         <button type="button" className="rounded p-2 hover:bg-panel-2" onClick={() => setPickingChapter(true)} aria-label={t("Choose chapter")}>
           <List className="size-5" />
         </button>
         {needsHomeScreen() && (
-          <button
-            type="button"
-            className="rounded p-2 hover:bg-panel-2"
-            onClick={() => toast.info(t("iPhone browsers can't go full screen"), t("Tap Share, then Add to Home Screen, and open mangarr from there to read without the browser bars."))}
-            aria-label={t("Full screen")}
-          >
+          <button type="button" className="hidden rounded p-2 hover:bg-panel-2 sm:block" onClick={homeScreenHint} aria-label={t("Full screen")}>
             <Maximize className="size-5" />
           </button>
         )}
         {canFullscreen() && (
-          <button type="button" className="rounded p-2 hover:bg-panel-2" onClick={toggleFull} aria-label={t("Full screen")}>
+          <button type="button" className="hidden rounded p-2 hover:bg-panel-2 sm:block" onClick={toggleFull} aria-label={t("Full screen")}>
             {full ? <Minimize className="size-5" /> : <Maximize className="size-5" />}
           </button>
         )}
         <button type="button" className="rounded p-2 hover:bg-panel-2" onClick={() => setPanel((p) => !p)} aria-label={t("Reader settings")}>
           <Settings2 className="size-5" />
         </button>
+        <MoreMenu
+          chapterId={ch.id}
+          downloadUrl={ch.canDownload ? apiUrl(`api/v1/read/chapters/${ch.id}/file`) : ""}
+          fullscreen={canFullscreen() ? { on: full, toggle: toggleFull } : needsHomeScreen() ? { on: false, toggle: homeScreenHint } : null}
+        />
       </div>
 
       {/* bottom bar */}
@@ -634,6 +638,58 @@ function AutoSpeed({ speed, by, className }: { speed: number; by: (d: number) =>
 }
 
 /** SavedHere is the top bar's phone icon: this chapter saved on the device, or saving. */
+/**
+ * MoreMenu holds, on a phone, what the top bar has no room for: the
+ * chapter saved on this device, download and full screen.
+ */
+function MoreMenu({ chapterId, downloadUrl, fullscreen }: { chapterId: number; downloadUrl: string; fullscreen: { on: boolean; toggle: () => void } | null }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const saved = useSavedChapters()[chapterId];
+  useEffect(() => {
+    if (!open) return;
+    const outside = (e: PointerEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
+    const key = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("pointerdown", outside);
+    document.addEventListener("keydown", key);
+    return () => {
+      document.removeEventListener("pointerdown", outside);
+      document.removeEventListener("keydown", key);
+    };
+  }, [open]);
+  if (!saved && !downloadUrl && !fullscreen) return null;
+  const item = "flex min-h-11 w-full items-center gap-3 whitespace-nowrap rounded-md px-3 text-left text-sm text-fg hover:bg-border";
+  return (
+    <div ref={ref} className="relative sm:hidden">
+      <button type="button" className="rounded p-2 hover:bg-panel-2" onClick={() => setOpen(!open)} aria-haspopup="menu" aria-expanded={open} aria-label={t("More")}>
+        <MoreHorizontal className="size-5" />
+      </button>
+      {open && (
+        <div role="menu" className="absolute right-0 z-30 mt-1 min-w-56 rounded-lg border border-border bg-panel-2 p-1 shadow-xl" onClick={() => setOpen(false)}>
+          {saved && (
+            <Link role="menuitem" to="/on-device" className={item}>
+              <DeviceIcon chapter={saved} className="size-5" />
+              {saving(saved) ? t("Saving on this device…") : t("Saved on this device")}
+            </Link>
+          )}
+          {downloadUrl && (
+            <a role="menuitem" href={downloadUrl} download className={item}>
+              <Download className="size-5" />
+              {t("Download the chapter")}
+            </a>
+          )}
+          {fullscreen && (
+            <button role="menuitem" type="button" className={item} onClick={fullscreen.toggle}>
+              {fullscreen.on ? <Minimize className="size-5" /> : <Maximize className="size-5" />}
+              {fullscreen.on ? t("Leave full screen") : t("Full screen")}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SavedHere({ chapterId }: { chapterId: number }) {
   const c = useSavedChapters()[chapterId];
   if (!c) return null;

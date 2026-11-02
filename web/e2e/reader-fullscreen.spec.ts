@@ -34,7 +34,9 @@ test.describe("in an iPhone browser", () => {
     await mock(page, false);
     await page.goto("/read/1");
     await expect(page.getByText("1 / 3")).toBeVisible();
-    await page.getByRole("button", { name: "Full screen" }).click();
+    // on a phone it's in the top bar's "more" menu
+    await page.getByRole("button", { name: "More" }).click();
+    await page.getByRole("menuitem", { name: "Full screen" }).click();
     await expect(page.getByText("iPhone browsers can't go full screen")).toBeVisible();
     await expect(page.getByText(/Add to Home Screen/)).toBeVisible();
   });
@@ -44,6 +46,7 @@ test.describe("in an iPhone browser", () => {
     await page.goto("/read/1");
     await expect(page.getByText("1 / 3")).toBeVisible();
     await expect(page.getByRole("button", { name: "Full screen" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "More" })).toHaveCount(0);
   });
 });
 
@@ -54,7 +57,9 @@ test.describe("in Chrome on iPhone", () => {
     await mock(page, false);
     await page.goto("/read/1");
     await expect(page.getByText("1 / 3")).toBeVisible();
-    await page.getByRole("button", { name: "Full screen" }).click();
+    // on a phone it's in the top bar's "more" menu
+    await page.getByRole("button", { name: "More" }).click();
+    await page.getByRole("menuitem", { name: "Full screen" }).click();
     await expect(page.getByText("iPhone browsers can't go full screen")).toBeVisible();
   });
 });
