@@ -11962,5 +11962,433 @@
   "{count} tracks": {
     "ru": "треков: {count}",
     "uk": "треків: {count}"
+  },
+  "+ Add effect": {
+    "ru": "+ Добавить эффект",
+    "uk": "+ Додати ефект"
+  },
+  "0: never.": {
+    "ru": "0 — никогда.",
+    "uk": "0 — ніколи."
+  },
+  "A catalog.json listing packs to install. Empty: none.": {
+    "ru": "catalog.json со списком паков для установки. Пусто — без каталога.",
+    "uk": "catalog.json зі списком паків для встановлення. Порожньо — без каталогу."
+  },
+  "A scene layers ambience and sound effects from sound packs over a mood's music. Make one, or install a pack that brings some.": {
+    "ru": "Сцена накладывает эмбиент и звуковые эффекты из звуковых паков на музыку настроения. Создайте сцену или установите пак, в котором они есть.",
+    "uk": "Сцена накладає ембієнт і звукові ефекти зі звукових паків на музику настрою. Створіть сцену або встановіть пак, у якому вони є."
+  },
+  "A zip with pack.json and its sounds (Ogg/Opus, MP3, M4A or WAV).": {
+    "ru": "Zip с pack.json и его звуками (Ogg/Opus, MP3, M4A или WAV).",
+    "uk": "Zip з pack.json і його звуками (Ogg/Opus, MP3, M4A або WAV)."
+  },
+  "Add a catalog URL below to install packs from it.": {
+    "ru": "Добавьте ниже URL каталога, чтобы устанавливать из него паки.",
+    "uk": "Додайте нижче URL каталогу, щоб встановлювати з нього паки."
+  },
+  "Add a cue": {
+    "ru": "Добавить метку",
+    "uk": "Додати мітку"
+  },
+  "Add ambience": {
+    "ru": "Добавить эмбиент",
+    "uk": "Додати ембієнт"
+  },
+  "Add an effect": {
+    "ru": "Добавить эффект",
+    "uk": "Додати ефект"
+  },
+  "Ambience and sound effects that play over the music, also for readers without Spotify. Scenes layer them over a mood.": {
+    "ru": "Эмбиент и звуковые эффекты поверх музыки — и для читателей без Spotify. Сцены накладывают их на настроение.",
+    "uk": "Ембієнт і звукові ефекти поверх музики — і для читачів без Spotify. Сцени накладають їх на настрій."
+  },
+  "Ambience layers · from sound packs": {
+    "ru": "Слои эмбиента · из звуковых паков",
+    "uk": "Шари ембієнту · зі звукових паків"
+  },
+  "Ambience": {
+    "ru": "Эмбиент",
+    "uk": "Ембієнт"
+  },
+  "Body": {
+    "ru": "Тело",
+    "uk": "Тіло"
+  },
+  "Catalog URL": {
+    "ru": "URL каталога",
+    "uk": "URL каталогу"
+  },
+  "Ch. {chapter} · from page {page}": {
+    "ru": "Гл. {chapter} · со стр. {page}",
+    "uk": "Розд. {chapter} · зі стор. {page}"
+  },
+  "Choose a zip": {
+    "ru": "Выбрать zip",
+    "uk": "Вибрати zip"
+  },
+  "City": {
+    "ru": "Город",
+    "uk": "Місто"
+  },
+  "Combat": {
+    "ru": "Бой",
+    "uk": "Бій"
+  },
+  "Connect your Spotify account to hear its music in the reader (ambience plays without it). Playing needs Spotify Premium.": {
+    "ru": "Подключите аккаунт Spotify, чтобы слышать музыку в читалке (эмбиент играет и без него). Для воспроизведения нужен Spotify Premium.",
+    "uk": "Підключіть акаунт Spotify, щоб чути музику в читалці (ембієнт грає і без нього). Для відтворення потрібен Spotify Premium."
+  },
+  "Credits": {
+    "ru": "Авторы",
+    "uk": "Автори"
+  },
+  "Cues that used it play their mood, or nothing.": {
+    "ru": "Метки с ней будут играть своё настроение или ничего.",
+    "uk": "Мітки з нею гратимуть свій настрій або нічого."
+  },
+  "Cues": {
+    "ru": "Метки",
+    "uk": "Мітки"
+  },
+  "Default (admin)": {
+    "ru": "Стандартный (админ)",
+    "uk": "Стандартний (адмін)"
+  },
+  "Delete the scene?": {
+    "ru": "Удалить сцену?",
+    "uk": "Видалити сцену?"
+  },
+  "Each effect gets an icon and colour by its kind: weather, objects, combat, body, magic, voices.": {
+    "ru": "У каждого эффекта значок и цвет по типу: погода, предметы, бой, тело, магия, голоса.",
+    "uk": "Кожен ефект має значок і колір за типом: погода, предмети, бій, тіло, магія, голоси."
+  },
+  "Find a scene": {
+    "ru": "Найти сцену",
+    "uk": "Знайти сцену"
+  },
+  "Find a sound": {
+    "ru": "Найти звук",
+    "uk": "Знайти звук"
+  },
+  "For packs you downloaded yourself. Files are sorted into ambience and effects from their names; music is skipped.": {
+    "ru": "Для паков, скачанных самостоятельно. Файлы делятся на эмбиент и эффекты по названиям; музыка пропускается.",
+    "uk": "Для паків, завантажених самостійно. Файли поділяються на ембієнт та ефекти за назвами; музика пропускається."
+  },
+  "From chapter {chapter}, page {page}.": {
+    "ru": "С главы {chapter}, страницы {page}.",
+    "uk": "З розділу {chapter}, сторінки {page}."
+  },
+  "From page": {
+    "ru": "Со страницы",
+    "uk": "Зі сторінки"
+  },
+  "From the catalog": {
+    "ru": "Из каталога",
+    "uk": "З каталогу"
+  },
+  "From the start of chapter {chapter}.": {
+    "ru": "С начала главы {chapter}.",
+    "uk": "З початку розділу {chapter}."
+  },
+  "Import a folder": {
+    "ru": "Импорт папки",
+    "uk": "Імпорт теки"
+  },
+  "Imported folder": {
+    "ru": "Импортированная папка",
+    "uk": "Імпортована тека"
+  },
+  "Imported {count} cues": {
+    "ru": "Импортировано меток: {count}",
+    "uk": "Імпортовано міток: {count}"
+  },
+  "Installing {name}": {
+    "ru": "Устанавливается {name}",
+    "uk": "Встановлюється {name}"
+  },
+  "It shows here when it's done (System › Tasks has the progress).": {
+    "ru": "Появится здесь, когда закончится (прогресс — в Система › Задачи).",
+    "uk": "З'явиться тут, коли завершиться (прогрес — у Система › Завдання)."
+  },
+  "Its own music": {
+    "ru": "Своя музыка",
+    "uk": "Власна музика"
+  },
+  "Its sounds are deleted, and scenes lose the layers and effects that used them.": {
+    "ru": "Его звуки удалятся, а сцены потеряют слои и эффекты с ними.",
+    "uk": "Його звуки видаляться, а сцени втратять шари й ефекти з ними."
+  },
+  "Just me": {
+    "ru": "Только я",
+    "uk": "Лише я"
+  },
+  "Kind of sound": {
+    "ru": "Тип звука",
+    "uk": "Тип звуку"
+  },
+  "Magic": {
+    "ru": "Магия",
+    "uk": "Магія"
+  },
+  "Mood": {
+    "ru": "Настроение",
+    "uk": "Настрій"
+  },
+  "Music from Spotify.": {
+    "ru": "Музыка из Spotify.",
+    "uk": "Музика зі Spotify."
+  },
+  "Nature": {
+    "ru": "Природа",
+    "uk": "Природа"
+  },
+  "New scene": {
+    "ru": "Новая сцена",
+    "uk": "Нова сцена"
+  },
+  "No cues yet: nothing plays for this title.": {
+    "ru": "Меток пока нет: для этого тайтла ничего не играет.",
+    "uk": "Міток поки немає: для цього тайтлу нічого не грає."
+  },
+  "No music here": {
+    "ru": "Здесь без музыки",
+    "uk": "Тут без музики"
+  },
+  "No scenes yet": {
+    "ru": "Сцен пока нет",
+    "uk": "Сцен поки немає"
+  },
+  "No sound packs yet.": {
+    "ru": "Звуковых паков пока нет.",
+    "uk": "Звукових паків поки немає."
+  },
+  "No sounds installed yet: add a sound pack on the Spotify & packs tab.": {
+    "ru": "Звуков пока нет: добавьте звуковой пак на вкладке «Spotify и паки».",
+    "uk": "Звуків поки немає: додайте звуковий пак на вкладці «Spotify і паки»."
+  },
+  "Objects": {
+    "ru": "Предметы",
+    "uk": "Предмети"
+  },
+  "Other": {
+    "ru": "Другое",
+    "uk": "Інше"
+  },
+  "Pack installed": {
+    "ru": "Пак установлен",
+    "uk": "Пак встановлено"
+  },
+  "Play {name}": {
+    "ru": "Играть: {name}",
+    "uk": "Грати: {name}"
+  },
+  "Preview scene": {
+    "ru": "Прослушать сцену",
+    "uk": "Прослухати сцену"
+  },
+  "Remove the cue here": {
+    "ru": "Убрать метку здесь",
+    "uk": "Прибрати мітку тут"
+  },
+  "Remove the cue": {
+    "ru": "Убрать метку",
+    "uk": "Прибрати мітку"
+  },
+  "Remove the pack": {
+    "ru": "Удалить пак",
+    "uk": "Видалити пак"
+  },
+  "Remove the pack?": {
+    "ru": "Удалить пак?",
+    "uk": "Видалити пак?"
+  },
+  "Scan": {
+    "ru": "Сканировать",
+    "uk": "Сканувати"
+  },
+  "Scanning the folder": {
+    "ru": "Сканирую папку",
+    "uk": "Сканую теку"
+  },
+  "Scene name": {
+    "ru": "Название сцены",
+    "uk": "Назва сцени"
+  },
+  "Scene saved": {
+    "ru": "Сцена сохранена",
+    "uk": "Сцену збережено"
+  },
+  "Scenes": {
+    "ru": "Сцены",
+    "uk": "Сцени"
+  },
+  "Sound effects": {
+    "ru": "Звуковые эффекты",
+    "uk": "Звукові ефекти"
+  },
+  "Sound packs take {size}, more than the {quota} set below. Remove packs you don't use.": {
+    "ru": "Звуковые паки занимают {size} — больше заданных ниже {quota}. Удалите ненужные паки.",
+    "uk": "Звукові паки займають {size} — більше заданих нижче {quota}. Видаліть непотрібні паки."
+  },
+  "Sound packs": {
+    "ru": "Звуковые паки",
+    "uk": "Звукові паки"
+  },
+  "Spotify & packs": {
+    "ru": "Spotify и паки",
+    "uk": "Spotify і паки"
+  },
+  "Start a scene here": {
+    "ru": "Начать сцену здесь",
+    "uk": "Почати сцену тут"
+  },
+  "Starts at": {
+    "ru": "Начинается",
+    "uk": "Починається"
+  },
+  "Starts on page {page}": {
+    "ru": "Начнётся на странице {page}",
+    "uk": "Почнеться на сторінці {page}"
+  },
+  "Starts with this chapter": {
+    "ru": "Начнётся с этой главы",
+    "uk": "Почнеться з цього розділу"
+  },
+  "Stop preview": {
+    "ru": "Остановить",
+    "uk": "Зупинити"
+  },
+  "Stop": {
+    "ru": "Стоп",
+    "uk": "Стоп"
+  },
+  "Suggest a mood from a title's genres when it has none": {
+    "ru": "Подбирать настроение по жанрам тайтла, если оно не задано",
+    "uk": "Добирати настрій за жанрами тайтлу, якщо його не задано"
+  },
+  "Suggested from genres": {
+    "ru": "Подобрано по жанрам",
+    "uk": "Дібрано за жанрами"
+  },
+  "Tap to play once": {
+    "ru": "Нажмите, чтобы сыграть",
+    "uk": "Натисніть, щоб зіграти"
+  },
+  "The catalog offers no packs.": {
+    "ru": "В каталоге нет паков.",
+    "uk": "У каталозі немає паків."
+  },
+  "The mood's music": {
+    "ru": "Музыка настроения",
+    "uk": "Музика настрою"
+  },
+  "The mood's music: {name}": {
+    "ru": "Музыка настроения: {name}",
+    "uk": "Музика настрою: {name}"
+  },
+  "The scene starts from the mood: its music, colour and icon.": {
+    "ru": "Сцена начинается с настроения: его музыки, цвета и значка.",
+    "uk": "Сцена починається з настрою: його музики, кольору й значка."
+  },
+  "Title default": {
+    "ru": "Для всего тайтла",
+    "uk": "Для всього тайтлу"
+  },
+  "Up to 4, looped": {
+    "ru": "До 4, по кругу",
+    "uk": "До 4, по колу"
+  },
+  "Upload a pack": {
+    "ru": "Загрузить пак",
+    "uk": "Завантажити пак"
+  },
+  "Voices": {
+    "ru": "Голоса",
+    "uk": "Голоси"
+  },
+  "Warn above (MB)": {
+    "ru": "Предупреждать после (МБ)",
+    "uk": "Попереджати після (МБ)"
+  },
+  "Water": {
+    "ru": "Вода",
+    "uk": "Вода"
+  },
+  "Weather": {
+    "ru": "Погода",
+    "uk": "Погода"
+  },
+  "Who hears it": {
+    "ru": "Кто слышит",
+    "uk": "Хто чує"
+  },
+  "Whole title": {
+    "ru": "Весь тайтл",
+    "uk": "Увесь тайтл"
+  },
+  "You changed {count} cues from the default.": {
+    "ru": "Вы изменили меток по сравнению со стандартным: {count}.",
+    "uk": "Ви змінили міток порівняно зі стандартним: {count}."
+  },
+  "You hear the default. Add a cue to make your own version.": {
+    "ru": "Вы слышите стандартный. Добавьте метку, чтобы сделать свою версию.",
+    "uk": "Ви чуєте стандартний. Додайте мітку, щоб зробити власну версію."
+  },
+  "empty: the chapter's start": {
+    "ru": "пусто — с начала главы",
+    "uk": "порожньо — з початку розділу"
+  },
+  "of {count}": {
+    "ru": "из {count}",
+    "uk": "з {count}"
+  },
+  "page count changed, check it": {
+    "ru": "число страниц изменилось, проверьте",
+    "uk": "кількість сторінок змінилася, перевірте"
+  },
+  "rain, battle, calm…": {
+    "ru": "дождь, бой, покой…",
+    "uk": "дощ, бій, спокій…"
+  },
+  "rain, door, crowd…": {
+    "ru": "дождь, дверь, толпа…",
+    "uk": "дощ, двері, натовп…"
+  },
+  "{count} ambience": {
+    "ru": "эмбиент: {count}",
+    "uk": "ембієнт: {count}"
+  },
+  "{count} effects": {
+    "ru": "эффектов: {count}",
+    "uk": "ефектів: {count}"
+  },
+  "{count} moods weren't found": {
+    "ru": "не найдено настроений: {count}",
+    "uk": "не знайдено настроїв: {count}"
+  },
+  "{count} scenes made": {
+    "ru": "создано сцен: {count}",
+    "uk": "створено сцен: {count}"
+  },
+  "{count} sound pack files no sound uses ({size}) are removed too": {
+    "ru": "Также удаляются неиспользуемые файлы звуковых паков: {count} ({size})",
+    "uk": "Також видаляються невикористані файли звукових паків: {count} ({size})"
+  },
+  "{count} sounds aren't installed here": {
+    "ru": "не установлено звуков: {count}",
+    "uk": "не встановлено звуків: {count}"
+  },
+  "{count} sounds": {
+    "ru": "звуков: {count}",
+    "uk": "звуків: {count}"
+  },
+  "{name} volume": {
+    "ru": "Громкость: {name}",
+    "uk": "Гучність: {name}"
+  },
+  "{size} used": {
+    "ru": "Занято {size}",
+    "uk": "Зайнято {size}"
   }
 }

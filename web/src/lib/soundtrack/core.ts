@@ -5,7 +5,10 @@ import { useSyncExternalStore } from "react";
 import type { S } from "../../api/client";
 
 export type Mood = S["AudioMood"];
-export type Resolved = S["Resolved"];
+export type Resolved = S["SoundtrackResolved"];
+export type Sound = S["SoundtrackSound"];
+export type Scene = S["SoundtrackScene"];
+export type SceneTrack = S["SoundtrackSceneTrack"];
 
 /** auto follows the title's soundtrack; manual keeps the mood picked by hand. */
 export type SoundMode = "auto" | "manual" | "off";
@@ -18,11 +21,13 @@ export type SoundPrefs = {
   moodId: number | null;
   /** music volume, 0-100 */
   volume: number;
+  /** ambience and effects volume, 0-100 */
+  ambience: number;
   /** the Spotify device music plays on ("" = this browser, or the active one) */
   deviceId: string;
 };
 
-export const defaultPrefs: SoundPrefs = { mode: "off", lastMode: "auto", moodId: null, volume: 70, deviceId: "" };
+export const defaultPrefs: SoundPrefs = { mode: "off", lastMode: "auto", moodId: null, volume: 70, ambience: 60, deviceId: "" };
 
 const key = "mangarr:soundtrack";
 
@@ -41,6 +46,7 @@ export function parsePrefs(raw: string | null): SoundPrefs {
     lastMode: v.lastMode === "manual" ? "manual" : "auto",
     moodId: typeof v.moodId === "number" && v.moodId > 0 ? v.moodId : null,
     volume: clampVolume(typeof v.volume === "number" ? v.volume : defaultPrefs.volume),
+    ambience: clampVolume(typeof v.ambience === "number" ? v.ambience : defaultPrefs.ambience),
     deviceId: typeof v.deviceId === "string" ? v.deviceId : "",
   };
 }
@@ -104,17 +110,58 @@ export function isPhone(ua: string, maxTouchPoints = 0): boolean {
   return /Macintosh/.test(ua) && maxTouchPoints > 1;
 }
 
+/** soundOfMood is what a mood picked by hand plays. */
+export function soundOfMood(m: Mood): Sound {
+  return { source: "personal", mood: m, music: m.spotifyUri ? { uri: m.spotifyUri, name: m.spotifyName, imageUrl: m.spotifyImageUrl, shuffle: m.shuffle } : undefined };
+}
+
 /**
- * currentMood is what should play: in auto mode the title's soundtrack (a
+ * currentSound is what should play: in auto mode the title's soundtrack (a
  * page cue once the reader reaches it), in manual mode the mood picked.
  */
-export function currentMood(prefs: SoundPrefs, resolved: Resolved | undefined, page: number, moods: Mood[]): Mood | null {
+export function currentSound(prefs: SoundPrefs, resolved: Resolved | undefined, page: number, moods: Mood[]): Sound | null {
   if (prefs.mode === "off") return null;
-  if (prefs.mode === "manual") return moods.find((m) => m.id === prefs.moodId) ?? null;
+  if (prefs.mode === "manual") {
+    const m = moods.find((x) => x.id === prefs.moodId);
+    return m ? soundOfMood(m) : null;
+  }
   if (!resolved || resolved.muted) return null;
-  let mood = resolved.mood ?? null;
-  for (const cue of resolved.pages ?? []) if (cue.page <= page) mood = cue.mood ?? null;
-  return mood;
+  let sound = resolved.start ?? null;
+  for (const cue of resolved.pages ?? []) if (cue.page <= page) sound = cue.sound ?? null;
+  return sound;
+}
+
+/** upcoming is the page cues starting within `ahead` pages after page (for prefetching). */
+export function upcoming(resolved: Resolved | undefined, page: number, ahead = 3): Sound[] {
+  return (resolved?.pages ?? []).filter((c) => c.page > page && c.page <= page + ahead && c.sound).map((c) => c.sound as Sound);
+}
+
+/** soundName names what plays: the scene, else the mood. */
+export const soundName = (s: Sound | null | undefined, moodName: (m: Mood) => string) => s?.scene?.name ?? (s?.mood ? moodName(s.mood) : "");
+
+/** soundColor is what plays' colour: its mood's. */
+export const soundColor = (s: Sound | null | undefined) => s?.mood?.color ?? "#9aa2b1";
+
+/** dbGain turns a pack's gain in dB into a gain factor. */
+export const dbGain = (db: number) => Math.pow(10, (db || 0) / 20);
+
+/** Layer is an ambience loop at a gain. */
+export type Layer = { id: number; url: string; gain: number };
+
+/** diffLayers says which loops to start, stop and fade to a new gain. */
+export function diffLayers(from: Layer[], to: Layer[]) {
+  const before = new Map(from.map((l) => [l.id, l]));
+  const after = new Map(to.map((l) => [l.id, l]));
+  return {
+    start: to.filter((l) => !before.has(l.id)),
+    stop: from.filter((l) => !after.has(l.id)),
+    change: to.filter((l) => before.has(l.id) && before.get(l.id)!.gain !== l.gain),
+  };
+}
+
+/** layersOf are a sound's ambience loops as the engine plays them. */
+export function layersOf(s: Sound | null | undefined, url: (trackId: number) => string): Layer[] {
+  return (s?.scene?.ambience ?? []).map((t) => ({ id: t.trackId, url: url(t.trackId), gain: (t.volume ?? 1) * dbGain(t.gainDb) }));
 }
 
 /** tint is a mood colour at an opacity (00-ff), for backgrounds and borders. */

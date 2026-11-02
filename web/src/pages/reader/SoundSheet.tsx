@@ -3,14 +3,16 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
-import { Check, Laptop, Pause, Play, RefreshCw, Smartphone, Speaker, X } from "lucide-react";
+import { Check, Laptop, Pause, Play, Plus, RefreshCw, Smartphone, Speaker, X } from "lucide-react";
 import { api, unwrap } from "../../api/client";
 import { Button, Spinner } from "../../components/ui";
 import { useAccount } from "../../lib/account";
-import { tint, type SoundMode } from "../../lib/soundtrack/core";
+import { soundName, tint, type SoundMode } from "../../lib/soundtrack/core";
 import { MoodIcon, moodName } from "../../lib/soundtrack/moods";
 import { connectSpotify } from "../../lib/soundtrack/spotify";
 import { useToast } from "../../lib/toast";
+import { categoryColor, TrackIcon } from "../../lib/soundtrack/tracks";
+import { StartScene } from "./StartScene";
 import type { Soundtrack } from "./sound";
 
 function DeviceIcon({ type }: { type: string }) {
@@ -53,10 +55,11 @@ function Devices({ s }: { s: Soundtrack }) {
 }
 
 /** SoundSheet is the reader's soundtrack: on/off, what plays, volume, moods and device. */
-export function SoundSheet({ s, onClose }: { s: Soundtrack; onClose: () => void }) {
-  const { isAdmin } = useAccount();
+export function SoundSheet({ s, onClose, here }: { s: Soundtrack; onClose: () => void; here: { seriesId: number; chapter: number; page: number; pageCount: number } }) {
+  const { isAdmin, account } = useAccount();
   const toast = useToast();
   const [picking, setPicking] = useState(false);
+  const [starting, setStarting] = useState(false);
   const modes: { value: SoundMode; label: string }[] = [
     { value: "auto", label: t("Auto") },
     { value: "manual", label: t("Manual") },
@@ -66,11 +69,13 @@ export function SoundSheet({ s, onClose }: { s: Soundtrack; onClose: () => void 
   const source =
     s.prefs.mode === "manual"
       ? t("Picked by hand")
-      : s.resolved?.source === "personal"
+      : s.sound?.source === "personal"
         ? t("Your version")
-        : s.resolved?.source === "shared"
-          ? t("Title soundtrack")
-          : t("No soundtrack for this title yet");
+        : s.sound?.source === "suggested"
+          ? t("Suggested from genres")
+          : s.sound
+            ? t("Title soundtrack")
+            : t("No soundtrack for this title yet");
   const color = m?.color ?? "#9aa2b1";
   const spotify = s.spotify;
   return (
@@ -133,12 +138,16 @@ export function SoundSheet({ s, onClose }: { s: Soundtrack; onClose: () => void 
           </div>
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
             <div className="truncate text-xs font-medium" style={{ color: m ? color : undefined }}>
-              {!s.on ? t("Music is off") : m ? moodName(m) + " · " + source : source}
+              {!s.on ? t("Music is off") : s.sound ? soundName(s.sound, moodName) + " · " + source : source}
             </div>
             <div className="truncate text-sm font-medium">
-              {s.now?.track ? s.now.track + (s.now.artists ? " · " + s.now.artists : "") : m?.spotifyName || (s.on && m && !m.spotifyUri ? t("No music chosen for this mood") : "—")}
+              {s.now?.track ? s.now.track + (s.now.artists ? " · " + s.now.artists : "") : s.sound?.music?.name || (s.on && s.sound && !s.sound.music ? t("No music here") : "—")}
             </div>
-            {s.on && s.now?.device && <div className="truncate text-xs text-muted">{t("Spotify on {device}", { device: s.now.device })}</div>}
+            {s.on && (s.now?.device || s.layers.length > 0) && (
+              <div className="truncate text-xs text-muted">
+                {[s.now?.device ? t("Spotify on {device}", { device: s.now.device }) : "", s.layers.map((l) => l.title.toLowerCase()).join(" + ")].filter(Boolean).join(" · ")}
+              </div>
+            )}
           </div>
           {s.connected && s.on && (
             <button type="button" onClick={() => void s.togglePlay()} className="flex size-11 shrink-0 items-center justify-center rounded-full bg-fg text-bg" aria-label={s.now?.playing ? t("Pause") : t("Play")}>
@@ -151,6 +160,11 @@ export function SoundSheet({ s, onClose }: { s: Soundtrack; onClose: () => void 
           {t("Music")}
           <input type="range" min={0} max={100} value={s.prefs.volume} onChange={(e) => s.setVolume(Number(e.target.value))} className="accent-accent" />
           <span className="text-right tabular-nums">{s.prefs.volume}</span>
+        </label>
+        <label className="-mt-2 grid grid-cols-[5rem_1fr_2rem] items-center gap-2 text-[13px] text-muted">
+          {t("Ambience")}
+          <input type="range" min={0} max={100} value={s.prefs.ambience} onChange={(e) => s.setAmbience(Number(e.target.value))} className="accent-accent" />
+          <span className="text-right tabular-nums">{s.prefs.ambience}</span>
         </label>
 
         <div className="flex flex-col gap-2">
@@ -178,14 +192,53 @@ export function SoundSheet({ s, onClose }: { s: Soundtrack; onClose: () => void 
           </div>
         </div>
 
-        {s.connected && (
+        {s.effects.length > 0 && (
           <div className="flex flex-col gap-2">
-            <button type="button" onClick={() => setPicking(!picking)} aria-expanded={picking} className="h-11 rounded-xl border border-border text-[13px] font-medium hover:bg-panel-2">
-              {t("Play music on…")}
-            </button>
-            {picking && <Devices s={s} />}
+            <div className="flex items-baseline justify-between">
+              <h3 className="text-[13px] font-semibold">{t("Sound effects")}</h3>
+              <span className="text-xs text-muted">{t("Tap to play once")}</span>
+            </div>
+            <div className="grid grid-cols-4 gap-2">
+              {s.effects.map((fx) => {
+                const c = categoryColor(fx.category);
+                return (
+                  <button
+                    key={fx.trackId}
+                    type="button"
+                    onClick={() => void s.playEffect(fx)}
+                    aria-label={fx.label || fx.title}
+                    className="flex h-16 flex-col items-center justify-center gap-1 rounded-xl active:scale-95"
+                    style={{ color: c, background: tint(c, "1a"), border: `1px solid ${tint(c, "55")}` }}
+                  >
+                    <TrackIcon icon={fx.icon} className="size-5" />
+                    <span className="max-w-full truncate px-1 text-[11px] font-medium text-fg">{fx.label || fx.title}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
+
+        <div className="flex gap-2">
+          {account?.kind === "user" && here.seriesId > 0 && (
+            <button type="button" onClick={() => setStarting(true)} className="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl border border-border text-[13px] font-medium hover:bg-panel-2">
+              <Plus className="size-4" aria-hidden="true" /> {t("Start a scene here")}
+            </button>
+          )}
+          {s.connected && (
+            <button type="button" onClick={() => setPicking(!picking)} aria-expanded={picking} className="h-11 flex-1 rounded-xl border border-border text-[13px] font-medium hover:bg-panel-2">
+              {t("Play music on…")}
+            </button>
+          )}
+        </div>
+        {picking && s.connected && <Devices s={s} />}
+        {s.layers.length > 0 && (
+          <p className="text-[11px] leading-relaxed text-muted">
+            {t("Credits")}: {[...s.layers, ...s.effects].map((l) => `“${l.title}”${l.license ? ` (${l.license}${l.attribution ? ", " + l.attribution : ""})` : ""}`).join(", ")}
+            {s.sound?.music ? ". " + t("Music from Spotify.") : ""}
+          </p>
+        )}
+        {starting && <StartScene seriesId={here.seriesId} chapter={here.chapter} page={here.page} pageCount={here.pageCount} onClose={() => setStarting(false)} />}
       </section>
     </>
   );

@@ -186,6 +186,20 @@ export function CleanupPage() {
                 {t("{count} more finished chapters ({size}) are kept: removing the ones above already brings the drive back above the free space limit.", { count: preview.data.held, size: bytes(preview.data.heldSize) })}
               </p>
             )}
+            {(preview.data.leftovers?.length ?? 0) > 0 && (
+              <details className="mb-3 text-sm">
+                <summary className="cursor-pointer text-muted">
+                  {t("{count} sound pack files no sound uses ({size}) are removed too", { count: preview.data.leftovers.length, size: bytes(preview.data.leftoverSize) })}
+                </summary>
+                <ul className="mt-2 flex flex-col gap-1">
+                  {preview.data.leftovers.slice(0, 50).map((l) => (
+                    <li key={l.path} className="font-mono text-xs break-all text-muted">
+                      {l.path} · {bytes(l.size)}
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
             {preview.data.skipped.length > 0 && (
               <details className="text-sm">
                 <summary className="cursor-pointer text-muted">{preview.data.skipped.length}{" " + t("series skipped")}</summary>

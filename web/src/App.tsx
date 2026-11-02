@@ -26,6 +26,7 @@ const AccountPage = lazy(() => retryWhenBack(() => import("./pages/account/Accou
 const UsersPage = lazy(() => retryWhenBack(() => import("./pages/settings/Users"), (m) => ({ default: m.UsersPage })));
 const SingleSignOnPage = lazy(() => retryWhenBack(() => import("./pages/settings/SingleSignOn"), (m) => ({ default: m.SingleSignOnPage })));
 const SeriesIndex = lazy(() => retryWhenBack(() => import("./pages/series/SeriesIndex"), (m) => ({ default: m.SeriesIndex })));
+const SoundtrackPage = lazy(() => retryWhenBack(() => import("./pages/series/Soundtrack"), (m) => ({ default: m.SoundtrackPage })));
 const SeriesDetail = lazy(() => retryWhenBack(() => import("./pages/series/SeriesDetail"), (m) => ({ default: m.SeriesDetail })));
 const AddOptionsRedirect = lazy(() => retryWhenBack(() => import("./pages/series/AddSeries"), (m) => ({ default: m.AddOptionsRedirect })));
 const AddReviewStep = lazy(() => retryWhenBack(() => import("./pages/series/AddSeries"), (m) => ({ default: m.AddReviewStep })));
@@ -133,6 +134,7 @@ export function App() {
           <Route path="discover" element={<DiscoverPage />} />
           <Route path="discover/:shelf" element={<DiscoverShelfPage />} />
           <Route path="series/:id" element={<SeriesDetail />} />
+          <Route path="series/:id/soundtrack" element={<SoundtrackPage />} />
           <Route path="updates" element={<UpdatesPage />} />
           <Route path="account" element={<AccountPage />} />
           <Route path="on-device" element={<OnDevicePage />} />

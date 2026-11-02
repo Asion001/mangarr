@@ -10,17 +10,19 @@ import { tint, type Mood } from "../../lib/soundtrack/core";
 import { MoodIcon, moodColors, moodIcons, moodName } from "../../lib/soundtrack/moods";
 import { connectSpotify, useMoods, useMySpotify, useSpotifyReturn } from "../../lib/soundtrack/spotify";
 import { useToast } from "../../lib/toast";
+import { ScenesTab } from "./SoundScenes";
+import { SoundPacksCard } from "./SoundPacks";
 
-type Tab = "moods" | "spotify";
+type Tab = "moods" | "scenes" | "spotify";
 type SearchType = "playlist" | "album" | "track";
-type Item = S["SearchItem"];
+type Item = S["SoundtrackSearchItem"];
 type MoodDraft = { name: string; color: string; icon: string; genres: string[]; spotifyUri: string; spotifyName: string; spotifyImageUrl: string; shuffle: boolean };
 
 const dashboard = "https://developer.spotify.com/dashboard";
 const proxyDocs = "https://github.com/Asion001/mangarr/blob/main/docs/reverse-proxy.md";
 
 /** ConnectPrompt asks to connect Spotify before searching it. */
-function ConnectPrompt({ text }: { text: string }) {
+export function ConnectPrompt({ text }: { text: string }) {
   const toast = useToast();
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-bg px-3 py-2.5 text-sm text-muted">
@@ -31,7 +33,7 @@ function ConnectPrompt({ text }: { text: string }) {
 }
 
 /** SpotifyPicker searches Spotify and picks a playlist, album or track, by cover. */
-function SpotifyPicker({ value, onPick }: { value: string; onPick: (item: Item) => void }) {
+export function SpotifyPicker({ value, onPick }: { value: string; onPick: (item: Item) => void }) {
   const [q, setQ] = useState("");
   const [query, setQuery] = useState("");
   const [type, setType] = useState<SearchType>("playlist");
@@ -438,7 +440,8 @@ function SpotifyTab() {
 export function SoundtracksPage() {
   const [search, setSearch] = useSearchParams();
   useSpotifyReturn();
-  const tab: Tab = search.get("tab") === "spotify" ? "spotify" : "moods";
+  const asked = search.get("tab");
+  const tab: Tab = asked === "spotify" || asked === "scenes" ? asked : "moods";
   return (
     <>
       <PageHeader title={t("Soundtracks")} subtitle={t("Music that plays while people read: mood presets, and the Spotify app it comes from.")} />
@@ -447,10 +450,18 @@ export function SoundtracksPage() {
         onChange={(v) => setSearch(v === "moods" ? {} : { tab: v }, { replace: true })}
         tabs={[
           { value: "moods", label: t("Moods") },
-          { value: "spotify", label: t("Spotify") },
+          { value: "scenes", label: t("Scenes") },
+          { value: "spotify", label: t("Spotify & packs") },
         ]}
       />
-      {tab === "moods" ? <MoodsTab /> : <SpotifyTab />}
+      {tab === "moods" && <MoodsTab />}
+      {tab === "scenes" && <ScenesTab />}
+      {tab === "spotify" && (
+        <div className="flex flex-col gap-6">
+          <SpotifyTab />
+          <SoundPacksCard />
+        </div>
+      )}
     </>
   );
 }

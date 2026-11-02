@@ -136,7 +136,7 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
           : pos?.page ?? 1;
 
   // music while reading: off until the speaker button turns it on
-  const soundtrack = useSoundtrack(ch?.id ?? 0, page);
+  const soundtrack = useSoundtrack(ch?.id ?? 0, page, webtoon, ch?.seriesTitle);
   useSpotifyReturn();
 
   // bounds for the pages around the current one (paged mode)
@@ -471,16 +471,29 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
           <ChevronLeft className="size-5" />
         </button>
         {s.mode === "paged" ? (
-          <input
-            type="range"
-            min={1}
-            max={Math.max(pageViews, 1)}
-            value={sliderIndex}
-            onChange={(e) => setIndex(Number(e.target.value))}
-            className="flex-1 accent-accent"
-            style={{ direction: s.direction === "rtl" ? "rtl" : "ltr" }}
-            aria-label={t("Page")}
-          />
+          <div className="relative flex flex-1 items-center">
+            <input
+              type="range"
+              min={1}
+              max={Math.max(pageViews, 1)}
+              value={sliderIndex}
+              onChange={(e) => setIndex(Number(e.target.value))}
+              className="w-full accent-accent"
+              style={{ direction: s.direction === "rtl" ? "rtl" : "ltr" }}
+              aria-label={t("Page")}
+            />
+            {/* soundtrack cues: a tick where a scene starts, in its mood's colour */}
+            {count > 1 &&
+              (soundtrack.resolved?.pages ?? []).map((cue) => (
+                <span
+                  key={cue.page}
+                  aria-hidden="true"
+                  title={cue.sound?.scene?.name ?? cue.sound?.mood?.name}
+                  className="pointer-events-none absolute -top-1 h-2.5 w-[3px] rounded-sm"
+                  style={{ [s.direction === "rtl" ? "right" : "left"]: `calc(${((cue.page - 1) / (count - 1)) * 100}% - 1px)`, background: cue.sound?.mood?.color ?? "#9aa2b1" }}
+                />
+              ))}
+          </div>
         ) : (
           <>
             <button
@@ -558,7 +571,13 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
         </button>
       )}
 
-      {sound && <SoundSheet s={soundtrack} onClose={() => setSound(false)} />}
+      {sound && (
+        <SoundSheet
+          s={soundtrack}
+          onClose={() => setSound(false)}
+          here={{ seriesId: ch.seriesId, chapter: ch.numberSort ?? (parseFloat(ch.number) || 0), page, pageCount: count }}
+        />
+      )}
       {panel && <SettingsPanel s={s} set={set} onClose={() => setPanel(false)} hasOwn={hasOwn} saveAsDefault={saveAsDefault} reset={reset} />}
       {pickingChapter && (
         <ChapterPicker
