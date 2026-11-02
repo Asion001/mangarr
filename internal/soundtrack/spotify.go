@@ -50,6 +50,7 @@ var (
 	ErrBadState      = errors.New("the Spotify sign-in expired or was already used: try again")
 	ErrPremium       = errors.New("playing music needs Spotify Premium")
 	ErrNoDevice      = errors.New("no Spotify device is active: open Spotify on a phone, computer or speaker")
+	ErrNoVolume      = errors.New("this Spotify device doesn't let others set its volume: use its own volume buttons")
 )
 
 // APIError is an error answer from Spotify.
@@ -411,6 +412,8 @@ func (s *Spotify) call(ctx context.Context, token, method, path string, body, ou
 		switch {
 		case e.Error.Reason == "PREMIUM_REQUIRED":
 			return ErrPremium
+		case e.Error.Reason == "VOLUME_CONTROL_DISALLOW":
+			return ErrNoVolume
 		case e.Error.Reason == "NO_ACTIVE_DEVICE" || (resp.StatusCode == http.StatusNotFound && strings.Contains(path, "/me/player")):
 			return ErrNoDevice
 		}
@@ -498,9 +501,9 @@ func (s *Spotify) Play(ctx context.Context, userID int64, p Play) error {
 		return invalid("play a Spotify playlist, album or track")
 	}
 	if p.Volume != nil {
-		if err := s.Volume(ctx, userID, *p.Volume, p.DeviceID); err != nil && !errors.Is(err, ErrNoDevice) {
-			return err
-		}
+		// best effort: phones' Spotify apps don't let others set their
+		// volume, and the music should start anyway
+		_ = s.Volume(ctx, userID, *p.Volume, p.DeviceID)
 	}
 	body := map[string]any{"context_uri": p.URI}
 	if strings.HasPrefix(p.URI, "spotify:track:") {
@@ -519,6 +522,11 @@ func (s *Spotify) Play(ctx context.Context, userID int64, p Play) error {
 // Pause pauses a reader's playback.
 func (s *Spotify) Pause(ctx context.Context, userID int64, deviceID string) error {
 	return s.as(ctx, userID, http.MethodPut, deviceQuery("/me/player/pause", deviceID, nil), nil, nil)
+}
+
+// Next skips to the next track of what plays.
+func (s *Spotify) Next(ctx context.Context, userID int64, deviceID string) error {
+	return s.as(ctx, userID, http.MethodPost, deviceQuery("/me/player/next", deviceID, nil), nil, nil)
 }
 
 // Resume resumes a reader's playback where it was.

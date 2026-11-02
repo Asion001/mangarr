@@ -71,7 +71,8 @@ export async function unwrap<T>(p: Promise<{ data?: T; error?: unknown; response
   const { data, error, response } = await p;
   if (error !== undefined || !response.ok) {
     const e = error as ErrorBody;
-    let msg = e?.detail || e?.title || response.statusText || "Request failed";
+    // an answer without a message (a proxy's, or a crash) still says its status
+    let msg = e?.detail || e?.title || response.statusText || `Request failed (HTTP ${response.status})`;
     if (e?.errors?.length) msg += ": " + e.errors.map((x) => x.message).filter(Boolean).join(", ");
     throw new ApiError(response.status, msg, proxyGap(response));
   }

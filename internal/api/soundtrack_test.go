@@ -28,6 +28,7 @@ type fakeSpotify struct {
 	volumes   []string
 	searches  []url.Values
 	refreshes int
+	skips     int
 }
 
 func (f *fakeSpotify) handler() http.Handler {
@@ -88,6 +89,16 @@ func (f *fakeSpotify) handler() http.Handler {
 	}))
 	mux.HandleFunc("PUT /v1/me/player/volume", authed(func(w http.ResponseWriter, r *http.Request) {
 		f.volumes = append(f.volumes, r.URL.Query().Get("volume_percent"))
+		if r.URL.Query().Get("device_id") == "phone-1" {
+			// phones' Spotify apps refuse remote volume changes
+			w.WriteHeader(403)
+			_, _ = w.Write([]byte(`{"error":{"status":403,"message":"Player command failed: Cannot control device volume","reason":"VOLUME_CONTROL_DISALLOW"}}`))
+			return
+		}
+		w.WriteHeader(204)
+	}))
+	mux.HandleFunc("POST /v1/me/player/next", authed(func(w http.ResponseWriter, r *http.Request) {
+		f.skips++
 		w.WriteHeader(204)
 	}))
 	mux.HandleFunc("PUT /v1/me/player/pause", authed(func(w http.ResponseWriter, _ *http.Request) {
@@ -237,8 +248,15 @@ func TestSpotifyConnect(t *testing.T) {
 	if len(f.plays) != 2 || f.plays[0] != `phone-1 {"context_uri":"spotify:playlist:37i9dQZF1DX4sWSpwq3LiO"}` || f.plays[1] != ` {"uris":["spotify:track:6rqhFgbbKwnb9MLmUQDhG6"]}` {
 		t.Fatalf("plays %q", f.plays)
 	}
-	if len(f.shuffles) != 1 || f.shuffles[0] != "true" || len(f.volumes) != 1 || f.volumes[0] != "55" {
+	if len(f.shuffles) != 1 || f.shuffles[0] != "true" || len(f.volumes) != 1 || f.volumes[0] != "55" { // refused, and played anyway
 		t.Fatalf("shuffles %q volumes %q", f.shuffles, f.volumes)
+	}
+	// a device that won't take a volume still plays (the volume was only a wish)
+	if code := ann.do("PUT", "/api/v1/me/spotify/volume", `{"volume":30,"deviceId":"phone-1"}`, nil); code != 409 {
+		t.Fatalf("volume on a phone: %d", code)
+	}
+	if code := ann.do("POST", "/api/v1/me/spotify/next", `{}`, nil); code != 204 || f.skips != 1 {
+		t.Fatalf("next: %d (%d skips)", code, f.skips)
 	}
 	if code := ann.do("PUT", "/api/v1/me/spotify/pause", `{}`, nil); code != 403 {
 		t.Fatalf("pause without Premium: %d", code)
