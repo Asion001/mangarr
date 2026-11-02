@@ -181,6 +181,9 @@ func TestCatalog(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	p := NewPacks(d, st, t.TempDir())
+	if err := st.Set(ctx, settings.KeySound, settings.Sound{}); err != nil {
+		t.Fatal(err)
+	}
 	if list, err := p.Catalog(ctx); err != nil || len(list) != 0 {
 		t.Fatalf("no catalog set: %v %+v", err, list)
 	}

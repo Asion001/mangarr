@@ -45,7 +45,10 @@ type Sound struct {
 	SuggestFromGenres bool `json:"suggestFromGenres"`
 }
 
-func DefaultSound() Sound { return Sound{QuotaMB: 2048} }
+// DefaultCatalogURL lists the CC0 starter packs (github.com/Asion001/mangarr-sounds).
+const DefaultCatalogURL = "https://github.com/Asion001/mangarr-sounds/releases/latest/download/catalog.json"
+
+func DefaultSound() Sound { return Sound{CatalogURL: DefaultCatalogURL, QuotaMB: 2048} }
 
 func (s *Store) Sound(ctx context.Context) (Sound, error) {
 	v := DefaultSound()

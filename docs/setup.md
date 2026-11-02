@@ -440,6 +440,19 @@ under **Play music on…**). Spotify keeps playing each mood by its playlist
 or album; mangarr never mixes into Spotify's audio, it only sets its
 volume.
 
+**Sound packs** add ambience loops and sound effects, which play in the
+browser tab (also for readers without Spotify). **Settings → Soundtracks →
+Spotify & packs** installs them from the catalog (by default the CC0
+starter packs at
+[github.com/Asion001/mangarr-sounds](https://github.com/Asion001/mangarr-sounds):
+weather, city, nature, combat and everyday objects), from an uploaded zip,
+or by scanning a folder on the server for packs downloaded elsewhere. A
+**scene** (Scenes tab) is a mood's music with up to four ambience loops and
+eight effect pads. On a title's **Soundtrack** page, and with **Start a
+scene here** in the reader, cues start a mood or a scene from a chapter or
+a page; a reader's own cues win over the default ones. Soundtracks export to
+a file and import on another server, by chapter number and sound hash.
+
 ## 9. Single sign-on (optional)
 
 Sign in with Authentik, Authelia, Keycloak, Pocket ID, Google or any other
