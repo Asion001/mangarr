@@ -190,12 +190,19 @@ func DeleteMood(ctx context.Context, db bun.IDB, id int64) error {
 	return nil
 }
 
-// Cue starts a mood from a chapter, and a page in it. Chapter 0 without a
-// page is the title's default.
+// Cue starts a mood or a scene from a chapter, and a page in it. Chapter
+// 0 without a page is the title's mood.
 type Cue struct {
 	ChapterNumber float64 `json:"chapterNumber" minimum:"0"`
 	Page          *int    `json:"page,omitempty" minimum:"1"`
-	MoodID        *int64  `json:"moodId,omitempty" doc:"None: no music from here"`
+	// PageCount is the chapter's page count when the cue was placed (filled
+	// in when left out).
+	PageCount *int   `json:"pageCount,omitempty"`
+	MoodID    *int64 `json:"moodId,omitempty" doc:"None (and no scene): no music from here"`
+	SceneID   *int64 `json:"sceneId,omitempty"`
+	// NeedsReview: the chapter's page count changed since the page cue was
+	// placed.
+	NeedsReview bool `json:"needsReview,omitempty" readOnly:"true"`
 }
 
 // Doc is a soundtrack as people edit it.
@@ -206,10 +213,20 @@ type Doc struct {
 	UpdatedAt *time.Time `json:"updatedAt,omitempty" readOnly:"true"`
 }
 
+func (c Cue) title() bool { return c.ChapterNumber == 0 && c.Page == nil }
+
+func (c Cue) key() [2]float64 {
+	page := 0.0
+	if c.Page != nil {
+		page = float64(*c.Page)
+	}
+	return [2]float64{c.ChapterNumber, page}
+}
+
 // DefaultMood is the title-wide cue's mood (chapter 0, no page).
 func (d *Doc) DefaultMood() *int64 {
 	for _, c := range d.Cues {
-		if c.ChapterNumber == 0 && c.Page == nil {
+		if c.title() {
 			return c.MoodID
 		}
 	}
@@ -222,6 +239,32 @@ func owner(q *bun.SelectQuery, seriesID int64, userID *int64) *bun.SelectQuery {
 		return q.Where("user_id IS NULL")
 	}
 	return q.Where("user_id = ?", *userID)
+}
+
+// PageCounts maps a series' chapter numbers to their files' page counts.
+func PageCounts(ctx context.Context, db bun.IDB, seriesID int64) (map[float64]int, error) {
+	var rows []struct {
+		Number float64 `bun:"number_sort"`
+		Pages  int     `bun:"page_count"`
+	}
+	err := db.NewSelect().TableExpr("chapters AS c").ColumnExpr("c.number_sort, f.page_count").
+		Join("JOIN chapter_files AS f ON f.id = c.file_id").Where("c.series_id = ?", seriesID).Scan(ctx, &rows)
+	out := map[float64]int{}
+	for _, r := range rows {
+		if r.Pages > 0 {
+			out[r.Number] = r.Pages
+		}
+	}
+	return out, err
+}
+
+// Flag marks page cues whose chapter's page count changed.
+func (d *Doc) Flag(counts map[float64]int) {
+	for i := range d.Cues {
+		c := &d.Cues[i]
+		now, ok := counts[c.ChapterNumber]
+		c.NeedsReview = c.Page != nil && c.PageCount != nil && ok && now != *c.PageCount
+	}
 }
 
 // Get returns a series' shared soundtrack (userID nil) or a reader's own
@@ -241,7 +284,7 @@ func Get(ctx context.Context, db bun.IDB, seriesID int64, userID *int64) (*Doc, 
 	at := st.UpdatedAt
 	d := &Doc{Cues: make([]Cue, 0, len(cues)), Muted: st.Muted, UpdatedAt: &at}
 	for _, c := range cues {
-		d.Cues = append(d.Cues, Cue{ChapterNumber: c.ChapterNumber, Page: c.Page, MoodID: c.MoodID})
+		d.Cues = append(d.Cues, Cue{ChapterNumber: c.ChapterNumber, Page: c.Page, PageCount: c.PageCount, MoodID: c.MoodID, SceneID: c.SceneID})
 	}
 	sortCues(d.Cues)
 	return d, nil
@@ -250,17 +293,12 @@ func Get(ctx context.Context, db bun.IDB, seriesID int64, userID *int64) (*Doc, 
 // sortCues orders cues by where they start: chapter, then page (the
 // chapter's own cue first).
 func sortCues(cues []Cue) {
-	page := func(c Cue) int {
-		if c.Page == nil {
-			return 0
-		}
-		return *c.Page
-	}
 	sort.SliceStable(cues, func(i, j int) bool {
-		if cues[i].ChapterNumber != cues[j].ChapterNumber {
-			return cues[i].ChapterNumber < cues[j].ChapterNumber
+		a, b := cues[i].key(), cues[j].key()
+		if a[0] != b[0] {
+			return a[0] < b[0]
 		}
-		return page(cues[i]) < page(cues[j])
+		return a[1] < b[1]
 	})
 }
 
@@ -269,22 +307,36 @@ func sortCues(cues []Cue) {
 func Save(ctx context.Context, db bun.IDB, seriesID int64, userID *int64, d Doc) error {
 	seen := map[[2]float64]bool{}
 	cues := make([]Cue, 0, len(d.Cues))
+	var counts map[float64]int
 	for _, c := range d.Cues {
 		if c.ChapterNumber < 0 || (c.Page != nil && *c.Page < 1) {
 			return invalid("a cue needs a chapter number of 0 or more and a page of 1 or more")
 		}
-		page := 0.0
-		if c.Page != nil {
-			page = float64(*c.Page)
-		}
-		key := [2]float64{c.ChapterNumber, page}
-		if seen[key] {
+		if seen[c.key()] {
 			return invalid("two cues start at chapter %g", c.ChapterNumber)
 		}
-		seen[key] = true
+		seen[c.key()] = true
 		if c.MoodID != nil {
 			if _, err := Mood(ctx, db, *c.MoodID); err != nil {
 				return err
+			}
+		}
+		if c.SceneID != nil {
+			if err := sceneExists(ctx, db, *c.SceneID); err != nil {
+				return err
+			}
+		}
+		if c.Page == nil {
+			c.PageCount = nil
+		} else if c.PageCount == nil {
+			if counts == nil {
+				var err error
+				if counts, err = PageCounts(ctx, db, seriesID); err != nil {
+					return err
+				}
+			}
+			if n, ok := counts[c.ChapterNumber]; ok {
+				c.PageCount = &n
 			}
 		}
 		cues = append(cues, c)
@@ -317,11 +369,32 @@ func Save(ctx context.Context, db bun.IDB, seriesID int64, userID *int64, d Doc)
 		}
 		rows := make([]model.SoundtrackCue, len(cues))
 		for i, c := range cues {
-			rows[i] = model.SoundtrackCue{SoundtrackID: st.ID, ChapterNumber: c.ChapterNumber, Page: c.Page, MoodID: c.MoodID}
+			rows[i] = model.SoundtrackCue{SoundtrackID: st.ID, ChapterNumber: c.ChapterNumber, Page: c.Page, PageCount: c.PageCount, MoodID: c.MoodID, SceneID: c.SceneID}
 		}
 		_, err = tx.NewInsert().Model(&rows).Exec(ctx)
 		return err
 	})
+}
+
+// SetCue adds or replaces one cue in a soundtrack (a cue with neither a
+// mood nor a scene removes the one there).
+func SetCue(ctx context.Context, db bun.IDB, seriesID int64, userID *int64, c Cue) (*Doc, error) {
+	d, err := Get(ctx, db, seriesID, userID)
+	if err != nil {
+		return nil, err
+	}
+	if d == nil {
+		d = &Doc{}
+	}
+	cues := slices.DeleteFunc(slices.Clone(d.Cues), func(x Cue) bool { return x.key() == c.key() })
+	if c.MoodID != nil || c.SceneID != nil {
+		cues = append(cues, c)
+	}
+	d.Cues = cues
+	if err := Save(ctx, db, seriesID, userID, *d); err != nil {
+		return nil, err
+	}
+	return Get(ctx, db, seriesID, userID)
 }
 
 // Reset drops a reader's own version, back to the shared soundtrack.
@@ -330,88 +403,279 @@ func Reset(ctx context.Context, db bun.IDB, seriesID, userID int64) error {
 	return err
 }
 
-// Sources of a resolved soundtrack.
+// Sources of what plays.
 const (
-	FromNone     = "none"
-	FromShared   = "shared"
-	FromPersonal = "personal"
+	FromNone      = "none"
+	FromShared    = "shared"
+	FromPersonal  = "personal"
+	FromSuggested = "suggested"
 )
 
-// PageCue is a mood that starts on a page of the chapter.
+// Music is what Spotify plays.
+type Music struct {
+	URI      string `json:"uri"`
+	Name     string `json:"name,omitempty"`
+	ImageURL string `json:"imageUrl,omitempty"`
+	Shuffle  bool   `json:"shuffle"`
+}
+
+// Sound is what plays from a cue: a mood, or a scene (with the mood it
+// starts from), and the music that comes with it.
+type Sound struct {
+	Source string           `json:"source" enum:"shared,personal,suggested"`
+	Mood   *model.AudioMood `json:"mood,omitempty"`
+	Scene  *Scene           `json:"scene,omitempty"`
+	Music  *Music           `json:"music,omitempty"`
+}
+
+// PageCue is a sound that starts on a page of the chapter.
 type PageCue struct {
-	Page int              `json:"page"`
-	Mood *model.AudioMood `json:"mood,omitempty"`
+	Page  int    `json:"page"`
+	Sound *Sound `json:"sound,omitempty" doc:"None: no music from this page"`
 }
 
 // Resolved is what plays in one chapter for one reader.
 type Resolved struct {
-	Source string `json:"source" enum:"none,shared,personal"`
+	Source string `json:"source" enum:"none,shared,personal,suggested"`
 	Muted  bool   `json:"muted"`
-	// Mood plays from the chapter's start (none: no music).
-	Mood *model.AudioMood `json:"mood,omitempty"`
-	// Pages are moods that start later in the chapter.
+	// Start plays from the chapter's start (none: nothing).
+	Start *Sound `json:"start,omitempty"`
+	// Pages are sounds that start later in the chapter.
 	Pages []PageCue `json:"pages"`
 }
 
-// Resolve picks what plays in a chapter: the reader's own version, else the
-// shared soundtrack; the last cue at or before the chapter plays from its
-// start.
-func Resolve(ctx context.Context, db bun.IDB, seriesID, userID int64, chapter float64) (*Resolved, error) {
-	out := &Resolved{Source: FromNone, Pages: []PageCue{}}
-	d, err := Get(ctx, db, seriesID, &userID)
-	if err != nil {
-		return nil, err
+// resolver loads moods and scenes once per resolve.
+type resolver struct {
+	ctx    context.Context
+	db     bun.IDB
+	moods  map[int64]*model.AudioMood
+	scenes map[int64]*Scene
+}
+
+func (r *resolver) mood(id *int64) (*model.AudioMood, error) {
+	if id == nil {
+		return nil, nil
 	}
-	out.Source = FromPersonal
-	if d == nil {
-		if d, err = Get(ctx, db, seriesID, nil); err != nil {
-			return nil, err
-		}
-		out.Source = FromShared
+	if m, ok := r.moods[*id]; ok {
+		return m, nil
 	}
-	if d == nil {
-		out.Source = FromNone
-		return out, nil
+	m, err := Mood(r.ctx, r.db, *id)
+	if errors.Is(err, ErrMoodNotFound) {
+		m, err = nil, nil
 	}
-	out.Muted = d.Muted
-	moods := map[int64]*model.AudioMood{}
-	mood := func(id *int64) (*model.AudioMood, error) {
-		if id == nil {
-			return nil, nil
+	r.moods[*id] = m
+	return m, err
+}
+
+func (r *resolver) sound(c Cue, source string) (*Sound, error) {
+	s := &Sound{Source: source}
+	if c.SceneID != nil {
+		sc, ok := r.scenes[*c.SceneID]
+		if !ok {
+			got, err := GetScene(r.ctx, r.db, *c.SceneID)
+			if err != nil && !errors.Is(err, ErrSceneNotFound) {
+				return nil, err
+			}
+			sc = got
+			r.scenes[*c.SceneID] = sc
 		}
-		if m, ok := moods[*id]; ok {
-			return m, nil
-		}
-		m, err := Mood(ctx, db, *id)
-		if errors.Is(err, ErrMoodNotFound) {
-			m, err = nil, nil
-		}
-		moods[*id] = m
-		return m, err
-	}
-	cues := slices.Clone(d.Cues)
-	sortCues(cues)
-	var start *Cue
-	for i, c := range cues {
-		switch {
-		case c.ChapterNumber < chapter:
-			// a page cue in an earlier chapter carries on to this one
-			start = &cues[i]
-		case c.ChapterNumber == chapter && c.Page == nil:
-			start = &cues[i]
-		case c.ChapterNumber == chapter:
-			m, err := mood(c.MoodID)
+		s.Scene = sc
+		if sc != nil {
+			m, err := r.mood(sc.MoodID)
 			if err != nil {
 				return nil, err
 			}
-			out.Pages = append(out.Pages, PageCue{Page: *c.Page, Mood: m})
+			s.Mood = m
+			if sc.SpotifyURI != "" {
+				s.Music = &Music{URI: sc.SpotifyURI, Name: sc.SpotifyName, ImageURL: sc.SpotifyImageURL, Shuffle: sc.Shuffle}
+			}
 		}
 	}
-	sort.Slice(out.Pages, func(i, j int) bool { return out.Pages[i].Page < out.Pages[j].Page })
-	if start != nil {
-		if out.Mood, err = mood(start.MoodID); err != nil {
+	if s.Scene == nil {
+		m, err := r.mood(c.MoodID)
+		if err != nil {
 			return nil, err
 		}
+		s.Mood = m
 	}
+	if s.Music == nil && s.Mood != nil && s.Mood.SpotifyURI != "" {
+		s.Music = &Music{URI: s.Mood.SpotifyURI, Name: s.Mood.SpotifyName, ImageURL: s.Mood.SpotifyImageURL, Shuffle: s.Mood.Shuffle}
+	}
+	if s.Mood == nil && s.Scene == nil {
+		return nil, nil
+	}
+	return s, nil
+}
+
+// mergedCue is a cue and whose it is.
+type mergedCue struct {
+	Cue
+	source string
+}
+
+// Merge lays a reader's cues over the shared ones: at the same place the
+// reader's wins.
+func merge(shared, personal *Doc) []mergedCue {
+	at := map[[2]float64]mergedCue{}
+	if shared != nil {
+		for _, c := range shared.Cues {
+			at[c.key()] = mergedCue{c, FromShared}
+		}
+	}
+	if personal != nil {
+		for _, c := range personal.Cues {
+			at[c.key()] = mergedCue{c, FromPersonal}
+		}
+	}
+	out := make([]mergedCue, 0, len(at))
+	for _, c := range at {
+		out = append(out, c)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		a, b := out[i].key(), out[j].key()
+		if a[0] != b[0] {
+			return a[0] < b[0]
+		}
+		return a[1] < b[1]
+	})
+	return out
+}
+
+// SuggestMood picks the mood whose genres best match a title's genres and
+// tags (nil when none match).
+func SuggestMood(moods []model.AudioMood, genres []string) *model.AudioMood {
+	have := map[string]bool{}
+	for _, g := range genres {
+		have[strings.ToLower(strings.TrimSpace(g))] = true
+	}
+	var best *model.AudioMood
+	bestN := 0
+	for i := range moods {
+		n := 0
+		for _, g := range moods[i].Genres {
+			if have[strings.ToLower(g)] {
+				n++
+			}
+		}
+		if n > bestN {
+			best, bestN = &moods[i], n
+		}
+	}
+	return best
+}
+
+// Resolve picks what plays in a chapter for a reader. The reader's cues
+// win over the shared ones at the same place; the last cue at or before
+// the chapter plays from its start, so a chapter's cue wins over the
+// title's mood. Without a title mood, genres can suggest one.
+func Resolve(ctx context.Context, db bun.IDB, st *settings.Store, seriesID, userID int64, genres []string, chapter float64) (*Resolved, error) {
+	out := &Resolved{Source: FromNone, Pages: []PageCue{}}
+	personal, err := Get(ctx, db, seriesID, &userID)
+	if err != nil {
+		return nil, err
+	}
+	shared, err := Get(ctx, db, seriesID, nil)
+	if err != nil {
+		return nil, err
+	}
+	if personal != nil {
+		out.Muted = personal.Muted
+	}
+	r := &resolver{ctx: ctx, db: db, moods: map[int64]*model.AudioMood{}, scenes: map[int64]*Scene{}}
+	cues := merge(shared, personal)
+	var start *mergedCue
+	hasTitle := false
+	for i, c := range cues {
+		if c.title() {
+			hasTitle = true
+		}
+		switch {
+		case c.ChapterNumber < chapter, c.ChapterNumber == chapter && c.Page == nil:
+			// a page cue in an earlier chapter carries on into this one
+			start = &cues[i]
+		case c.ChapterNumber == chapter:
+			s, err := r.sound(c.Cue, c.source)
+			if err != nil {
+				return nil, err
+			}
+			out.Pages = append(out.Pages, PageCue{Page: *c.Page, Sound: s})
+		}
+	}
+	if start != nil {
+		if out.Start, err = r.sound(start.Cue, start.source); err != nil {
+			return nil, err
+		}
+		out.Source = start.source
+		return out, nil
+	}
+	if !hasTitle && st != nil {
+		if cfg, err := st.Sound(ctx); err == nil && cfg.SuggestFromGenres {
+			moods, err := Moods(ctx, db, st)
+			if err != nil {
+				return nil, err
+			}
+			if m := SuggestMood(moods, genres); m != nil {
+				id := m.ID
+				if out.Start, err = r.sound(Cue{MoodID: &id}, FromSuggested); err != nil {
+					return nil, err
+				}
+				out.Source = FromSuggested
+			}
+		}
+	}
+	if out.Source == FromNone && len(out.Pages) > 0 {
+		out.Source = out.Pages[0].Sound.sourceOr(FromShared)
+	}
+	return out, nil
+}
+
+func (s *Sound) sourceOr(def string) string {
+	if s == nil {
+		return def
+	}
+	return s.Source
+}
+
+// Credit is a pack sound a soundtrack uses, with its licence.
+type Credit struct {
+	Title       string `json:"title"`
+	Pack        string `json:"pack"`
+	License     string `json:"license"`
+	Attribution string `json:"attribution,omitempty"`
+	SourceURL   string `json:"sourceUrl,omitempty"`
+}
+
+// Credits lists the pack sounds the scenes in these soundtracks use.
+func Credits(ctx context.Context, db bun.IDB, docs ...*Doc) ([]Credit, error) {
+	var ids []int64
+	for _, d := range docs {
+		if d == nil {
+			continue
+		}
+		for _, c := range d.Cues {
+			if c.SceneID != nil && !slices.Contains(ids, *c.SceneID) {
+				ids = append(ids, *c.SceneID)
+			}
+		}
+	}
+	out := []Credit{}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	scenes, err := scenesBy(ctx, db, ids)
+	if err != nil {
+		return nil, err
+	}
+	seen := map[string]bool{}
+	for _, s := range scenes {
+		for _, t := range slices.Concat(s.Ambience, s.SFX) {
+			if seen[t.SHA256] {
+				continue
+			}
+			seen[t.SHA256] = true
+			out = append(out, Credit{Title: t.Title, Pack: t.Pack, License: t.License, Attribution: t.Attribution, SourceURL: t.SourceURL})
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Title < out[j].Title })
 	return out, nil
 }

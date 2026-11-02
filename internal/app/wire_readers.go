@@ -19,6 +19,8 @@ type ReaderServices struct {
 	Cleaner *cleanup.Cleaner
 	// Spotify plays soundtrack music through readers' Spotify accounts.
 	Spotify *soundtrack.Spotify
+	// Packs keeps the sound packs (ambience and effects).
+	Packs *soundtrack.Packs
 }
 
 // watcherService runs the watcher with the app.
@@ -35,6 +37,42 @@ func (a *App) wireReaders(ctx context.Context) error {
 	a.Cleaner = cleanup.New(a.DB, a.Settings, a.Library, a.Bus, a.Log.With("component", "cleanup"))
 	a.Watcher = readsync.NewWatcher(a.ReadSync)
 	a.Spotify = soundtrack.New(a.DB, a.Settings)
+	a.Packs = soundtrack.NewPacks(a.DB, a.Settings, a.Cfg.DataDir)
+	a.Cleaner.Leftovers = func(ctx context.Context) ([]cleanup.LeftoverFile, error) {
+		list, err := a.Packs.Leftovers(ctx)
+		out := make([]cleanup.LeftoverFile, len(list))
+		for i, l := range list {
+			out[i] = cleanup.LeftoverFile{Path: l.Path, Size: l.Size}
+		}
+		return out, err
+	}
+	a.Cleaner.RemoveLeftovers = a.Packs.RemoveLeftovers
+	a.Queue.Register(jobs.Definition{Name: "InstallSoundPack", Description: "Download and install a sound pack from the catalog",
+		Handler: func(ctx context.Context, r *jobs.Run) error {
+			var body struct {
+				ID string `json:"id"`
+			}
+			_ = r.Body(&body)
+			pack, err := a.Packs.InstallFromCatalog(ctx, body.ID, func(msg string) { r.Progress("%s", msg) })
+			if err == nil {
+				r.Progress("installed %s %s", pack.Name, pack.Version)
+				a.Bus.Changed("soundtrack", "updated", 0)
+			}
+			return err
+		}})
+	a.Queue.Register(jobs.Definition{Name: "ImportSoundFolder", Description: "Add the sounds in a folder on the server as a sound pack",
+		Handler: func(ctx context.Context, r *jobs.Run) error {
+			var body struct {
+				Path string `json:"path"`
+			}
+			_ = r.Body(&body)
+			pack, skipped, err := a.Packs.ImportFolder(ctx, body.Path, func(done, total int) { r.Progress("%d of %d sounds", done, total) })
+			if err == nil {
+				r.Progress("added %s (%d music files skipped)", pack.Name, skipped)
+				a.Bus.Changed("soundtrack", "updated", 0)
+			}
+			return err
+		}})
 	var cleanupMu sync.Mutex
 	var cleanupAt time.Time
 	a.Watcher.OnChange = func(int64) {

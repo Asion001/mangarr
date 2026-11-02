@@ -33,8 +33,10 @@ type ReadChapter struct {
 	SeriesID    int64  `json:"seriesId"`
 	SeriesTitle string `json:"seriesTitle"`
 	Number      string `json:"number"`
-	Title       string `json:"title,omitempty"`
-	Volume      string `json:"volume,omitempty"`
+	// NumberSort is the chapter's number as soundtrack cues name it.
+	NumberSort float64 `json:"numberSort"`
+	Title      string  `json:"title,omitempty"`
+	Volume     string  `json:"volume,omitempty"`
 	// ReadingDirection is the series' own (rtl, ltr, vertical, webtoon or empty).
 	ReadingDirection string `json:"readingDirection"`
 	Downloaded       bool   `json:"downloaded"`
@@ -174,7 +176,7 @@ func (s *Server) registerRead() {
 				return nil, readError(err)
 			}
 			ch := b.Chapter
-			out := ReadChapter{ID: ch.ID, SeriesID: ser.ID, SeriesTitle: ser.Title, Number: ch.NumberKey, Title: ch.Title, Volume: ch.Volume,
+			out := ReadChapter{ID: ch.ID, SeriesID: ser.ID, SeriesTitle: ser.Title, Number: ch.NumberKey, NumberSort: ch.NumberSort, Title: ch.Title, Volume: ch.Volume,
 				ReadingDirection: ser.ReadingDirection, Downloaded: b.File != nil, CanDownload: b.File != nil && access.From(ctx).Can(access.Download),
 				PageBase: s.signedPagesURL(ctx, b), Pages: make([]ReadPage, len(pages))}
 			for i, p := range pages {

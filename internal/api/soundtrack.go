@@ -61,7 +61,20 @@ type SpotifyToken struct {
 // SeriesSoundtrack is a series' shared soundtrack and your own version.
 type SeriesSoundtrack struct {
 	Shared   *soundtrack.Doc `json:"shared,omitempty" doc:"Set by admins; none: no music"`
-	Personal *soundtrack.Doc `json:"personal,omitempty" doc:"Your own version; none: you hear the shared one"`
+	Personal *soundtrack.Doc `json:"personal,omitempty" doc:"Your own cues and mute; where they sit, they win over the shared ones"`
+	// Credits are the pack sounds the soundtracks use, with their licences.
+	Credits []soundtrack.Credit `json:"credits"`
+	// Chapters are the series' chapter numbers with their page counts, for
+	// placing cues.
+	Chapters []SoundtrackChapter `json:"chapters"`
+}
+
+// SoundtrackChapter is a chapter cues can start in.
+type SoundtrackChapter struct {
+	ID     int64   `json:"id"`
+	Number float64 `json:"number"`
+	Label  string  `json:"label"`
+	Pages  int     `json:"pages,omitempty"`
 }
 
 type moodBody struct {
@@ -210,7 +223,7 @@ func (s *Server) seriesSoundtrack(ctx context.Context, seriesID int64) (*SeriesS
 	if _, err := s.visibleSeries(ctx, seriesID); err != nil {
 		return nil, err
 	}
-	out := &SeriesSoundtrack{}
+	out := &SeriesSoundtrack{Chapters: []SoundtrackChapter{}}
 	var err error
 	if out.Shared, err = soundtrack.Get(ctx, s.app.DB, seriesID, nil); err != nil {
 		return nil, toHTTPError(err)
@@ -220,7 +233,38 @@ func (s *Server) seriesSoundtrack(ctx context.Context, seriesID int64) (*SeriesS
 			return nil, toHTTPError(err)
 		}
 	}
+	counts, err := soundtrack.PageCounts(ctx, s.app.DB, seriesID)
+	if err != nil {
+		return nil, toHTTPError(err)
+	}
+	for _, d := range []*soundtrack.Doc{out.Shared, out.Personal} {
+		if d != nil {
+			d.Flag(counts)
+		}
+	}
+	if out.Credits, err = soundtrack.Credits(ctx, s.app.DB, out.Shared, out.Personal); err != nil {
+		return nil, toHTTPError(err)
+	}
+	var chapters []model.Chapter
+	if err := s.app.DB.NewSelect().Model(&chapters).Column("id", "number_key", "number_sort").Where("series_id = ?", seriesID).Order("number_sort").Scan(ctx); err != nil {
+		return nil, toHTTPError(err)
+	}
+	for _, c := range chapters {
+		out.Chapters = append(out.Chapters, SoundtrackChapter{ID: c.ID, Number: c.NumberSort, Label: c.NumberKey, Pages: counts[c.NumberSort]})
+	}
 	return out, nil
+}
+
+// genresOf are a series' genres and tags, and its title's.
+func (s *Server) genresOf(ctx context.Context, ser *model.Series) []string {
+	out := append(append([]string{}, ser.Metadata.Genres...), ser.Metadata.Tags...)
+	if ser.WorkID > 0 {
+		var w model.Work
+		if err := s.app.DB.NewSelect().Model(&w).Where("id = ?", ser.WorkID).Scan(ctx); err == nil {
+			out = append(append(out, w.Metadata.Genres...), w.Metadata.Tags...)
+		}
+	}
+	return out
 }
 
 func (s *Server) registerSoundtracks() {
@@ -540,7 +584,7 @@ func (s *Server) registerSoundtracks() {
 			if err != nil {
 				return nil, err
 			}
-			out, err := soundtrack.Resolve(ctx, s.app.DB, ser.ID, rid, ch.NumberSort)
+			out, err := soundtrack.Resolve(ctx, s.app.DB, s.app.Settings, ser.ID, rid, s.genresOf(ctx, ser), ch.NumberSort)
 			return &struct{ Body *soundtrack.Resolved }{out}, toHTTPError(err)
 		})
 }

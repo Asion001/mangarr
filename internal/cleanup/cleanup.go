@@ -186,6 +186,16 @@ type Cleaner struct {
 	lib      *library.Library
 	bus      *events.Bus
 	log      *slog.Logger
+	// Leftovers lists files nothing uses (sound pack files) and
+	// RemoveLeftovers deletes them; both optional.
+	Leftovers       func(context.Context) ([]LeftoverFile, error)
+	RemoveLeftovers func(context.Context) (int, int64, error)
+}
+
+// LeftoverFile is a file nothing uses any more.
+type LeftoverFile struct {
+	Path string `json:"path"`
+	Size int64  `json:"size"`
 }
 
 func New(d *db.DB, st *settings.Store, lib *library.Library, bus *events.Bus, log *slog.Logger) *Cleaner {
@@ -202,6 +212,10 @@ type Plan struct {
 	// others already brings the drive back above the free space limit.
 	Held     int   `json:"held"`
 	HeldSize int64 `json:"heldSize"`
+	// Leftovers are sound pack files no installed sound uses; a run
+	// deletes them too.
+	Leftovers    []LeftoverFile `json:"leftovers"`
+	LeftoverSize int64          `json:"leftoverSize"`
 }
 
 // requiredUsers are the users who must have finished a chapter: the chosen
@@ -239,7 +253,17 @@ func (c *Cleaner) Plan(ctx context.Context) (*Plan, error) {
 	if err != nil {
 		return nil, err
 	}
-	plan := &Plan{Enabled: cs.Enabled, DryRun: cs.DryRun, Candidates: []Candidate{}, Skipped: []Skip{}}
+	plan := &Plan{Enabled: cs.Enabled, DryRun: cs.DryRun, Candidates: []Candidate{}, Skipped: []Skip{}, Leftovers: []LeftoverFile{}}
+	if c.Leftovers != nil {
+		if left, err := c.Leftovers(ctx); err == nil {
+			plan.Leftovers = left
+			for _, l := range left {
+				plan.LeftoverSize += l.Size
+			}
+		} else {
+			c.log.Warn("listing unused sound files", "err", err)
+		}
+	}
 
 	var users []model.User
 	if err := c.db.NewSelect().Model(&users).Scan(ctx); err != nil {
@@ -465,7 +489,17 @@ func (c *Cleaner) Run(ctx context.Context, force bool) (*Plan, int, error) {
 	if err != nil {
 		return nil, 0, err
 	}
-	if len(plan.Candidates) == 0 || (plan.DryRun && !force) {
+	if plan.DryRun && !force {
+		return plan, 0, nil
+	}
+	if len(plan.Leftovers) > 0 && c.RemoveLeftovers != nil && (plan.Enabled || force) {
+		if n, freed, err := c.RemoveLeftovers(ctx); err != nil {
+			c.log.Warn("removing unused sound files", "err", err)
+		} else if n > 0 {
+			c.log.Info("removed unused sound files", "files", n, "bytes", freed)
+		}
+	}
+	if len(plan.Candidates) == 0 {
 		return plan, 0, nil
 	}
 	cs, _ := c.settings.Cleanup(ctx)

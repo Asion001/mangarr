@@ -715,6 +715,32 @@
         ],
         "type": "object"
       },
+      "Audio-pack-import-folderRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "type": "object"
+      },
+      "Audio-pack-installRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
       "AudioMood": {
         "additionalProperties": false,
         "properties": {
@@ -782,6 +808,62 @@
           "position",
           "createdAt",
           "updatedAt"
+        ],
+        "type": "object"
+      },
+      "AudioPack": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "installedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "license": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "origin": {
+            "enum": [
+              "catalog",
+              "upload",
+              "folder"
+            ],
+            "type": "string"
+          },
+          "size": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "sourceUrl": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "version",
+          "name",
+          "description",
+          "license",
+          "sourceUrl",
+          "origin",
+          "size",
+          "installedAt"
         ],
         "type": "object"
       },
@@ -1448,6 +1530,52 @@
         ],
         "type": "object"
       },
+      "CatalogPack": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "installed": {
+            "description": "The installed version, when installed",
+            "type": "string"
+          },
+          "license": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string"
+          },
+          "size": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "sounds": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "url": {
+            "description": "The pack's zip (relative to the catalog)",
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "version",
+          "url"
+        ],
+        "type": "object"
+      },
       "Chapter": {
         "additionalProperties": false,
         "properties": {
@@ -1960,6 +2088,23 @@
         ],
         "type": "object"
       },
+      "CleanupLeftoverFile": {
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "size": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "path",
+          "size"
+        ],
+        "type": "object"
+      },
       "CleanupOverride": {
         "additionalProperties": false,
         "properties": {
@@ -2000,6 +2145,16 @@
             "format": "int64",
             "type": "integer"
           },
+          "leftoverSize": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "leftovers": {
+            "items": {
+              "$ref": "#/components/schemas/CleanupLeftoverFile"
+            },
+            "type": "array"
+          },
           "skipped": {
             "items": {
               "$ref": "#/components/schemas/CleanupSkip"
@@ -2018,7 +2173,9 @@
           "skipped",
           "totalSize",
           "held",
-          "heldSize"
+          "heldSize",
+          "leftovers",
+          "leftoverSize"
         ],
         "type": "object"
       },
@@ -2199,30 +2356,6 @@
         "required": [
           "username",
           "password"
-        ],
-        "type": "object"
-      },
-      "Cue": {
-        "additionalProperties": false,
-        "properties": {
-          "chapterNumber": {
-            "format": "double",
-            "minimum": 0,
-            "type": "number"
-          },
-          "moodId": {
-            "description": "None: no music from here",
-            "format": "int64",
-            "type": "integer"
-          },
-          "page": {
-            "format": "int64",
-            "minimum": 1,
-            "type": "integer"
-          }
-        },
-        "required": [
-          "chapterNumber"
         ],
         "type": "object"
       },
@@ -2623,35 +2756,6 @@
         ],
         "type": "object"
       },
-      "Device": {
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "isActive": {
-            "type": "boolean"
-          },
-          "name": {
-            "type": "string"
-          },
-          "type": {
-            "description": "Computer, Smartphone, Speaker…",
-            "type": "string"
-          },
-          "volumePercent": {
-            "format": "int64",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "type",
-          "isActive"
-        ],
-        "type": "object"
-      },
       "DeviceBodyBody": {
         "additionalProperties": false,
         "properties": {
@@ -2951,30 +3055,6 @@
           "language",
           "title",
           "url"
-        ],
-        "type": "object"
-      },
-      "Doc": {
-        "additionalProperties": false,
-        "properties": {
-          "cues": {
-            "items": {
-              "$ref": "#/components/schemas/Cue"
-            },
-            "maxItems": 500,
-            "type": "array"
-          },
-          "muted": {
-            "type": "boolean"
-          },
-          "updatedAt": {
-            "format": "date-time",
-            "readOnly": true,
-            "type": "string"
-          }
-        },
-        "required": [
-          "cues"
         ],
         "type": "object"
       },
@@ -5030,6 +5110,22 @@
           "matchMetadata",
           "findByTitle",
           "blockScanlators"
+        ],
+        "type": "object"
+      },
+      "ImportOutBody": {
+        "additionalProperties": false,
+        "properties": {
+          "result": {
+            "$ref": "#/components/schemas/SoundtrackImportResult"
+          },
+          "soundtrack": {
+            "$ref": "#/components/schemas/SeriesSoundtrack"
+          }
+        },
+        "required": [
+          "result",
+          "soundtrack"
         ],
         "type": "object"
       },
@@ -7534,37 +7630,6 @@
         ],
         "type": "object"
       },
-      "NowPlaying": {
-        "additionalProperties": false,
-        "properties": {
-          "artists": {
-            "type": "string"
-          },
-          "contextUri": {
-            "type": "string"
-          },
-          "device": {
-            "$ref": "#/components/schemas/Device"
-          },
-          "imageUrl": {
-            "type": "string"
-          },
-          "isPlaying": {
-            "type": "boolean"
-          },
-          "shuffle": {
-            "type": "boolean"
-          },
-          "track": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "isPlaying",
-          "shuffle"
-        ],
-        "type": "object"
-      },
       "Offer": {
         "additionalProperties": false,
         "properties": {
@@ -7686,22 +7751,6 @@
           "y",
           "w",
           "h"
-        ],
-        "type": "object"
-      },
-      "PageCue": {
-        "additionalProperties": false,
-        "properties": {
-          "mood": {
-            "$ref": "#/components/schemas/AudioMood"
-          },
-          "page": {
-            "format": "int64",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "page"
         ],
         "type": "object"
       },
@@ -7883,32 +7932,6 @@
           "name",
           "implementation",
           "linked"
-        ],
-        "type": "object"
-      },
-      "Play": {
-        "additionalProperties": false,
-        "properties": {
-          "deviceId": {
-            "description": "Empty: the active device",
-            "type": "string"
-          },
-          "shuffle": {
-            "type": "boolean"
-          },
-          "uri": {
-            "description": "A playlist or album (played as a context) or a track",
-            "type": "string"
-          },
-          "volume": {
-            "format": "int64",
-            "maximum": 100,
-            "minimum": 0,
-            "type": "integer"
-          }
-        },
-        "required": [
-          "uri"
         ],
         "type": "object"
       },
@@ -8932,6 +8955,10 @@
           "number": {
             "type": "string"
           },
+          "numberSort": {
+            "format": "double",
+            "type": "number"
+          },
           "pageBase": {
             "type": "string"
           },
@@ -8969,6 +8996,7 @@
           "seriesId",
           "seriesTitle",
           "number",
+          "numberSort",
           "readingDirection",
           "downloaded",
           "canDownload",
@@ -10681,37 +10709,6 @@
         ],
         "type": "object"
       },
-      "Resolved": {
-        "additionalProperties": false,
-        "properties": {
-          "mood": {
-            "$ref": "#/components/schemas/AudioMood"
-          },
-          "muted": {
-            "type": "boolean"
-          },
-          "pages": {
-            "items": {
-              "$ref": "#/components/schemas/PageCue"
-            },
-            "type": "array"
-          },
-          "source": {
-            "enum": [
-              "none",
-              "shared",
-              "personal"
-            ],
-            "type": "string"
-          }
-        },
-        "required": [
-          "source",
-          "muted",
-          "pages"
-        ],
-        "type": "object"
-      },
       "Result": {
         "additionalProperties": false,
         "properties": {
@@ -11091,42 +11088,6 @@
           "end",
           "pauseDownloads",
           "pauseProcessing"
-        ],
-        "type": "object"
-      },
-      "SearchItem": {
-        "additionalProperties": false,
-        "properties": {
-          "imageUrl": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "subtitle": {
-            "description": "The playlist's owner, or the album's or track's artists",
-            "type": "string"
-          },
-          "tracks": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "type": {
-            "enum": [
-              "playlist",
-              "album",
-              "track"
-            ],
-            "type": "string"
-          },
-          "uri": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "uri",
-          "type",
-          "name"
         ],
         "type": "object"
       },
@@ -11847,15 +11808,31 @@
       "SeriesSoundtrack": {
         "additionalProperties": false,
         "properties": {
+          "chapters": {
+            "items": {
+              "$ref": "#/components/schemas/SoundtrackChapter"
+            },
+            "type": "array"
+          },
+          "credits": {
+            "items": {
+              "$ref": "#/components/schemas/SoundtrackCredit"
+            },
+            "type": "array"
+          },
           "personal": {
-            "$ref": "#/components/schemas/Doc",
-            "description": "Your own version; none: you hear the shared one"
+            "$ref": "#/components/schemas/SoundtrackDoc",
+            "description": "Your own cues and mute; where they sit, they win over the shared ones"
           },
           "shared": {
-            "$ref": "#/components/schemas/Doc",
+            "$ref": "#/components/schemas/SoundtrackDoc",
             "description": "Set by admins; none: no music"
           }
         },
+        "required": [
+          "credits",
+          "chapters"
+        ],
         "type": "object"
       },
       "SeriesSource": {
@@ -12165,6 +12142,924 @@
         },
         "required": [
           "ms"
+        ],
+        "type": "object"
+      },
+      "Sound": {
+        "additionalProperties": false,
+        "properties": {
+          "catalogUrl": {
+            "type": "string"
+          },
+          "quotaMb": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "suggestFromGenres": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "catalogUrl",
+          "quotaMb",
+          "suggestFromGenres"
+        ],
+        "type": "object"
+      },
+      "SoundPacks": {
+        "additionalProperties": false,
+        "properties": {
+          "packs": {
+            "items": {
+              "$ref": "#/components/schemas/SoundtrackPackView"
+            },
+            "type": "array"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/SoundtrackUsage"
+          }
+        },
+        "required": [
+          "packs",
+          "usage"
+        ],
+        "type": "object"
+      },
+      "SoundtrackChapter": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "label": {
+            "type": "string"
+          },
+          "number": {
+            "format": "double",
+            "type": "number"
+          },
+          "pages": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "label"
+        ],
+        "type": "object"
+      },
+      "SoundtrackCredit": {
+        "additionalProperties": false,
+        "properties": {
+          "attribution": {
+            "type": "string"
+          },
+          "license": {
+            "type": "string"
+          },
+          "pack": {
+            "type": "string"
+          },
+          "sourceUrl": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "pack",
+          "license"
+        ],
+        "type": "object"
+      },
+      "SoundtrackCue": {
+        "additionalProperties": false,
+        "properties": {
+          "chapterNumber": {
+            "format": "double",
+            "minimum": 0,
+            "type": "number"
+          },
+          "moodId": {
+            "description": "None (and no scene): no music from here",
+            "format": "int64",
+            "type": "integer"
+          },
+          "needsReview": {
+            "readOnly": true,
+            "type": "boolean"
+          },
+          "page": {
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "pageCount": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "sceneId": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "chapterNumber"
+        ],
+        "type": "object"
+      },
+      "SoundtrackDevice": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "description": "Computer, Smartphone, Speaker…",
+            "type": "string"
+          },
+          "volumePercent": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "type",
+          "isActive"
+        ],
+        "type": "object"
+      },
+      "SoundtrackDoc": {
+        "additionalProperties": false,
+        "properties": {
+          "cues": {
+            "items": {
+              "$ref": "#/components/schemas/SoundtrackCue"
+            },
+            "maxItems": 500,
+            "type": "array"
+          },
+          "muted": {
+            "type": "boolean"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "readOnly": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "cues"
+        ],
+        "type": "object"
+      },
+      "SoundtrackExport": {
+        "additionalProperties": false,
+        "properties": {
+          "cues": {
+            "items": {
+              "$ref": "#/components/schemas/SoundtrackExportedCue"
+            },
+            "type": "array"
+          },
+          "format": {
+            "enum": [
+              "mangarr-soundtrack"
+            ],
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "version": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "format",
+          "version",
+          "cues"
+        ],
+        "type": "object"
+      },
+      "SoundtrackExportedCue": {
+        "additionalProperties": false,
+        "properties": {
+          "chapter": {
+            "format": "double",
+            "type": "number"
+          },
+          "mood": {
+            "$ref": "#/components/schemas/SoundtrackExportedMood"
+          },
+          "page": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "pageCount": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "scene": {
+            "$ref": "#/components/schemas/SoundtrackExportedScene"
+          }
+        },
+        "required": [
+          "chapter"
+        ],
+        "type": "object"
+      },
+      "SoundtrackExportedMood": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "spotifyUri": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "SoundtrackExportedScene": {
+        "additionalProperties": false,
+        "properties": {
+          "ambience": {
+            "items": {
+              "$ref": "#/components/schemas/SoundtrackExportedSound"
+            },
+            "type": "array"
+          },
+          "mood": {
+            "$ref": "#/components/schemas/SoundtrackExportedMood"
+          },
+          "name": {
+            "type": "string"
+          },
+          "sfx": {
+            "items": {
+              "$ref": "#/components/schemas/SoundtrackExportedSound"
+            },
+            "type": "array"
+          },
+          "shuffle": {
+            "type": "boolean"
+          },
+          "spotifyUri": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "shuffle",
+          "ambience",
+          "sfx"
+        ],
+        "type": "object"
+      },
+      "SoundtrackExportedSound": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "volume": {
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "required": [
+          "sha256"
+        ],
+        "type": "object"
+      },
+      "SoundtrackImportResult": {
+        "additionalProperties": false,
+        "properties": {
+          "cues": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "missingMoods": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "missingSounds": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "scenesCreated": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "cues",
+          "scenesCreated",
+          "missingSounds",
+          "missingMoods"
+        ],
+        "type": "object"
+      },
+      "SoundtrackMusic": {
+        "additionalProperties": false,
+        "properties": {
+          "imageUrl": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "shuffle": {
+            "type": "boolean"
+          },
+          "uri": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "uri",
+          "shuffle"
+        ],
+        "type": "object"
+      },
+      "SoundtrackNowPlaying": {
+        "additionalProperties": false,
+        "properties": {
+          "artists": {
+            "type": "string"
+          },
+          "contextUri": {
+            "type": "string"
+          },
+          "device": {
+            "$ref": "#/components/schemas/SoundtrackDevice"
+          },
+          "imageUrl": {
+            "type": "string"
+          },
+          "isPlaying": {
+            "type": "boolean"
+          },
+          "shuffle": {
+            "type": "boolean"
+          },
+          "track": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "isPlaying",
+          "shuffle"
+        ],
+        "type": "object"
+      },
+      "SoundtrackPackView": {
+        "additionalProperties": false,
+        "properties": {
+          "ambience": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "description": {
+            "type": "string"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "installedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "license": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "origin": {
+            "enum": [
+              "catalog",
+              "upload",
+              "folder"
+            ],
+            "type": "string"
+          },
+          "sfx": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "size": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "sourceUrl": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ambience",
+          "sfx",
+          "id",
+          "slug",
+          "version",
+          "name",
+          "description",
+          "license",
+          "sourceUrl",
+          "origin",
+          "size",
+          "installedAt"
+        ],
+        "type": "object"
+      },
+      "SoundtrackPageCue": {
+        "additionalProperties": false,
+        "properties": {
+          "page": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "sound": {
+            "$ref": "#/components/schemas/SoundtrackSound",
+            "description": "None: no music from this page"
+          }
+        },
+        "required": [
+          "page"
+        ],
+        "type": "object"
+      },
+      "SoundtrackPlay": {
+        "additionalProperties": false,
+        "properties": {
+          "deviceId": {
+            "description": "Empty: the active device",
+            "type": "string"
+          },
+          "shuffle": {
+            "type": "boolean"
+          },
+          "uri": {
+            "description": "A playlist or album (played as a context) or a track",
+            "type": "string"
+          },
+          "volume": {
+            "format": "int64",
+            "maximum": 100,
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "uri"
+        ],
+        "type": "object"
+      },
+      "SoundtrackResolved": {
+        "additionalProperties": false,
+        "properties": {
+          "muted": {
+            "type": "boolean"
+          },
+          "pages": {
+            "items": {
+              "$ref": "#/components/schemas/SoundtrackPageCue"
+            },
+            "type": "array"
+          },
+          "source": {
+            "enum": [
+              "none",
+              "shared",
+              "personal",
+              "suggested"
+            ],
+            "type": "string"
+          },
+          "start": {
+            "$ref": "#/components/schemas/SoundtrackSound"
+          }
+        },
+        "required": [
+          "source",
+          "muted",
+          "pages"
+        ],
+        "type": "object"
+      },
+      "SoundtrackScene": {
+        "additionalProperties": false,
+        "properties": {
+          "ambience": {
+            "items": {
+              "$ref": "#/components/schemas/SoundtrackSceneTrack"
+            },
+            "type": "array"
+          },
+          "description": {
+            "type": "string"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "moodId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "packId": {
+            "description": "The pack that brought it",
+            "format": "int64",
+            "type": "integer"
+          },
+          "sfx": {
+            "items": {
+              "$ref": "#/components/schemas/SoundtrackSceneTrack"
+            },
+            "type": "array"
+          },
+          "shuffle": {
+            "type": "boolean"
+          },
+          "spotifyImageUrl": {
+            "type": "string"
+          },
+          "spotifyName": {
+            "type": "string"
+          },
+          "spotifyUri": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "spotifyUri",
+          "spotifyName",
+          "spotifyImageUrl",
+          "shuffle",
+          "ambience",
+          "sfx",
+          "updatedAt"
+        ],
+        "type": "object"
+      },
+      "SoundtrackSceneInput": {
+        "additionalProperties": false,
+        "properties": {
+          "ambience": {
+            "items": {
+              "$ref": "#/components/schemas/SoundtrackSceneLayer"
+            },
+            "maxItems": 4,
+            "type": "array"
+          },
+          "description": {
+            "maxLength": 500,
+            "type": "string"
+          },
+          "moodId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          },
+          "sfx": {
+            "items": {
+              "$ref": "#/components/schemas/SoundtrackScenePad"
+            },
+            "maxItems": 8,
+            "type": "array"
+          },
+          "shuffle": {
+            "type": "boolean"
+          },
+          "spotifyImageUrl": {
+            "type": "string"
+          },
+          "spotifyName": {
+            "type": "string"
+          },
+          "spotifyUri": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "SoundtrackSceneLayer": {
+        "additionalProperties": false,
+        "properties": {
+          "trackId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "volume": {
+            "format": "double",
+            "maximum": 1,
+            "minimum": 0,
+            "type": "number"
+          }
+        },
+        "required": [
+          "trackId",
+          "volume"
+        ],
+        "type": "object"
+      },
+      "SoundtrackScenePad": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "maxLength": 40,
+            "type": "string"
+          },
+          "trackId": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "trackId"
+        ],
+        "type": "object"
+      },
+      "SoundtrackSceneTrack": {
+        "additionalProperties": false,
+        "properties": {
+          "attribution": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "ext": {
+            "type": "string"
+          },
+          "gainDb": {
+            "format": "double",
+            "type": "number"
+          },
+          "icon": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "license": {
+            "type": "string"
+          },
+          "pack": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string"
+          },
+          "sourceUrl": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "trackId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "volume": {
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "required": [
+          "trackId",
+          "title",
+          "category",
+          "icon",
+          "sha256",
+          "ext",
+          "gainDb",
+          "volume",
+          "pack",
+          "license",
+          "attribution",
+          "sourceUrl"
+        ],
+        "type": "object"
+      },
+      "SoundtrackSearchItem": {
+        "additionalProperties": false,
+        "properties": {
+          "imageUrl": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "subtitle": {
+            "description": "The playlist's owner, or the album's or track's artists",
+            "type": "string"
+          },
+          "tracks": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "type": {
+            "enum": [
+              "playlist",
+              "album",
+              "track"
+            ],
+            "type": "string"
+          },
+          "uri": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "uri",
+          "type",
+          "name"
+        ],
+        "type": "object"
+      },
+      "SoundtrackSound": {
+        "additionalProperties": false,
+        "properties": {
+          "mood": {
+            "$ref": "#/components/schemas/AudioMood"
+          },
+          "music": {
+            "$ref": "#/components/schemas/SoundtrackMusic"
+          },
+          "scene": {
+            "$ref": "#/components/schemas/SoundtrackScene"
+          },
+          "source": {
+            "enum": [
+              "shared",
+              "personal",
+              "suggested"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "source"
+        ],
+        "type": "object"
+      },
+      "SoundtrackTrackView": {
+        "additionalProperties": false,
+        "properties": {
+          "attribution": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "durationMs": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "ext": {
+            "type": "string"
+          },
+          "gainDb": {
+            "format": "double",
+            "type": "number"
+          },
+          "icon": {
+            "type": "string"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "kind": {
+            "enum": [
+              "ambience",
+              "sfx"
+            ],
+            "type": "string"
+          },
+          "license": {
+            "type": "string"
+          },
+          "pack": {
+            "type": "string"
+          },
+          "packId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "sha256": {
+            "type": "string"
+          },
+          "size": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "sourceUrl": {
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "pack",
+          "id",
+          "packId",
+          "sha256",
+          "ext",
+          "kind",
+          "category",
+          "icon",
+          "title",
+          "durationMs",
+          "size",
+          "gainDb",
+          "tags",
+          "license",
+          "attribution",
+          "sourceUrl"
+        ],
+        "type": "object"
+      },
+      "SoundtrackUsage": {
+        "additionalProperties": false,
+        "properties": {
+          "over": {
+            "type": "boolean"
+          },
+          "quotaSize": {
+            "description": "0: no limit",
+            "format": "int64",
+            "type": "integer"
+          },
+          "size": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "size",
+          "quotaSize",
+          "over"
         ],
         "type": "object"
       },
@@ -15305,6 +16200,40 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/audio/catalog": {
+      "get": {
+        "operationId": "audio-catalog",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CatalogPack"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Packs the sound catalog offers (Settings › Soundtracks)",
+        "tags": [
+          "Soundtracks"
+        ]
+      }
+    },
     "/api/v1/audio/moods": {
       "get": {
         "operationId": "audio-moods",
@@ -15458,6 +16387,514 @@
           }
         },
         "summary": "Change a mood",
+        "tags": [
+          "Soundtracks"
+        ]
+      }
+    },
+    "/api/v1/audio/packs": {
+      "get": {
+        "operationId": "audio-packs",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SoundPacks"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Installed sound packs and the room they take",
+        "tags": [
+          "Soundtracks"
+        ]
+      }
+    },
+    "/api/v1/audio/packs/import-folder": {
+      "post": {
+        "operationId": "audio-pack-import-folder",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Audio-pack-import-folderRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Command"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Add the sounds in a folder on the server as a pack, in the background (music is skipped)",
+        "tags": [
+          "Soundtracks"
+        ]
+      }
+    },
+    "/api/v1/audio/packs/install": {
+      "post": {
+        "operationId": "audio-pack-install",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Audio-pack-installRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Command"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Install (or update) a pack from the catalog, in the background",
+        "tags": [
+          "Soundtracks"
+        ]
+      }
+    },
+    "/api/v1/audio/packs/upload": {
+      "post": {
+        "operationId": "audio-pack-upload",
+        "requestBody": {
+          "content": {
+            "application/zip": {
+              "schema": {
+                "contentMediaType": "application/octet-stream",
+                "format": "binary",
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudioPack"
+                }
+              }
+            },
+            "description": "Installed pack"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Install (or update) a pack from a zip holding pack.json and its sounds",
+        "tags": [
+          "Soundtracks"
+        ]
+      }
+    },
+    "/api/v1/audio/packs/{id}": {
+      "delete": {
+        "operationId": "audio-pack-delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Remove a pack and its sounds (scenes lose those layers)",
+        "tags": [
+          "Soundtracks"
+        ]
+      }
+    },
+    "/api/v1/audio/scenes": {
+      "get": {
+        "operationId": "audio-scenes",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SoundtrackScene"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Scenes: a mood's music with ambience layers and sound effect pads",
+        "tags": [
+          "Soundtracks"
+        ]
+      },
+      "post": {
+        "operationId": "audio-scene-create",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SoundtrackSceneInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SoundtrackScene"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Add a scene",
+        "tags": [
+          "Soundtracks"
+        ]
+      }
+    },
+    "/api/v1/audio/scenes/{id}": {
+      "delete": {
+        "operationId": "audio-scene-delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Delete a scene (cues that used it keep their mood)",
+        "tags": [
+          "Soundtracks"
+        ]
+      },
+      "get": {
+        "operationId": "audio-scene",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SoundtrackScene"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "One scene",
+        "tags": [
+          "Soundtracks"
+        ]
+      },
+      "put": {
+        "operationId": "audio-scene-update",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SoundtrackSceneInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SoundtrackScene"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Change a scene",
+        "tags": [
+          "Soundtracks"
+        ]
+      }
+    },
+    "/api/v1/audio/tracks": {
+      "get": {
+        "operationId": "audio-tracks",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "kind",
+            "schema": {
+              "enum": [
+                "ambience",
+                "sfx",
+                ""
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "category",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "pack",
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "maxLength": 100,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SoundtrackTrackView"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Installed sounds (ambience loops and effects)",
+        "tags": [
+          "Soundtracks"
+        ]
+      }
+    },
+    "/api/v1/audio/tracks/{id}/stream": {
+      "get": {
+        "operationId": "audio-track-stream",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "audio/*": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The sound"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "A sound's file (Range requests work; the ETag is its hash)",
         "tags": [
           "Soundtracks"
         ]
@@ -19155,7 +20592,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/Doc"
+                "$ref": "#/components/schemas/SoundtrackDoc"
               }
             }
           },
@@ -19184,6 +20621,110 @@
           }
         },
         "summary": "Set your own version of a series' soundtrack (or mute it)",
+        "tags": [
+          "Soundtracks"
+        ]
+      }
+    },
+    "/api/v1/me/series/{id}/soundtrack/cue": {
+      "put": {
+        "operationId": "me-series-soundtrack-cue",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SoundtrackCue"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeriesSoundtrack"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Add or replace one of your own cues (no mood or scene removes it)",
+        "tags": [
+          "Soundtracks"
+        ]
+      }
+    },
+    "/api/v1/me/series/{id}/soundtrack/import": {
+      "post": {
+        "operationId": "me-series-soundtrack-import",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SoundtrackExport"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportOutBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Replace your own cues with an exported soundtrack (scenes by name only)",
         "tags": [
           "Soundtracks"
         ]
@@ -19442,7 +20983,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/Device"
+                    "$ref": "#/components/schemas/SoundtrackDevice"
                   },
                   "type": "array"
                 }
@@ -19508,7 +21049,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/Play"
+                "$ref": "#/components/schemas/SoundtrackPlay"
               }
             }
           },
@@ -19543,7 +21084,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/NowPlaying"
+                  "$ref": "#/components/schemas/SoundtrackNowPlaying"
                 }
               }
             },
@@ -21702,7 +23243,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Resolved"
+                  "$ref": "#/components/schemas/SoundtrackResolved"
                 }
               }
             },
@@ -25076,7 +26617,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/Doc"
+                "$ref": "#/components/schemas/SoundtrackDoc"
               }
             }
           },
@@ -25105,6 +26646,172 @@
           }
         },
         "summary": "Set a series' shared soundtrack (what everyone hears unless they made their own)",
+        "tags": [
+          "Soundtracks"
+        ]
+      }
+    },
+    "/api/v1/series/{id}/soundtrack/cue": {
+      "put": {
+        "operationId": "series-soundtrack-cue",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SoundtrackCue"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeriesSoundtrack"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Add or replace one cue of the shared soundtrack (no mood or scene removes it)",
+        "tags": [
+          "Soundtracks"
+        ]
+      }
+    },
+    "/api/v1/series/{id}/soundtrack/export": {
+      "get": {
+        "operationId": "series-soundtrack-export",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "version",
+            "schema": {
+              "default": "shared",
+              "enum": [
+                "shared",
+                "personal"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SoundtrackExport"
+                }
+              }
+            },
+            "description": "OK",
+            "headers": {
+              "Content-Disposition": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "A soundtrack as a file (cues by chapter number, sounds by hash)",
+        "tags": [
+          "Soundtracks"
+        ]
+      }
+    },
+    "/api/v1/series/{id}/soundtrack/import": {
+      "post": {
+        "operationId": "series-soundtrack-import",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SoundtrackExport"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportOutBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Replace the shared soundtrack with an exported one (scenes it names are made from installed sounds)",
         "tags": [
           "Soundtracks"
         ]
@@ -26400,6 +28107,74 @@
         ]
       }
     },
+    "/api/v1/settings/sound": {
+      "get": {
+        "operationId": "settings-get-sound",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Sound"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "tags": [
+          "Settings"
+        ]
+      },
+      "put": {
+        "operationId": "settings-put-sound",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Sound"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Sound"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "tags": [
+          "Settings"
+        ]
+      }
+    },
     "/api/v1/settings/sources": {
       "get": {
         "operationId": "settings-get-sources",
@@ -27395,7 +29170,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/SearchItem"
+                    "$ref": "#/components/schemas/SoundtrackSearchItem"
                   },
                   "type": "array"
                 }

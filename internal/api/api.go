@@ -132,6 +132,8 @@ func schemaNamer(t reflect.Type, hint string) string {
 		return "Metrics" + name
 	case strings.HasSuffix(pkg, "/internal/metadataagg"):
 		return "Metadata" + name
+	case strings.HasSuffix(pkg, "/internal/soundtrack"):
+		return "Soundtrack" + name
 	}
 	return name
 }

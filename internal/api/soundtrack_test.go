@@ -355,14 +355,29 @@ func TestSoundtracks(t *testing.T) {
 	if code := ann.do("GET", "/api/v1/series/"+sid+"/soundtrack", "", &st); code != 200 || st.Shared != nil || st.Personal != nil {
 		t.Fatalf("no soundtrack yet: %d %+v", code, st)
 	}
+	type sound struct {
+		Source string
+		Mood   *mood
+		Scene  *struct {
+			ID       int64
+			Ambience []struct{ TrackID int64 }
+		}
+		Music *struct{ URI string }
+	}
 	type resolved struct {
 		Source string
 		Muted  bool
-		Mood   *mood
+		Start  *sound
 		Pages  []struct {
-			Page int
-			Mood *mood
+			Page  int
+			Sound *sound
 		}
+	}
+	moodOf := func(r resolved) *mood {
+		if r.Start == nil {
+			return nil
+		}
+		return r.Start.Mood
 	}
 	read := func(c caller, n int) resolved {
 		t.Helper()
@@ -372,7 +387,7 @@ func TestSoundtracks(t *testing.T) {
 		}
 		return r
 	}
-	if r := read(ann, 1); r.Source != "none" || r.Mood != nil {
+	if r := read(ann, 1); r.Source != "none" || moodOf(r) != nil {
 		t.Fatalf("nothing set: %+v", r)
 	}
 
@@ -389,13 +404,13 @@ func TestSoundtracks(t *testing.T) {
 	if code := boss.do("PUT", "/api/v1/series/"+sid+"/soundtrack", shared, &st); code != 200 || st.Shared == nil || len(st.Shared.Cues) != 3 {
 		t.Fatalf("set the shared soundtrack: %d %+v", code, st)
 	}
-	if r := read(ann, 1); r.Source != "shared" || r.Mood == nil || r.Mood.ID != calm.ID {
+	if r := read(ann, 1); r.Source != "shared" || moodOf(r) == nil || moodOf(r).ID != calm.ID {
 		t.Fatalf("chapter 1 plays the default: %+v", r)
 	}
-	if r := read(ann, 5); r.Mood == nil || r.Mood.ID != sea.ID {
+	if r := read(ann, 5); moodOf(r) == nil || moodOf(r).ID != sea.ID {
 		t.Fatalf("chapter 5 starts its own cue: %+v", r)
 	}
-	if r := read(ann, 12); r.Mood == nil || r.Mood.ID != sea.ID || len(r.Pages) != 1 || r.Pages[0].Page != 8 || r.Pages[0].Mood.ID != calm.ID {
+	if r := read(ann, 12); moodOf(r) == nil || moodOf(r).ID != sea.ID || len(r.Pages) != 1 || r.Pages[0].Page != 8 || r.Pages[0].Sound.Mood.ID != calm.ID {
 		t.Fatalf("chapter 12 carries on and changes on page 8: %+v", r)
 	}
 
@@ -404,10 +419,10 @@ func TestSoundtracks(t *testing.T) {
 	if code := ann.do("PUT", "/api/v1/me/series/"+sid+"/soundtrack", mine, &st); code != 200 || st.Personal == nil || st.Shared == nil {
 		t.Fatalf("ann's version: %d %+v", code, st)
 	}
-	if r := read(ann, 1); r.Source != "personal" || r.Mood == nil || r.Mood.ID != sea.ID {
+	if r := read(ann, 1); r.Source != "personal" || moodOf(r) == nil || moodOf(r).ID != sea.ID {
 		t.Fatalf("ann hears her version: %+v", r)
 	}
-	if r := read(bob, 1); r.Source != "shared" || r.Mood.ID != calm.ID {
+	if r := read(bob, 1); r.Source != "shared" || moodOf(r).ID != calm.ID {
 		t.Fatalf("bob still hears the shared one: %+v", r)
 	}
 	ann.do("PUT", "/api/v1/me/series/"+sid+"/soundtrack", `{"cues":[{"chapterNumber":0,"moodId":`+seaID+`}],"muted":true}`, nil)
@@ -426,7 +441,7 @@ func TestSoundtracks(t *testing.T) {
 	if code := boss.do("DELETE", "/api/v1/audio/moods/"+seaID, "", nil); code != 204 {
 		t.Fatalf("delete sea: %d", code)
 	}
-	if r := read(ann, 5); r.Source != "shared" || r.Mood != nil {
+	if r := read(ann, 5); r.Source != "shared" || moodOf(r) != nil {
 		t.Fatalf("a deleted mood's chapter: %+v", r)
 	}
 }

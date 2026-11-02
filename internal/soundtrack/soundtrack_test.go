@@ -81,18 +81,18 @@ func TestSoundtrackStorage(t *testing.T) {
 		if n, err = d.NewSelect().Model((*model.Soundtrack)(nil)).Count(ctx); err != nil || n != 2 {
 			t.Fatalf("soundtracks %d %v", n, err)
 		}
-		r, err := Resolve(ctx, d, series, user, 10)
-		if err != nil || r.Source != FromPersonal || !r.Muted {
+		r, err := Resolve(ctx, d, st, series, user, nil, 10)
+		if err != nil || !r.Muted {
 			t.Fatalf("resolve own %v %+v", err, r)
 		}
 		if err := Reset(ctx, d, series, user); err != nil {
 			t.Fatal(err)
 		}
-		r, err = Resolve(ctx, d, series, user, 10)
-		if err != nil || r.Source != FromShared || r.Mood != nil || len(r.Pages) != 1 || r.Pages[0].Mood.ID != m.ID {
+		r, err = Resolve(ctx, d, st, series, user, nil, 10)
+		if err != nil || r.Source != FromShared || r.Start != nil || len(r.Pages) != 1 || r.Pages[0].Sound.Mood.ID != m.ID {
 			t.Fatalf("resolve shared at 10 %v %+v", err, r)
 		}
-		if r, _ = Resolve(ctx, d, series, user, 11); r.Mood == nil || r.Mood.ID != m.ID {
+		if r, _ = Resolve(ctx, d, st, series, user, nil, 11); r.Start == nil || r.Start.Mood.ID != m.ID {
 			t.Fatalf("a page cue carries on into the next chapter: %+v", r)
 		}
 

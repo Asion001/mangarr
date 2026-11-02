@@ -4,6 +4,23 @@
  */
 
 export interface paths {
+    "/api/v1/audio/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Packs the sound catalog offers (Settings › Soundtracks) */
+        get: operations["audio-catalog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/audio/moods": {
         parameters: {
             query?: never;
@@ -35,6 +52,162 @@ export interface paths {
         post?: never;
         /** Delete a mood (soundtracks that used it play nothing there) */
         delete: operations["audio-mood-delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/audio/packs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Installed sound packs and the room they take */
+        get: operations["audio-packs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/audio/packs/import-folder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add the sounds in a folder on the server as a pack, in the background (music is skipped) */
+        post: operations["audio-pack-import-folder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/audio/packs/install": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Install (or update) a pack from the catalog, in the background */
+        post: operations["audio-pack-install"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/audio/packs/upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Install (or update) a pack from a zip holding pack.json and its sounds */
+        post: operations["audio-pack-upload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/audio/packs/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a pack and its sounds (scenes lose those layers) */
+        delete: operations["audio-pack-delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/audio/scenes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Scenes: a mood's music with ambience layers and sound effect pads */
+        get: operations["audio-scenes"];
+        put?: never;
+        /** Add a scene */
+        post: operations["audio-scene-create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/audio/scenes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One scene */
+        get: operations["audio-scene"];
+        /** Change a scene */
+        put: operations["audio-scene-update"];
+        post?: never;
+        /** Delete a scene (cues that used it keep their mood) */
+        delete: operations["audio-scene-delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/audio/tracks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Installed sounds (ambience loops and effects) */
+        get: operations["audio-tracks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/audio/tracks/{id}/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A sound's file (Range requests work; the ETag is its hash) */
+        get: operations["audio-track-stream"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1192,6 +1365,40 @@ export interface paths {
         post?: never;
         /** Drop your own version: hear the shared soundtrack again */
         delete: operations["me-series-soundtrack-reset"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/series/{id}/soundtrack/cue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Add or replace one of your own cues (no mood or scene removes it) */
+        put: operations["me-series-soundtrack-cue"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/series/{id}/soundtrack/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Replace your own cues with an exported soundtrack (scenes by name only) */
+        post: operations["me-series-soundtrack-import"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -3026,6 +3233,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/series/{id}/soundtrack/cue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Add or replace one cue of the shared soundtrack (no mood or scene removes it) */
+        put: operations["series-soundtrack-cue"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/series/{id}/soundtrack/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A soundtrack as a file (cues by chapter number, sounds by hash) */
+        get: operations["series-soundtrack-export"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/series/{id}/soundtrack/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Replace the shared soundtrack with an exported one (scenes it names are made from installed sounds) */
+        post: operations["series-soundtrack-import"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/series/{id}/sources": {
         parameters: {
             query?: never;
@@ -3382,6 +3640,22 @@ export interface paths {
         };
         get: operations["settings-get-schedule"];
         put: operations["settings-put-schedule"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/sound": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["settings-get-sound"];
+        put: operations["settings-put-sound"];
         post?: never;
         delete?: never;
         options?: never;
@@ -4751,6 +5025,12 @@ export interface components {
             enabled: number;
             stale: components["schemas"]["AttentionWorker"][];
         };
+        "Audio-pack-import-folderRequest": {
+            path: string;
+        };
+        "Audio-pack-installRequest": {
+            id: string;
+        };
         AudioMood: {
             /** @description #rrggbb */
             color: string;
@@ -4772,6 +5052,22 @@ export interface components {
             spotifyUri: string;
             /** Format: date-time */
             updatedAt: string;
+        };
+        AudioPack: {
+            description: string;
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            installedAt: string;
+            license: string;
+            name: string;
+            /** @enum {string} */
+            origin: "catalog" | "upload" | "folder";
+            /** Format: int64 */
+            size: number;
+            slug: string;
+            sourceUrl: string;
+            version: string;
         };
         "Auth-passwordRequest": {
             /** @description Your current password */
@@ -4979,6 +5275,22 @@ export interface components {
             generation: number;
             items: components["schemas"]["Catalog"][];
         };
+        CatalogPack: {
+            description?: string;
+            id: string;
+            /** @description The installed version, when installed */
+            installed?: string;
+            license?: string;
+            name: string;
+            sha256?: string;
+            /** Format: int64 */
+            size?: number;
+            /** Format: int64 */
+            sounds?: number;
+            /** @description The pack's zip (relative to the catalog) */
+            url: string;
+            version: string;
+        };
         Chapter: {
             /** Format: date-time */
             cleanedAt?: string;
@@ -5136,6 +5448,11 @@ export interface components {
             /** Format: int64 */
             size: number;
         };
+        CleanupLeftoverFile: {
+            path: string;
+            /** Format: int64 */
+            size: number;
+        };
         CleanupOverride: {
             enabled?: boolean;
             /** Format: int64 */
@@ -5151,6 +5468,9 @@ export interface components {
             held: number;
             /** Format: int64 */
             heldSize: number;
+            /** Format: int64 */
+            leftoverSize: number;
+            leftovers: components["schemas"]["CleanupLeftoverFile"][];
             skipped: components["schemas"]["CleanupSkip"][];
             /** Format: int64 */
             totalSize: number;
@@ -5217,17 +5537,6 @@ export interface components {
         Credentials: {
             password: string;
             username: string;
-        };
-        Cue: {
-            /** Format: double */
-            chapterNumber: number;
-            /**
-             * Format: int64
-             * @description None: no music from here
-             */
-            moodId?: number;
-            /** Format: int64 */
-            page?: number;
         };
         DBTest: {
             kind: string;
@@ -5357,15 +5666,6 @@ export interface components {
             searched: boolean;
             sourceName: string;
         };
-        Device: {
-            id: string;
-            isActive: boolean;
-            name: string;
-            /** @description Computer, Smartphone, Speaker… */
-            type: string;
-            /** Format: int64 */
-            volumePercent?: number;
-        };
         DeviceBodyBody: {
             deviceId?: string;
         };
@@ -5444,12 +5744,6 @@ export interface components {
             thumbnailUrl?: string;
             title: string;
             url: string;
-        };
-        Doc: {
-            cues: components["schemas"]["Cue"][];
-            muted?: boolean;
-            /** Format: date-time */
-            readonly updatedAt?: string;
         };
         DownloadJob: {
             /** Format: int64 */
@@ -6072,6 +6366,10 @@ export interface components {
             tellRequesters?: boolean;
             /** Format: int64 */
             userId: number;
+        };
+        ImportOutBody: {
+            result: components["schemas"]["SoundtrackImportResult"];
+            soundtrack: components["schemas"]["SeriesSoundtrack"];
         };
         ImportResource: {
             busy: boolean;
@@ -6829,15 +7127,6 @@ export interface components {
             number: string;
             title?: string;
         };
-        NowPlaying: {
-            artists?: string;
-            contextUri?: string;
-            device?: components["schemas"]["Device"];
-            imageUrl?: string;
-            isPlaying: boolean;
-            shuffle: boolean;
-            track?: string;
-        };
         Offer: {
             build?: string;
             checksumUrl?: string;
@@ -6876,11 +7165,6 @@ export interface components {
             x: number;
             /** Format: int64 */
             y: number;
-        };
-        PageCue: {
-            mood?: components["schemas"]["AudioMood"];
-            /** Format: int64 */
-            page: number;
         };
         PageRules: {
             /** Format: int64 */
@@ -6937,15 +7221,6 @@ export interface components {
             linked: boolean;
             name: string;
             username: string;
-        };
-        Play: {
-            /** @description Empty: the active device */
-            deviceId?: string;
-            shuffle?: boolean;
-            /** @description A playlist or album (played as a context) or a track */
-            uri: string;
-            /** Format: int64 */
-            volume?: number;
         };
         PreviewPage: {
             encodedFormat: string;
@@ -7260,6 +7535,8 @@ export interface components {
             id: number;
             next?: components["schemas"]["ChapterLink"];
             number: string;
+            /** Format: double */
+            numberSort: number;
             pageBase?: string;
             pages: components["schemas"]["ReadPage"][];
             prev?: components["schemas"]["ChapterLink"];
@@ -7798,13 +8075,6 @@ export interface components {
             /** Format: int64 */
             importId?: number;
         };
-        Resolved: {
-            mood?: components["schemas"]["AudioMood"];
-            muted: boolean;
-            pages: components["schemas"]["PageCue"][];
-            /** @enum {string} */
-            source: "none" | "shared" | "personal";
-        };
         Result: {
             /** Format: int64 */
             duration: number;
@@ -7902,17 +8172,6 @@ export interface components {
             start: string;
             /** @enum {string} */
             throttle?: "" | "gentle" | "normal" | "fast";
-        };
-        SearchItem: {
-            imageUrl?: string;
-            name: string;
-            /** @description The playlist's owner, or the album's or track's artists */
-            subtitle?: string;
-            /** Format: int64 */
-            tracks?: number;
-            /** @enum {string} */
-            type: "playlist" | "album" | "track";
-            uri: string;
         };
         SearchResultGroup: {
             cached: boolean;
@@ -8109,10 +8368,12 @@ export interface components {
             totalSize: number;
         };
         SeriesSoundtrack: {
-            /** @description Your own version; none: you hear the shared one */
-            personal?: components["schemas"]["Doc"];
+            chapters: components["schemas"]["SoundtrackChapter"][];
+            credits: components["schemas"]["SoundtrackCredit"][];
+            /** @description Your own cues and mute; where they sit, they win over the shared ones */
+            personal?: components["schemas"]["SoundtrackDoc"];
             /** @description Set by admins; none: no music */
-            shared?: components["schemas"]["Doc"];
+            shared?: components["schemas"]["SoundtrackDoc"];
         };
         SeriesSource: {
             /** Format: date-time */
@@ -8219,6 +8480,282 @@ export interface components {
             error?: string;
             /** Format: int64 */
             ms: number;
+        };
+        Sound: {
+            catalogUrl: string;
+            /** Format: int64 */
+            quotaMb: number;
+            suggestFromGenres: boolean;
+        };
+        SoundPacks: {
+            packs: components["schemas"]["SoundtrackPackView"][];
+            usage: components["schemas"]["SoundtrackUsage"];
+        };
+        SoundtrackChapter: {
+            /** Format: int64 */
+            id: number;
+            label: string;
+            /** Format: double */
+            number: number;
+            /** Format: int64 */
+            pages?: number;
+        };
+        SoundtrackCredit: {
+            attribution?: string;
+            license: string;
+            pack: string;
+            sourceUrl?: string;
+            title: string;
+        };
+        SoundtrackCue: {
+            /** Format: double */
+            chapterNumber: number;
+            /**
+             * Format: int64
+             * @description None (and no scene): no music from here
+             */
+            moodId?: number;
+            readonly needsReview?: boolean;
+            /** Format: int64 */
+            page?: number;
+            /** Format: int64 */
+            pageCount?: number;
+            /** Format: int64 */
+            sceneId?: number;
+        };
+        SoundtrackDevice: {
+            id: string;
+            isActive: boolean;
+            name: string;
+            /** @description Computer, Smartphone, Speaker… */
+            type: string;
+            /** Format: int64 */
+            volumePercent?: number;
+        };
+        SoundtrackDoc: {
+            cues: components["schemas"]["SoundtrackCue"][];
+            muted?: boolean;
+            /** Format: date-time */
+            readonly updatedAt?: string;
+        };
+        SoundtrackExport: {
+            cues: components["schemas"]["SoundtrackExportedCue"][];
+            /** @enum {string} */
+            format: "mangarr-soundtrack";
+            title?: string;
+            /** Format: int64 */
+            version: number;
+        };
+        SoundtrackExportedCue: {
+            /** Format: double */
+            chapter: number;
+            mood?: components["schemas"]["SoundtrackExportedMood"];
+            /** Format: int64 */
+            page?: number;
+            /** Format: int64 */
+            pageCount?: number;
+            scene?: components["schemas"]["SoundtrackExportedScene"];
+        };
+        SoundtrackExportedMood: {
+            name: string;
+            slug?: string;
+            spotifyUri?: string;
+        };
+        SoundtrackExportedScene: {
+            ambience: components["schemas"]["SoundtrackExportedSound"][];
+            mood?: components["schemas"]["SoundtrackExportedMood"];
+            name: string;
+            sfx: components["schemas"]["SoundtrackExportedSound"][];
+            shuffle: boolean;
+            spotifyUri?: string;
+        };
+        SoundtrackExportedSound: {
+            label?: string;
+            sha256: string;
+            title?: string;
+            /** Format: double */
+            volume?: number;
+        };
+        SoundtrackImportResult: {
+            /** Format: int64 */
+            cues: number;
+            /** Format: int64 */
+            missingMoods: number;
+            /** Format: int64 */
+            missingSounds: number;
+            /** Format: int64 */
+            scenesCreated: number;
+        };
+        SoundtrackMusic: {
+            imageUrl?: string;
+            name?: string;
+            shuffle: boolean;
+            uri: string;
+        };
+        SoundtrackNowPlaying: {
+            artists?: string;
+            contextUri?: string;
+            device?: components["schemas"]["SoundtrackDevice"];
+            imageUrl?: string;
+            isPlaying: boolean;
+            shuffle: boolean;
+            track?: string;
+        };
+        SoundtrackPackView: {
+            /** Format: int64 */
+            ambience: number;
+            description: string;
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            installedAt: string;
+            license: string;
+            name: string;
+            /** @enum {string} */
+            origin: "catalog" | "upload" | "folder";
+            /** Format: int64 */
+            sfx: number;
+            /** Format: int64 */
+            size: number;
+            slug: string;
+            sourceUrl: string;
+            version: string;
+        };
+        SoundtrackPageCue: {
+            /** Format: int64 */
+            page: number;
+            /** @description None: no music from this page */
+            sound?: components["schemas"]["SoundtrackSound"];
+        };
+        SoundtrackPlay: {
+            /** @description Empty: the active device */
+            deviceId?: string;
+            shuffle?: boolean;
+            /** @description A playlist or album (played as a context) or a track */
+            uri: string;
+            /** Format: int64 */
+            volume?: number;
+        };
+        SoundtrackResolved: {
+            muted: boolean;
+            pages: components["schemas"]["SoundtrackPageCue"][];
+            /** @enum {string} */
+            source: "none" | "shared" | "personal" | "suggested";
+            start?: components["schemas"]["SoundtrackSound"];
+        };
+        SoundtrackScene: {
+            ambience: components["schemas"]["SoundtrackSceneTrack"][];
+            description: string;
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            moodId?: number;
+            name: string;
+            /**
+             * Format: int64
+             * @description The pack that brought it
+             */
+            packId?: number;
+            sfx: components["schemas"]["SoundtrackSceneTrack"][];
+            shuffle: boolean;
+            spotifyImageUrl: string;
+            spotifyName: string;
+            spotifyUri: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        SoundtrackSceneInput: {
+            ambience?: components["schemas"]["SoundtrackSceneLayer"][];
+            description?: string;
+            /** Format: int64 */
+            moodId?: number;
+            name: string;
+            sfx?: components["schemas"]["SoundtrackScenePad"][];
+            shuffle?: boolean;
+            spotifyImageUrl?: string;
+            spotifyName?: string;
+            spotifyUri?: string;
+        };
+        SoundtrackSceneLayer: {
+            /** Format: int64 */
+            trackId: number;
+            /** Format: double */
+            volume: number;
+        };
+        SoundtrackScenePad: {
+            label?: string;
+            /** Format: int64 */
+            trackId: number;
+        };
+        SoundtrackSceneTrack: {
+            attribution: string;
+            category: string;
+            ext: string;
+            /** Format: double */
+            gainDb: number;
+            icon: string;
+            label?: string;
+            license: string;
+            pack: string;
+            sha256: string;
+            sourceUrl: string;
+            title: string;
+            /** Format: int64 */
+            trackId: number;
+            /** Format: double */
+            volume: number;
+        };
+        SoundtrackSearchItem: {
+            imageUrl?: string;
+            name: string;
+            /** @description The playlist's owner, or the album's or track's artists */
+            subtitle?: string;
+            /** Format: int64 */
+            tracks?: number;
+            /** @enum {string} */
+            type: "playlist" | "album" | "track";
+            uri: string;
+        };
+        SoundtrackSound: {
+            mood?: components["schemas"]["AudioMood"];
+            music?: components["schemas"]["SoundtrackMusic"];
+            scene?: components["schemas"]["SoundtrackScene"];
+            /** @enum {string} */
+            source: "shared" | "personal" | "suggested";
+        };
+        SoundtrackTrackView: {
+            attribution: string;
+            category: string;
+            /** Format: int64 */
+            durationMs: number;
+            ext: string;
+            /** Format: double */
+            gainDb: number;
+            icon: string;
+            /** Format: int64 */
+            id: number;
+            /** @enum {string} */
+            kind: "ambience" | "sfx";
+            license: string;
+            pack: string;
+            /** Format: int64 */
+            packId: number;
+            sha256: string;
+            /** Format: int64 */
+            size: number;
+            sourceUrl: string;
+            tags: string[];
+            title: string;
+        };
+        SoundtrackUsage: {
+            over: boolean;
+            /**
+             * Format: int64
+             * @description 0: no limit
+             */
+            quotaSize: number;
+            /** Format: int64 */
+            size: number;
         };
         "Source-preferences-setRequest": {
             /** Format: int64 */
@@ -9163,6 +9700,35 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    "audio-catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogPack"][];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "audio-moods": {
         parameters: {
             query?: never;
@@ -9277,6 +9843,385 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "audio-packs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SoundPacks"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "audio-pack-import-folder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Audio-pack-import-folderRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Command"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "audio-pack-install": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Audio-pack-installRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Command"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "audio-pack-upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/zip": string;
+            };
+        };
+        responses: {
+            /** @description Installed pack */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AudioPack"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "audio-pack-delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "audio-scenes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SoundtrackScene"][];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "audio-scene-create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SoundtrackSceneInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SoundtrackScene"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "audio-scene": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SoundtrackScene"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "audio-scene-update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SoundtrackSceneInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SoundtrackScene"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "audio-scene-delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "audio-tracks": {
+        parameters: {
+            query?: {
+                kind?: "ambience" | "sfx" | "";
+                category?: string;
+                pack?: number;
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SoundtrackTrackView"][];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "audio-track-stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The sound */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "audio/*": string;
+                };
             };
             /** @description Error */
             default: {
@@ -11854,7 +12799,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Doc"];
+                "application/json": components["schemas"]["SoundtrackDoc"];
             };
         };
         responses: {
@@ -11896,6 +12841,76 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SeriesSoundtrack"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "me-series-soundtrack-cue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SoundtrackCue"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeriesSoundtrack"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "me-series-soundtrack-import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SoundtrackExport"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportOutBody"];
                 };
             };
             /** @description Error */
@@ -12130,7 +13145,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Device"][];
+                    "application/json": components["schemas"]["SoundtrackDevice"][];
                 };
             };
             /** @description Error */
@@ -12184,7 +13199,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Play"];
+                "application/json": components["schemas"]["SoundtrackPlay"];
             };
         };
         responses: {
@@ -12221,7 +13236,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["NowPlaying"];
+                    "application/json": components["schemas"]["SoundtrackNowPlaying"];
                 };
             };
             /** @description Error */
@@ -13773,7 +14788,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Resolved"];
+                    "application/json": components["schemas"]["SoundtrackResolved"];
                 };
             };
             /** @description Error */
@@ -16053,7 +17068,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Doc"];
+                "application/json": components["schemas"]["SoundtrackDoc"];
             };
         };
         responses: {
@@ -16064,6 +17079,110 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SeriesSoundtrack"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "series-soundtrack-cue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SoundtrackCue"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeriesSoundtrack"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "series-soundtrack-export": {
+        parameters: {
+            query?: {
+                version?: "shared" | "personal";
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "Content-Disposition"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SoundtrackExport"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "series-soundtrack-import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SoundtrackExport"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportOutBody"];
                 };
             };
             /** @description Error */
@@ -17170,6 +18289,68 @@ export interface operations {
             };
         };
     };
+    "settings-get-sound": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Sound"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "settings-put-sound": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Sound"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Sound"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "settings-get-sources": {
         parameters: {
             query?: never;
@@ -17815,7 +18996,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SearchItem"][];
+                    "application/json": components["schemas"]["SoundtrackSearchItem"][];
                 };
             };
             /** @description Error */

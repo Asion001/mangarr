@@ -1,6 +1,11 @@
 package settings
 
-import "context"
+import (
+	"context"
+	"errors"
+	"net/url"
+	"strings"
+)
 
 // KeySpotify holds the Spotify app soundtracks play music through.
 const KeySpotify = "spotify"
@@ -24,4 +29,38 @@ const KeySoundtracks = "soundtracks"
 // moods admins delete stay deleted.
 type Soundtracks struct {
 	MoodsSeeded bool `json:"moodsSeeded"`
+}
+
+// KeySound holds the sound pack and suggestion settings.
+const KeySound = "sound"
+
+// Sound configures sound packs and soundtrack suggestions.
+type Sound struct {
+	// CatalogURL lists packs to install (a catalog.json); empty: none.
+	CatalogURL string `json:"catalogUrl"`
+	// QuotaMB warns when installed packs take more than this (0: never).
+	QuotaMB int `json:"quotaMb" minimum:"0"`
+	// SuggestFromGenres plays the mood matching a title's genres when it
+	// has no title mood.
+	SuggestFromGenres bool `json:"suggestFromGenres"`
+}
+
+func DefaultSound() Sound { return Sound{QuotaMB: 2048} }
+
+func (s *Store) Sound(ctx context.Context) (Sound, error) {
+	v := DefaultSound()
+	return v, s.Get(ctx, KeySound, &v)
+}
+
+func (s Sound) Validate() error {
+	if s.QuotaMB < 0 {
+		return errors.New("the quota can't be negative")
+	}
+	if c := strings.TrimSpace(s.CatalogURL); c != "" {
+		u, err := url.Parse(c)
+		if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" {
+			return errors.New("the catalog URL must be an http(s) link")
+		}
+	}
+	return nil
 }

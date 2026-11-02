@@ -1,7 +1,20 @@
+audio-catalog GET /api/v1/audio/catalog -> admin
 audio-mood-create POST /api/v1/audio/moods -> admin
 audio-mood-delete DELETE /api/v1/audio/moods/{id} -> admin
 audio-mood-update PUT /api/v1/audio/moods/{id} -> admin
 audio-moods GET /api/v1/audio/moods -> signedin
+audio-pack-delete DELETE /api/v1/audio/packs/{id} -> admin
+audio-pack-import-folder POST /api/v1/audio/packs/import-folder -> admin
+audio-pack-install POST /api/v1/audio/packs/install -> admin
+audio-pack-upload POST /api/v1/audio/packs/upload -> admin
+audio-packs GET /api/v1/audio/packs -> admin
+audio-scene GET /api/v1/audio/scenes/{id} -> signedin
+audio-scene-create POST /api/v1/audio/scenes -> admin
+audio-scene-delete DELETE /api/v1/audio/scenes/{id} -> admin
+audio-scene-update PUT /api/v1/audio/scenes/{id} -> admin
+audio-scenes GET /api/v1/audio/scenes -> signedin
+audio-track-stream GET /api/v1/audio/tracks/{id}/stream -> signedin
+audio-tracks GET /api/v1/audio/tracks -> signedin
 auth-login POST /api/v1/auth/login -> public
 auth-logout POST /api/v1/auth/logout -> signedin
 auth-oidc-callback GET /api/v1/auth/oidc/callback -> public
@@ -96,6 +109,8 @@ me-messenger-telegram-link POST /api/v1/me/messenger/telegram/link -> signedin
 me-messenger-test POST /api/v1/me/messenger/{kind}/test -> signedin
 me-messenger-unlink DELETE /api/v1/me/messenger/{kind} -> signedin
 me-reading-stats GET /api/v1/me/reading-stats -> signedin
+me-series-soundtrack-cue PUT /api/v1/me/series/{id}/soundtrack/cue -> signedin
+me-series-soundtrack-import POST /api/v1/me/series/{id}/soundtrack/import -> signedin
 me-series-soundtrack-reset DELETE /api/v1/me/series/{id}/soundtrack -> signedin
 me-series-soundtrack-save PUT /api/v1/me/series/{id}/soundtrack -> signedin
 me-sessions GET /api/v1/me/sessions -> signedin
@@ -216,6 +231,9 @@ series-rename POST /api/v1/series/rename -> library.edit
 series-rename-preview POST /api/v1/series/rename/preview -> library.edit
 series-search POST /api/v1/series/{id}/search -> library.edit
 series-soundtrack GET /api/v1/series/{id}/soundtrack -> signedin
+series-soundtrack-cue PUT /api/v1/series/{id}/soundtrack/cue -> admin
+series-soundtrack-export GET /api/v1/series/{id}/soundtrack/export -> signedin
+series-soundtrack-import POST /api/v1/series/{id}/soundtrack/import -> admin
 series-soundtrack-save PUT /api/v1/series/{id}/soundtrack -> admin
 series-source-link POST /api/v1/series/{id}/sources -> library.edit
 series-source-order PUT /api/v1/series/{id}/sources/order -> library.edit
@@ -239,6 +257,7 @@ settings-get-metadata GET /api/v1/settings/metadata -> admin
 settings-get-reading GET /api/v1/settings/reading -> admin
 settings-get-readsync GET /api/v1/settings/readsync -> admin
 settings-get-schedule GET /api/v1/settings/schedule -> admin
+settings-get-sound GET /api/v1/settings/sound -> admin
 settings-get-sources GET /api/v1/settings/sources -> admin
 settings-get-spotify GET /api/v1/settings/spotify -> admin
 settings-get-sso GET /api/v1/settings/sso -> admin
@@ -257,6 +276,7 @@ settings-put-metadata PUT /api/v1/settings/metadata -> admin
 settings-put-reading PUT /api/v1/settings/reading -> admin
 settings-put-readsync PUT /api/v1/settings/readsync -> admin
 settings-put-schedule PUT /api/v1/settings/schedule -> admin
+settings-put-sound PUT /api/v1/settings/sound -> admin
 settings-put-sources PUT /api/v1/settings/sources -> admin
 settings-put-spotify PUT /api/v1/settings/spotify -> admin
 settings-put-sso PUT /api/v1/settings/sso -> admin
