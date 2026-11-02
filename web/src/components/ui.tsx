@@ -10,7 +10,7 @@ type Variant = "primary" | "secondary" | "danger" | "ghost";
 /** buttonClass is how a Button looks, for things that aren't buttons (links). */
 function buttonClass(variant: Variant, size: "sm" | "md", className?: string) {
   return clsx(
-    "inline-flex items-center justify-center gap-1.5 rounded-md font-medium transition-[color,background-color,border-color,transform] active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100",
+    "inline-flex items-center justify-center gap-1.5 rounded-md font-medium transition-[color,background-color,border-color,transform] duration-150 active:scale-[0.97] motion-reduce:active:scale-100 disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100",
     size === "sm" ? "h-7 px-2.5 text-xs" : "h-9 px-3.5 text-sm",
     variant === "primary" && "bg-primary text-white hover:bg-primary-hover",
     variant === "secondary" && "border border-border bg-panel-2 text-fg hover:bg-border",

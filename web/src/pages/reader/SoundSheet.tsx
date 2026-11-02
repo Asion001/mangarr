@@ -60,6 +60,22 @@ export function SoundSheet({ s, onClose, here }: { s: Soundtrack; onClose: () =>
   const toast = useToast();
   const [picking, setPicking] = useState(false);
   const [starting, setStarting] = useState(false);
+  // what was tapped and is still on its way, and the effects sounding now
+  const [busy, setBusy] = useState<"" | "play" | "next">("");
+  const [lit, setLit] = useState<number[]>([]);
+  const busyWhile = async (what: "play" | "next", fn: () => Promise<void>) => {
+    setBusy(what);
+    try {
+      await fn();
+    } finally {
+      setBusy("");
+    }
+  };
+  const playEffect = async (fx: Soundtrack["effects"][number]) => {
+    setLit((l) => [...l, fx.trackId]);
+    const secs = await s.playEffect(fx);
+    window.setTimeout(() => setLit((l) => l.filter((id) => id !== fx.trackId)), Math.max(secs, 0.25) * 1000);
+  };
   const modes: { value: SoundMode; label: string }[] = [
     { value: "auto", label: t("Auto") },
     { value: "manual", label: t("Manual") },
@@ -103,7 +119,7 @@ export function SoundSheet({ s, onClose, here }: { s: Soundtrack; onClose: () =>
                   role="radio"
                   aria-checked={s.prefs.mode === o.value}
                   onClick={() => s.setMode(o.value)}
-                  className={clsx("h-8 rounded-full px-3.5 text-[13px] font-medium", s.prefs.mode === o.value ? "bg-primary text-white" : "text-muted hover:text-fg")}
+                  className={clsx("press h-8 rounded-full px-3.5 text-[13px] font-medium", s.prefs.mode === o.value ? "bg-primary text-white" : "text-muted hover:text-fg")}
                 >
                   {o.label}
                 </button>
@@ -153,12 +169,22 @@ export function SoundSheet({ s, onClose, here }: { s: Soundtrack; onClose: () =>
           </div>
           {s.connected && s.on && (
             <div className="flex shrink-0 items-center gap-1">
-              <button type="button" onClick={() => void s.togglePlay()} className="flex size-11 items-center justify-center rounded-full bg-fg text-bg" aria-label={s.now?.playing ? t("Pause") : t("Play")}>
-                {s.now?.playing ? <Pause className="size-4" fill="currentColor" /> : <Play className="size-4" fill="currentColor" />}
+              <button
+                type="button"
+                onClick={() => void busyWhile("play", s.togglePlay)}
+                className={clsx("press flex size-11 items-center justify-center rounded-full bg-fg text-bg", (busy === "play" || s.starting) && "press-busy")}
+                aria-label={s.now?.playing ? t("Pause") : t("Play")}
+              >
+                {busy === "play" ? <Spinner className="size-4" /> : s.now?.playing ? <Pause className="size-4" fill="currentColor" /> : <Play className="size-4" fill="currentColor" />}
               </button>
               {s.sound?.music && (
-                <button type="button" onClick={() => void s.nextTrack()} className="flex size-11 items-center justify-center rounded-full text-fg hover:bg-border" aria-label={t("Next track")}>
-                  <SkipForward className="size-5" fill="currentColor" />
+                <button
+                  type="button"
+                  onClick={() => void busyWhile("next", s.nextTrack)}
+                  className={clsx("press flex size-11 items-center justify-center rounded-full text-fg hover:bg-border", busy === "next" && "press-busy")}
+                  aria-label={t("Next track")}
+                >
+                  {busy === "next" ? <Spinner className="size-4" /> : <SkipForward className="size-5" fill="currentColor" />}
                 </button>
               )}
             </div>
@@ -186,11 +212,13 @@ export function SoundSheet({ s, onClose, here }: { s: Soundtrack; onClose: () =>
               const active = s.on && m?.id === mood.id;
               return (
                 <button
-                  key={mood.id}
+                  // a mood that starts playing mounts anew, so its ring flashes once
+                  key={mood.id + (active ? "-on" : "")}
                   type="button"
                   aria-pressed={active}
+                  aria-busy={active && s.starting}
                   onClick={() => s.pickMood(mood.id)}
-                  className="flex h-16 flex-col items-center justify-center gap-1 rounded-xl"
+                  className={clsx("press flex h-16 flex-col items-center justify-center gap-1 rounded-xl", active && (s.starting ? "press-busy" : "press-flash"))}
                   style={{ color: mood.color, background: tint(mood.color, active ? "33" : "1a"), border: active ? `2px solid ${mood.color}` : `1px solid ${tint(mood.color, "55")}` }}
                 >
                   <MoodIcon icon={mood.icon} className="size-5" />
@@ -214,9 +242,9 @@ export function SoundSheet({ s, onClose, here }: { s: Soundtrack; onClose: () =>
                   <button
                     key={fx.trackId}
                     type="button"
-                    onClick={() => void s.playEffect(fx)}
+                    onClick={() => void playEffect(fx)}
                     aria-label={fx.label || fx.title}
-                    className="flex h-16 flex-col items-center justify-center gap-1 rounded-xl active:scale-95"
+                    className={clsx("press flex h-16 flex-col items-center justify-center gap-1 rounded-xl", lit.includes(fx.trackId) && "press-lit")}
                     style={{ color: c, background: tint(c, "1a"), border: `1px solid ${tint(c, "55")}` }}
                   >
                     <TrackIcon icon={fx.icon} className="size-5" />

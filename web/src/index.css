@@ -128,3 +128,24 @@ fieldset:disabled :is(input, select, textarea, button) {
 @media (prefers-reduced-motion: reduce) {
   .open-in { animation: none; }
 }
+
+/* press feedback for the reader's sound controls: a tap shows at once,
+   a request on its way pulses, what starts playing flashes its ring */
+.press { transition: transform 120ms ease-out, filter 120ms ease-out, box-shadow 200ms ease-out; }
+.press:active { transform: scale(0.95); filter: brightness(1.3); }
+.press-busy { animation: press-pulse 1s ease-in-out infinite; }
+.press-flash { animation: press-flash 650ms ease-out; }
+.press-lit { filter: brightness(1.45); box-shadow: 0 0 0 2px currentColor; }
+@keyframes press-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklab, currentColor 60%, transparent); }
+  50% { box-shadow: 0 0 0 5px color-mix(in oklab, currentColor 20%, transparent); }
+}
+@keyframes press-flash {
+  from { box-shadow: 0 0 0 7px color-mix(in oklab, currentColor 70%, transparent); }
+  to { box-shadow: 0 0 0 0 transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .press:active { transform: none; }
+  .press-busy, .press-flash { animation: none; }
+  .press-busy { box-shadow: 0 0 0 2px currentColor; }
+}

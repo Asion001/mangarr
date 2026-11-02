@@ -99,6 +99,8 @@ export function useSoundtrack(chapterId: number, page: number, webtoon: boolean,
   const ready = connected && (phone || !!sdk || !!sdkError || prefs.deviceId !== "");
 
   const [error, setError] = useState("");
+  // requesting: a play request is on its way to Spotify
+  const [requesting, setRequesting] = useState(false);
   const prefsRef = useRef(prefs);
   prefsRef.current = prefs;
   const played = useRef<string>("");
@@ -119,14 +121,17 @@ export function useSoundtrack(chapterId: number, page: number, webtoon: boolean,
       return;
     }
     setError("");
+    setRequesting(true);
     unwrap(
       api.PUT("/api/v1/me/spotify/play", {
         body: { uri, deviceId: deviceId || undefined, shuffle: sound?.music?.shuffle, volume: inBrowser ? undefined : clampVolume(prefs.volume) },
       }),
-    ).catch((e) => {
-      played.current = "";
-      setError(errorText(e));
-    });
+    )
+      .catch((e) => {
+        played.current = "";
+        setError(errorText(e));
+      })
+      .finally(() => setRequesting(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- plays when the music or the device changes
   }, [ready, uri, deviceId]);
 
@@ -208,7 +213,7 @@ export function useSoundtrack(chapterId: number, page: number, webtoon: boolean,
   const setAmbience = useCallback((v: number) => setPrefs({ ambience: clampVolume(v) }), []);
   // an effect ducks the music in this tab while it plays
   const playEffect = useCallback(
-    async (t: SceneTrack) => {
+    async (t: SceneTrack): Promise<number> => {
       try {
         const secs = await engine.playEffect(trackUrl(t.trackId), dbGain(t.gainDb));
         const player = sdkRef.current?.player;
@@ -217,8 +222,10 @@ export function useSoundtrack(chapterId: number, page: number, webtoon: boolean,
           await player.setVolume(v * 0.4);
           window.setTimeout(() => void player.setVolume(prefsRef.current.volume / 100).catch(() => {}), secs * 1000 + 300);
         }
+        return secs;
       } catch (e) {
         setError(errorText(e));
+        return 0;
       }
     },
     [engine, inBrowser],
@@ -258,6 +265,7 @@ export function useSoundtrack(chapterId: number, page: number, webtoon: boolean,
     on,
     sound,
     mood,
+    starting: requesting,
     layers: on ? (sound?.scene?.ambience ?? []) : [],
     effects: on ? (sound?.scene?.sfx ?? []) : [],
     moods: moods.data ?? [],
