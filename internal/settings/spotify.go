@@ -43,6 +43,9 @@ type Sound struct {
 	// SuggestFromGenres plays the mood matching a title's genres when it
 	// has no title mood.
 	SuggestFromGenres bool `json:"suggestFromGenres"`
+	// AutoMoods finds moods from chapter titles (after imports, and when
+	// asked) and places them as automatic cues.
+	AutoMoods bool `json:"autoMoods" required:"false"`
 }
 
 // DefaultCatalogURL lists the CC0 starter packs (github.com/Asion001/mangarr-sounds).

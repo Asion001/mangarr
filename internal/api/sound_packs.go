@@ -303,6 +303,40 @@ func (s *Server) registerSoundPacks() {
 			return &struct{ Body *SeriesSoundtrack }{out}, err
 		})
 
+	// automatic moods
+	huma.Register(s.api, huma.Operation{OperationID: "series-soundtrack-detect", Method: http.MethodPost, Path: "/api/v1/series/{id}/soundtrack/detect", Tags: tags,
+		Summary: "Find moods from the chapter titles now (automatic cues; cues people placed stay)"},
+		func(ctx context.Context, in *IDPath) (*struct {
+			Body struct {
+				Detection  *soundtrack.Detection `json:"detection"`
+				Soundtrack *SeriesSoundtrack     `json:"soundtrack"`
+			}
+		}, error) {
+			if _, err := s.visibleSeries(ctx, in.ID); err != nil {
+				return nil, err
+			}
+			d, err := soundtrack.DetectChapters(ctx, s.app.DB, s.app.Settings, in.ID)
+			if err != nil {
+				return nil, packError(err)
+			}
+			s.app.Bus.Changed("soundtrack", "updated", in.ID)
+			out := &struct {
+				Body struct {
+					Detection  *soundtrack.Detection `json:"detection"`
+					Soundtrack *SeriesSoundtrack     `json:"soundtrack"`
+				}
+			}{}
+			out.Body.Detection = d
+			out.Body.Soundtrack, err = s.seriesSoundtrack(ctx, in.ID)
+			return out, err
+		})
+	huma.Register(s.api, huma.Operation{OperationID: "soundtracks-detect", Method: http.MethodPost, Path: "/api/v1/soundtracks/detect", Tags: tags,
+		Summary: "Find moods from chapter titles for the whole library, in the background"},
+		func(ctx context.Context, _ *struct{}) (*struct{ Body *model.Command }, error) {
+			c, err := s.app.Queue.Push(ctx, "DetectMoods", map[string]any{}, "manual")
+			return &struct{ Body *model.Command }{c}, toHTTPError(err)
+		})
+
 	// export and import
 	huma.Register(s.api, huma.Operation{OperationID: "series-soundtrack-export", Method: http.MethodGet, Path: "/api/v1/series/{id}/soundtrack/export", Tags: tags,
 		Summary: "A soundtrack as a file (cues by chapter number, sounds by hash)"},

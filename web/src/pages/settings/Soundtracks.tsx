@@ -16,7 +16,7 @@ import { SoundPacksCard } from "./SoundPacks";
 type Tab = "moods" | "scenes" | "spotify";
 type SearchType = "playlist" | "album" | "track";
 type Item = S["SoundtrackSearchItem"];
-type MoodDraft = { name: string; color: string; icon: string; genres: string[]; spotifyUri: string; spotifyName: string; spotifyImageUrl: string; shuffle: boolean };
+type MoodDraft = { name: string; color: string; icon: string; genres: string[]; keywords: string[]; spotifyUri: string; spotifyName: string; spotifyImageUrl: string; shuffle: boolean };
 
 const dashboard = "https://developer.spotify.com/dashboard";
 const proxyDocs = "https://github.com/Asion001/mangarr/blob/main/docs/reverse-proxy.md";
@@ -119,8 +119,8 @@ function MoodEditor({ mood, onClose }: { mood: Mood | null; onClose: () => void 
   const me = useMySpotify();
   const [d, setD] = useState<MoodDraft>(
     mood
-      ? { name: mood.name, color: mood.color, icon: mood.icon, genres: mood.genres ?? [], spotifyUri: mood.spotifyUri, spotifyName: mood.spotifyName, spotifyImageUrl: mood.spotifyImageUrl, shuffle: mood.shuffle }
-      : { name: "", color: moodColors[0], icon: "music", genres: [], spotifyUri: "", spotifyName: "", spotifyImageUrl: "", shuffle: true },
+      ? { name: mood.name, color: mood.color, icon: mood.icon, genres: mood.genres ?? [], keywords: mood.keywords ?? [], spotifyUri: mood.spotifyUri, spotifyName: mood.spotifyName, spotifyImageUrl: mood.spotifyImageUrl, shuffle: mood.shuffle }
+      : { name: "", color: moodColors[0], icon: "music", genres: [], keywords: [], spotifyUri: "", spotifyName: "", spotifyImageUrl: "", shuffle: true },
   );
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -217,6 +217,9 @@ function MoodEditor({ mood, onClose }: { mood: Mood | null; onClose: () => void 
         </Field>
         <Field label={t("Genres")} help={t("Titles with these genres or tags suit the mood.")}>
           <TagInput value={d.genres} onChange={(genres) => patch({ genres })} placeholder={t("Drama")} />
+        </Field>
+        <Field label={t("Keywords")} help={t("Words in chapter titles that bring this mood when moods are found automatically.")}>
+          <TagInput value={d.keywords} onChange={(keywords) => patch({ keywords })} placeholder={t("battle")} />
         </Field>
 
         <div className="flex flex-col gap-3 border-t border-border pt-4">

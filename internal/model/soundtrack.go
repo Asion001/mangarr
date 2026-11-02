@@ -17,7 +17,9 @@ type AudioMood struct {
 	Color         string `bun:"color,notnull" json:"color" doc:"#rrggbb"`
 	Icon          string `bun:"icon,notnull" json:"icon"`
 	// Genres are the genres and tags the mood suits (for suggestions).
-	Genres          []string  `bun:"genres,notnull" json:"genres"`
+	Genres []string `bun:"genres,notnull" json:"genres"`
+	// Keywords are words in chapter titles that suggest the mood.
+	Keywords        []string  `bun:"keywords,notnull" json:"keywords"`
 	SpotifyURI      string    `bun:"spotify_uri,notnull" json:"spotifyUri" doc:"spotify:playlist:…, spotify:album:… or spotify:track:…; empty plays nothing"`
 	SpotifyName     string    `bun:"spotify_name,notnull" json:"spotifyName"`
 	SpotifyImageURL string    `bun:"spotify_image_url,notnull" json:"spotifyImageUrl"`
@@ -63,7 +65,18 @@ type SoundtrackCue struct {
 	PageCount *int   `bun:"page_count"`
 	MoodID    *int64 `bun:"mood_id"`
 	SceneID   *int64 `bun:"scene_id"`
+	// Source is manual (placed by someone) or auto (found by mangarr, with a
+	// confidence and the detector's version).
+	Source       string   `bun:"source,notnull"`
+	Confidence   *float64 `bun:"confidence"`
+	ModelVersion string   `bun:"model_version,notnull"`
 }
+
+// Cue sources.
+const (
+	CueManual = "manual"
+	CueAuto   = "auto"
+)
 
 // Track kinds.
 const (

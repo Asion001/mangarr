@@ -453,6 +453,16 @@ scene here** in the reader, cues start a mood or a scene from a chapter or
 a page; a reader's own cues win over the default ones. Soundtracks export to
 a file and import on another server, by chapter number and sound hash.
 
+**Automatic moods** (Sound packs settings, off by default): mangarr reads
+chapter titles for each mood's keywords ("battle", "farewell", "secret"…;
+edit them per mood) and places automatic cues, marked **Auto** with how
+sure it is, where the mood changes. They fill in only where nobody placed a
+cue: a reader's cue wins, then an admin's, then automatic page and chapter
+cues, then the title's mood, then a mood suggested by its genres. Editing
+an automatic cue makes it a normal one. It runs after new chapters arrive,
+from **Find moods now** on a title's Soundtrack page, and for the whole
+library from the settings.
+
 ## 9. Single sign-on (optional)
 
 Sign in with Authentik, Authelia, Keycloak, Pocket ID, Google or any other

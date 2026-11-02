@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Asion001/mangarr/internal/cleanup"
+	"github.com/Asion001/mangarr/internal/events"
 	"github.com/Asion001/mangarr/internal/jobs"
 	"github.com/Asion001/mangarr/internal/readsync"
 	"github.com/Asion001/mangarr/internal/soundtrack"
@@ -60,6 +61,54 @@ func (a *App) wireReaders(ctx context.Context) error {
 			}
 			return err
 		}})
+	a.Queue.Register(jobs.Definition{Name: "DetectMoods", Description: "Find moods from chapter titles and place them as automatic soundtrack cues", Priority: 50,
+		Handler: func(ctx context.Context, r *jobs.Run) error {
+			var body struct {
+				SeriesID int64 `json:"seriesId"`
+			}
+			_ = r.Body(&body)
+			ids := []int64{body.SeriesID}
+			if body.SeriesID == 0 {
+				ids = nil
+				if err := a.DB.NewSelect().TableExpr("series").Column("id").Where("preview = ?", false).Scan(ctx, &ids); err != nil {
+					return err
+				}
+			}
+			found := 0
+			for i, id := range ids {
+				d, err := soundtrack.DetectChapters(ctx, a.DB, a.Settings, id)
+				if err != nil {
+					return err
+				}
+				found += d.Cues
+				r.Progress("%d of %d series, %d cues", i+1, len(ids), found)
+			}
+			a.Bus.Changed("soundtrack", "updated", body.SeriesID)
+			return nil
+		}})
+	// new chapters bring new titles: look again a little after imports settle
+	var detectMu sync.Mutex
+	detectAfter := map[int64]*time.Timer{}
+	a.Bus.Subscribe(func(e events.Event) {
+		if e.SeriesID == 0 {
+			return
+		}
+		if cfg, err := a.Settings.Sound(context.Background()); err != nil || !cfg.AutoMoods {
+			return
+		}
+		detectMu.Lock()
+		defer detectMu.Unlock()
+		if t := detectAfter[e.SeriesID]; t != nil {
+			t.Stop()
+		}
+		id := e.SeriesID
+		detectAfter[id] = time.AfterFunc(2*time.Minute, func() {
+			detectMu.Lock()
+			delete(detectAfter, id)
+			detectMu.Unlock()
+			_, _ = a.Queue.Push(context.Background(), "DetectMoods", map[string]any{"seriesId": id}, "chapter-imported")
+		})
+	}, events.ChapterImported)
 	a.Queue.Register(jobs.Definition{Name: "ImportSoundFolder", Description: "Add the sounds in a folder on the server as a sound pack",
 		Handler: func(ctx context.Context, r *jobs.Run) error {
 			var body struct {

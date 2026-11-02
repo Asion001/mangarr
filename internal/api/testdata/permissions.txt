@@ -233,6 +233,7 @@ series-rename-preview POST /api/v1/series/rename/preview -> library.edit
 series-search POST /api/v1/series/{id}/search -> library.edit
 series-soundtrack GET /api/v1/series/{id}/soundtrack -> signedin
 series-soundtrack-cue PUT /api/v1/series/{id}/soundtrack/cue -> admin
+series-soundtrack-detect POST /api/v1/series/{id}/soundtrack/detect -> admin
 series-soundtrack-export GET /api/v1/series/{id}/soundtrack/export -> signedin
 series-soundtrack-import POST /api/v1/series/{id}/soundtrack/import -> admin
 series-soundtrack-save PUT /api/v1/series/{id}/soundtrack -> admin
@@ -283,6 +284,7 @@ settings-put-spotify PUT /api/v1/settings/spotify -> admin
 settings-put-sso PUT /api/v1/settings/sso -> admin
 settings-regenerate-apikey POST /api/v1/settings/general/apikey -> admin
 settings-reset-image-links POST /api/v1/settings/reading/image-links/reset -> admin
+soundtracks-detect POST /api/v1/soundtracks/detect -> admin
 source-preferences GET /api/v1/sources/{moduleId}/{sourceId}/preferences -> admin
 source-preferences-set PUT /api/v1/sources/{moduleId}/{sourceId}/preferences -> admin
 source-priorities-inherit POST /api/v1/source-priorities/inherit -> library.edit

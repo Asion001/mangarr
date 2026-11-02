@@ -41,19 +41,19 @@ var Icons = []string{
 // builtin is a mood mangarr starts with.
 type builtin struct {
 	slug, name, color, icon string
-	genres                  []string
+	genres, keywords        []string
 }
 
 // Builtins are the moods mangarr seeds, without music: admins pick it.
 var builtins = []builtin{
-	{"calm", "Calm", "#3fb98a", "leaf", []string{"Slice of Life", "Iyashikei"}},
-	{"melancholy", "Melancholy", "#58a6ff", "cloud-rain", []string{"Drama", "Tragedy"}},
-	{"tense", "Tense", "#d29922", "zap", []string{"Thriller", "Suspense"}},
-	{"action", "Action", "#f0883e", "flame", []string{"Action", "Shounen", "Sports"}},
-	{"horror", "Horror", "#a371f7", "ghost", []string{"Horror", "Psychological"}},
-	{"romance", "Romance", "#f778ba", "heart", []string{"Romance", "Shoujo"}},
-	{"comedy", "Comedy", "#e3d34b", "smile", []string{"Comedy", "School Life"}},
-	{"mystery", "Mystery", "#8b93ff", "moon", []string{"Mystery", "Supernatural"}},
+	{"calm", "Calm", "#3fb98a", "leaf", []string{"Slice of Life", "Iyashikei"}, []string{"morning", "home", "tea", "garden", "rest", "peace", "peaceful", "everyday", "daily", "quiet", "picnic", "holiday", "sunny", "spring", "breakfast", "cooking"}},
+	{"melancholy", "Melancholy", "#58a6ff", "cloud-rain", []string{"Drama", "Tragedy"}, []string{"farewell", "goodbye", "funeral", "memory", "memories", "loss", "lost", "rain", "tears", "alone", "lonely", "grave", "regret", "parting", "sorrow", "grief"}},
+	{"tense", "Tense", "#d29922", "zap", []string{"Thriller", "Suspense"}, []string{"chase", "trap", "escape", "hunt", "hunted", "threat", "ambush", "deadline", "hostage", "siege", "pursuit", "danger", "crisis", "standoff", "countdown", "betrayal"}},
+	{"action", "Action", "#f0883e", "flame", []string{"Action", "Shounen", "Sports"}, []string{"battle", "fight", "war", "duel", "clash", "attack", "raid", "tournament", "match", "versus", "vs", "combat", "showdown", "assault", "boss", "strike"}},
+	{"horror", "Horror", "#a371f7", "ghost", []string{"Horror", "Psychological"}, []string{"blood", "death", "dead", "ghost", "curse", "cursed", "monster", "nightmare", "haunted", "corpse", "demon", "zombie", "massacre", "horror", "scream", "grave"}},
+	{"romance", "Romance", "#f778ba", "heart", []string{"Romance", "Shoujo"}, []string{"date", "confession", "kiss", "love", "wedding", "heart", "sweetheart", "crush", "proposal", "valentine", "bride", "lovers", "romance", "promise", "together", "dance"}},
+	{"comedy", "Comedy", "#e3d34b", "smile", []string{"Comedy", "School Life"}, []string{"festival", "party", "prank", "beach", "vacation", "trip", "pool", "karaoke", "costume", "mischief", "shopping", "game", "club", "dorm", "sports", "cultural"}},
+	{"mystery", "Mystery", "#8b93ff", "moon", []string{"Mystery", "Supernatural"}, []string{"secret", "secrets", "mystery", "clue", "truth", "riddle", "investigation", "unknown", "shadow", "shadows", "disappearance", "missing", "detective", "hidden", "puzzle", "enigma"}},
 }
 
 // EnsureMoods makes the built-in moods the first time moods are needed.
@@ -73,7 +73,7 @@ func EnsureMoods(ctx context.Context, db bun.IDB, st *settings.Store) error {
 		now := time.Now().UTC()
 		moods := make([]model.AudioMood, len(builtins))
 		for i, b := range builtins {
-			moods[i] = model.AudioMood{Slug: b.slug, Name: b.name, Color: b.color, Icon: b.icon, Genres: b.genres, Shuffle: true, Position: i, CreatedAt: now, UpdatedAt: now}
+			moods[i] = model.AudioMood{Slug: b.slug, Name: b.name, Color: b.color, Icon: b.icon, Genres: b.genres, Keywords: b.keywords, Shuffle: true, Position: i, CreatedAt: now, UpdatedAt: now}
 		}
 		if _, err := db.NewInsert().Model(&moods).Exec(ctx); err != nil {
 			return err
@@ -144,6 +144,13 @@ func clean(m *model.AudioMood) error {
 		}
 	}
 	m.Genres = genres
+	words := []string{}
+	for _, w := range m.Keywords {
+		if w = strings.ToLower(strings.TrimSpace(w)); w != "" && !slices.Contains(words, w) && len(words) < 100 {
+			words = append(words, w)
+		}
+	}
+	m.Keywords = words
 	return nil
 }
 
@@ -200,10 +207,17 @@ type Cue struct {
 	PageCount *int   `json:"pageCount,omitempty"`
 	MoodID    *int64 `json:"moodId,omitempty" doc:"None (and no scene): no music from here"`
 	SceneID   *int64 `json:"sceneId,omitempty"`
+	// Source is manual (placed by someone) or auto (found by mangarr);
+	// editing an auto cue makes it manual.
+	Source       string   `json:"source,omitempty" enum:"manual,auto,"`
+	Confidence   *float64 `json:"confidence,omitempty" minimum:"0" maximum:"1"`
+	ModelVersion string   `json:"modelVersion,omitempty"`
 	// NeedsReview: the chapter's page count changed since the page cue was
 	// placed.
 	NeedsReview bool `json:"needsReview,omitempty" readOnly:"true"`
 }
+
+func (c Cue) auto() bool { return c.Source == model.CueAuto }
 
 // Doc is a soundtrack as people edit it.
 type Doc struct {
@@ -284,7 +298,8 @@ func Get(ctx context.Context, db bun.IDB, seriesID int64, userID *int64) (*Doc, 
 	at := st.UpdatedAt
 	d := &Doc{Cues: make([]Cue, 0, len(cues)), Muted: st.Muted, UpdatedAt: &at}
 	for _, c := range cues {
-		d.Cues = append(d.Cues, Cue{ChapterNumber: c.ChapterNumber, Page: c.Page, PageCount: c.PageCount, MoodID: c.MoodID, SceneID: c.SceneID})
+		d.Cues = append(d.Cues, Cue{ChapterNumber: c.ChapterNumber, Page: c.Page, PageCount: c.PageCount, MoodID: c.MoodID, SceneID: c.SceneID,
+			Source: c.Source, Confidence: c.Confidence, ModelVersion: c.ModelVersion})
 	}
 	sortCues(d.Cues)
 	return d, nil
@@ -369,7 +384,12 @@ func Save(ctx context.Context, db bun.IDB, seriesID int64, userID *int64, d Doc)
 		}
 		rows := make([]model.SoundtrackCue, len(cues))
 		for i, c := range cues {
-			rows[i] = model.SoundtrackCue{SoundtrackID: st.ID, ChapterNumber: c.ChapterNumber, Page: c.Page, PageCount: c.PageCount, MoodID: c.MoodID, SceneID: c.SceneID}
+			src := model.CueManual
+			if c.auto() {
+				src = model.CueAuto
+			}
+			rows[i] = model.SoundtrackCue{SoundtrackID: st.ID, ChapterNumber: c.ChapterNumber, Page: c.Page, PageCount: c.PageCount, MoodID: c.MoodID, SceneID: c.SceneID,
+				Source: src, Confidence: c.Confidence, ModelVersion: c.ModelVersion}
 		}
 		_, err = tx.NewInsert().Model(&rows).Exec(ctx)
 		return err
@@ -386,6 +406,8 @@ func SetCue(ctx context.Context, db bun.IDB, seriesID int64, userID *int64, c Cu
 	if d == nil {
 		d = &Doc{}
 	}
+	// a cue someone sets is theirs, even where mangarr had found one
+	c.Source, c.Confidence, c.ModelVersion = model.CueManual, nil, ""
 	cues := slices.DeleteFunc(slices.Clone(d.Cues), func(x Cue) bool { return x.key() == c.key() })
 	if c.MoodID != nil || c.SceneID != nil {
 		cues = append(cues, c)
@@ -409,6 +431,7 @@ const (
 	FromShared    = "shared"
 	FromPersonal  = "personal"
 	FromSuggested = "suggested"
+	FromAuto      = "auto"
 )
 
 // Music is what Spotify plays.
@@ -422,10 +445,12 @@ type Music struct {
 // Sound is what plays from a cue: a mood, or a scene (with the mood it
 // starts from), and the music that comes with it.
 type Sound struct {
-	Source string           `json:"source" enum:"shared,personal,suggested"`
-	Mood   *model.AudioMood `json:"mood,omitempty"`
-	Scene  *Scene           `json:"scene,omitempty"`
-	Music  *Music           `json:"music,omitempty"`
+	Source string `json:"source" enum:"shared,personal,suggested,auto"`
+	// Confidence is how sure mangarr is of a mood it found (auto only).
+	Confidence *float64         `json:"confidence,omitempty"`
+	Mood       *model.AudioMood `json:"mood,omitempty"`
+	Scene      *Scene           `json:"scene,omitempty"`
+	Music      *Music           `json:"music,omitempty"`
 }
 
 // PageCue is a sound that starts on a page of the chapter.
@@ -436,7 +461,7 @@ type PageCue struct {
 
 // Resolved is what plays in one chapter for one reader.
 type Resolved struct {
-	Source string `json:"source" enum:"none,shared,personal,suggested"`
+	Source string `json:"source" enum:"none,shared,personal,suggested,auto"`
 	Muted  bool   `json:"muted"`
 	// Start plays from the chapter's start (none: nothing).
 	Start *Sound `json:"start,omitempty"`
@@ -564,10 +589,11 @@ func SuggestMood(moods []model.AudioMood, genres []string) *model.AudioMood {
 	return best
 }
 
-// Resolve picks what plays in a chapter for a reader. The reader's cues
-// win over the shared ones at the same place; the last cue at or before
-// the chapter plays from its start, so a chapter's cue wins over the
-// title's mood. Without a title mood, genres can suggest one.
+// Resolve picks what plays in a chapter for a reader, in this order: the
+// reader's own cues, the shared (admin) cues, cues mangarr found on pages,
+// then in chapters, then the title's mood, then a mood its genres suggest.
+// A cue someone placed carries on until the next one someone placed; found
+// cues only fill in before any. At the same place a reader's cue wins.
 func Resolve(ctx context.Context, db bun.IDB, st *settings.Store, seriesID, userID int64, genres []string, chapter float64) (*Resolved, error) {
 	out := &Resolved{Source: FromNone, Pages: []PageCue{}}
 	personal, err := Get(ctx, db, seriesID, &userID)
@@ -582,33 +608,68 @@ func Resolve(ctx context.Context, db bun.IDB, st *settings.Store, seriesID, user
 		out.Muted = personal.Muted
 	}
 	r := &resolver{ctx: ctx, db: db, moods: map[int64]*model.AudioMood{}, scenes: map[int64]*Scene{}}
+	var humanStart, autoStart, title *mergedCue
+	var humanPages, autoPages []mergedCue
 	cues := merge(shared, personal)
-	var start *mergedCue
-	hasTitle := false
 	for i, c := range cues {
-		if c.title() {
-			hasTitle = true
-		}
+		// a page cue in an earlier chapter carries on into this one
+		at := c.ChapterNumber < chapter || c.ChapterNumber == chapter && c.Page == nil
+		inChapter := c.ChapterNumber == chapter && c.Page != nil
 		switch {
-		case c.ChapterNumber < chapter, c.ChapterNumber == chapter && c.Page == nil:
-			// a page cue in an earlier chapter carries on into this one
-			start = &cues[i]
-		case c.ChapterNumber == chapter:
-			s, err := r.sound(c.Cue, c.source)
-			if err != nil {
-				return nil, err
-			}
-			out.Pages = append(out.Pages, PageCue{Page: *c.Page, Sound: s})
+		case c.title():
+			title = &cues[i]
+		case c.auto() && at:
+			autoStart = &cues[i]
+		case c.auto() && inChapter:
+			autoPages = append(autoPages, c)
+		case at:
+			humanStart = &cues[i]
+		case inChapter:
+			humanPages = append(humanPages, c)
 		}
 	}
-	if start != nil {
-		if out.Start, err = r.sound(start.Cue, start.source); err != nil {
+	sound := func(c *mergedCue) (*Sound, error) {
+		src := c.source
+		if c.auto() {
+			src = FromAuto
+		}
+		s, err := r.sound(c.Cue, src)
+		if s != nil && c.auto() {
+			s.Confidence = c.Confidence
+		}
+		return s, err
+	}
+	pages := humanPages
+	if humanStart == nil {
+		human := map[int]bool{}
+		for _, c := range humanPages {
+			human[*c.Page] = true
+		}
+		for _, c := range autoPages {
+			if !human[*c.Page] {
+				pages = append(pages, c)
+			}
+		}
+	}
+	for i := range pages {
+		s, err := sound(&pages[i])
+		if err != nil {
 			return nil, err
 		}
-		out.Source = start.source
+		out.Pages = append(out.Pages, PageCue{Page: *pages[i].Page, Sound: s})
+	}
+	sort.Slice(out.Pages, func(i, j int) bool { return out.Pages[i].Page < out.Pages[j].Page })
+	for _, c := range []*mergedCue{humanStart, autoStart, title} {
+		if c == nil {
+			continue
+		}
+		if out.Start, err = sound(c); err != nil {
+			return nil, err
+		}
+		out.Source = out.Start.sourceOr(c.source)
 		return out, nil
 	}
-	if !hasTitle && st != nil {
+	if st != nil {
 		if cfg, err := st.Sound(ctx); err == nil && cfg.SuggestFromGenres {
 			moods, err := Moods(ctx, db, st)
 			if err != nil {

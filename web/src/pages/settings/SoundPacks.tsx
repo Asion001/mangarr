@@ -92,6 +92,14 @@ export function SoundPacksCard() {
       setUploading(false);
     }
   };
+  const detectAll = async () => {
+    try {
+      await unwrap(api.POST("/api/v1/soundtracks/detect"));
+      toast.info(t("Finding moods"), t("It shows here when it's done (System › Tasks has the progress)."));
+    } catch (e) {
+      toast.fromError(e);
+    }
+  };
   const scan = async () => {
     try {
       await unwrap(api.POST("/api/v1/audio/packs/import-folder", { body: { path: folder.trim() } }));
@@ -191,6 +199,12 @@ export function SoundPacksCard() {
               <Input type="number" min={0} value={cfg.quotaMb} onChange={(e) => patch({ quotaMb: Math.max(0, Number(e.target.value) || 0) })} className="w-32" />
             </Field>
             <Switch checked={cfg.suggestFromGenres} onChange={(suggestFromGenres) => patch({ suggestFromGenres })} label={t("Suggest a mood from a title's genres when it has none")} />
+            <div className="flex flex-wrap items-center gap-3">
+              <Switch checked={!!cfg.autoMoods} onChange={(autoMoods) => patch({ autoMoods })} label={t("Find moods from chapter titles (after new chapters arrive)")} />
+              <Button size="sm" onClick={() => void detectAll()}>
+                {t("Look through the library now")}
+              </Button>
+            </div>
           </div>
         )}
       </div>

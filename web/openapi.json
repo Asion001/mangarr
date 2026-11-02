@@ -765,6 +765,12 @@
             "format": "int64",
             "type": "integer"
           },
+          "keywords": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "name": {
             "type": "string"
           },
@@ -801,6 +807,7 @@
           "color",
           "icon",
           "genres",
+          "keywords",
           "spotifyUri",
           "spotifyName",
           "spotifyImageUrl",
@@ -7257,6 +7264,13 @@
           "icon": {
             "type": "string"
           },
+          "keywords": {
+            "description": "Words in chapter titles that suggest the mood",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "name": {
             "maxLength": 60,
             "minLength": 1,
@@ -11266,6 +11280,22 @@
         },
         "type": "object"
       },
+      "Series-soundtrack-detectResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "detection": {
+            "$ref": "#/components/schemas/SoundtrackDetection"
+          },
+          "soundtrack": {
+            "$ref": "#/components/schemas/SeriesSoundtrack"
+          }
+        },
+        "required": [
+          "detection",
+          "soundtrack"
+        ],
+        "type": "object"
+      },
       "Series-source-orderRequest": {
         "additionalProperties": false,
         "properties": {
@@ -12148,6 +12178,9 @@
       "Sound": {
         "additionalProperties": false,
         "properties": {
+          "autoMoods": {
+            "type": "boolean"
+          },
           "catalogUrl": {
             "type": "string"
           },
@@ -12246,6 +12279,15 @@
             "minimum": 0,
             "type": "number"
           },
+          "confidence": {
+            "format": "double",
+            "maximum": 1,
+            "minimum": 0,
+            "type": "number"
+          },
+          "modelVersion": {
+            "type": "string"
+          },
           "moodId": {
             "description": "None (and no scene): no music from here",
             "format": "int64",
@@ -12267,10 +12309,38 @@
           "sceneId": {
             "format": "int64",
             "type": "integer"
+          },
+          "source": {
+            "enum": [
+              "manual",
+              "auto",
+              ""
+            ],
+            "type": "string"
           }
         },
         "required": [
           "chapterNumber"
+        ],
+        "type": "object"
+      },
+      "SoundtrackDetection": {
+        "additionalProperties": false,
+        "properties": {
+          "chapters": {
+            "description": "Chapters looked at",
+            "format": "int64",
+            "type": "integer"
+          },
+          "cues": {
+            "description": "Automatic cues the soundtrack has now",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "chapters",
+          "cues"
         ],
         "type": "object"
       },
@@ -12667,7 +12737,8 @@
               "none",
               "shared",
               "personal",
-              "suggested"
+              "suggested",
+              "auto"
             ],
             "type": "string"
           },
@@ -12933,6 +13004,10 @@
       "SoundtrackSound": {
         "additionalProperties": false,
         "properties": {
+          "confidence": {
+            "format": "double",
+            "type": "number"
+          },
           "mood": {
             "$ref": "#/components/schemas/AudioMood"
           },
@@ -12946,7 +13021,8 @@
             "enum": [
               "shared",
               "personal",
-              "suggested"
+              "suggested",
+              "auto"
             ],
             "type": "string"
           }
@@ -26737,6 +26813,48 @@
         ]
       }
     },
+    "/api/v1/series/{id}/soundtrack/detect": {
+      "post": {
+        "operationId": "series-soundtrack-detect",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Series-soundtrack-detectResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Find moods from the chapter titles now (automatic cues; cues people placed stay)",
+        "tags": [
+          "Soundtracks"
+        ]
+      }
+    },
     "/api/v1/series/{id}/soundtrack/export": {
       "get": {
         "operationId": "series-soundtrack-export",
@@ -28413,6 +28531,37 @@
         "summary": "Save single sign-on settings (send the masked secret to keep the stored one)",
         "tags": [
           "Settings"
+        ]
+      }
+    },
+    "/api/v1/soundtracks/detect": {
+      "post": {
+        "operationId": "soundtracks-detect",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Command"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Find moods from chapter titles for the whole library, in the background",
+        "tags": [
+          "Soundtracks"
         ]
       }
     },

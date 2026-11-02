@@ -73,6 +73,8 @@ export function SoundSheet({ s, onClose, here }: { s: Soundtrack; onClose: () =>
         ? t("Your version")
         : s.sound?.source === "suggested"
           ? t("Suggested from genres")
+          : s.sound?.source === "auto"
+            ? t("Found from the chapter title")
           : s.sound
             ? t("Title soundtrack")
             : t("No soundtrack for this title yet");

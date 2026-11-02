@@ -82,6 +82,7 @@ type moodBody struct {
 	Color           string   `json:"color" pattern:"^#[0-9a-fA-F]{6}$"`
 	Icon            string   `json:"icon"`
 	Genres          []string `json:"genres,omitempty"`
+	Keywords        []string `json:"keywords,omitempty" doc:"Words in chapter titles that suggest the mood"`
 	SpotifyURI      string   `json:"spotifyUri,omitempty"`
 	SpotifyName     string   `json:"spotifyName,omitempty"`
 	SpotifyImageURL string   `json:"spotifyImageUrl,omitempty"`
@@ -89,7 +90,7 @@ type moodBody struct {
 }
 
 func (b moodBody) mood() *model.AudioMood {
-	return &model.AudioMood{Name: b.Name, Color: b.Color, Icon: b.Icon, Genres: b.Genres, SpotifyURI: b.SpotifyURI, SpotifyName: b.SpotifyName, SpotifyImageURL: b.SpotifyImageURL, Shuffle: b.Shuffle}
+	return &model.AudioMood{Name: b.Name, Color: b.Color, Icon: b.Icon, Genres: b.Genres, Keywords: b.Keywords, SpotifyURI: b.SpotifyURI, SpotifyName: b.SpotifyName, SpotifyImageURL: b.SpotifyImageURL, Shuffle: b.Shuffle}
 }
 
 type deviceBody struct {

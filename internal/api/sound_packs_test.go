@@ -208,6 +208,41 @@ func TestSoundPacksAPI(t *testing.T) {
 		t.Fatalf("import another kind of file: %d", code)
 	}
 
+	// moods found from chapter titles: admins only, as automatic cues
+	if _, err := a.DB.NewUpdate().Model((*model.Chapter)(nil)).Set("title = ?", "The Battle Begins").Where("id = ?", ch.ID).Exec(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if code := ann.do("POST", "/api/v1/series/"+sid+"/soundtrack/detect", "", nil); code != 403 {
+		t.Fatalf("a reader finding moods: %d", code)
+	}
+	var det struct {
+		Detection  struct{ Chapters, Cues int }
+		Soundtrack struct {
+			Shared *struct {
+				Cues []struct {
+					ChapterNumber float64
+					Source        string
+					Confidence    *float64
+				}
+			}
+		}
+	}
+	if code := boss.do("POST", "/api/v1/series/"+sid+"/soundtrack/detect", "", &det); code != 200 || det.Detection.Cues != 1 {
+		t.Fatalf("detect: %d %+v", code, det)
+	}
+	auto := 0
+	for _, c := range det.Soundtrack.Shared.Cues {
+		if c.Source == "auto" && c.ChapterNumber == 4 && c.Confidence != nil {
+			auto++
+		}
+	}
+	if auto != 1 {
+		t.Fatalf("auto cue: %+v", det.Soundtrack.Shared)
+	}
+	if code := boss.do("POST", "/api/v1/soundtracks/detect", "", nil); code != 200 {
+		t.Fatalf("detect the library: %d", code)
+	}
+
 	// files nothing uses show in the cleanup plan
 	junk := filepath.Join(a.Packs.Dir, "test-tones", "0000.ogg")
 	if err := os.WriteFile(junk, []byte("x"), 0o644); err != nil {

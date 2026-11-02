@@ -213,7 +213,21 @@ export function SoundtrackPage() {
   const user = account?.kind === "user";
   const [tab, setTab] = useState<Version | null>(null);
   const [adding, setAdding] = useState(false);
+  const [detecting, setDetecting] = useState(false);
   const file = useRef<HTMLInputElement>(null);
+  const detect = async () => {
+    setDetecting(true);
+    try {
+      const res = await unwrap(api.POST("/api/v1/series/{id}/soundtrack/detect", { params: { path: { id } } }));
+      qc.setQueryData(["soundtrack", "series", id], res.soundtrack);
+      void qc.invalidateQueries({ queryKey: ["soundtrack", "chapter"] });
+      toast.success(res.detection.cues ? t("Placed {count} automatic cues", { count: res.detection.cues }) : t("No moods found in the chapter titles"));
+    } catch (e) {
+      toast.fromError(e);
+    } finally {
+      setDetecting(false);
+    }
+  };
   if (isLoading || !moods.data) return <Loading />;
   if (error || !data) return <ErrorBox error={error} />;
   const view: Version = tab ?? (user && (data.personal || !isAdmin) ? "mine" : "shared");
@@ -326,6 +340,11 @@ export function SoundtrackPage() {
               </div>
               <div className="truncate text-sm font-medium">{name(cue)}</div>
             </div>
+            {cue.source === "auto" && (
+              <span title={t("Found from the chapter title")}>
+                <Badge tone="info">{t("Auto") + (cue.confidence != null ? ` · ${Math.round(cue.confidence * 100)}%` : "")}</Badge>
+              </span>
+            )}
             {view === "mine" && own && <Badge tone="accent">{t("Mine")}</Badge>}
             {canEdit && (view === "shared" || own) && (
               <button
@@ -341,6 +360,14 @@ export function SoundtrackPage() {
           </div>
         ))}
       </div>
+      {view === "shared" && isAdmin && (
+        <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
+          <span className="min-w-0 flex-1">{t("Mangarr can place moods from the chapter titles (marked Auto). Cues people place win over them.")}</span>
+          <Button size="sm" loading={detecting} onClick={() => void detect()}>
+            {t("Find moods now")}
+          </Button>
+        </div>
+      )}
       {canEdit && (
         <button type="button" onClick={() => setAdding(true)} className="flex h-11 items-center justify-center gap-1.5 rounded-xl border border-dashed border-border text-sm font-medium hover:border-muted/60">
           <Plus className="size-4" aria-hidden="true" /> {t("Add a cue")}

@@ -3267,6 +3267,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/series/{id}/soundtrack/detect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Find moods from the chapter titles now (automatic cues; cues people placed stay) */
+        post: operations["series-soundtrack-detect"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/series/{id}/soundtrack/export": {
         parameters: {
             query?: never;
@@ -3725,6 +3742,23 @@ export interface paths {
         /** Save single sign-on settings (send the masked secret to keep the stored one) */
         put: operations["settings-put-sso"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/soundtracks/detect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Find moods from chapter titles for the whole library, in the background */
+        post: operations["soundtracks-detect"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5057,6 +5091,7 @@ export interface components {
             icon: string;
             /** Format: int64 */
             id: number;
+            keywords: string[];
             name: string;
             /** Format: int64 */
             position: number;
@@ -7039,6 +7074,8 @@ export interface components {
             color: string;
             genres?: string[];
             icon: string;
+            /** @description Words in chapter titles that suggest the mood */
+            keywords?: string[];
             name: string;
             shuffle?: boolean;
             spotifyImageUrl?: string;
@@ -8233,6 +8270,10 @@ export interface components {
         "Series-searchRequest": {
             chapterIds?: number[];
         };
+        "Series-soundtrack-detectResponse": {
+            detection: components["schemas"]["SoundtrackDetection"];
+            soundtrack: components["schemas"]["SeriesSoundtrack"];
+        };
         "Series-source-orderRequest": {
             linkIds: number[];
         };
@@ -8499,6 +8540,7 @@ export interface components {
             ms: number;
         };
         Sound: {
+            autoMoods?: boolean;
             catalogUrl: string;
             /** Format: int64 */
             quotaMb: number;
@@ -8527,6 +8569,9 @@ export interface components {
         SoundtrackCue: {
             /** Format: double */
             chapterNumber: number;
+            /** Format: double */
+            confidence?: number;
+            modelVersion?: string;
             /**
              * Format: int64
              * @description None (and no scene): no music from here
@@ -8539,6 +8584,20 @@ export interface components {
             pageCount?: number;
             /** Format: int64 */
             sceneId?: number;
+            /** @enum {string} */
+            source?: "manual" | "auto" | "";
+        };
+        SoundtrackDetection: {
+            /**
+             * Format: int64
+             * @description Chapters looked at
+             */
+            chapters: number;
+            /**
+             * Format: int64
+             * @description Automatic cues the soundtrack has now
+             */
+            cues: number;
         };
         SoundtrackDevice: {
             id: string;
@@ -8657,7 +8716,7 @@ export interface components {
             muted: boolean;
             pages: components["schemas"]["SoundtrackPageCue"][];
             /** @enum {string} */
-            source: "none" | "shared" | "personal" | "suggested";
+            source: "none" | "shared" | "personal" | "suggested" | "auto";
             start?: components["schemas"]["SoundtrackSound"];
         };
         SoundtrackScene: {
@@ -8734,11 +8793,13 @@ export interface components {
             uri: string;
         };
         SoundtrackSound: {
+            /** Format: double */
+            confidence?: number;
             mood?: components["schemas"]["AudioMood"];
             music?: components["schemas"]["SoundtrackMusic"];
             scene?: components["schemas"]["SoundtrackScene"];
             /** @enum {string} */
-            source: "shared" | "personal" | "suggested";
+            source: "shared" | "personal" | "suggested" | "auto";
         };
         SoundtrackTrackView: {
             attribution: string;
@@ -17175,6 +17236,37 @@ export interface operations {
             };
         };
     };
+    "series-soundtrack-detect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Series-soundtrack-detectResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "series-soundtrack-export": {
         parameters: {
             query?: {
@@ -18572,6 +18664,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SSOSettings"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "soundtracks-detect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Command"];
                 };
             };
             /** @description Error */
