@@ -241,6 +241,18 @@ export function useSoundtrack(chapterId: number, page: number, webtoon: boolean,
     }
   }, [inBrowser, sdk, sdkNow, now, remote]);
 
+  const nextTrack = useCallback(async () => {
+    try {
+      if (inBrowser) await sdk.player.nextTrack();
+      else {
+        await unwrap(api.POST("/api/v1/me/spotify/next", { body: { deviceId: deviceRef.current || undefined } }));
+        window.setTimeout(() => void remote.refetch(), 800);
+      }
+    } catch (e) {
+      setError(errorText(e));
+    }
+  }, [inBrowser, sdk, remote]);
+
   return {
     prefs,
     on,
@@ -266,6 +278,7 @@ export function useSoundtrack(chapterId: number, page: number, webtoon: boolean,
     playEffect,
     setDevice,
     togglePlay,
+    nextTrack,
   };
 }
 

@@ -107,7 +107,7 @@ func soundtrackError(err error) error {
 		return huma.Error404NotFound(err.Error())
 	case errors.Is(err, soundtrack.ErrInvalid):
 		return huma.Error400BadRequest(err.Error())
-	case errors.Is(err, soundtrack.ErrNotConfigured), errors.Is(err, soundtrack.ErrNotConnected), errors.Is(err, soundtrack.ErrNoDevice):
+	case errors.Is(err, soundtrack.ErrNotConfigured), errors.Is(err, soundtrack.ErrNotConnected), errors.Is(err, soundtrack.ErrNoDevice), errors.Is(err, soundtrack.ErrNoVolume):
 		return huma.Error409Conflict(err.Error())
 	case errors.Is(err, soundtrack.ErrPremium):
 		return huma.Error403Forbidden(err.Error())
@@ -427,6 +427,15 @@ func (s *Server) registerSoundtracks() {
 				return nil, err
 			}
 			return nil, soundtrackError(s.app.Spotify.Pause(ctx, p.UserID, in.Body.DeviceID))
+		})
+	huma.Register(s.api, huma.Operation{OperationID: "me-spotify-next", Method: http.MethodPost, Path: "/api/v1/me/spotify/next", Tags: tags,
+		Summary: "Skip to the next track"},
+		func(ctx context.Context, in *deviceBody) (*struct{}, error) {
+			p, err := me(ctx)
+			if err != nil {
+				return nil, err
+			}
+			return nil, soundtrackError(s.app.Spotify.Next(ctx, p.UserID, in.Body.DeviceID))
 		})
 	huma.Register(s.api, huma.Operation{OperationID: "me-spotify-resume", Method: http.MethodPut, Path: "/api/v1/me/spotify/resume", Tags: tags,
 		Summary: "Resume your Spotify where it was"},

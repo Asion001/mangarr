@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
-import { Check, Laptop, Pause, Play, Plus, RefreshCw, Smartphone, Speaker, X } from "lucide-react";
+import { Check, Laptop, Pause, Play, Plus, RefreshCw, SkipForward, Smartphone, Speaker, X } from "lucide-react";
 import { api, unwrap } from "../../api/client";
 import { Button, Spinner } from "../../components/ui";
 import { useAccount } from "../../lib/account";
@@ -150,9 +150,16 @@ export function SoundSheet({ s, onClose, here }: { s: Soundtrack; onClose: () =>
             )}
           </div>
           {s.connected && s.on && (
-            <button type="button" onClick={() => void s.togglePlay()} className="flex size-11 shrink-0 items-center justify-center rounded-full bg-fg text-bg" aria-label={s.now?.playing ? t("Pause") : t("Play")}>
-              {s.now?.playing ? <Pause className="size-4" fill="currentColor" /> : <Play className="size-4" fill="currentColor" />}
-            </button>
+            <div className="flex shrink-0 items-center gap-1">
+              <button type="button" onClick={() => void s.togglePlay()} className="flex size-11 items-center justify-center rounded-full bg-fg text-bg" aria-label={s.now?.playing ? t("Pause") : t("Play")}>
+                {s.now?.playing ? <Pause className="size-4" fill="currentColor" /> : <Play className="size-4" fill="currentColor" />}
+              </button>
+              {s.sound?.music && (
+                <button type="button" onClick={() => void s.nextTrack()} className="flex size-11 items-center justify-center rounded-full text-fg hover:bg-border" aria-label={t("Next track")}>
+                  <SkipForward className="size-5" fill="currentColor" />
+                </button>
+              )}
+            </div>
           )}
         </div>
 

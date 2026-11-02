@@ -58,6 +58,7 @@ export type SdkPlayer = {
   setVolume(v: number): Promise<void>;
   pause(): Promise<void>;
   resume(): Promise<void>;
+  nextTrack(): Promise<void>;
   addListener(event: "ready" | "not_ready", cb: (e: { device_id: string }) => void): boolean;
   addListener(event: "player_state_changed", cb: (s: SdkState | null) => void): boolean;
   addListener(event: "initialization_error" | "authentication_error" | "account_error" | "playback_error", cb: (e: { message: string }) => void): boolean;

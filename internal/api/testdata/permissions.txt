@@ -121,6 +121,7 @@ me-spotify-callback GET /api/v1/me/spotify/callback -> public
 me-spotify-connect POST /api/v1/me/spotify/connect -> signedin
 me-spotify-devices GET /api/v1/me/spotify/devices -> signedin
 me-spotify-disconnect DELETE /api/v1/me/spotify -> signedin
+me-spotify-next POST /api/v1/me/spotify/next -> signedin
 me-spotify-pause PUT /api/v1/me/spotify/pause -> signedin
 me-spotify-play PUT /api/v1/me/spotify/play -> signedin
 me-spotify-player GET /api/v1/me/spotify/player -> signedin

@@ -74,6 +74,7 @@ var operationPermissions = map[string][]string{
 	"me-spotify-play":             {permSignedIn},
 	"me-spotify-pause":            {permSignedIn},
 	"me-spotify-resume":           {permSignedIn},
+	"me-spotify-next":             {permSignedIn},
 	"me-spotify-volume":           {permSignedIn},
 	"spotify-search":              {permSignedIn},
 	"audio-moods":                 {permSignedIn},

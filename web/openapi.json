@@ -21008,6 +21008,40 @@
         ]
       }
     },
+    "/api/v1/me/spotify/next": {
+      "post": {
+        "operationId": "me-spotify-next",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceBodyBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Skip to the next track",
+        "tags": [
+          "Soundtracks"
+        ]
+      }
+    },
     "/api/v1/me/spotify/pause": {
       "put": {
         "operationId": "me-spotify-pause",
