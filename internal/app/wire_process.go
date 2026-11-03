@@ -2,6 +2,8 @@ package app
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -21,6 +23,10 @@ import (
 
 // BacklogPriority queues background processing behind downloads.
 const BacklogPriority = -100
+
+// ProcessAheadPriority queues processing of the chapters a reader comes to
+// next ahead of downloads, behind chapters being opened (PriorityReading).
+const ProcessAheadPriority = 50
 
 // wireProcess connects upscaling and re-encoding to the download manager
 // and registers the background processing commands.
@@ -237,6 +243,57 @@ func (a *App) processBacklogSeries(ctx context.Context, seriesID int64) (int, er
 		}
 	}
 	return queued, nil
+}
+
+// processAhead queues processing of the files of chapters a reader comes
+// to next (read ahead) that their profile would still upscale or
+// re-encode, including files from before processing was set up, which the
+// backlog leaves alone; ones already waiting in the backlog move up.
+func (a *App) processAhead(ctx context.Context, seriesID int64, chapterIDs []int64) (int, error) {
+	if len(chapterIDs) == 0 {
+		return 0, nil
+	}
+	var p model.Profile
+	if err := a.DB.NewSelect().Model(&p).Where("id IN (SELECT profile_id FROM series WHERE id = ?)", seriesID).Scan(ctx); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, nil
+		}
+		return 0, err
+	}
+	params := p.Config.ProcessParams()
+	if params == "" {
+		return 0, nil
+	}
+	var files []model.ChapterFile
+	if err := a.DB.NewSelect().Model(&files).
+		Where("series_id = ? AND chapter_id IN (?)", seriesID, bun.In(chapterIDs)).
+		Where("process_params <> ?", params).
+		Where("(process_retry_at IS NULL OR process_retry_at <= ?)", time.Now().UTC()).
+		Where("process_attempts < ?", downloads.MaxProcessAttempts).
+		Where("NOT EXISTS (SELECT 1 FROM download_jobs j WHERE j.chapter_id = chapter_file.chapter_id AND j.status IN (?) AND j.status <> ?)",
+			bun.In(downloads.ActiveStatuses()), model.JobQueued).
+		Scan(ctx); err != nil {
+		return 0, err
+	}
+	var fresh []model.ChapterFile
+	queued := map[int64]bool{}
+	for _, f := range files {
+		waiting, err := a.DB.NewSelect().Model((*model.DownloadJob)(nil)).Where("chapter_id = ? AND status = ?", f.ChapterID, model.JobQueued).Exists(ctx)
+		if err != nil {
+			return 0, err
+		}
+		switch {
+		case waiting && !queued[f.ChapterID]:
+			queued[f.ChapterID] = true
+			if err := a.DLQueue.Raise(ctx, f.ChapterID, ProcessAheadPriority); err != nil {
+				return 0, err
+			}
+		case !waiting:
+			fresh = append(fresh, f)
+		}
+	}
+	created, err := a.DLQueue.EnqueueReprocessFiles(ctx, fresh, ProcessAheadPriority)
+	return created + len(queued), err
 }
 
 // processingHealth reports paused re-encoding and missing or slow encoders.

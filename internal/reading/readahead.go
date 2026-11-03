@@ -20,7 +20,9 @@ const readAheadRecent = 14 * 24 * time.Hour
 // get downloaded (reading.readAhead): the next N chapters after the
 // furthest one the reader has progress on are monitored, even in series
 // that aren't, and searched, as long as the reader got there in the last
-// two weeks. It returns how many downloads were queued.
+// two weeks. Those already downloaded but not yet upscaled or re-encoded
+// for their profile are queued for processing ahead of the background
+// backlog (ProcessAhead). It returns how many downloads were queued.
 func (s *Service) ReadAhead(ctx context.Context, userID, seriesID int64) (int, error) {
 	cfg, err := s.Settings.Reading(ctx)
 	if err != nil || !cfg.ReadAhead.Enabled || cfg.ReadAhead.Chapters <= 0 || s.Downloads == nil {
@@ -48,16 +50,24 @@ func (s *Service) ReadAhead(ctx context.Context, userID, seriesID int64) (int, e
 		Order("number_sort", "id").Limit(int64(cfg.ReadAhead.Chapters)).Scan(ctx); err != nil {
 		return 0, err
 	}
-	var want, newlyMonitored []int64
+	var want, have, newlyMonitored []int64
 	var numbers []string
 	for _, c := range next {
 		if c.FileID != nil {
+			have = append(have, c.ID)
 			continue
 		}
 		want = append(want, c.ID)
 		if !c.Monitored {
 			newlyMonitored = append(newlyMonitored, c.ID)
 			numbers = append(numbers, c.NumberKey)
+		}
+	}
+	if len(have) > 0 && s.ProcessAhead != nil {
+		if n, err := s.ProcessAhead(ctx, seriesID, have); err != nil {
+			s.Log.Warn("read ahead: could not queue processing", "series", seriesID, "err", err)
+		} else if n > 0 {
+			s.Log.Info("read ahead: processing queued", "series", seriesID, "chapters", n)
 		}
 	}
 	if len(want) == 0 {

@@ -10,12 +10,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Asion001/mangarr/internal/app"
 	"github.com/Asion001/mangarr/internal/cbz"
 	"github.com/Asion001/mangarr/internal/dbtest"
 	"github.com/Asion001/mangarr/internal/downloads"
 	"github.com/Asion001/mangarr/internal/model"
 	_ "github.com/Asion001/mangarr/internal/modules/all"
 	"github.com/Asion001/mangarr/internal/modules/source"
+	"github.com/Asion001/mangarr/internal/readstate"
 	"github.com/Asion001/mangarr/internal/series"
 	"github.com/Asion001/mangarr/internal/settings"
 	"github.com/Asion001/mangarr/internal/testutil/fakesource"
@@ -235,4 +237,88 @@ func jobsAndHistory(t *testing.T, e *testEnv, seriesID int64) string {
 		fmt.Fprintf(&out, "  %s %s %v\n", h.CreatedAt.Format(time.TimeOnly), h.EventType, h.Data)
 	}
 	return out.String()
+}
+
+// TestReadAheadProcesses: reading queues the next chapters' processing ahead
+// of the backlog, including files from before processing was set up (which
+// the backlog leaves alone), and moves one already waiting in the backlog up.
+func TestReadAheadProcesses(t *testing.T) {
+	for dialect, dsn := range dbtest.DSNs(t) {
+		t.Run(dialect, func(t *testing.T) {
+			e := newTestApp(t, dsn)
+			if err := e.App.Settings.Set(e.Ctx, settings.KeyQueueState, settings.QueueState{Paused: true}); err != nil {
+				t.Fatal(err)
+			}
+			var profile model.Profile
+			if err := e.App.DB.NewSelect().Model(&profile).Where("is_default = ?", true).Scan(e.Ctx); err != nil {
+				t.Fatal(err)
+			}
+			now := time.Now().UTC()
+			profile.Config.Encode = model.EncodeConfig{Format: "avif", Preset: "fast"}
+			profile.Config.ProcessExisting = false
+			profile.Config.ProcessChangedAt = &now
+			if _, err := e.App.DB.NewUpdate().Model(&profile).WherePK().Exec(e.Ctx); err != nil {
+				t.Fatal(err)
+			}
+			ser := &model.Series{Title: "Process Ahead", SortTitle: "process ahead", Status: model.StatusOngoing,
+				RootFolderID: e.RFID, Path: "Process Ahead", ProfileID: profile.ID, Tags: []int64{}, AddedAt: now, UpdatedAt: now}
+			if _, err := e.App.DB.NewInsert().Model(ser).Exec(e.Ctx); err != nil {
+				t.Fatal(err)
+			}
+			chapters := map[int]int64{}
+			files := map[int]model.ChapterFile{}
+			for i := 1; i <= 6; i++ {
+				chapter := &model.Chapter{SeriesID: ser.ID, NumberKey: fmt.Sprint(i), NumberSort: float64(i), State: model.ChapterImported,
+					FirstSeenAt: now, UpdatedAt: now}
+				if _, err := e.App.DB.NewInsert().Model(chapter).Exec(e.Ctx); err != nil {
+					t.Fatal(err)
+				}
+				file := &model.ChapterFile{ChapterID: chapter.ID, SeriesID: ser.ID, RelativePath: fmt.Sprintf("%d.cbz", i),
+					Size: 1000, PageCount: 10, Format: "png", ImportedAt: now.Add(-time.Hour)}
+				if _, err := e.App.DB.NewInsert().Model(file).Exec(e.Ctx); err != nil {
+					t.Fatal(err)
+				}
+				if _, err := e.App.DB.NewUpdate().Model(chapter).Set("file_id = ?", file.ID).WherePK().Exec(e.Ctx); err != nil {
+					t.Fatal(err)
+				}
+				chapters[i], files[i] = chapter.ID, *file
+			}
+			e.runCommand(t, "ProcessBacklog", nil)
+			if n, _ := e.App.DB.NewSelect().Model((*model.DownloadJob)(nil)).Where("series_id = ?", ser.ID).Count(e.Ctx); n != 0 {
+				t.Fatalf("the backlog queued %d files from before processing was set up", n)
+			}
+			// chapter 3 is waiting in the backlog already
+			if _, err := e.App.DLQueue.EnqueueReprocessFiles(e.Ctx, []model.ChapterFile{files[3]}, app.BacklogPriority); err != nil {
+				t.Fatal(err)
+			}
+
+			rid, _ := e.App.Reading.DefaultUserID(e.Ctx)
+			st := &model.ChapterReadState{UserID: rid, ChapterID: chapters[1], SeriesID: ser.ID, Completed: true, ReadAt: &now, SyncedAt: now}
+			if err := readstate.Save(e.Ctx, e.App.DB, st); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := e.App.Reading.ReadAhead(e.Ctx, rid, ser.ID); err != nil {
+				t.Fatal(err)
+			}
+			var jobs []model.DownloadJob
+			if err := e.App.DB.NewSelect().Model(&jobs).Where("series_id = ?", ser.ID).Scan(e.Ctx); err != nil {
+				t.Fatal(err)
+			}
+			got := map[int64]int{}
+			for _, j := range jobs {
+				if j.Kind != model.JobKindReprocess || j.Status != model.JobQueued {
+					t.Fatalf("job %+v", j)
+				}
+				got[j.ChapterID] = j.Priority
+			}
+			if len(got) != 3 {
+				t.Fatalf("queued %v\n%s", got, jobsAndHistory(t, e, ser.ID))
+			}
+			for _, i := range []int{2, 3, 4} {
+				if got[chapters[i]] != app.ProcessAheadPriority {
+					t.Fatalf("chapter %d: priority %d, want %d (%v)", i, got[chapters[i]], app.ProcessAheadPriority, got)
+				}
+			}
+		})
+	}
 }

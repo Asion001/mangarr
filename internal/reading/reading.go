@@ -46,6 +46,10 @@ type Service struct {
 	Log        *slog.Logger
 	// Downloads queues chapters opened before they're downloaded.
 	Downloads Grabber
+	// ProcessAhead queues processing of the files of chapters coming up
+	// next that their profile would still upscale or re-encode, returning
+	// how many were queued or moved up.
+	ProcessAhead func(ctx context.Context, seriesID int64, chapterIDs []int64) (int, error)
 	// Staged finds a page the downloader has already fetched for a chapter
 	// being downloaded now ("" when there is none).
 	Staged func(ctx context.Context, chapterID int64, n int) string

@@ -198,7 +198,10 @@ never lowers progress, except when you mark a chapter unread in an app.
 
 *Read ahead* (on by default) downloads the next 3 chapters after the
 furthest one a reader has started, in any app or library server, even in
-series that aren't monitored. The Series page shows a **Continue reading**
+series that aren't monitored. Those already downloaded that the profile
+would still upscale or re-encode (§11) are processed first, ahead of the
+background backlog, even when they're from before processing was turned on.
+The Series page shows a **Continue reading**
 row with the next chapter of each series in progress. The apps get the same
 list as *On deck* and as a *Continue reading* read list.
 
