@@ -463,6 +463,26 @@ an automatic cue makes it a normal one. It runs after new chapters arrive,
 from **Find moods now** on a title's Soundtrack page, and for the whole
 library from the settings.
 
+**Moods from pages** (Sound packs settings, off by default) goes further:
+an image model (CLIP ViT-B/32, 8-bit) compares every page with a few
+English descriptions per mood ("a manga page of a tense standoff"; edit
+them per mood under *How its pages look*), and where one mood leads for
+about four pages, an automatic page cue starts it. Scores are kept per
+file, so a chapter is scored once (again only when the descriptions
+change). It runs as a low-priority job after new chapters arrive, ahead of
+readers with music on (the chapter they open and the next two), and from
+**Find moods in pages** on a title's Soundtrack page.
+
+It needs ONNX Runtime, which the **full image** (amd64 and arm64) and the
+**desktop worker zips** include; the slim image and the plain binaries
+can't score pages and say so in the settings. The full image scores pages
+itself; with the slim one (or to keep the work off the server), give a
+worker the **Moods** role (§12). The model, about 150 MB, is downloaded
+from Hugging Face and checked the first time it's needed, into
+`<data>/models/moods` (a worker uses its data folder, or its user cache
+folder). To use your own
+ONNX Runtime 1.23 build, point `MANGARR_ONNXRUNTIME` at its library.
+
 ## 9. Single sign-on (optional)
 
 Sign in with Authentik, Authelia, Keycloak, Pocket ID, Google or any other
@@ -642,6 +662,7 @@ The roles:
 | Download | Fetches a chapter's pages and uploads them here | The requests come from the worker's address, so a second machine spreads the load a site sees — and a slow uplink at home isn't the bottleneck |
 | Upscale | Runs the upscaler on batches of pages | The GPU box does the work; the server keeps the library |
 | Encode | Processes downloaded pages: resizes, upscales (with its own engine), splits and re-encodes them | All image work off the server, when it runs with `MANGARR_PROCESSING=workers` (below) |
+| Moods | Scores pages against soundtrack moods (§8, *Moods from pages*) | The image model's CPU time off the server; needs ONNX Runtime, which the worker zips and the full image have |
 
 Notes:
 

@@ -22,12 +22,19 @@ models unchanged, as the projects publish them:
 | avifenc (libavif) | BSD-2-Clause | https://github.com/AOMediaCodec/libavif |
 | cwebp (libwebp), worker zips | BSD-3-Clause | https://chromium.googlesource.com/webm/libwebp |
 | cjxl (libjxl), Linux worker zip | BSD-3-Clause | https://github.com/libjxl/libjxl |
+| ONNX Runtime (the full image on amd64 and arm64, and the worker zips) | MIT | https://github.com/microsoft/onnxruntime |
 
 The full image also installs Debian packages (Vulkan and Mesa drivers,
 webp, libavif-bin, libjxl-tools, libjpeg-progs), whose licences are in the
 image under `/usr/share/doc`. The AVIF and WebP encoders built into mangarr
 (`github.com/gen2brain/avif`, `github.com/gen2brain/webp`) embed libavif,
 libaom and libwebp compiled to WebAssembly, all BSD licensed.
+
+Finding moods in pages downloads, the first time, an 8-bit ONNX export of
+OpenAI's CLIP ViT-B/32 (MIT, https://github.com/openai/CLIP), as published
+at https://huggingface.co/Xenova/clip-vit-base-patch32; it isn't bundled.
+`third_party/onnxruntime-purego` is github.com/shota3506/onnxruntime-purego
+(MIT) with a small patch for Windows.
 
 ## Go modules
 
@@ -39,61 +46,65 @@ libaom and libwebp compiled to WebAssembly, all BSD licensed.
 | github.com/cespare/xxhash/v2 | v2.3.0 | MIT |
 | github.com/coreos/go-oidc/v3 | v3.21.0 | Apache-2.0 |
 | github.com/danielgtaylor/huma/v2 | v2.39.1 | MIT |
-| github.com/dustin/go-humanize | v1.0.1 | MIT |
+| github.com/dustin/go-humanize | v1.1.0 | MIT |
 | github.com/ebitengine/purego | v0.10.1 | Apache-2.0 |
 | github.com/gen2brain/avif | v0.6.0 | MIT |
 | github.com/gen2brain/webp | v0.6.4 | MIT |
-| github.com/go-chi/chi/v5 | v5.3.2 | MIT |
+| github.com/go-chi/chi/v5 | v5.5.0 | MIT |
 | github.com/go-jose/go-jose/v4 | v4.1.4 | Apache-2.0 |
 | github.com/google/uuid | v1.6.0 | BSD-3-Clause |
 | github.com/jinzhu/inflection | v1.0.0 | MIT |
 | github.com/mattn/go-isatty | v0.0.24 | MIT |
 | github.com/mfridman/interpolate | v0.0.2 | MIT |
-| github.com/ncruces/go-strftime | v1.0.0 | MIT |
-| github.com/pressly/goose/v3 | v3.28.0 | MIT |
+| github.com/ncruces/go-strftime | v1.1.0 | MIT |
+| github.com/pressly/goose/v3 | v3.29.0 | MIT |
 | github.com/puzpuzpuz/xsync/v3 | v3.5.1 | Apache-2.0 |
 | github.com/remyoudompheng/bigfft | v0.0.0-20230129092748-24d4a6f8daec | BSD-3-Clause |
-| github.com/sethvargo/go-retry | v0.4.0 | Apache-2.0 |
+| github.com/sethvargo/go-retry | v0.5.0 | Apache-2.0 |
+| github.com/shota3506/onnxruntime-purego | v0.0.0-20260315223538-8db8bd7424b2 | MIT |
 | github.com/tetratelabs/wazero | v1.12.0 | Apache-2.0 |
 | github.com/tmthrgd/go-hex | v0.0.0-20190904060850-447a3041c3bc | BSD-3-Clause |
-| github.com/uptrace/bun | v1.2.18 | BSD-2-Clause |
-| github.com/uptrace/bun/dialect/pgdialect | v1.2.18 | BSD-2-Clause |
-| github.com/uptrace/bun/dialect/sqlitedialect | v1.2.18 | BSD-2-Clause |
-| github.com/uptrace/bun/driver/pgdriver | v1.2.18 | BSD-2-Clause |
+| github.com/uptrace/bun | v1.3.0 | BSD-2-Clause |
+| github.com/uptrace/bun/dialect/pgdialect | v1.3.0 | BSD-2-Clause |
+| github.com/uptrace/bun/dialect/sqlitedialect | v1.3.0 | BSD-2-Clause |
+| github.com/uptrace/bun/driver/pgdriver | v1.3.0 | BSD-2-Clause |
 | github.com/vmihailenco/msgpack/v5 | v5.4.1 | BSD-2-Clause |
 | github.com/vmihailenco/tagparser/v2 | v2.0.0 | BSD-2-Clause |
-| go.opentelemetry.io/otel | v1.46.0 | Apache-2.0 |
-| go.opentelemetry.io/otel/trace | v1.46.0 | Apache-2.0 |
+| go.opentelemetry.io/otel | v1.47.0 | Apache-2.0 |
+| go.opentelemetry.io/otel/trace | v1.47.0 | Apache-2.0 |
 | go.uber.org/multierr | v1.11.0 | MIT |
-| golang.org/x/crypto | v0.57.0 | BSD-3-Clause |
-| golang.org/x/image | v0.46.0 | BSD-3-Clause |
-| golang.org/x/net | v0.59.0 | BSD-3-Clause |
+| golang.org/x/crypto | v0.58.0 | BSD-3-Clause |
+| golang.org/x/image | v0.47.0 | BSD-3-Clause |
+| golang.org/x/net | v0.61.0 | BSD-3-Clause |
 | golang.org/x/oauth2 | v0.37.0 | BSD-3-Clause |
-| golang.org/x/sync | v0.23.0 | BSD-3-Clause |
-| golang.org/x/sys | v0.48.0 | BSD-3-Clause |
-| golang.org/x/text | v0.42.0 | BSD-3-Clause |
+| golang.org/x/sync | v0.24.0 | BSD-3-Clause |
+| golang.org/x/sys | v0.49.0 | BSD-3-Clause |
+| golang.org/x/text | v0.43.0 | BSD-3-Clause |
 | howett.net/plist | v1.0.1 | BSD-3-Clause |
 | mellium.im/sasl | v0.3.2 | BSD-2-Clause |
-| modernc.org/libc | v1.77.1 | BSD-3-Clause |
+| modernc.org/libc | v1.78.0 | BSD-3-Clause |
 | modernc.org/mathutil | v1.7.1 | BSD-3-Clause |
 | modernc.org/memory | v1.12.1 | BSD-3-Clause |
-| modernc.org/sqlite | v1.60.0 | BSD-3-Clause |
+| modernc.org/sqlite | v1.60.1 | BSD-3-Clause |
 
 ## Web packages
 
 | Package | Version | Licence |
 |---|---|---|
 | @remix-run/route-pattern | 0.22.1 | MIT |
-| @tanstack/query-core | 5.104.1 | MIT |
-| @tanstack/react-query | 5.104.1 | MIT |
+| @tanstack/query-core | 5.104.5 | MIT |
+| @tanstack/react-query | 5.104.5 | MIT |
+| @types/react | 19.3.0 | MIT |
+| @types/react-dom | 19.3.0 | MIT |
 | clsx | 2.1.1 | MIT |
 | cookie-es | 3.1.1 | MIT |
-| lucide-react | 1.48.0 | ISC |
+| csstype | 3.2.3 | MIT |
+| lucide-react | 1.59.0 | ISC |
 | openapi-fetch | 0.17.0 | MIT |
 | openapi-typescript-helpers | 0.1.0 | MIT |
-| react | 19.3.0 | MIT |
-| react-dom | 19.3.0 | MIT |
-| react-router | 8.4.0 | MIT |
+| react | 19.3.1 | MIT |
+| react-dom | 19.3.1 | MIT |
+| react-router | 8.5.0 | MIT |
 | scheduler | 0.28.0 | MIT |
 
 ## Licence texts
@@ -1535,6 +1546,32 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.
+```
+
+### github.com/shota3506/onnxruntime-purego
+
+```
+MIT License
+
+Copyright (c) 2025 Shota Sugiura
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 ```
 
 ### github.com/tetratelabs/wazero
@@ -3020,6 +3057,58 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
+### @types/react
+
+```
+    MIT License
+
+    Copyright (c) Microsoft Corporation.
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE
+```
+
+### @types/react-dom
+
+```
+    MIT License
+
+    Copyright (c) Microsoft Corporation.
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE
+```
+
 ### clsx
 
 ```
@@ -3047,6 +3136,30 @@ Copyright (c) 2015 Douglas Christopher Wilson <doug@somethingdoug.com>
 
 Set-Cookie parsing based on https://github.com/nfriedly/set-cookie-parser
 Copyright (c) 2015 Nathan Friedly <nathan@nfriedly.com> (http://nfriedly.com/)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+### csstype
+
+```
+Copyright (c) 2017-2018 Fredrik Nicol
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

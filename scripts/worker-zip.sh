@@ -1,7 +1,8 @@
 #!/usr/bin/env sh
 # Builds the desktop worker zip for one platform: mangarr-worker with the
-# ncnn upscalers in upscalers/ and the native encoders (avifenc, cwebp, and
-# cjxl on Linux) in encoders/ next to it, the layout the program looks for.
+# ncnn upscalers in upscalers/, the native encoders (avifenc, cwebp, and
+# cjxl on Linux) in encoders/ and ONNX Runtime (for finding moods in pages)
+# in onnxruntime/ next to it, the layout the program looks for.
 #
 #   scripts/worker-zip.sh windows amd64 dist   -> dist/mangarr-worker-windows-amd64.zip
 #                                                 dist/mangarr-worker-windows-amd64.zip.sha256
@@ -22,10 +23,11 @@ REALESRGAN_VERSION=20220424
 LIBAVIF_VERSION=1.4.2
 LIBWEBP_VERSION=1.6.0
 LIBJXL_VERSION=0.11.1
+ONNXRUNTIME_VERSION=1.23.2
 case $goos in
-  windows) plat=windows cugan=windows esr=windows avif=windows webp=windows-x64 exe=.exe ;;
-  darwin) plat=macos cugan=macos esr=macos avif=macOS webp=mac-arm64 exe= ;;
-  linux) plat=linux cugan=ubuntu esr=ubuntu avif=linux webp=linux-x86-64 exe= ;;
+  windows) plat=windows cugan=windows esr=windows avif=windows webp=windows-x64 ort=win-x64 exe=.exe ;;
+  darwin) plat=macos cugan=macos esr=macos avif=macOS webp=mac-arm64 ort=osx-arm64 exe= ;;
+  linux) plat=linux cugan=ubuntu esr=ubuntu avif=linux webp=linux-x86-64 ort=linux-x64 exe= ;;
   *) echo "no worker zip for $goos" >&2; exit 1 ;;
 esac
 
@@ -33,11 +35,13 @@ name=mangarr-worker-$goos-$goarch
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 dir=$work/$name
-mkdir -p "$dir/upscalers/waifu2x" "$dir/upscalers/realcugan" "$dir/upscalers/realesrgan" "$dir/encoders" "$out"
+mkdir -p "$dir/upscalers/waifu2x" "$dir/upscalers/realcugan" "$dir/upscalers/realesrgan" "$dir/encoders" "$dir/onnxruntime" "$out"
 out=$(cd "$out" && pwd)
 
 pkg=github.com/Asion001/mangarr/internal/version
-CGO_ENABLED=0 GOOS=$goos GOARCH=$goarch go build -trimpath -tags nodynamic \
+# onnx: page moods, with ONNX Runtime loaded at run time (on Linux that
+# needs glibc)
+CGO_ENABLED=0 GOOS=$goos GOARCH=$goarch go build -trimpath -tags "nodynamic onnx" \
   -ldflags "-s -w -X $pkg.Version=${VERSION:-dev} -X $pkg.Build=${BUILD:-local} -X $pkg.Commit=${COMMIT:-unknown} -X $pkg.UpdateURL=${UPDATE_URL:-} -X $pkg.Image=${IMAGE:-}" \
   -o "$dir/mangarr-worker$exe" ./cmd/mangarr-worker
 
@@ -77,6 +81,20 @@ if [ "$goos" = linux ]; then # libjxl publishes a static cjxl for Linux only
 fi
 chmod +x "$dir"/encoders/* 2>/dev/null || true
 
+# ONNX Runtime's shared library alone (not its headers or debug symbols)
+ortbase=https://github.com/microsoft/onnxruntime/releases/download/v$ONNXRUNTIME_VERSION/onnxruntime-$ort-$ONNXRUNTIME_VERSION
+if [ "$goos" = windows ]; then
+  curl -fsSL -o "$work/o.zip" "$ortbase.zip"
+  unzip -q -j -o "$work/o.zip" "*/lib/onnxruntime.dll" "*/LICENSE" -d "$work/o"
+  cp "$work/o/onnxruntime.dll" "$dir/onnxruntime/"
+  cp "$work/o/LICENSE" "$dir/onnxruntime/LICENSE.txt"
+else
+  curl -fsSL "$ortbase.tgz" | tar -xz -C "$work"
+  lib=libonnxruntime.so; [ "$goos" = darwin ] && lib=libonnxruntime.dylib
+  cp -L "$work/onnxruntime-$ort-$ONNXRUNTIME_VERSION/lib/$lib" "$dir/onnxruntime/$lib"
+  cp "$work/onnxruntime-$ort-$ONNXRUNTIME_VERSION/LICENSE" "$dir/onnxruntime/LICENSE.txt"
+fi
+
 cat > "$dir/README.txt" <<'EOF'
 mangarr worker
 
@@ -86,8 +104,10 @@ mangarr worker
 
 The upscalers folder holds waifu2x, Real-CUGAN and Real-ESRGAN (ncnn/Vulkan
 builds by nihui and xinntao); the encoders folder holds avifenc (libavif),
-cwebp (libwebp) and on Linux cjxl (libjxl). Keep both folders next to the
-program. Their licences are in THIRD_PARTY_NOTICES.md.
+cwebp (libwebp) and on Linux cjxl (libjxl); the onnxruntime folder holds
+ONNX Runtime, which finds moods in pages for soundtracks (the Moods role;
+the model, about 150 MB, is downloaded the first time). Keep the folders
+next to the program. Their licences are in THIRD_PARTY_NOTICES.md.
 macOS: run `xattr -dr com.apple.quarantine` on this folder once first.
 More: docs/setup.md, "A worker on a desktop", in the mangarr repository.
 EOF

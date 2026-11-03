@@ -50,12 +50,19 @@ models unchanged, as the projects publish them:
 | avifenc (libavif) | BSD-2-Clause | https://github.com/AOMediaCodec/libavif |
 | cwebp (libwebp), worker zips | BSD-3-Clause | https://chromium.googlesource.com/webm/libwebp |
 | cjxl (libjxl), Linux worker zip | BSD-3-Clause | https://github.com/libjxl/libjxl |
+| ONNX Runtime (the full image on amd64 and arm64, and the worker zips) | MIT | https://github.com/microsoft/onnxruntime |
 
 The full image also installs Debian packages (Vulkan and Mesa drivers,
 webp, libavif-bin, libjxl-tools, libjpeg-progs), whose licences are in the
 image under `/usr/share/doc`. The AVIF and WebP encoders built into mangarr
 (`github.com/gen2brain/avif`, `github.com/gen2brain/webp`) embed libavif,
 libaom and libwebp compiled to WebAssembly, all BSD licensed.
+
+Finding moods in pages downloads, the first time, an 8-bit ONNX export of
+OpenAI's CLIP ViT-B/32 (MIT, https://github.com/openai/CLIP), as published
+at https://huggingface.co/Xenova/clip-vit-base-patch32; it isn't bundled.
+`third_party/onnxruntime-purego` is github.com/shota3506/onnxruntime-purego
+(MIT) with a small patch for Windows.
 
 ## Go modules
 
@@ -64,7 +71,7 @@ libaom and libwebp compiled to WebAssembly, all BSD licensed.
 EOF
 echo "| Go standard library | $(go env GOVERSION) | BSD-3-Clause |"
 
-mods=$(CGO_ENABLED=0 go list -deps -f '{{with .Module}}{{if not .Main}}{{.Path}} {{.Version}} {{.Dir}}{{end}}{{end}}' ./cmd/... | sort -u)
+mods=$(CGO_ENABLED=0 go list -tags onnx -deps -f '{{with .Module}}{{if not .Main}}{{.Path}} {{.Version}} {{.Dir}}{{end}}{{end}}' ./cmd/... | sort -u)
 echo "$mods" | while read -r path version dir; do
   echo "| $path | $version | $(spdx "$dir/$(licfile "$dir")") |"
 done
