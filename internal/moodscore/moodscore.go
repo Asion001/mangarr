@@ -23,6 +23,8 @@ import (
 	"runtime"
 	"sort"
 	"time"
+
+	"github.com/Asion001/mangarr/internal/cbz"
 )
 
 // ErrUnavailable: this build or machine can't score pages.
@@ -218,4 +220,26 @@ func Moods(prompts []Prompt) []int64 {
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })
 	return out
+}
+
+// ReadPages reads a CBZ's pages in the reader's order (page n is out[n-1]).
+func ReadPages(path string) ([][]byte, error) {
+	entries, err := cbz.Entries(path)
+	if err != nil {
+		return nil, err
+	}
+	out := make([][]byte, 0, len(entries))
+	for _, e := range entries {
+		rc, _, err := cbz.OpenPage(path, e)
+		if err != nil {
+			return nil, err
+		}
+		data, err := io.ReadAll(io.LimitReader(rc, 64<<20))
+		rc.Close()
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, data)
+	}
+	return out, nil
 }
