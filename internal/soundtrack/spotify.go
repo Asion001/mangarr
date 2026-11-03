@@ -50,6 +50,9 @@ var (
 	ErrBadState      = errors.New("the Spotify sign-in expired or was already used: try again")
 	ErrPremium       = errors.New("playing music needs Spotify Premium")
 	ErrNoDevice      = errors.New("no Spotify device is active: open Spotify on a phone, computer or speaker")
+	// ErrDeviceGone: the device asked for isn't there any more (a closed
+	// browser tab's player, a phone that went to sleep).
+	ErrDeviceGone = errors.New("that Spotify device isn't there any more: pick another under Play music on…")
 	ErrNoVolume      = errors.New("this Spotify device doesn't let others set its volume: use its own volume buttons")
 )
 
@@ -509,7 +512,19 @@ func (s *Spotify) Play(ctx context.Context, userID int64, p Play) error {
 	if strings.HasPrefix(p.URI, "spotify:track:") {
 		body = map[string]any{"uris": []string{p.URI}}
 	}
-	if err := s.as(ctx, userID, http.MethodPut, deviceQuery("/me/player/play", p.DeviceID, nil), body, nil); err != nil {
+	play := func() error { return s.as(ctx, userID, http.MethodPut, deviceQuery("/me/player/play", p.DeviceID, nil), body, nil) }
+	err := play()
+	if errors.Is(err, ErrNoDevice) && p.DeviceID != "" {
+		// a device Spotify doesn't count as active yet (a browser's player
+		// that just started) takes the playback over first
+		if err = s.Transfer(ctx, userID, p.DeviceID); err == nil {
+			err = play()
+		}
+		if errors.Is(err, ErrNoDevice) {
+			err = ErrDeviceGone
+		}
+	}
+	if err != nil {
 		return err
 	}
 	if p.Shuffle != nil {
@@ -517,6 +532,11 @@ func (s *Spotify) Play(ctx context.Context, userID int64, p Play) error {
 		_ = s.as(ctx, userID, http.MethodPut, deviceQuery("/me/player/shuffle", p.DeviceID, url.Values{"state": {strconv.FormatBool(*p.Shuffle)}}), nil, nil)
 	}
 	return nil
+}
+
+// Transfer moves a reader's playback to a device, without starting it.
+func (s *Spotify) Transfer(ctx context.Context, userID int64, deviceID string) error {
+	return s.as(ctx, userID, http.MethodPut, "/me/player", map[string]any{"device_ids": []string{deviceID}, "play": false}, nil)
 }
 
 // Pause pauses a reader's playback.

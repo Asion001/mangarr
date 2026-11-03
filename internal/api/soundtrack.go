@@ -123,6 +123,8 @@ func soundtrackError(err error) error {
 		return huma.Error400BadRequest(err.Error())
 	case errors.Is(err, soundtrack.ErrNotConfigured), errors.Is(err, soundtrack.ErrNotConnected), errors.Is(err, soundtrack.ErrNoDevice), errors.Is(err, soundtrack.ErrNoVolume):
 		return huma.Error409Conflict(err.Error())
+	case errors.Is(err, soundtrack.ErrDeviceGone):
+		return huma.Error410Gone(err.Error())
 	case errors.Is(err, soundtrack.ErrPremium):
 		return huma.Error403Forbidden(err.Error())
 	case errors.As(err, &ae):

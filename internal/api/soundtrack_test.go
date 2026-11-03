@@ -24,6 +24,8 @@ type fakeSpotify struct {
 	mu        sync.Mutex
 	challenge string
 	plays     []string
+	transfers []string
+	woke      bool
 	shuffles  []string
 	volumes   []string
 	searches  []url.Values
@@ -78,7 +80,24 @@ func (f *fakeSpotify) handler() http.Handler {
 	mux.HandleFunc("GET /v1/me/player/devices", authed(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(`{"devices":[{"id":"phone-1","name":"Phone","type":"Smartphone","is_active":true,"volume_percent":40},{"id":"tv","name":"TV","type":"TV","is_restricted":true}]}`))
 	}))
+	mux.HandleFunc("PUT /v1/me/player", authed(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		f.transfers = append(f.transfers, string(b))
+		if strings.Contains(string(b), "gone-1") {
+			w.WriteHeader(404)
+			_, _ = w.Write([]byte(`{"error":{"status":404,"message":"Device not found"}}`))
+			return
+		}
+		f.woke = true
+		w.WriteHeader(204)
+	}))
 	mux.HandleFunc("PUT /v1/me/player/play", authed(func(w http.ResponseWriter, r *http.Request) {
+		// a browser's player that just started plays once playback moved to it
+		if d := r.URL.Query().Get("device_id"); d == "gone-1" || d == "browser-1" && !f.woke {
+			w.WriteHeader(404)
+			_, _ = w.Write([]byte(`{"error":{"status":404,"message":"Device not found"}}`))
+			return
+		}
 		b, _ := io.ReadAll(r.Body)
 		f.plays = append(f.plays, r.URL.Query().Get("device_id")+" "+string(b))
 		w.WriteHeader(204)
@@ -250,6 +269,17 @@ func TestSpotifyConnect(t *testing.T) {
 	}
 	if len(f.shuffles) != 1 || f.shuffles[0] != "true" || len(f.volumes) != 1 || f.volumes[0] != "55" { // refused, and played anyway
 		t.Fatalf("shuffles %q volumes %q", f.shuffles, f.volumes)
+	}
+	// this browser's new player takes the playback over, then plays; a
+	// device that went away says so
+	if code := ann.do("PUT", "/api/v1/me/spotify/play", `{"deviceId":"browser-1","uri":"spotify:track:6rqhFgbbKwnb9MLmUQDhG6"}`, nil); code != 204 && code != 200 {
+		t.Fatalf("play in a new browser player: %d", code)
+	}
+	if len(f.transfers) != 1 || !strings.Contains(f.transfers[0], `"device_ids":["browser-1"]`) || !strings.Contains(f.transfers[0], `"play":false`) || len(f.plays) != 3 {
+		t.Fatalf("transfers %q plays %q", f.transfers, f.plays)
+	}
+	if code := ann.do("PUT", "/api/v1/me/spotify/play", `{"deviceId":"gone-1","uri":"spotify:track:6rqhFgbbKwnb9MLmUQDhG6"}`, nil); code != 410 {
+		t.Fatalf("play on a device that went away: %d", code)
 	}
 	// a device that won't take a volume still plays (the volume was only a wish)
 	if code := ann.do("PUT", "/api/v1/me/spotify/volume", `{"volume":30,"deviceId":"phone-1"}`, nil); code != 409 {

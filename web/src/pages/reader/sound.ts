@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { api, unwrap } from "../../api/client";
+import { api, ApiError, unwrap } from "../../api/client";
 import { clampVolume, currentSound, dbGain, isPhone, layersOf, setPrefs, soundName, sourceOf, turnOn, upcoming, useSoundPrefs, withMode, type MoodTrack, type SoundMode, type SoundSource } from "../../lib/soundtrack/core";
 import { AmbienceEngine } from "../../lib/soundtrack/engine";
 import { moodName } from "../../lib/soundtrack/moods";
@@ -23,6 +23,8 @@ const playing = new Session(
     onNow: (() => {}) as (n: NowPlaying | null) => void,
     // played is the music and device mangarr last asked for ("uri|device")
     played: "",
+    // renewed: this tab's player was started again once after Spotify lost it
+    renewed: false,
   }),
   (was) => {
     if (was.played && !was.sdk) void unwrap(api.PUT("/api/v1/me/spotify/pause", { body: { deviceId: was.played.split("|")[1] || undefined } })).catch(() => {});
@@ -175,8 +177,27 @@ export function useSoundtrack(chapterId: number, page: number, webtoon: boolean,
         body: { uri, deviceId: deviceId || undefined, shuffle: sound?.music?.shuffle, volume: inBrowser ? undefined : clampVolume(prefs.volume) },
       }),
     )
+      .then(() => {
+        playing.value.renewed = false;
+      })
       .catch((e) => {
-        playing.value.played = "";
+        const session = playing.value;
+        session.played = "";
+        if (e instanceof ApiError && e.status === 410) {
+          if (inBrowser && !session.renewed) {
+            // Spotify lost this tab's player: a new one plays once it's ready
+            session.renewed = true;
+            session.sdk?.player.disconnect();
+            session.sdk = null;
+            setSdk(null);
+            return;
+          }
+          if (!inBrowser && sdkRef.current) {
+            // the device picked went away: back to this browser
+            setPrefs({ deviceId: "" });
+            return;
+          }
+        }
         setError(errorText(e));
       })
       .finally(() => setRequesting(false));
