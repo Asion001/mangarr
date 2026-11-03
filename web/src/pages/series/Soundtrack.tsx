@@ -215,6 +215,14 @@ export function SoundtrackPage() {
   const [adding, setAdding] = useState(false);
   const [detecting, setDetecting] = useState(false);
   const file = useRef<HTMLInputElement>(null);
+  const scorePages = async () => {
+    try {
+      await unwrap(api.POST("/api/v1/series/{id}/soundtrack/score", { params: { path: { id } } }));
+      toast.info(t("Finding moods in the pages"), t("It shows here when it's done (System › Tasks has the progress)."));
+    } catch (e) {
+      toast.fromError(e);
+    }
+  };
   const detect = async () => {
     setDetecting(true);
     try {
@@ -341,7 +349,7 @@ export function SoundtrackPage() {
               <div className="truncate text-sm font-medium">{name(cue)}</div>
             </div>
             {cue.source === "auto" && (
-              <span title={t("Found from the chapter title")}>
+              <span title={cue.modelVersion === "keywords-1" ? t("Found from the chapter title") : t("Found in the pages")}>
                 <Badge tone="info">{t("Auto") + (cue.confidence != null ? ` · ${Math.round(cue.confidence * 100)}%` : "")}</Badge>
               </span>
             )}
@@ -365,6 +373,9 @@ export function SoundtrackPage() {
           <span className="min-w-0 flex-1">{t("Mangarr can place moods from the chapter titles (marked Auto). Cues people place win over them.")}</span>
           <Button size="sm" loading={detecting} onClick={() => void detect()}>
             {t("Find moods now")}
+          </Button>
+          <Button size="sm" onClick={() => void scorePages()}>
+            {t("Find moods in pages")}
           </Button>
         </div>
       )}

@@ -12442,5 +12442,57 @@
   "battle": {
     "ru": "битва",
     "uk": "битва"
+  },
+  "Find moods in pages with an image model (after new chapters arrive, and ahead of readers with music on)": {
+    "ru": "Находить настроения в страницах моделью изображений (когда приходят новые главы и заранее для читающих с музыкой)",
+    "uk": "Знаходити настрої на сторінках моделлю зображень (коли надходять нові розділи й заздалегідь для тих, хто читає з музикою)"
+  },
+  "Find moods in pages": {
+    "ru": "Найти настроения в страницах",
+    "uk": "Знайти настрої на сторінках"
+  },
+  "Finding moods in the pages": {
+    "ru": "Ищу настроения в страницах",
+    "uk": "Шукаю настрої на сторінках"
+  },
+  "Found by mangarr": {
+    "ru": "Найдено mangarr",
+    "uk": "Знайдено mangarr"
+  },
+  "Found in the pages": {
+    "ru": "Найдено в страницах",
+    "uk": "Знайдено на сторінках"
+  },
+  "How its pages look": {
+    "ru": "Как выглядят его страницы",
+    "uk": "Як виглядають його сторінки"
+  },
+  "One description per line, in English, for finding the mood in pages (when that's on).": {
+    "ru": "По одному описанию в строке, на английском, чтобы находить настроение в страницах (если это включено).",
+    "uk": "По одному опису в рядку, англійською, щоб знаходити настрій на сторінках (якщо це увімкнено)."
+  },
+  "Page scoring unavailable here: {why}. Run the full image, or give a worker (from the worker downloads or the full image) the Moods role.": {
+    "ru": "Оценка страниц здесь недоступна: {why}. Запустите полный образ или дайте воркеру (из загрузок воркера или полного образа) роль «Настроения».",
+    "uk": "Оцінювання сторінок тут недоступне: {why}. Запустіть повний образ або дайте воркеру (із завантажень воркера чи повного образу) роль «Настрої»."
+  },
+  "This server scores pages itself.": {
+    "ru": "Этот сервер оценивает страницы сам.",
+    "uk": "Цей сервер оцінює сторінки сам."
+  },
+  "This server scores pages itself; it downloads the model (about 150 MB) the first time.": {
+    "ru": "Этот сервер оценивает страницы сам; в первый раз он скачает модель (около 150 МБ).",
+    "uk": "Цей сервер оцінює сторінки сам; першого разу він завантажить модель (близько 150 МБ)."
+  },
+  "Workers with the Moods role score the pages.": {
+    "ru": "Страницы оценивают воркеры с ролью «Настроения».",
+    "uk": "Сторінки оцінюють воркери з роллю «Настрої»."
+  },
+  "a manga page of a tense standoff": {
+    "ru": "a manga page of a tense standoff",
+    "uk": "a manga page of a tense standoff"
+  },
+  "Finds soundtrack moods in pages with an image model (needs ONNX Runtime: the worker downloads and the full image have it)": {
+    "ru": "Находит настроения саундтрека в страницах моделью изображений (нужен ONNX Runtime: он есть в загрузках воркера и полном образе)",
+    "uk": "Знаходить настрої саундтреку на сторінках моделлю зображень (потрібен ONNX Runtime: він є в завантаженнях воркера та повному образі)"
   }
 }

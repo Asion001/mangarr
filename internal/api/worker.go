@@ -16,6 +16,7 @@ import (
 	"github.com/Asion001/mangarr/internal/access"
 	"github.com/Asion001/mangarr/internal/downloads"
 	"github.com/Asion001/mangarr/internal/model"
+	"github.com/Asion001/mangarr/internal/moodscore"
 	"github.com/Asion001/mangarr/internal/processing"
 	"github.com/Asion001/mangarr/internal/settings"
 	"github.com/Asion001/mangarr/internal/version"
@@ -368,6 +369,9 @@ func (s *Server) registerWorkerProtocol() {
 				GPU      string `json:"gpu,omitempty"`
 				// Requests: the page requests since the last heartbeat.
 				Requests []downloads.SiteRequest `json:"requests,omitempty" maxItems:"5000"`
+				// Moods are a moods task's scores: per page, mood id to
+				// probability.
+				Moods []moodscore.Scores `json:"moods,omitempty" maxItems:"5000"`
 			}
 		}) (*struct{}, error) {
 			w, err := s.worker(ctx)
@@ -377,6 +381,12 @@ func (s *Server) registerWorkerProtocol() {
 			task, err := s.app.Tasks.Held(ctx, in.ID, w.ID)
 			if err != nil {
 				return nil, huma.Error409Conflict("this task is not yours any more")
+			}
+			// the scores are kept before the task reads as done
+			if task.Kind == model.TaskMoods {
+				if err := s.app.PageMoods.Completed(context.WithoutCancel(ctx), *task, in.Body.Moods); err != nil {
+					s.app.Log.Warn("could not keep a worker's page moods", "task", task.ID, "err", err)
+				}
 			}
 			p := worktasks.Progress{PagesDone: in.Body.Pages, PagesTotal: task.PagesTotal, BytesIn: in.Body.BytesIn, BytesOut: in.Body.BytesOut, GPU: in.Body.GPU}
 			if err := s.app.Tasks.Finish(ctx, in.ID, w.ID, p); err != nil {

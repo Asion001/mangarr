@@ -18,6 +18,8 @@ type AudioMood struct {
 	Icon          string `bun:"icon,notnull" json:"icon"`
 	// Genres are the genres and tags the mood suits (for suggestions).
 	Genres []string `bun:"genres,notnull" json:"genres"`
+	// Prompts describe how the mood's pages look, for finding it in pages.
+	Prompts []string `bun:"prompts,notnull" json:"prompts"`
 	// Keywords are words in chapter titles that suggest the mood.
 	Keywords        []string  `bun:"keywords,notnull" json:"keywords"`
 	SpotifyURI      string    `bun:"spotify_uri,notnull" json:"spotifyUri" doc:"spotify:playlist:…, spotify:album:… or spotify:track:…; empty plays nothing"`
@@ -148,4 +150,17 @@ type AudioSceneItem struct {
 	Volume        float64 `bun:"volume,notnull"`
 	Position      int     `bun:"position,notnull"`
 	Label         string  `bun:"label,notnull"`
+}
+
+// PageMoods are a chapter file's pages scored against the moods: one
+// map of mood id to probability per page, made with a model (Version) and
+// a set of prompts (PromptsKey); FileKey is the file's hash.
+type PageMoods struct {
+	bun.BaseModel `bun:"table:page_moods"`
+	FileKey       string               `bun:"file_key,pk"`
+	ModelVersion  string               `bun:"model_version,pk"`
+	PromptsKey    string               `bun:"prompts_key,notnull"`
+	Pages         int                  `bun:"pages,notnull"`
+	Scores        []map[string]float64 `bun:"scores,notnull"`
+	ScannedAt     time.Time            `bun:"scanned_at,notnull"`
 }

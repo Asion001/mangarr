@@ -19,6 +19,7 @@ const roles = [
   { key: "download", label: "Download", help: "Fetches chapters from their source and uploads the pages here" },
   { key: "upscale", label: "Upscale", help: "Runs the upscaler on pages" },
   { key: "encode", label: "Encode", help: "Processes downloaded pages (resize, split, upscale, re-encode) when the server runs with MANGARR_PROCESSING=workers" },
+  { key: "moods", label: "Moods", help: "Finds soundtrack moods in pages with an image model (needs ONNX Runtime: the worker downloads and the full image have it)" },
 ];
 
 /** modelsOf reads the upscaling models a worker said it has when it last dialled in. */

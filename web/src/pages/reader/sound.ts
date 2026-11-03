@@ -39,6 +39,12 @@ export function useSoundtrack(chapterId: number, page: number, webtoon: boolean,
     queryFn: () => unwrap(api.GET("/api/v1/read/chapters/{id}/soundtrack", { params: { path: { id: chapterId } } })),
     enabled: chapterId > 0,
   });
+  // with music on, moods are found in this chapter's pages and the next
+  // two's ahead of the reader (when the server does that)
+  useEffect(() => {
+    if (!on || chapterId <= 0) return;
+    void api.POST("/api/v1/read/chapters/{id}/soundtrack/prepare", { params: { path: { id: chapterId } } }).catch(() => {});
+  }, [on, chapterId]);
   // a webtoon strip waits for the reader to settle on a page before switching
   const settled = useSettledPage(page, webtoon ? 1000 : 0);
   const sound = currentSound(prefs, resolved.data, settled, moods.data ?? []);

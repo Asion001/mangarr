@@ -142,6 +142,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/audio/page-moods": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Whether moods can be found in pages, and where (this server or workers) */
+        get: operations["page-moods-status"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/audio/scenes": {
         parameters: {
             query?: never;
@@ -2298,6 +2315,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/read/chapters/{id}/soundtrack/prepare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Find moods in this chapter's pages and the next two, if that's on (the reader asks when music is on) */
+        post: operations["read-chapter-soundtrack-prepare"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/read/chapters/{id}/time": {
         parameters: {
             query?: never;
@@ -3312,6 +3346,23 @@ export interface paths {
         put?: never;
         /** Replace the shared soundtrack with an exported one (scenes it names are made from installed sounds) */
         post: operations["series-soundtrack-import"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/series/{id}/soundtrack/score": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Find moods in a title's pages, in the background */
+        post: operations["series-soundtrack-score"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5095,6 +5146,7 @@ export interface components {
             name: string;
             /** Format: int64 */
             position: number;
+            prompts: string[];
             shuffle: boolean;
             /** @description The built-in mood this is (calm, melancholy…); empty for moods admins made */
             slug: string;
@@ -7077,6 +7129,8 @@ export interface components {
             /** @description Words in chapter titles that suggest the mood */
             keywords?: string[];
             name: string;
+            /** @description How the mood's pages look, for finding it in pages */
+            prompts?: string[];
             shuffle?: boolean;
             spotifyImageUrl?: string;
             spotifyName?: string;
@@ -8542,6 +8596,7 @@ export interface components {
         Sound: {
             autoMoods?: boolean;
             catalogUrl: string;
+            pageMoods?: boolean;
             /** Format: int64 */
             quotaMb: number;
             suggestFromGenres: boolean;
@@ -8983,6 +9038,13 @@ export interface components {
             verified?: {
                 [key: string]: string;
             };
+        };
+        Status: {
+            enabled: boolean;
+            local: boolean;
+            localReason?: string;
+            modelReady: boolean;
+            workers: boolean;
         };
         StorageLibrary: {
             /** Format: int64 */
@@ -9574,6 +9636,9 @@ export interface components {
             /** Format: int64 */
             bytesOut: number;
             gpu?: string;
+            moods?: {
+                [key: string]: number;
+            }[];
             /** Format: int64 */
             pages: number;
             requests?: components["schemas"]["SiteRequest"][];
@@ -10078,6 +10143,35 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "page-moods-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Status"];
+                };
             };
             /** @description Error */
             default: {
@@ -14911,6 +15005,35 @@ export interface operations {
             };
         };
     };
+    "read-chapter-soundtrack-prepare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "read-time": {
         parameters: {
             query?: never;
@@ -17323,6 +17446,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ImportOutBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "series-soundtrack-score": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Command"];
                 };
             };
             /** @description Error */

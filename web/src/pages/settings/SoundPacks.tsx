@@ -73,6 +73,7 @@ export function SoundPacksCard() {
   const toast = useToast();
   const { value: cfg, patch, save, saving, dirty, reset } = useSettingsDoc<Sound>("sound");
   const { data, isLoading, error } = usePacks();
+  const { data: pageStatus } = useQuery({ queryKey: ["soundtrack", "page-moods"], queryFn: () => unwrap(api.GET("/api/v1/audio/page-moods")) });
   const [folder, setFolder] = useState("");
   const [uploading, setUploading] = useState(false);
   const [removing, setRemoving] = useState<Pack | null>(null);
@@ -204,6 +205,20 @@ export function SoundPacksCard() {
               <Button size="sm" onClick={() => void detectAll()}>
                 {t("Look through the library now")}
               </Button>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Switch checked={!!cfg.pageMoods} onChange={(pageMoods) => patch({ pageMoods })} label={t("Find moods in pages with an image model (after new chapters arrive, and ahead of readers with music on)")} />
+              {pageStatus && (
+                <p className={pageStatus.local || pageStatus.workers ? "text-xs text-muted" : "text-xs text-warn"}>
+                  {pageStatus.local
+                    ? pageStatus.modelReady
+                      ? t("This server scores pages itself.")
+                      : t("This server scores pages itself; it downloads the model (about 150 MB) the first time.")
+                    : pageStatus.workers
+                      ? t("Workers with the Moods role score the pages.")
+                      : t("Page scoring unavailable here: {why}. Run the full image, or give a worker (from the worker downloads or the full image) the Moods role.", { why: pageStatus.localReason ?? "" })}
+                </p>
+              )}
             </div>
           </div>
         )}

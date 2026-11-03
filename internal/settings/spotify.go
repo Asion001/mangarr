@@ -46,6 +46,9 @@ type Sound struct {
 	// AutoMoods finds moods from chapter titles (after imports, and when
 	// asked) and places them as automatic cues.
 	AutoMoods bool `json:"autoMoods" required:"false"`
+	// PageMoods finds moods in pages with an image model (on this server
+	// when it can run it, else on workers with the moods role).
+	PageMoods bool `json:"pageMoods" required:"false"`
 }
 
 // DefaultCatalogURL lists the CC0 starter packs (github.com/Asion001/mangarr-sounds).

@@ -40,20 +40,20 @@ var Icons = []string{
 
 // builtin is a mood mangarr starts with.
 type builtin struct {
-	slug, name, color, icon string
-	genres, keywords        []string
+	slug, name, color, icon   string
+	genres, keywords, prompts []string
 }
 
 // Builtins are the moods mangarr seeds, without music: admins pick it.
 var builtins = []builtin{
-	{"calm", "Calm", "#3fb98a", "leaf", []string{"Slice of Life", "Iyashikei"}, []string{"morning", "home", "tea", "garden", "rest", "peace", "peaceful", "everyday", "daily", "quiet", "picnic", "holiday", "sunny", "spring", "breakfast", "cooking"}},
-	{"melancholy", "Melancholy", "#58a6ff", "cloud-rain", []string{"Drama", "Tragedy"}, []string{"farewell", "goodbye", "funeral", "memory", "memories", "loss", "lost", "rain", "tears", "alone", "lonely", "grave", "regret", "parting", "sorrow", "grief"}},
-	{"tense", "Tense", "#d29922", "zap", []string{"Thriller", "Suspense"}, []string{"chase", "trap", "escape", "hunt", "hunted", "threat", "ambush", "deadline", "hostage", "siege", "pursuit", "danger", "crisis", "standoff", "countdown", "betrayal"}},
-	{"action", "Action", "#f0883e", "flame", []string{"Action", "Shounen", "Sports"}, []string{"battle", "fight", "war", "duel", "clash", "attack", "raid", "tournament", "match", "versus", "vs", "combat", "showdown", "assault", "boss", "strike"}},
-	{"horror", "Horror", "#a371f7", "ghost", []string{"Horror", "Psychological"}, []string{"blood", "death", "dead", "ghost", "curse", "cursed", "monster", "nightmare", "haunted", "corpse", "demon", "zombie", "massacre", "horror", "scream", "grave"}},
-	{"romance", "Romance", "#f778ba", "heart", []string{"Romance", "Shoujo"}, []string{"date", "confession", "kiss", "love", "wedding", "heart", "sweetheart", "crush", "proposal", "valentine", "bride", "lovers", "romance", "promise", "together", "dance"}},
-	{"comedy", "Comedy", "#e3d34b", "smile", []string{"Comedy", "School Life"}, []string{"festival", "party", "prank", "beach", "vacation", "trip", "pool", "karaoke", "costume", "mischief", "shopping", "game", "club", "dorm", "sports", "cultural"}},
-	{"mystery", "Mystery", "#8b93ff", "moon", []string{"Mystery", "Supernatural"}, []string{"secret", "secrets", "mystery", "clue", "truth", "riddle", "investigation", "unknown", "shadow", "shadows", "disappearance", "missing", "detective", "hidden", "puzzle", "enigma"}},
+	{"calm", "Calm", "#3fb98a", "leaf", []string{"Slice of Life", "Iyashikei"}, []string{"morning", "home", "tea", "garden", "rest", "peace", "peaceful", "everyday", "daily", "quiet", "picnic", "holiday", "sunny", "spring", "breakfast", "cooking"}, []string{"a peaceful manga page of a quiet everyday moment", "a calm manga panel of people relaxing at home", "a gentle slice of life manga scene in the sunshine"}},
+	{"melancholy", "Melancholy", "#58a6ff", "cloud-rain", []string{"Drama", "Tragedy"}, []string{"farewell", "goodbye", "funeral", "memory", "memories", "loss", "lost", "rain", "tears", "alone", "lonely", "grave", "regret", "parting", "sorrow", "grief"}, []string{"a sad manga page with someone crying", "a lonely melancholic manga panel in the rain", "a manga page of a tearful farewell"}},
+	{"tense", "Tense", "#d29922", "zap", []string{"Thriller", "Suspense"}, []string{"chase", "trap", "escape", "hunt", "hunted", "threat", "ambush", "deadline", "hostage", "siege", "pursuit", "danger", "crisis", "standoff", "countdown", "betrayal"}, []string{"a tense manga page of a dangerous standoff", "a suspenseful manga panel with a worried face and sweat", "a manga page of someone being chased"}},
+	{"action", "Action", "#f0883e", "flame", []string{"Action", "Shounen", "Sports"}, []string{"battle", "fight", "war", "duel", "clash", "attack", "raid", "tournament", "match", "versus", "vs", "combat", "showdown", "assault", "boss", "strike"}, []string{"a manga page of an intense fight with speed lines", "an action manga panel with an explosion", "a manga page of a sword battle"}},
+	{"horror", "Horror", "#a371f7", "ghost", []string{"Horror", "Psychological"}, []string{"blood", "death", "dead", "ghost", "curse", "cursed", "monster", "nightmare", "haunted", "corpse", "demon", "zombie", "massacre", "horror", "scream", "grave"}, []string{"a scary horror manga page with a monster in the dark", "a creepy manga panel with a terrified face", "a gory horror manga scene"}},
+	{"romance", "Romance", "#f778ba", "heart", []string{"Romance", "Shoujo"}, []string{"date", "confession", "kiss", "love", "wedding", "heart", "sweetheart", "crush", "proposal", "valentine", "bride", "lovers", "romance", "promise", "together", "dance"}, []string{"a romantic manga page of a blushing couple", "a manga panel of a love confession with sparkles", "a manga page of two people about to kiss"}},
+	{"comedy", "Comedy", "#e3d34b", "smile", []string{"Comedy", "School Life"}, []string{"festival", "party", "prank", "beach", "vacation", "trip", "pool", "karaoke", "costume", "mischief", "shopping", "game", "club", "dorm", "sports", "cultural"}, []string{"a funny manga page with exaggerated comic expressions", "a chibi comedy manga panel", "a silly gag manga scene with people laughing"}},
+	{"mystery", "Mystery", "#8b93ff", "moon", []string{"Mystery", "Supernatural"}, []string{"secret", "secrets", "mystery", "clue", "truth", "riddle", "investigation", "unknown", "shadow", "shadows", "disappearance", "missing", "detective", "hidden", "puzzle", "enigma"}, []string{"a mysterious manga page with dark shadows", "a manga panel of a detective looking for clues", "an eerie mysterious manga scene at night"}},
 }
 
 // EnsureMoods makes the built-in moods the first time moods are needed.
@@ -73,7 +73,7 @@ func EnsureMoods(ctx context.Context, db bun.IDB, st *settings.Store) error {
 		now := time.Now().UTC()
 		moods := make([]model.AudioMood, len(builtins))
 		for i, b := range builtins {
-			moods[i] = model.AudioMood{Slug: b.slug, Name: b.name, Color: b.color, Icon: b.icon, Genres: b.genres, Keywords: b.keywords, Shuffle: true, Position: i, CreatedAt: now, UpdatedAt: now}
+			moods[i] = model.AudioMood{Slug: b.slug, Name: b.name, Color: b.color, Icon: b.icon, Genres: b.genres, Keywords: b.keywords, Prompts: b.prompts, Shuffle: true, Position: i, CreatedAt: now, UpdatedAt: now}
 		}
 		if _, err := db.NewInsert().Model(&moods).Exec(ctx); err != nil {
 			return err
@@ -151,6 +151,16 @@ func clean(m *model.AudioMood) error {
 		}
 	}
 	m.Keywords = words
+	prompts := []string{}
+	for _, p := range m.Prompts {
+		if p = strings.TrimSpace(p); p != "" && !slices.Contains(prompts, p) && len(prompts) < 10 {
+			if len([]rune(p)) > 200 {
+				return invalid("a prompt is up to 200 characters")
+			}
+			prompts = append(prompts, p)
+		}
+	}
+	m.Prompts = prompts
 	return nil
 }
 
@@ -175,6 +185,13 @@ func UpdateMood(ctx context.Context, db bun.IDB, id int64, m *model.AudioMood) e
 	old, err := Mood(ctx, db, id)
 	if err != nil {
 		return err
+	}
+	// lists left out keep what the mood has (an older client doesn't send them)
+	if m.Keywords == nil {
+		m.Keywords = old.Keywords
+	}
+	if m.Prompts == nil {
+		m.Prompts = old.Prompts
 	}
 	if err := clean(m); err != nil {
 		return err
@@ -417,6 +434,49 @@ func SetCue(ctx context.Context, db bun.IDB, seriesID int64, userID *int64, c Cu
 		return nil, err
 	}
 	return Get(ctx, db, seriesID, userID)
+}
+
+// ReplaceAutoCues swaps a detector's automatic cues (by its version) in a
+// series' shared soundtrack for new ones. Places someone set a cue at stay
+// theirs; another detector's cue at the same place gives way.
+func ReplaceAutoCues(ctx context.Context, db bun.IDB, seriesID int64, version string, cues []Cue) error {
+	d, err := Get(ctx, db, seriesID, nil)
+	if err != nil {
+		return err
+	}
+	if d == nil {
+		if len(cues) == 0 {
+			return nil
+		}
+		d = &Doc{}
+	}
+	taken := map[[2]float64]bool{}
+	for _, c := range d.Cues {
+		if !c.auto() {
+			taken[c.key()] = true
+		}
+	}
+	mine := map[[2]float64]bool{}
+	for _, c := range cues {
+		if !taken[c.key()] {
+			mine[c.key()] = true
+		}
+	}
+	kept := []Cue{}
+	for _, c := range d.Cues {
+		if c.auto() && (c.ModelVersion == version || mine[c.key()]) {
+			continue
+		}
+		kept = append(kept, c)
+	}
+	for _, c := range cues {
+		if mine[c.key()] {
+			c.Source, c.ModelVersion = model.CueAuto, version
+			kept = append(kept, c)
+		}
+	}
+	d.Cues = kept
+	return Save(ctx, db, seriesID, nil, *d)
 }
 
 // Reset drops a reader's own version, back to the shared soundtrack.

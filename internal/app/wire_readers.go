@@ -2,12 +2,14 @@ package app
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
 	"github.com/Asion001/mangarr/internal/cleanup"
 	"github.com/Asion001/mangarr/internal/events"
 	"github.com/Asion001/mangarr/internal/jobs"
+	"github.com/Asion001/mangarr/internal/pagemoods"
 	"github.com/Asion001/mangarr/internal/readsync"
 	"github.com/Asion001/mangarr/internal/soundtrack"
 )
@@ -22,6 +24,8 @@ type ReaderServices struct {
 	Spotify *soundtrack.Spotify
 	// Packs keeps the sound packs (ambience and effects).
 	Packs *soundtrack.Packs
+	// PageMoods finds moods in pages.
+	PageMoods *pagemoods.Service
 }
 
 // watcherService runs the watcher with the app.
@@ -39,6 +43,45 @@ func (a *App) wireReaders(ctx context.Context) error {
 	a.Watcher = readsync.NewWatcher(a.ReadSync)
 	a.Spotify = soundtrack.New(a.DB, a.Settings)
 	a.Packs = soundtrack.NewPacks(a.DB, a.Settings, a.Cfg.DataDir)
+	a.PageMoods = pagemoods.New(a.DB, a.Settings, a.Tasks, a.Cfg.DataDir, a.Log.With("component", "pagemoods"))
+	a.PageMoods.Paths = func(ctx context.Context, chapterID int64) (string, error) {
+		b, err := a.Reading.PageBook(ctx, chapterID)
+		if err != nil {
+			return "", err
+		}
+		if b.Path == "" {
+			return "", errors.New("the chapter isn't downloaded")
+		}
+		return b.Path, nil
+	}
+	a.Queue.Register(jobs.Definition{Name: "ScorePages", Description: "Find soundtrack moods in chapters' pages", Priority: 60,
+		Handler: func(ctx context.Context, r *jobs.Run) error {
+			var body struct {
+				SeriesID   int64   `json:"seriesId"`
+				ChapterIDs []int64 `json:"chapterIds"`
+			}
+			_ = r.Body(&body)
+			ids := []int64{body.SeriesID}
+			if body.SeriesID == 0 {
+				ids = nil
+				if err := a.DB.NewSelect().TableExpr("series").Column("id").Where("preview = ?", false).Scan(ctx, &ids); err != nil {
+					return err
+				}
+			}
+			scored, queued := 0, 0
+			for i, id := range ids {
+				res, err := a.PageMoods.Score(ctx, id, body.ChapterIDs, func(msg string) { r.Progress("series %d of %d: %s", i+1, len(ids), msg) })
+				if res != nil {
+					scored, queued = scored+res.Scored, queued+res.Queued
+				}
+				if err != nil {
+					return err
+				}
+			}
+			r.Progress("%d chapters scored here, %d handed to workers", scored, queued)
+			a.Bus.Changed("soundtrack", "updated", body.SeriesID)
+			return nil
+		}})
 	a.Cleaner.Leftovers = func(ctx context.Context) ([]cleanup.LeftoverFile, error) {
 		list, err := a.Packs.Leftovers(ctx)
 		out := make([]cleanup.LeftoverFile, len(list))
@@ -93,7 +136,8 @@ func (a *App) wireReaders(ctx context.Context) error {
 		if e.SeriesID == 0 {
 			return
 		}
-		if cfg, err := a.Settings.Sound(context.Background()); err != nil || !cfg.AutoMoods {
+		cfg, err := a.Settings.Sound(context.Background())
+		if err != nil || (!cfg.AutoMoods && !cfg.PageMoods) {
 			return
 		}
 		detectMu.Lock()
@@ -106,7 +150,13 @@ func (a *App) wireReaders(ctx context.Context) error {
 			detectMu.Lock()
 			delete(detectAfter, id)
 			detectMu.Unlock()
-			_, _ = a.Queue.Push(context.Background(), "DetectMoods", map[string]any{"seriesId": id}, "chapter-imported")
+			cfg, _ := a.Settings.Sound(context.Background())
+			if cfg.AutoMoods {
+				_, _ = a.Queue.Push(context.Background(), "DetectMoods", map[string]any{"seriesId": id}, "chapter-imported")
+			}
+			if cfg.PageMoods {
+				_, _ = a.Queue.Push(context.Background(), "ScorePages", map[string]any{"seriesId": id}, "chapter-imported")
+			}
 		})
 	}, events.ChapterImported)
 	a.Queue.Register(jobs.Definition{Name: "ImportSoundFolder", Description: "Add the sounds in a folder on the server as a sound pack",

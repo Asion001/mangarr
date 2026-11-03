@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import clsx from "clsx";
 import { AlertTriangle, Check, Copy, ExternalLink, Music, Play, Plus, Search } from "lucide-react";
 import { api, unwrap, type S } from "../../api/client";
-import { Badge, Button, Card, Confirm, ErrorBox, Field, Input, Loading, Modal, PageHeader, SaveBar, Segmented, Switch, Tabs, TagInput } from "../../components/ui";
+import { Badge, Button, Card, Confirm, ErrorBox, Field, Input, Loading, Modal, PageHeader, SaveBar, Segmented, Switch, Tabs, TagInput, Textarea } from "../../components/ui";
 import { tint, type Mood } from "../../lib/soundtrack/core";
 import { MoodIcon, moodColors, moodIcons, moodName } from "../../lib/soundtrack/moods";
 import { connectSpotify, useMoods, useMySpotify, useSpotifyReturn } from "../../lib/soundtrack/spotify";
@@ -16,7 +16,7 @@ import { SoundPacksCard } from "./SoundPacks";
 type Tab = "moods" | "scenes" | "spotify";
 type SearchType = "playlist" | "album" | "track";
 type Item = S["SoundtrackSearchItem"];
-type MoodDraft = { name: string; color: string; icon: string; genres: string[]; keywords: string[]; spotifyUri: string; spotifyName: string; spotifyImageUrl: string; shuffle: boolean };
+type MoodDraft = { name: string; color: string; icon: string; genres: string[]; keywords: string[]; prompts: string[]; spotifyUri: string; spotifyName: string; spotifyImageUrl: string; shuffle: boolean };
 
 const dashboard = "https://developer.spotify.com/dashboard";
 const proxyDocs = "https://github.com/Asion001/mangarr/blob/main/docs/reverse-proxy.md";
@@ -119,8 +119,8 @@ function MoodEditor({ mood, onClose }: { mood: Mood | null; onClose: () => void 
   const me = useMySpotify();
   const [d, setD] = useState<MoodDraft>(
     mood
-      ? { name: mood.name, color: mood.color, icon: mood.icon, genres: mood.genres ?? [], keywords: mood.keywords ?? [], spotifyUri: mood.spotifyUri, spotifyName: mood.spotifyName, spotifyImageUrl: mood.spotifyImageUrl, shuffle: mood.shuffle }
-      : { name: "", color: moodColors[0], icon: "music", genres: [], keywords: [], spotifyUri: "", spotifyName: "", spotifyImageUrl: "", shuffle: true },
+      ? { name: mood.name, color: mood.color, icon: mood.icon, genres: mood.genres ?? [], keywords: mood.keywords ?? [], prompts: mood.prompts ?? [], spotifyUri: mood.spotifyUri, spotifyName: mood.spotifyName, spotifyImageUrl: mood.spotifyImageUrl, shuffle: mood.shuffle }
+      : { name: "", color: moodColors[0], icon: "music", genres: [], keywords: [], prompts: [], spotifyUri: "", spotifyName: "", spotifyImageUrl: "", shuffle: true },
   );
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -217,6 +217,15 @@ function MoodEditor({ mood, onClose }: { mood: Mood | null; onClose: () => void 
         </Field>
         <Field label={t("Genres")} help={t("Titles with these genres or tags suit the mood.")}>
           <TagInput value={d.genres} onChange={(genres) => patch({ genres })} placeholder={t("Drama")} />
+        </Field>
+        <Field label={t("How its pages look")} help={t("One description per line, in English, for finding the mood in pages (when that's on).")}>
+          <Textarea
+            rows={3}
+            value={d.prompts.join("\n")}
+            onChange={(e) => patch({ prompts: e.target.value.split("\n") })}
+            onBlur={() => patch({ prompts: d.prompts.map((p) => p.trim()).filter(Boolean) })}
+            placeholder={t("a manga page of a tense standoff")}
+          />
         </Field>
         <Field label={t("Keywords")} help={t("Words in chapter titles that bring this mood when moods are found automatically.")}>
           <TagInput value={d.keywords} onChange={(keywords) => patch({ keywords })} placeholder={t("battle")} />

@@ -17,11 +17,13 @@ const (
 	RoleUpscale = "upscale"
 	// RoleEncode re-encodes pages (AVIF, JPEG XL).
 	RoleEncode = "encode"
+	// RoleMoods scores pages against soundtrack moods with an image model.
+	RoleMoods = "moods"
 )
 
 // WorkerRoles are the roles a worker can be given, in the order the UI
 // shows them.
-var WorkerRoles = []string{RoleDownload, RoleUpscale, RoleEncode}
+var WorkerRoles = []string{RoleDownload, RoleUpscale, RoleEncode, RoleMoods}
 
 // Worker is a machine that asks this server for work. It holds a key of its
 // own, so it can be switched off or removed without touching anything else,
@@ -107,6 +109,8 @@ const (
 	TaskDownload = "download"
 	TaskUpscale  = "upscale"
 	TaskEncode   = "encode"
+	// TaskMoods scores a chapter's pages for soundtrack moods.
+	TaskMoods = "moods"
 
 	// TaskPending is waiting for a worker to take it.
 	TaskPending = "pending"
@@ -124,7 +128,9 @@ const (
 type WorkerTask struct {
 	bun.BaseModel `bun:"table:worker_tasks"`
 	ID            int64 `bun:"id,pk,autoincrement" json:"id"`
-	JobID         int64 `bun:"job_id,notnull" json:"jobId"`
+	// JobID is the download job it belongs to (0: none, e.g. scoring a
+	// chapter's pages for moods).
+	JobID int64 `bun:"job_id,nullzero" json:"jobId"`
 	// WorkerID is who holds it (0 while it waits).
 	WorkerID int64  `bun:"worker_id,nullzero" json:"workerId,omitempty"`
 	Kind     string `bun:"kind,notnull" json:"kind"`

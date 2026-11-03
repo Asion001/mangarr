@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/Asion001/mangarr/internal/imageenc"
+	"github.com/Asion001/mangarr/internal/moodscore"
 	"github.com/Asion001/mangarr/internal/upscaler"
 	"github.com/Asion001/mangarr/internal/workerupdate"
 	"github.com/Asion001/mangarr/internal/worktasks"
@@ -53,7 +54,13 @@ type Config struct {
 	SharedStorage bool
 	// Upscaler is the engine this machine upscales with (nil: it can't).
 	Upscaler *upscaler.Server
-	Log      *slog.Logger
+	// ModelDir keeps the mood model ("" : the data folder, or the user's
+	// cache).
+	ModelDir string
+	// NewScorer makes the mood scorer (nil: ONNX Runtime's, when this
+	// build and machine have it; tests set their own).
+	NewScorer func(context.Context, moodscore.Config) (moodscore.Scorer, error)
+	Log       *slog.Logger
 	// HTTP talks to the server; Fetch talks to the manga sites (they are
 	// separate so a proxy can be put in front of one and not the other).
 	HTTP  *http.Client
@@ -110,6 +117,9 @@ type Worker struct {
 	update atomic.Pointer[workerupdate.Offer]
 
 	status *Status
+
+	// moods scores pages for soundtrack moods (with the moods role).
+	moods moodScorer
 }
 
 // Welcome is what the server tells a worker at hello.
@@ -165,6 +175,9 @@ func New(cfg Config) (*Worker, error) {
 		cfg.Fetch = &http.Client{Timeout: 2 * time.Minute}
 	}
 	cfg.ServerURL = strings.TrimRight(cfg.ServerURL, "/")
+	if cfg.ModelDir == "" {
+		cfg.ModelDir = defaultModelDir()
+	}
 	w := &Worker{cfg: cfg, log: cfg.Log, held: map[int64]bool{}, enc: imageenc.Detect(), status: cfg.Status}
 	if slices.Contains(cfg.Roles, "upscale") && cfg.Upscaler != nil {
 		w.up = cfg.Upscaler
@@ -311,6 +324,15 @@ func (w *Worker) hello(ctx context.Context) error {
 		}
 	} else {
 		roles = without(roles, "upscale")
+	}
+	// finding moods in pages needs ONNX Runtime next to the program
+	if ok, why := moodscore.Available(); ok || w.cfg.NewScorer != nil {
+		info[worktasks.InfoMoods] = true
+	} else {
+		if slices.Contains(roles, "moods") {
+			w.log.Info("not offering to find moods in pages", "why", why)
+		}
+		roles = without(roles, "moods")
 	}
 	body := map[string]any{
 		"version": w.cfg.Version, "build": w.cfg.Build, "commit": w.cfg.Commit, "platform": runtime.GOOS + "/" + runtime.GOARCH,
@@ -460,6 +482,8 @@ func (w *Worker) do(ctx context.Context, t Task) {
 		res, err = w.upscale(ctx, t)
 	case "encode":
 		res, err = w.process(ctx, t)
+	case "moods":
+		res, err = w.scoreMoods(ctx, t)
 	default:
 		err = fmt.Errorf("this worker doesn't know how to %q", t.Kind)
 	}
@@ -472,8 +496,11 @@ func (w *Worker) do(ctx context.Context, t Task) {
 			withRequests(map[string]any{"reason": err.Error(), "pages": res.Pages}, res.Requests), nil)
 		return
 	}
-	if err = w.call(ctx, http.MethodPost, fmt.Sprintf("/api/v1/worker/tasks/%d/complete", t.ID),
-		withRequests(map[string]any{"pages": res.Pages, "bytesIn": res.BytesIn, "bytesOut": res.BytesOut, "gpu": res.GPU}, res.Requests), nil); err != nil {
+	done := withRequests(map[string]any{"pages": res.Pages, "bytesIn": res.BytesIn, "bytesOut": res.BytesOut, "gpu": res.GPU}, res.Requests)
+	if res.Moods != nil {
+		done["moods"] = res.Moods
+	}
+	if err = w.call(ctx, http.MethodPost, fmt.Sprintf("/api/v1/worker/tasks/%d/complete", t.ID), done, nil); err != nil {
 		w.log.Warn("could not report a finished task", "task", t.ID, "err", err)
 		err = fmt.Errorf("could not report it: %w", err)
 		return
@@ -498,6 +525,8 @@ type result struct {
 	GPU      string
 	// Requests made to a site since the last heartbeat (a download).
 	Requests []siteRequest
+	// Moods are a moods task's page scores.
+	Moods []moodscore.Scores
 }
 
 // bye hands back whatever this worker still holds, so a restart doesn't

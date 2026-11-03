@@ -14,6 +14,7 @@ import (
 	"github.com/danielgtaylor/huma/v2/adapters/humachi"
 
 	"github.com/Asion001/mangarr/internal/model"
+	"github.com/Asion001/mangarr/internal/pagemoods"
 	"github.com/Asion001/mangarr/internal/settings"
 	"github.com/Asion001/mangarr/internal/soundtrack"
 )
@@ -335,6 +336,47 @@ func (s *Server) registerSoundPacks() {
 		func(ctx context.Context, _ *struct{}) (*struct{ Body *model.Command }, error) {
 			c, err := s.app.Queue.Push(ctx, "DetectMoods", map[string]any{}, "manual")
 			return &struct{ Body *model.Command }{c}, toHTTPError(err)
+		})
+
+	// moods in pages
+	huma.Register(s.api, huma.Operation{OperationID: "page-moods-status", Method: http.MethodGet, Path: "/api/v1/audio/page-moods", Tags: tags,
+		Summary: "Whether moods can be found in pages, and where (this server or workers)"},
+		func(ctx context.Context, _ *struct{}) (*struct{ Body pagemoods.Status }, error) {
+			return &struct{ Body pagemoods.Status }{s.app.PageMoods.Status(ctx)}, nil
+		})
+	huma.Register(s.api, huma.Operation{OperationID: "series-soundtrack-score", Method: http.MethodPost, Path: "/api/v1/series/{id}/soundtrack/score", Tags: tags,
+		Summary: "Find moods in a title's pages, in the background"},
+		func(ctx context.Context, in *IDPath) (*struct{ Body *model.Command }, error) {
+			if _, err := s.visibleSeries(ctx, in.ID); err != nil {
+				return nil, err
+			}
+			if st := s.app.PageMoods.Status(ctx); !st.Enabled {
+				return nil, huma.Error409Conflict(pagemoods.ErrOff.Error())
+			} else if !st.Local && !st.Workers {
+				return nil, huma.Error409Conflict("page scoring unavailable: " + st.LocalReason + ", and no worker that can score pages is online")
+			}
+			c, err := s.app.Queue.Push(ctx, "ScorePages", map[string]any{"seriesId": in.ID}, "manual")
+			return &struct{ Body *model.Command }{c}, toHTTPError(err)
+		})
+	huma.Register(s.api, huma.Operation{OperationID: "read-chapter-soundtrack-prepare", Method: http.MethodPost, Path: "/api/v1/read/chapters/{id}/soundtrack/prepare", Tags: []string{"Reader"},
+		Summary: "Find moods in this chapter's pages and the next two, if that's on (the reader asks when music is on)", DefaultStatus: http.StatusNoContent},
+		func(ctx context.Context, in *IDPath) (*struct{}, error) {
+			ch, ser, err := s.chapterSeries(ctx, in.ID)
+			if err != nil {
+				return nil, err
+			}
+			if st := s.app.PageMoods.Status(ctx); !st.Enabled || (!st.Local && !st.Workers) {
+				return nil, nil
+			}
+			var ids []int64
+			if err := s.app.DB.NewSelect().TableExpr("chapters").Column("id").Where("series_id = ? AND number_sort >= ? AND file_id IS NOT NULL", ser.ID, ch.NumberSort).
+				OrderExpr("number_sort").Limit(3).Scan(ctx, &ids); err != nil {
+				return nil, toHTTPError(err)
+			}
+			if len(ids) > 0 {
+				_, _ = s.app.Queue.Push(ctx, "ScorePages", map[string]any{"seriesId": ser.ID, "chapterIds": ids}, "reader")
+			}
+			return nil, nil
 		})
 
 	// export and import

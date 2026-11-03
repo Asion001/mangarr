@@ -78,12 +78,14 @@ func DetectChapters(ctx context.Context, db bun.IDB, st *settings.Store, seriesI
 	if d == nil {
 		d = &Doc{}
 	}
-	manual := map[[2]float64]bool{}
+	// keep cues people placed and those another detector (pages) found;
+	// replace only this detector's own
+	taken := map[[2]float64]bool{}
 	cues := []Cue{}
 	for _, c := range d.Cues {
-		if !c.auto() {
+		if !c.auto() || c.ModelVersion != DetectorVersion {
 			cues = append(cues, c)
-			manual[c.key()] = true
+			taken[c.key()] = true
 		}
 	}
 	out := &Detection{}
@@ -100,7 +102,7 @@ func DetectChapters(ctx context.Context, db bun.IDB, st *settings.Store, seriesI
 			continue
 		}
 		last = &m.ID
-		if manual[[2]float64{ch.Number, 0}] {
+		if taken[[2]float64{ch.Number, 0}] {
 			continue
 		}
 		id, c := m.ID, conf

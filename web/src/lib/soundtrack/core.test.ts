@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { currentSound, dbGain, defaultPrefs, diffLayers, isPhone, layersOf, parsePrefs, turnOn, upcoming, withMode, type Mood, type Resolved, type Sound } from './core';
 
-const mood = (id: number, name: string): Mood => ({ id, name, slug: '', color: '#3fb98a', icon: 'leaf', genres: [], keywords: [], spotifyUri: '', spotifyName: '', spotifyImageUrl: '', shuffle: true, position: id, createdAt: '', updatedAt: '' });
+const mood = (id: number, name: string): Mood => ({ id, name, slug: '', color: '#3fb98a', icon: 'leaf', genres: [], keywords: [], prompts: [], spotifyUri: '', spotifyName: '', spotifyImageUrl: '', shuffle: true, position: id, createdAt: '', updatedAt: '' });
 
 describe('parsePrefs', () => {
   it('starts with music off', () => {

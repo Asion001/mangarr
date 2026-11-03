@@ -778,6 +778,12 @@
             "format": "int64",
             "type": "integer"
           },
+          "prompts": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "shuffle": {
             "type": "boolean"
           },
@@ -807,6 +813,7 @@
           "color",
           "icon",
           "genres",
+          "prompts",
           "keywords",
           "spotifyUri",
           "spotifyName",
@@ -7276,6 +7283,13 @@
             "minLength": 1,
             "type": "string"
           },
+          "prompts": {
+            "description": "How the mood's pages look, for finding it in pages",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "shuffle": {
             "type": "boolean"
           },
@@ -12184,6 +12198,9 @@
           "catalogUrl": {
             "type": "string"
           },
+          "pageMoods": {
+            "type": "boolean"
+          },
           "quotaMb": {
             "format": "int64",
             "minimum": 0,
@@ -13674,6 +13691,33 @@
         },
         "required": [
           "encodeBlocked"
+        ],
+        "type": "object"
+      },
+      "Status": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "local": {
+            "type": "boolean"
+          },
+          "localReason": {
+            "type": "string"
+          },
+          "modelReady": {
+            "type": "boolean"
+          },
+          "workers": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled",
+          "local",
+          "modelReady",
+          "workers"
         ],
         "type": "object"
       },
@@ -15673,6 +15717,17 @@
           "gpu": {
             "type": "string"
           },
+          "moods": {
+            "items": {
+              "additionalProperties": {
+                "format": "double",
+                "type": "number"
+              },
+              "type": "object"
+            },
+            "maxItems": 5000,
+            "type": "array"
+          },
           "pages": {
             "format": "int64",
             "type": "integer"
@@ -16654,6 +16709,37 @@
           }
         },
         "summary": "Remove a pack and its sounds (scenes lose those layers)",
+        "tags": [
+          "Soundtracks"
+        ]
+      }
+    },
+    "/api/v1/audio/page-moods": {
+      "get": {
+        "operationId": "page-moods-status",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Status"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Whether moods can be found in pages, and where (this server or workers)",
         "tags": [
           "Soundtracks"
         ]
@@ -23376,6 +23462,41 @@
         ]
       }
     },
+    "/api/v1/read/chapters/{id}/soundtrack/prepare": {
+      "post": {
+        "operationId": "read-chapter-soundtrack-prepare",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Find moods in this chapter's pages and the next two, if that's on (the reader asks when music is on)",
+        "tags": [
+          "Reader"
+        ]
+      }
+    },
     "/api/v1/read/chapters/{id}/time": {
       "post": {
         "operationId": "read-time",
@@ -26964,6 +27085,48 @@
           }
         },
         "summary": "Replace the shared soundtrack with an exported one (scenes it names are made from installed sounds)",
+        "tags": [
+          "Soundtracks"
+        ]
+      }
+    },
+    "/api/v1/series/{id}/soundtrack/score": {
+      "post": {
+        "operationId": "series-soundtrack-score",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Command"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Find moods in a title's pages, in the background",
         "tags": [
           "Soundtracks"
         ]

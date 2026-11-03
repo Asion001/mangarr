@@ -268,9 +268,17 @@ func takes(w *model.Worker, kind string) bool {
 		// processing moved to workers holds the role but can't do the work
 		ok, _ := w.Info[InfoProcess].(bool)
 		return ok
+	case model.TaskMoods:
+		// only a worker that has ONNX Runtime says it can
+		ok, _ := w.Info[InfoMoods].(bool)
+		return ok
 	}
 	return true
 }
+
+// InfoMoods is what a worker puts in its hello to say it can score pages
+// for moods.
+const InfoMoods = "moods"
 
 // SpecNeedsUpscale marks an encode task whose pages need upscaling: only a
 // worker with an upscaling engine can do it.

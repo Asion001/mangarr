@@ -140,6 +140,7 @@ modules-test POST /api/v1/modules/test -> admin
 modules-test-saved POST /api/v1/modules/{id}/test -> admin
 modules-update PUT /api/v1/modules/{id} -> admin
 naming-preview GET /api/v1/settings/media/preview -> admin
+page-moods-status GET /api/v1/audio/page-moods -> admin
 permissions-list GET /api/v1/permissions -> admin
 previews-open POST /api/v1/previews -> library.add | requests.manage | requests.create
 processing-clear-backlog POST /api/v1/processing/clear-backlog -> admin
@@ -165,6 +166,7 @@ read-chapter GET /api/v1/read/chapters/{id} -> signedin
 read-chapter-bounds GET /api/v1/read/chapters/{id}/bounds -> signedin
 read-chapter-picker GET /api/v1/read/series/{id}/chapters -> signedin
 read-chapter-soundtrack GET /api/v1/read/chapters/{id}/soundtrack -> signedin
+read-chapter-soundtrack-prepare POST /api/v1/read/chapters/{id}/soundtrack/prepare -> signedin
 read-file GET /api/v1/read/chapters/{id}/file -> download
 read-mark PUT /api/v1/read/chapters/{id}/mark -> signedin
 read-page GET /api/v1/read/chapters/{id}/pages/{n} -> signedin
@@ -237,6 +239,7 @@ series-soundtrack-detect POST /api/v1/series/{id}/soundtrack/detect -> admin
 series-soundtrack-export GET /api/v1/series/{id}/soundtrack/export -> signedin
 series-soundtrack-import POST /api/v1/series/{id}/soundtrack/import -> admin
 series-soundtrack-save PUT /api/v1/series/{id}/soundtrack -> admin
+series-soundtrack-score POST /api/v1/series/{id}/soundtrack/score -> admin
 series-source-link POST /api/v1/series/{id}/sources -> library.edit
 series-source-order PUT /api/v1/series/{id}/sources/order -> library.edit
 series-source-replace POST /api/v1/series/{id}/sources/{linkId}/replace -> library.edit

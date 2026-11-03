@@ -33,7 +33,7 @@ A worker holds a key of its own and asks the server for work, so it needs no por
 |---|---|---|
 | `MANGARR_SERVER_URL` | `` | The mangarr server this worker asks for work. |
 | `MANGARR_WORKER_KEY` | `` | This worker's own key, from System → Workers. |
-| `MANGARR_WORKER_ROLES` | `download,upscale,encode` | What it offers to do (the server narrows this to what the worker may do). |
+| `MANGARR_WORKER_ROLES` | `download,upscale,encode,moods` | What it offers to do (the server narrows this to what the worker may do). moods needs ONNX Runtime (the worker downloads and the full image have it). |
 | `MANGARR_WORKER_CONCURRENT` | `0` | Tasks it takes at once (0 = what System → Workers says, applied without a restart). |
 | `MANGARR_WORKER_PREFETCH` | `0` | Pages it fetches ahead of its uploads (0 = what the server says). |
 | `MANGARR_WORKER_PAGE_CONCURRENCY` | `0` | Pages it fetches at a time when System → Workers leaves it at 0 (0 = 4). |
