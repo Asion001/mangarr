@@ -10,6 +10,7 @@ require (
 	github.com/gen2brain/webp v0.6.4
 	github.com/go-chi/chi/v5 v5.5.0
 	github.com/pressly/goose/v3 v3.29.0
+	github.com/shota3506/onnxruntime-purego v0.0.0-20260315223538-8db8bd7424b2
 	github.com/uptrace/bun v1.3.0
 	github.com/uptrace/bun/dialect/pgdialect v1.3.0
 	github.com/uptrace/bun/dialect/sqlitedialect v1.3.0
@@ -53,3 +54,5 @@ require (
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.12.1 // indirect
 )
+
+replace github.com/shota3506/onnxruntime-purego => ./third_party/onnxruntime-purego
