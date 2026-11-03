@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -311,6 +312,44 @@ func (s *Server) registerSoundPacks() {
 			}
 			c, err := s.app.Queue.Push(ctx, "ScorePages", map[string]any{"seriesId": in.ID}, "manual")
 			return &struct{ Body *model.Command }{c}, toHTTPError(err)
+		})
+	huma.Register(s.api, huma.Operation{OperationID: "series-page-moods", Method: http.MethodGet, Path: "/api/v1/series/{id}/page-moods", Tags: tags,
+		Summary: "The moods found in a title's pages, for reviewing them: its chapters, and one chapter's page scores"},
+		func(ctx context.Context, in *struct {
+			IDPath
+			Chapter string `query:"chapter" doc:"The chapter number to detail (default: the first scored one)"`
+		}) (*struct{ Body *pagemoods.Review }, error) {
+			if _, err := s.visibleSeries(ctx, in.ID); err != nil {
+				return nil, err
+			}
+			var number *float64
+			if in.Chapter != "" {
+				n, err := strconv.ParseFloat(in.Chapter, 64)
+				if err != nil {
+					return nil, huma.Error422UnprocessableEntity("chapter must be a number")
+				}
+				number = &n
+			}
+			out, err := s.app.PageMoods.Review(ctx, in.ID, number)
+			return &struct{ Body *pagemoods.Review }{out}, toHTTPError(err)
+		})
+	huma.Register(s.api, huma.Operation{OperationID: "series-page-moods-dismiss", Method: http.MethodPost, Path: "/api/v1/series/{id}/page-moods/dismiss", Tags: tags,
+		Summary: "Say a mood found in the pages doesn't start here: its cue goes, and finding moods again leaves the place be", DefaultStatus: http.StatusNoContent},
+		func(ctx context.Context, in *struct {
+			IDPath
+			Body struct {
+				ChapterNumber float64 `json:"chapterNumber" minimum:"0"`
+				Page          int     `json:"page,omitempty" minimum:"0" doc:"0 or 1: the chapter's start"`
+			}
+		}) (*struct{}, error) {
+			if _, err := s.visibleSeries(ctx, in.ID); err != nil {
+				return nil, err
+			}
+			if err := s.app.PageMoods.Dismiss(ctx, in.ID, in.Body.ChapterNumber, in.Body.Page); err != nil {
+				return nil, toHTTPError(err)
+			}
+			s.app.Bus.Changed("soundtrack", "updated", in.ID)
+			return nil, nil
 		})
 	huma.Register(s.api, huma.Operation{OperationID: "read-chapter-soundtrack-prepare", Method: http.MethodPost, Path: "/api/v1/read/chapters/{id}/soundtrack/prepare", Tags: []string{"Reader"},
 		Summary: "Find moods in this chapter's pages and the next two, if that's on (the reader asks when music is on)", DefaultStatus: http.StatusNoContent},

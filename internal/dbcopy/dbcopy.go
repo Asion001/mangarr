@@ -27,7 +27,7 @@ var Tables = []string{
 	"imports", "import_entries", "reading_keys", "read_events", "reading_sessions", "reader_prefs",
 	"requests", "request_users", "follows", "requested_progress",
 	"title_statuses", "reading_lists", "reading_list_titles",
-	"audio_packs", "audio_moods", "spotify_accounts", "page_moods", "audio_tracks", "audio_mood_items", "soundtracks", "soundtrack_cues",
+	"audio_packs", "audio_moods", "spotify_accounts", "page_moods", "audio_tracks", "audio_mood_items", "soundtracks", "soundtrack_cues", "soundtrack_dismissals",
 	"workers", "worker_tasks",
 }
 

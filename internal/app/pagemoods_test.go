@@ -162,6 +162,25 @@ func TestMoodsFromPages(t *testing.T) {
 			if calls != 1 {
 				t.Fatalf("the model was made %d times", calls)
 			}
+			// the review shows chapter 2's pages and where action takes over
+			rev, err := e.App.PageMoods.Review(e.Ctx, local.ID, ptr(2.0))
+			if err != nil || len(rev.Chapters) != 2 || !rev.Chapters[1].Scored || rev.Chapter == nil || rev.Chapter.Number != 2 ||
+				len(rev.Chapter.Scores) != 9 || rev.Chapter.CarryIn != calm.ID || len(rev.Chapter.Changes) != 1 || rev.Chapter.Changes[0].Page != 4 {
+				t.Fatalf("review %v %+v %+v", err, rev, rev.Chapter)
+			}
+			// "not here": the cue goes, and placing the moods again leaves it out
+			if err := e.App.PageMoods.Dismiss(e.Ctx, local.ID, 2, 4); err != nil {
+				t.Fatal(err)
+			}
+			if err := e.App.PageMoods.Place(e.Ctx, local.ID); err != nil {
+				t.Fatal(err)
+			}
+			if r, _ := soundtrack.Resolve(e.Ctx, e.App.DB, e.App.Settings, local.ID, user.ID, nil, 2); len(r.Pages) != 0 {
+				t.Fatalf("a dismissed cue came back: %+v", r.Pages)
+			}
+			if rev, _ := e.App.PageMoods.Review(e.Ctx, local.ID, ptr(2.0)); len(rev.Chapter.Dismissed) != 1 || rev.Chapter.Dismissed[0] != 4 {
+				t.Fatalf("dismissed %+v", rev.Chapter.Dismissed)
+			}
 			// a cue someone placed at that page wins
 			if _, err := soundtrack.SetCue(e.Ctx, e.App.DB, local.ID, nil, soundtrack.Cue{ChapterNumber: 2, Page: ptr(4), MoodID: &calm.ID}); err != nil {
 				t.Fatal(err)

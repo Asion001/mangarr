@@ -222,6 +222,8 @@ series-metadata-link PUT /api/v1/series/{id}/metadata -> library.edit
 series-metadata-options GET /api/v1/series/{id}/metadata/options -> library.edit
 series-metadata-picks PUT /api/v1/series/{id}/metadata/picks -> library.edit
 series-metadata-refresh POST /api/v1/series/{id}/metadata/refresh -> library.edit
+series-page-moods GET /api/v1/series/{id}/page-moods -> admin
+series-page-moods-dismiss POST /api/v1/series/{id}/page-moods/dismiss -> admin
 series-query GET /api/v1/series/search -> signedin
 series-recommendations GET /api/v1/series/{id}/recommendations -> signedin
 series-refresh POST /api/v1/series/{id}/refresh -> library.edit

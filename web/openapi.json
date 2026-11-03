@@ -1613,6 +1613,29 @@
         ],
         "type": "object"
       },
+      "Change": {
+        "additionalProperties": false,
+        "properties": {
+          "confidence": {
+            "format": "double",
+            "type": "number"
+          },
+          "moodId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "page": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "page",
+          "moodId",
+          "confidence"
+        ],
+        "type": "object"
+      },
       "Chapter": {
         "additionalProperties": false,
         "properties": {
@@ -10866,6 +10889,109 @@
         ],
         "type": "object"
       },
+      "Review": {
+        "additionalProperties": false,
+        "properties": {
+          "chapter": {
+            "$ref": "#/components/schemas/ReviewDetail"
+          },
+          "chapters": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewChapter"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "chapters"
+        ],
+        "type": "object"
+      },
+      "ReviewChapter": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "number": {
+            "format": "double",
+            "type": "number"
+          },
+          "pages": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "scored": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "pages",
+          "scored"
+        ],
+        "type": "object"
+      },
+      "ReviewDetail": {
+        "additionalProperties": false,
+        "properties": {
+          "carryIn": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/Change"
+            },
+            "type": "array"
+          },
+          "dismissed": {
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "number": {
+            "format": "double",
+            "type": "number"
+          },
+          "pages": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "scored": {
+            "type": "boolean"
+          },
+          "scores": {
+            "items": {
+              "additionalProperties": {
+                "format": "double",
+                "type": "number"
+              },
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "carryIn",
+          "scores",
+          "changes",
+          "dismissed",
+          "id",
+          "number",
+          "pages",
+          "scored"
+        ],
+        "type": "object"
+      },
       "RootFolder": {
         "additionalProperties": false,
         "properties": {
@@ -11339,6 +11465,26 @@
         },
         "required": [
           "options"
+        ],
+        "type": "object"
+      },
+      "Series-page-moods-dismissRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "chapterNumber": {
+            "format": "double",
+            "minimum": 0,
+            "type": "number"
+          },
+          "page": {
+            "description": "0 or 1: the chapter's start",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "chapterNumber"
         ],
         "type": "object"
       },
@@ -26396,6 +26542,103 @@
         "summary": "Link one more provider's series next to the ones linked (move a title to the primary provider)",
         "tags": [
           "Series"
+        ]
+      }
+    },
+    "/api/v1/series/{id}/page-moods": {
+      "get": {
+        "operationId": "series-page-moods",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The chapter number to detail (default: the first scored one)",
+            "explode": false,
+            "in": "query",
+            "name": "chapter",
+            "schema": {
+              "description": "The chapter number to detail (default: the first scored one)",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Review"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "The moods found in a title's pages, for reviewing them: its chapters, and one chapter's page scores",
+        "tags": [
+          "Soundtracks"
+        ]
+      }
+    },
+    "/api/v1/series/{id}/page-moods/dismiss": {
+      "post": {
+        "operationId": "series-page-moods-dismiss",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Series-page-moods-dismissRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Say a mood found in the pages doesn't start here: its cue goes, and finding moods again leaves the place be",
+        "tags": [
+          "Soundtracks"
         ]
       }
     },

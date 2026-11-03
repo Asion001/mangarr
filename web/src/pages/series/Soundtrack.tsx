@@ -372,6 +372,9 @@ export function SoundtrackPage() {
           <Button size="sm" onClick={() => void scorePages()}>
             {t("Find moods in pages")}
           </Button>
+          <ButtonLink size="sm" to={`/series/${id}/soundtrack/pages`}>
+            {t("Review page moods")}
+          </ButtonLink>
         </div>
       )}
       {canEdit && (

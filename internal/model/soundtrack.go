@@ -98,6 +98,16 @@ type SoundtrackCue struct {
 	ModelVersion string   `bun:"model_version,notnull"`
 }
 
+// SoundtrackDismissal is a place in a series an admin said a mood found in
+// the pages doesn't start (page 0: the chapter's start).
+type SoundtrackDismissal struct {
+	bun.BaseModel `bun:"table:soundtrack_dismissals"`
+	SeriesID      int64     `bun:"series_id,pk"`
+	ChapterNumber float64   `bun:"chapter_number,pk"`
+	Page          int       `bun:"page,pk"`
+	CreatedAt     time.Time `bun:"created_at,notnull"`
+}
+
 // Cue sources.
 const (
 	CueManual = "manual"

@@ -3176,6 +3176,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/series/{id}/page-moods": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The moods found in a title's pages, for reviewing them: its chapters, and one chapter's page scores */
+        get: operations["series-page-moods"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/series/{id}/page-moods/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Say a mood found in the pages doesn't start here: its cue goes, and finding moods again leaves the place be */
+        post: operations["series-page-moods-dismiss"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/series/{id}/recommendations": {
         parameters: {
             query?: never;
@@ -5365,6 +5399,14 @@ export interface components {
             /** @description The pack's zip (relative to the catalog) */
             url: string;
             version: string;
+        };
+        Change: {
+            /** Format: double */
+            confidence: number;
+            /** Format: int64 */
+            moodId: number;
+            /** Format: int64 */
+            page: number;
         };
         Chapter: {
             /** Format: date-time */
@@ -8184,6 +8226,35 @@ export interface components {
             /** Format: int64 */
             total: number;
         };
+        Review: {
+            chapter?: components["schemas"]["ReviewDetail"];
+            chapters: components["schemas"]["ReviewChapter"][];
+        };
+        ReviewChapter: {
+            /** Format: int64 */
+            id: number;
+            /** Format: double */
+            number: number;
+            /** Format: int64 */
+            pages: number;
+            scored: boolean;
+        };
+        ReviewDetail: {
+            /** Format: int64 */
+            carryIn: number;
+            changes: components["schemas"]["Change"][];
+            dismissed: number[];
+            /** Format: int64 */
+            id: number;
+            /** Format: double */
+            number: number;
+            /** Format: int64 */
+            pages: number;
+            scored: boolean;
+            scores: {
+                [key: string]: number;
+            }[];
+        };
         RootFolder: {
             /** Format: date-time */
             createdAt: string;
@@ -8304,6 +8375,15 @@ export interface components {
         };
         "Series-metadata-optionsResponse": {
             options: components["schemas"]["MetadataOption"][];
+        };
+        "Series-page-moods-dismissRequest": {
+            /** Format: double */
+            chapterNumber: number;
+            /**
+             * Format: int64
+             * @description 0 or 1: the chapter's start
+             */
+            page?: number;
         };
         "Series-rename-previewRequest": {
             folders: boolean;
@@ -16935,6 +17015,73 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["SeriesResource"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "series-page-moods": {
+        parameters: {
+            query?: {
+                /** @description The chapter number to detail (default: the first scored one) */
+                chapter?: string;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Review"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "series-page-moods-dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Series-page-moods-dismissRequest"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {

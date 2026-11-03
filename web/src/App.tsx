@@ -27,6 +27,7 @@ const UsersPage = lazy(() => retryWhenBack(() => import("./pages/settings/Users"
 const SingleSignOnPage = lazy(() => retryWhenBack(() => import("./pages/settings/SingleSignOn"), (m) => ({ default: m.SingleSignOnPage })));
 const SeriesIndex = lazy(() => retryWhenBack(() => import("./pages/series/SeriesIndex"), (m) => ({ default: m.SeriesIndex })));
 const SoundtrackPage = lazy(() => retryWhenBack(() => import("./pages/series/Soundtrack"), (m) => ({ default: m.SoundtrackPage })));
+const PageMoodsPage = lazy(() => retryWhenBack(() => import("./pages/series/PageMoods"), (m) => ({ default: m.PageMoodsPage })));
 const SeriesDetail = lazy(() => retryWhenBack(() => import("./pages/series/SeriesDetail"), (m) => ({ default: m.SeriesDetail })));
 const AddOptionsRedirect = lazy(() => retryWhenBack(() => import("./pages/series/AddSeries"), (m) => ({ default: m.AddOptionsRedirect })));
 const AddReviewStep = lazy(() => retryWhenBack(() => import("./pages/series/AddSeries"), (m) => ({ default: m.AddReviewStep })));
@@ -135,6 +136,7 @@ export function App() {
           <Route path="discover/:shelf" element={<DiscoverShelfPage />} />
           <Route path="series/:id" element={<SeriesDetail />} />
           <Route path="series/:id/soundtrack" element={<SoundtrackPage />} />
+          <Route path="series/:id/soundtrack/pages" element={<Need perm="admin"><PageMoodsPage /></Need>} />
           <Route path="updates" element={<UpdatesPage />} />
           <Route path="account" element={<AccountPage />} />
           <Route path="on-device" element={<OnDevicePage />} />

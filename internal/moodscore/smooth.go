@@ -2,9 +2,9 @@ package moodscore
 
 // Change is a mood a chapter switches to from a page on (1-based).
 type Change struct {
-	Page       int
-	Mood       int64
-	Confidence float64
+	Page       int     `json:"page"`
+	Mood       int64   `json:"moodId"`
+	Confidence float64 `json:"confidence"`
 }
 
 // How changes are found.
