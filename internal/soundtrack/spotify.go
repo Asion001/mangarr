@@ -53,7 +53,7 @@ var (
 	// ErrDeviceGone: the device asked for isn't there any more (a closed
 	// browser tab's player, a phone that went to sleep).
 	ErrDeviceGone = errors.New("that Spotify device isn't there any more: pick another under Play music on…")
-	ErrNoVolume      = errors.New("this Spotify device doesn't let others set its volume: use its own volume buttons")
+	ErrNoVolume   = errors.New("this Spotify device doesn't let others set its volume: use its own volume buttons")
 )
 
 // APIError is an error answer from Spotify.
@@ -512,7 +512,9 @@ func (s *Spotify) Play(ctx context.Context, userID int64, p Play) error {
 	if strings.HasPrefix(p.URI, "spotify:track:") {
 		body = map[string]any{"uris": []string{p.URI}}
 	}
-	play := func() error { return s.as(ctx, userID, http.MethodPut, deviceQuery("/me/player/play", p.DeviceID, nil), body, nil) }
+	play := func() error {
+		return s.as(ctx, userID, http.MethodPut, deviceQuery("/me/player/play", p.DeviceID, nil), body, nil)
+	}
 	err := play()
 	if errors.Is(err, ErrNoDevice) && p.DeviceID != "" {
 		// a device Spotify doesn't count as active yet (a browser's player
