@@ -5,9 +5,31 @@ import { clampVolume, currentSound, dbGain, isPhone, layersOf, setPrefs, soundNa
 import { AmbienceEngine } from "../../lib/soundtrack/engine";
 import { moodName } from "../../lib/soundtrack/moods";
 import { startSdk, useMoods, useMySpotify, type NowPlaying, type SdkPlayer } from "../../lib/soundtrack/spotify";
+import { Session } from "../../lib/soundtrack/session";
 import { trackUrl } from "../../lib/soundtrack/tracks";
 
 const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
+/**
+ * playing is what carries on from one chapter's reader to the next: the
+ * ambience, this tab's Spotify player and what mangarr asked Spotify to
+ * play. Closing the reader stops them.
+ */
+const playing = new Session(
+  () => ({
+    engine: null as AmbienceEngine | null,
+    sdk: null as { player: SdkPlayer; deviceId: string } | null,
+    now: null as NowPlaying | null,
+    onNow: (() => {}) as (n: NowPlaying | null) => void,
+    // played is the music and device mangarr last asked for ("uri|device")
+    played: "",
+  }),
+  (was) => {
+    if (was.played && !was.sdk) void unwrap(api.PUT("/api/v1/me/spotify/pause", { body: { deviceId: was.played.split("|")[1] || undefined } })).catch(() => {});
+    was.sdk?.player.disconnect();
+    was.engine?.close();
+  },
+);
 
 /** useSettledPage is the page once it has stayed put for a while (webtoon strips scroll past pages). */
 export function useSettledPage(page: number, wait: number) {
@@ -39,6 +61,10 @@ export function useSoundtrack(chapterId: number, page: number, webtoon: boolean,
     queryFn: () => unwrap(api.GET("/api/v1/read/chapters/{id}/soundtrack", { params: { path: { id: chapterId } } })),
     enabled: chapterId > 0,
   });
+  // a chapter whose soundtrack is still loading changes nothing (the last
+  // chapter's music plays on until it's known)
+  const loading = chapterId > 0 && resolved.data === undefined && !resolved.isError;
+  useEffect(() => playing.hold(), []);
   // with music on, moods are found in this chapter's pages and the next
   // two's ahead of the reader (when the server does that)
   useEffect(() => {
@@ -52,8 +78,7 @@ export function useSoundtrack(chapterId: number, page: number, webtoon: boolean,
   const phone = useMemo(() => isPhone(navigator.userAgent, navigator.maxTouchPoints), []);
 
   // ambience and effects, in this tab
-  const engine = useMemo(() => new AmbienceEngine(), []);
-  useEffect(() => () => engine.close(), [engine]);
+  const engine = useMemo(() => (playing.value.engine ??= new AmbienceEngine()), []);
   // the browser starts audio only after a tap: music remembered as on
   // waits for the first one
   useEffect(() => {
@@ -72,9 +97,9 @@ export function useSoundtrack(chapterId: number, page: number, webtoon: boolean,
   const layers = useMemo(() => layersOf(on ? sound : null, trackUrl), [on, sound]);
   const layerKey = layers.map((l) => `${l.id}:${l.gain}`).join(",");
   useEffect(() => {
-    void engine.setLayers(layers);
+    if (!loading) void engine.setLayers(layers);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- follows what the layers are, not the array
-  }, [engine, layerKey]);
+  }, [engine, layerKey, loading]);
   useEffect(() => engine.setVolume(prefs.ambience / 100), [engine, prefs.ambience]);
   const ahead = upcoming(resolved.data, settled, 3);
   const aheadKey = ahead.map((a) => a.scene?.id ?? 0).join(",");
@@ -84,18 +109,33 @@ export function useSoundtrack(chapterId: number, page: number, webtoon: boolean,
   }, [engine, on, aheadKey]);
 
   // this browser as a Spotify device (computers)
-  const [sdk, setSdk] = useState<{ player: SdkPlayer; deviceId: string } | null>(null);
+  const [sdk, setSdk] = useState(playing.value.sdk);
   const [sdkError, setSdkError] = useState("");
-  const [sdkNow, setSdkNow] = useState<NowPlaying | null>(null);
+  const [sdkNow, setSdkNow] = useState(playing.value.now);
+  useEffect(() => {
+    const session = playing.value;
+    session.onNow = (n) => {
+      session.now = n;
+      setSdkNow(n);
+    };
+    return () => {
+      session.onNow = () => {};
+    };
+  }, []);
   const sdkRef = useRef(sdk);
   sdkRef.current = sdk;
   const starting = useRef(false);
   useEffect(() => {
     if (!on || !connected || phone || sdk || sdkError || starting.current) return;
     starting.current = true;
-    startSdk(prefs.volume, setSdkNow).then(setSdk, (e) => setSdkError(errorText(e))).finally(() => (starting.current = false));
+    const session = playing.value;
+    startSdk(prefs.volume, (n) => session.onNow(n))
+      .then((s) => {
+        session.sdk = s;
+        setSdk(s);
+      }, (e) => setSdkError(errorText(e)))
+      .finally(() => (starting.current = false));
   }, [on, connected, phone, sdk, sdkError, prefs.volume]);
-  useEffect(() => () => sdkRef.current?.player.disconnect(), []);
 
   // where music plays: this browser unless another device was picked
   const inBrowser = !!sdk && (prefs.deviceId === "" || prefs.deviceId === sdk.deviceId);
@@ -109,16 +149,15 @@ export function useSoundtrack(chapterId: number, page: number, webtoon: boolean,
   const [requesting, setRequesting] = useState(false);
   const prefsRef = useRef(prefs);
   prefsRef.current = prefs;
-  const played = useRef<string>("");
   const deviceRef = useRef(deviceId);
   deviceRef.current = deviceId;
   const uri = on ? (sound?.music?.uri ?? "") : "";
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || loading) return;
     const key = uri && `${uri}|${deviceId}`;
-    if (key === played.current) return;
-    const was = played.current;
-    played.current = key;
+    if (key === playing.value.played) return;
+    const was = playing.value.played;
+    playing.value.played = key;
     if (!uri) {
       // off, muted or no music here: stop what mangarr started
       if (!was) return;
@@ -134,21 +173,12 @@ export function useSoundtrack(chapterId: number, page: number, webtoon: boolean,
       }),
     )
       .catch((e) => {
-        played.current = "";
+        playing.value.played = "";
         setError(errorText(e));
       })
       .finally(() => setRequesting(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- plays when the music or the device changes
-  }, [ready, uri, deviceId]);
-
-  // leaving the reader stops the music it started on another device
-  useEffect(
-    () => () => {
-      const was = played.current;
-      if (was && !sdkRef.current) void unwrap(api.PUT("/api/v1/me/spotify/pause", { body: { deviceId: was.split("|")[1] || undefined } })).catch(() => {});
-    },
-    [],
-  );
+  }, [ready, loading, uri, deviceId]);
 
   // volume: the browser's player at once, other devices after a pause in dragging
   useEffect(() => {
@@ -157,7 +187,7 @@ export function useSoundtrack(chapterId: number, page: number, webtoon: boolean,
       void sdk.player.setVolume(prefs.volume / 100).catch(() => {});
       return;
     }
-    if (!played.current) return;
+    if (!playing.value.played) return;
     const timer = window.setTimeout(() => {
       void unwrap(api.PUT("/api/v1/me/spotify/volume", { body: { volume: prefs.volume, deviceId: deviceRef.current || undefined } })).catch(() => {});
     }, 400);
@@ -237,7 +267,7 @@ export function useSoundtrack(chapterId: number, page: number, webtoon: boolean,
     [engine, inBrowser],
   );
   const setDevice = useCallback((id: string) => {
-    played.current = "";
+    playing.value.played = "";
     setPrefs({ deviceId: id });
   }, []);
   const togglePlay = useCallback(async () => {
