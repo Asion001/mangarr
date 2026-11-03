@@ -248,7 +248,10 @@ new ones back the same way.
   `npm run check:i18n`. Pages load lazily, and CI keeps the first load
   under 140 kB gzipped (`npm run check:bundle`).
 - **Images**: `docker/Dockerfile` builds the full image (Vulkan, ncnn
-  upscalers, `avifenc`, `cjxl`) and the distroless slim one.
+  upscalers, `avifenc`, `cjxl`, ONNX Runtime) and the distroless slim one.
+  The full image's binary is built with the `onnx` tag: `internal/moodscore`
+  then loads ONNX Runtime at run time through purego (no cgo, but glibc),
+  which the static slim build leaves out.
 
 ### Phone-profile load times
 

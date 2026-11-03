@@ -4,7 +4,8 @@
 #
 #   target full (default, :latest)  Debian + Mesa Vulkan + avifenc/cjxl/cjpeg + the
 #                                   ncnn upscalers (amd64; arm64 has everything
-#                                   but the upscalers, which are x86-only)
+#                                   but the upscalers, which are x86-only) + ONNX
+#                                   Runtime for finding moods in pages
 #   target slim (:slim)             distroless server only (~35 MB); re-encodes
 #                                   with the slower built-in AVIF encoder
 #
@@ -32,12 +33,20 @@ ARG UPDATE_URL=
 ARG IMAGE=
 WORKDIR /src
 COPY go.mod go.sum ./
+COPY third_party/ ./third_party/
 RUN go mod download
 COPY . .
 COPY --from=web /web/dist ./web/dist
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -tags nodynamic \
     -ldflags "-s -w -X github.com/Asion001/mangarr/internal/version.Version=${VERSION} -X github.com/Asion001/mangarr/internal/version.Build=${BUILD} -X github.com/Asion001/mangarr/internal/version.Commit=${COMMIT} -X github.com/Asion001/mangarr/internal/version.UpdateURL=${UPDATE_URL} -X github.com/Asion001/mangarr/internal/version.Image=${IMAGE}" \
     -o /out/mangarr ./cmd/mangarr && mkdir -p /out/config
+# the full image's build can score pages with ONNX Runtime (loaded at run
+# time, which needs glibc, so slim keeps the build above; this stage is
+# Alpine, so the glibc loader is named)
+RUN case "$TARGETARCH" in amd64) ldso=/lib64/ld-linux-x86-64.so.2 ;; arm64) ldso=/lib/ld-linux-aarch64.so.1 ;; *) ldso= ;; esac; \
+    CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -tags "nodynamic onnx" \
+    -ldflags "-s -w ${ldso:+-I $ldso} -X github.com/Asion001/mangarr/internal/version.Version=${VERSION} -X github.com/Asion001/mangarr/internal/version.Build=${BUILD} -X github.com/Asion001/mangarr/internal/version.Commit=${COMMIT} -X github.com/Asion001/mangarr/internal/version.UpdateURL=${UPDATE_URL} -X github.com/Asion001/mangarr/internal/version.Image=${IMAGE}" \
+    -o /out/full/mangarr ./cmd/mangarr
 # nodynamic keeps the built-in AVIF encoder from loading a system libavif
 # (which would make the binary dynamically linked and break distroless)
 
@@ -56,6 +65,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       -DAVIF_CODEC_AOM=SYSTEM -DAVIF_LIBYUV=SYSTEM -DAVIF_JPEG=SYSTEM -DAVIF_ZLIBPNG=SYSTEM \
     && cmake --build /tmp/libavif-build --target avifenc \
     && install -Dm755 /tmp/libavif-build/avifenc /out/avifenc
+
+# ---- ONNX Runtime (page moods) ---------------------------------------------------
+FROM debian:trixie-slim AS onnx
+ARG TARGETARCH
+ARG ONNXRUNTIME_VERSION=1.23.2
+RUN set -eux; apt-get update && apt-get install -y --no-install-recommends ca-certificates curl; \
+    case "$TARGETARCH" in amd64) arch=x64 ;; arm64) arch=aarch64 ;; *) echo "no ONNX Runtime for $TARGETARCH"; exit 1 ;; esac; \
+    curl -fsSL "https://github.com/microsoft/onnxruntime/releases/download/v${ONNXRUNTIME_VERSION}/onnxruntime-linux-${arch}-${ONNXRUNTIME_VERSION}.tgz" | tar -xz -C /tmp; \
+    mkdir -p /out; cp -L /tmp/onnxruntime-*/lib/libonnxruntime.so /out/; \
+    cp /tmp/onnxruntime-*/LICENSE /out/ONNXRUNTIME-LICENSE
 
 # ---- ncnn upscalers (x86_64 binaries) -------------------------------------------
 FROM debian:trixie-slim AS tools
@@ -99,7 +118,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && useradd --system --uid 65532 --gid 0 --home /config mangarr \
     && mkdir -p /config && chown 65532:0 /config
 COPY --from=tools /opt/upscalers /opt/upscalers
-COPY --from=build /out/mangarr /usr/local/bin/mangarr
+COPY --from=build /out/full/mangarr /usr/local/bin/mangarr
+COPY --from=onnx /out/libonnxruntime.so /usr/local/lib/
+COPY --from=onnx /out/ONNXRUNTIME-LICENSE /usr/share/doc/mangarr/
 COPY --from=avif /out/avifenc /usr/local/bin/avifenc
 COPY LICENSE THIRD_PARTY_NOTICES.md /usr/share/doc/mangarr/
 RUN ln -s mangarr /usr/local/bin/mangarr-worker
