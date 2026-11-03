@@ -318,7 +318,7 @@ type incoming struct {
 }
 
 // install writes a pack's sounds and rows, keeping the tracks (and the
-// scenes using them) that a reinstall leaves unchanged.
+// moods using them) that a reinstall leaves unchanged.
 func (p *Packs) install(ctx context.Context, m Manifest, origin string, files []incoming) (*model.AudioPack, error) {
 	type stored struct {
 		incoming
@@ -353,6 +353,12 @@ func (p *Packs) install(ctx context.Context, m Manifest, origin string, files []
 	}
 	pack := &model.AudioPack{Slug: m.ID, Version: m.Version, Name: strings.TrimSpace(m.Name), Description: m.Description, License: m.License,
 		SourceURL: m.SourceURL, Origin: origin, Size: total, InstalledAt: time.Now().UTC()}
+	if len(m.Scenes) > 0 {
+		// the built-in moods come first, so a pack's don't stand in for them
+		if err := EnsureMoods(ctx, p.DB, p.Settings); err != nil {
+			return nil, err
+		}
+	}
 	err := p.DB.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
 		var old model.AudioPack
 		err := tx.NewSelect().Model(&old).Where("slug = ?", m.ID).Scan(ctx)
@@ -414,35 +420,66 @@ func (p *Packs) install(ctx context.Context, m Manifest, origin string, files []
 	return pack, nil
 }
 
-// installScenes makes (or remakes) a pack's ready-made scenes.
+// installScenes makes (or remakes) a pack's ready-made scenes as moods,
+// and gives a built-in mood a scene's sounds when it has none yet.
 func (p *Packs) installScenes(ctx context.Context, tx bun.Tx, pack *model.AudioPack, scenes []ManifestScene, byFile map[string]int64) error {
 	for _, ms := range scenes {
-		in := SceneInput{Name: ms.Name, Description: ms.Description, SpotifyURI: ms.SpotifyURI, Shuffle: true}
-		if ms.Mood != "" {
-			var m model.AudioMood
-			if err := tx.NewSelect().Model(&m).Where("slug = ?", ms.Mood).Limit(1).Scan(ctx); err == nil {
-				in.MoodID = &m.ID
-			}
-		}
+		var sounds Sounds
 		for _, a := range ms.Ambience {
-			if id, ok := byFile[a.File]; ok {
-				in.Ambience = append(in.Ambience, SceneLayer{TrackID: id, Volume: a.Volume})
+			if id, ok := byFile[a.File]; ok && len(sounds.Ambience) < MaxAmbience {
+				sounds.Ambience = append(sounds.Ambience, MoodLayer{TrackID: id, Volume: a.Volume})
 			}
 		}
 		for _, s := range ms.SFX {
-			if id, ok := byFile[s.File]; ok {
-				in.SFX = append(in.SFX, ScenePad{TrackID: id, Label: s.Label})
+			if id, ok := byFile[s.File]; ok && len(sounds.SFX) < MaxSFX {
+				sounds.SFX = append(sounds.SFX, MoodPad{TrackID: id, Label: s.Label})
 			}
 		}
-		var old model.AudioScene
+		var base *model.AudioMood
+		if ms.Mood != "" {
+			var m model.AudioMood
+			if err := tx.NewSelect().Model(&m).Where("slug = ?", ms.Mood).Limit(1).Scan(ctx); err == nil {
+				base = &m
+			}
+		}
+		uri := strings.TrimSpace(ms.SpotifyURI)
+		if !ValidURI(uri) {
+			uri = ""
+		}
+		var old model.AudioMood
 		err := tx.NewSelect().Model(&old).Where("pack_id = ? AND name = ?", pack.ID, ms.Name).Limit(1).Scan(ctx)
-		packID := pack.ID
 		if err == nil {
-			if _, err := saveScene(ctx, tx, &old.ID, &packID, in); err != nil {
+			// a reinstall brings the pack's sounds back; the rest is the admin's
+			if err := setSounds(ctx, tx, old.ID, sounds); err != nil {
 				return err
 			}
-		} else if _, err := saveScene(ctx, tx, nil, &packID, in); err != nil {
-			return err
+		} else {
+			packID := pack.ID
+			m := &model.AudioMood{Name: ms.Name, Description: ms.Description, Color: "#9aa2b1", Icon: "music", Genres: []string{}, Keywords: []string{},
+				Prompts: []string{}, SpotifyURI: uri, Shuffle: true}
+			if base != nil {
+				m.Color, m.Icon = base.Color, base.Icon
+				if m.SpotifyURI == "" {
+					m.SpotifyURI, m.SpotifyName, m.SpotifyImageURL, m.Shuffle = base.SpotifyURI, base.SpotifyName, base.SpotifyImageURL, base.Shuffle
+				}
+			}
+			if err := CreateMood(ctx, tx, m, &sounds); err != nil {
+				return err
+			}
+			if _, err := tx.NewUpdate().Model(m).Set("pack_id = ?", packID).WherePK().Exec(ctx); err != nil {
+				return err
+			}
+		}
+		if base != nil {
+			has, err := hasSounds(ctx, tx, base.ID)
+			if err != nil {
+				return err
+			}
+			if !has {
+				if err := setSounds(ctx, tx, base.ID, sounds); err != nil {
+					return err
+				}
+			}
 		}
 	}
 	return nil
@@ -744,7 +781,7 @@ func (p *Packs) List(ctx context.Context) ([]PackView, Usage, error) {
 	return out, u, nil
 }
 
-// Delete removes a pack, its sounds and its files; scenes lose those layers.
+// Delete removes a pack, its sounds and its files; moods lose those sounds.
 func (p *Packs) Delete(ctx context.Context, id int64) error {
 	var pk model.AudioPack
 	if err := p.DB.NewSelect().Model(&pk).Where("id = ?", id).Scan(ctx); err != nil {

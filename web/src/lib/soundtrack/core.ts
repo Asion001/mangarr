@@ -1,17 +1,20 @@
-// Soundtrack choices kept on this device: whether music plays (off until a
-// reader turns it on), how it follows the story, its volume and where it
-// plays. Nothing here talks to the server.
+// Soundtrack choices kept on this device: whether sound plays (off until a
+// reader turns it on), how it follows the story, whether it's Spotify music
+// or ambience only, the volumes and where music plays. Nothing here talks to
+// the server.
 import { useSyncExternalStore } from "react";
 import type { S } from "../../api/client";
 
 export type Mood = S["AudioMood"];
 export type Resolved = S["SoundtrackResolved"];
 export type Sound = S["SoundtrackSound"];
-export type Scene = S["SoundtrackScene"];
-export type SceneTrack = S["SoundtrackSceneTrack"];
+export type MoodTrack = S["MoodTrack"];
 
 /** auto follows the title's soundtrack; manual keeps the mood picked by hand. */
 export type SoundMode = "auto" | "manual" | "off";
+
+/** spotify plays each mood's Spotify music (with its ambience under it); ambience plays only its loops and effects. */
+export type SoundSource = "spotify" | "ambience";
 
 export type SoundPrefs = {
   mode: SoundMode;
@@ -19,6 +22,8 @@ export type SoundPrefs = {
   lastMode: Exclude<SoundMode, "off">;
   /** the mood picked by hand (manual mode) */
   moodId: number | null;
+  /** what plays (ambience whenever Spotify isn't connected) */
+  source: SoundSource;
   /** music volume, 0-100 */
   volume: number;
   /** ambience and effects volume, 0-100 */
@@ -27,7 +32,7 @@ export type SoundPrefs = {
   deviceId: string;
 };
 
-export const defaultPrefs: SoundPrefs = { mode: "off", lastMode: "auto", moodId: null, volume: 70, ambience: 60, deviceId: "" };
+export const defaultPrefs: SoundPrefs = { mode: "off", lastMode: "auto", moodId: null, source: "spotify", volume: 70, ambience: 60, deviceId: "" };
 
 const key = "mangarr:soundtrack";
 
@@ -45,6 +50,7 @@ export function parsePrefs(raw: string | null): SoundPrefs {
     mode: modes.includes(v.mode as SoundMode) ? (v.mode as SoundMode) : defaultPrefs.mode,
     lastMode: v.lastMode === "manual" ? "manual" : "auto",
     moodId: typeof v.moodId === "number" && v.moodId > 0 ? v.moodId : null,
+    source: v.source === "ambience" ? "ambience" : "spotify",
     volume: clampVolume(typeof v.volume === "number" ? v.volume : defaultPrefs.volume),
     ambience: clampVolume(typeof v.ambience === "number" ? v.ambience : defaultPrefs.ambience),
     deviceId: typeof v.deviceId === "string" ? v.deviceId : "",
@@ -136,8 +142,11 @@ export function upcoming(resolved: Resolved | undefined, page: number, ahead = 3
   return (resolved?.pages ?? []).filter((c) => c.page > page && c.page <= page + ahead && c.sound).map((c) => c.sound as Sound);
 }
 
-/** soundName names what plays: the scene, else the mood. */
-export const soundName = (s: Sound | null | undefined, moodName: (m: Mood) => string) => s?.scene?.name ?? (s?.mood ? moodName(s.mood) : "");
+/** soundName names what plays: its mood. */
+export const soundName = (s: Sound | null | undefined, moodName: (m: Mood) => string) => (s?.mood ? moodName(s.mood) : "");
+
+/** sourceOf is what plays for a reader: Spotify music only when it's connected and picked. */
+export const sourceOf = (prefs: SoundPrefs, connected: boolean): SoundSource => (connected && prefs.source === "spotify" ? "spotify" : "ambience");
 
 /** soundColor is what plays' colour: its mood's. */
 export const soundColor = (s: Sound | null | undefined) => s?.mood?.color ?? "#9aa2b1";
@@ -161,7 +170,7 @@ export function diffLayers(from: Layer[], to: Layer[]) {
 
 /** layersOf are a sound's ambience loops as the engine plays them. */
 export function layersOf(s: Sound | null | undefined, url: (trackId: number) => string): Layer[] {
-  return (s?.scene?.ambience ?? []).map((t) => ({ id: t.trackId, url: url(t.trackId), gain: (t.volume ?? 1) * dbGain(t.gainDb) }));
+  return (s?.mood?.ambience ?? []).map((t) => ({ id: t.trackId, url: url(t.trackId), gain: (t.volume ?? 1) * dbGain(t.gainDb) }));
 }
 
 /** tint is a mood colour at an opacity (00-ff), for backgrounds and borders. */

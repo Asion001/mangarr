@@ -135,7 +135,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Remove a pack and its sounds (scenes lose those layers) */
+        /** Remove a pack and its sounds (moods lose them) */
         delete: operations["audio-pack-delete"];
         options?: never;
         head?: never;
@@ -154,43 +154,6 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/audio/scenes": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Scenes: a mood's music with ambience layers and sound effect pads */
-        get: operations["audio-scenes"];
-        put?: never;
-        /** Add a scene */
-        post: operations["audio-scene-create"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/audio/scenes/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** One scene */
-        get: operations["audio-scene"];
-        /** Change a scene */
-        put: operations["audio-scene-update"];
-        post?: never;
-        /** Delete a scene (cues that used it keep their mood) */
-        delete: operations["audio-scene-delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1395,7 +1358,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Add or replace one of your own cues (no mood or scene removes it) */
+        /** Add or replace one of your own cues (no mood removes it) */
         put: operations["me-series-soundtrack-cue"];
         post?: never;
         delete?: never;
@@ -1413,7 +1376,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Replace your own cues with an exported soundtrack (scenes by name only) */
+        /** Replace your own cues with an exported soundtrack (moods by name only) */
         post: operations["me-series-soundtrack-import"];
         delete?: never;
         options?: never;
@@ -3292,7 +3255,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Add or replace one cue of the shared soundtrack (no mood or scene removes it) */
+        /** Add or replace one cue of the shared soundtrack (no mood removes it) */
         put: operations["series-soundtrack-cue"];
         post?: never;
         delete?: never;
@@ -3344,7 +3307,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Replace the shared soundtrack with an exported one (scenes it names are made from installed sounds) */
+        /** Replace the shared soundtrack with an exported one (moods it names that aren't here are made from installed sounds) */
         post: operations["series-soundtrack-import"];
         delete?: never;
         options?: never;
@@ -5134,19 +5097,27 @@ export interface components {
             id: string;
         };
         AudioMood: {
+            ambience: components["schemas"]["MoodTrack"][];
             /** @description #rrggbb */
             color: string;
             /** Format: date-time */
             createdAt: string;
+            description: string;
             genres: string[];
             icon: string;
             /** Format: int64 */
             id: number;
             keywords: string[];
             name: string;
+            /**
+             * Format: int64
+             * @description The sound pack that brought it
+             */
+            packId?: number;
             /** Format: int64 */
             position: number;
             prompts: string[];
+            sfx: components["schemas"]["MoodTrack"][];
             shuffle: boolean;
             /** @description The built-in mood this is (calm, melancholy…); empty for moods admins made */
             slug: string;
@@ -7123,7 +7094,9 @@ export interface components {
             tags?: number[];
         };
         MoodBody: {
+            ambience?: components["schemas"]["SoundtrackMoodLayer"][];
             color: string;
+            description?: string;
             genres?: string[];
             icon: string;
             /** @description Words in chapter titles that suggest the mood */
@@ -7131,10 +7104,29 @@ export interface components {
             name: string;
             /** @description How the mood's pages look, for finding it in pages */
             prompts?: string[];
+            sfx?: components["schemas"]["SoundtrackMoodPad"][];
             shuffle?: boolean;
             spotifyImageUrl?: string;
             spotifyName?: string;
             spotifyUri?: string;
+        };
+        MoodTrack: {
+            attribution: string;
+            category: string;
+            ext: string;
+            /** Format: double */
+            gainDb: number;
+            icon: string;
+            label?: string;
+            license: string;
+            pack: string;
+            sha256: string;
+            sourceUrl: string;
+            title: string;
+            /** Format: int64 */
+            trackId: number;
+            /** Format: double */
+            volume: number;
         };
         MoveState: {
             /** Format: int64 */
@@ -8629,7 +8621,7 @@ export interface components {
             modelVersion?: string;
             /**
              * Format: int64
-             * @description None (and no scene): no music from here
+             * @description None: nothing plays from here
              */
             moodId?: number;
             readonly needsReview?: boolean;
@@ -8637,8 +8629,6 @@ export interface components {
             page?: number;
             /** Format: int64 */
             pageCount?: number;
-            /** Format: int64 */
-            sceneId?: number;
             /** @enum {string} */
             source?: "manual" | "auto" | "";
         };
@@ -8688,7 +8678,12 @@ export interface components {
             scene?: components["schemas"]["SoundtrackExportedScene"];
         };
         SoundtrackExportedMood: {
+            ambience?: components["schemas"]["SoundtrackExportedSound"][];
+            color?: string;
+            icon?: string;
             name: string;
+            sfx?: components["schemas"]["SoundtrackExportedSound"][];
+            shuffle?: boolean;
             slug?: string;
             spotifyUri?: string;
         };
@@ -8715,7 +8710,18 @@ export interface components {
             /** Format: int64 */
             missingSounds: number;
             /** Format: int64 */
-            scenesCreated: number;
+            moodsCreated: number;
+        };
+        SoundtrackMoodLayer: {
+            /** Format: int64 */
+            trackId: number;
+            /** Format: double */
+            volume: number;
+        };
+        SoundtrackMoodPad: {
+            label?: string;
+            /** Format: int64 */
+            trackId: number;
         };
         SoundtrackMusic: {
             imageUrl?: string;
@@ -8774,68 +8780,6 @@ export interface components {
             source: "none" | "shared" | "personal" | "suggested" | "auto";
             start?: components["schemas"]["SoundtrackSound"];
         };
-        SoundtrackScene: {
-            ambience: components["schemas"]["SoundtrackSceneTrack"][];
-            description: string;
-            /** Format: int64 */
-            id: number;
-            /** Format: int64 */
-            moodId?: number;
-            name: string;
-            /**
-             * Format: int64
-             * @description The pack that brought it
-             */
-            packId?: number;
-            sfx: components["schemas"]["SoundtrackSceneTrack"][];
-            shuffle: boolean;
-            spotifyImageUrl: string;
-            spotifyName: string;
-            spotifyUri: string;
-            /** Format: date-time */
-            updatedAt: string;
-        };
-        SoundtrackSceneInput: {
-            ambience?: components["schemas"]["SoundtrackSceneLayer"][];
-            description?: string;
-            /** Format: int64 */
-            moodId?: number;
-            name: string;
-            sfx?: components["schemas"]["SoundtrackScenePad"][];
-            shuffle?: boolean;
-            spotifyImageUrl?: string;
-            spotifyName?: string;
-            spotifyUri?: string;
-        };
-        SoundtrackSceneLayer: {
-            /** Format: int64 */
-            trackId: number;
-            /** Format: double */
-            volume: number;
-        };
-        SoundtrackScenePad: {
-            label?: string;
-            /** Format: int64 */
-            trackId: number;
-        };
-        SoundtrackSceneTrack: {
-            attribution: string;
-            category: string;
-            ext: string;
-            /** Format: double */
-            gainDb: number;
-            icon: string;
-            label?: string;
-            license: string;
-            pack: string;
-            sha256: string;
-            sourceUrl: string;
-            title: string;
-            /** Format: int64 */
-            trackId: number;
-            /** Format: double */
-            volume: number;
-        };
         SoundtrackSearchItem: {
             imageUrl?: string;
             name: string;
@@ -8852,7 +8796,6 @@ export interface components {
             confidence?: number;
             mood?: components["schemas"]["AudioMood"];
             music?: components["schemas"]["SoundtrackMusic"];
-            scene?: components["schemas"]["SoundtrackScene"];
             /** @enum {string} */
             source: "shared" | "personal" | "suggested" | "auto";
         };
@@ -10172,163 +10115,6 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Status"];
                 };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "audio-scenes": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SoundtrackScene"][];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "audio-scene-create": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SoundtrackSceneInput"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SoundtrackScene"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "audio-scene": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SoundtrackScene"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "audio-scene-update": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SoundtrackSceneInput"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SoundtrackScene"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "audio-scene-delete": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description No Content */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
             /** @description Error */
             default: {

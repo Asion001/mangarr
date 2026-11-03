@@ -408,8 +408,10 @@ Worth knowing when a page feels slow, or when you put a proxy in front:
 
 ### Soundtracks: music while reading (optional)
 
-The reader can play music that fits what you read. Music comes from
-Spotify, through each reader's own **Spotify Premium** account.
+The reader can play sound that fits what you read: music from Spotify,
+through each reader's own **Spotify Premium** account, or ambience and
+sound effects from sound packs, which need no Spotify at all. Without
+Spotify, skip the steps below and install the sound packs.
 
 1. Create an app at [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard)
    (the developer account needs Premium) and tick **Web API** and
@@ -425,15 +427,21 @@ A plain-HTTP server needs a reverse proxy with a certificate first, and
 **Settings → General → Public URL** set to its `https://` address; see
 [reverse-proxy.md](reverse-proxy.md).
 
-**Moods** are presets: a Spotify playlist, album or track with a colour and
-an icon. mangarr starts with eight (Calm, Melancholy, Tense, Action, Horror,
-Romance, Comedy, Mystery) without music; admins pick music for them on the
-**Moods** tab and can add more. On a title's page admins choose the mood
+**Moods** are what plays: a Spotify playlist, album or track, and up to
+four ambience loops and eight sound effect pads from sound packs, with a
+colour and an icon. mangarr starts with eight (Calm, Melancholy, Tense,
+Action, Horror, Romance, Comedy, Mystery) without music; the starter packs
+give them ambience when installed. Admins pick music and sounds for them on
+the **Moods** tab and can add more (for places and moments: "Storm at the
+harbor"). On a title's page admins choose the mood
 everyone hears (**Default**); each reader can pick their own (**My
 version**), mute the title, or **Reset to default**.
 
-Music is off until a reader taps the speaker button in the reader's top
-bar; the choice is remembered on that device. On a computer the browser tab
+Sound is off until a reader taps the speaker button in the reader's top
+bar; the choice is remembered on that device. In the sound sheet each
+reader picks **Spotify music** (the mood's playlist, its ambience quietly
+under it) or **Ambience** (the mood's loops and effects alone); readers
+without Spotify connected get Ambience. On a computer the browser tab
 plays the music itself; on phones, where Spotify's web player doesn't run,
 mangarr starts the music on the reader's Spotify app or speaker (pick it
 under **Play music on…**). Spotify keeps playing each mood by its playlist
@@ -446,11 +454,10 @@ Spotify & packs** installs them from the catalog (by default the CC0
 starter packs at
 [github.com/Asion001/mangarr-sounds](https://github.com/Asion001/mangarr-sounds):
 weather, city, nature, combat and everyday objects), from an uploaded zip,
-or by scanning a folder on the server for packs downloaded elsewhere. A
-**scene** (Scenes tab) is a mood's music with up to four ambience loops and
-eight effect pads. On a title's **Soundtrack** page, and with **Start a
-scene here** in the reader, cues start a mood or a scene from a chapter or
-a page; a reader's own cues win over the default ones. Soundtracks export to
+or by scanning a folder on the server for packs downloaded elsewhere; a
+pack's ready-made scenes arrive as moods. On a title's **Soundtrack** page,
+and with **Start a mood here** in the reader, cues start a mood from a
+chapter or a page; a reader's own cues win over the default ones. Soundtracks export to
 a file and import on another server, by chapter number and sound hash.
 
 **Automatic moods** (Sound packs settings, off by default): mangarr reads

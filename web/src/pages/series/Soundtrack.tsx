@@ -8,13 +8,13 @@ import { api, apiUrl, unwrap, type S } from "../../api/client";
 import { Badge, Button, ButtonLink, Card, ErrorBox, Input, Loading, Modal, PageHeader, Segmented } from "../../components/ui";
 import { useAccount } from "../../lib/account";
 import { useDocumentTitle } from "../../lib/documentTitle";
-import { tint, type Mood, type Scene } from "../../lib/soundtrack/core";
+import { tint, type Mood } from "../../lib/soundtrack/core";
 import { MoodIcon, moodName } from "../../lib/soundtrack/moods";
 import { MoodPicker } from "../../lib/soundtrack/MoodPicker";
 import { connectSpotify, useMoods, useMySpotify, useSpotifyReturn } from "../../lib/soundtrack/spotify";
 import { useToast } from "../../lib/toast";
 import { useSeries } from "../../api/queries";
-import { SceneArt, SoundPicker, useScenes } from "../reader/StartScene";
+import { MoodArt, SoundPicker } from "../reader/StartMood";
 
 type Doc = S["SoundtrackDoc"];
 type Cue = S["SoundtrackCue"];
@@ -141,15 +141,14 @@ export function SeriesSoundtrack({ seriesId }: { seriesId: number }) {
   );
 }
 
-/** CueArt is a cue's tile: its scene's, else its mood's. */
-function CueArt({ cue, moods, scenes }: { cue: Cue; moods: Map<number, Mood>; scenes: Map<number, Scene> }) {
-  const scene = cue.sceneId ? scenes.get(cue.sceneId) : undefined;
-  if (scene) return <SceneArt scene={scene} mood={scene.moodId ? moods.get(scene.moodId) : null} className="size-11" />;
+/** CueArt is a cue's tile: its mood's. */
+function CueArt({ cue, moods }: { cue: Cue; moods: Map<number, Mood> }) {
   const m = cue.moodId ? moods.get(cue.moodId) : undefined;
-  const color = m?.color ?? "#9aa2b1";
+  if (m) return <MoodArt mood={m} className="size-11" />;
+  const color = "#9aa2b1";
   return (
     <span className="flex size-11 shrink-0 items-center justify-center rounded-md" style={{ background: tint(color, "33"), color }} aria-hidden="true">
-      <MoodIcon icon={m?.icon ?? "music"} className="size-5" />
+      <MoodIcon icon="music" className="size-5" />
     </span>
   );
 }
@@ -207,7 +206,6 @@ export function SoundtrackPage() {
   useSpotifyReturn();
   const { data, isLoading, error } = useSoundtrackView(id);
   const moods = useMoods();
-  const scenes = useScenes();
   const edits = useSoundtrackEdits(id);
   const qc = useQueryClient();
   const user = account?.kind === "user";
@@ -241,7 +239,6 @@ export function SoundtrackPage() {
   const view: Version = tab ?? (user && (data.personal || !isAdmin) ? "mine" : "shared");
   const canEdit = view === "mine" ? user : isAdmin;
   const moodById = new Map(moods.data.map((m) => [m.id, m]));
-  const sceneById = new Map((scenes.data ?? []).map((s) => [s.id, s]));
   const mine = new Set((data.personal?.cues ?? []).map(cueKey));
   // My version shows the default's cues with mine over them
   const rows: { cue: Cue; mine: boolean }[] =
@@ -255,10 +252,8 @@ export function SoundtrackPage() {
     return c.page ? t("Ch. {chapter} · from page {page}", { chapter: ch, page: c.page }) : t("Ch.") + " " + ch;
   };
   const name = (c: Cue) => {
-    const sc = c.sceneId ? sceneById.get(c.sceneId) : undefined;
-    if (sc) return sc.name;
     const m = c.moodId ? moodById.get(c.moodId) : undefined;
-    return m ? moodName(m) : t("No music");
+    return m ? moodName(m) : t("Nothing plays");
   };
   const importFile = async (f: File) => {
     try {
@@ -270,7 +265,7 @@ export function SoundtrackPage() {
       const r = res.result;
       toast.success(
         t("Imported {count} cues", { count: r.cues }),
-        [r.scenesCreated ? t("{count} scenes made", { count: r.scenesCreated }) : "", r.missingSounds ? t("{count} sounds aren't installed here", { count: r.missingSounds }) : "", r.missingMoods ? t("{count} moods weren't found", { count: r.missingMoods }) : ""].filter(Boolean).join(" · "),
+        [r.moodsCreated ? t("{count} moods made", { count: r.moodsCreated }) : "", r.missingSounds ? t("{count} sounds aren't installed here", { count: r.missingSounds }) : "", r.missingMoods ? t("{count} moods weren't found", { count: r.missingMoods }) : ""].filter(Boolean).join(" · "),
       );
     } catch (e) {
       toast.fromError(e);
@@ -340,7 +335,7 @@ export function SoundtrackPage() {
         {rows.length === 0 && <p className="p-4 text-sm text-muted">{t("No cues yet: nothing plays for this title.")}</p>}
         {rows.map(({ cue, mine: own }) => (
           <div key={cueKey(cue) + (own ? "m" : "")} className="flex items-center gap-3 border-b border-border p-3 last:border-b-0">
-            <CueArt cue={cue} moods={moodById} scenes={sceneById} />
+            <CueArt cue={cue} moods={moodById} />
             <div className="min-w-0 flex-1">
               <div className={clsx("text-xs", cue.needsReview ? "text-warn" : "text-muted")}>
                 {label(cue)}

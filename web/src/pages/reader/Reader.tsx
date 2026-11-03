@@ -15,6 +15,7 @@ import { buildViews, indexOf, pageSrc, PagedViewer } from "./PagedViewer";
 import { WebtoonViewer } from "./WebtoonViewer";
 import { SettingsPanel } from "./SettingsPanel";
 import { SoundSheet } from "./SoundSheet";
+import { moodName } from "../../lib/soundtrack/moods";
 import { useSoundtrack } from "./sound";
 import { useSpotifyReturn } from "../../lib/soundtrack/spotify";
 import { ChapterPicker } from "./ChapterPicker";
@@ -486,13 +487,13 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
               style={{ direction: s.direction === "rtl" ? "rtl" : "ltr" }}
               aria-label={t("Page")}
             />
-            {/* soundtrack cues: a tick where a scene starts, in its mood's colour */}
+            {/* soundtrack cues: a tick where a mood starts, in its's colour */}
             {count > 1 &&
               (soundtrack.resolved?.pages ?? []).map((cue) => (
                 <span
                   key={cue.page}
                   aria-hidden="true"
-                  title={cue.sound?.scene?.name ?? cue.sound?.mood?.name}
+                  title={cue.sound?.mood ? moodName(cue.sound.mood) : undefined}
                   className="pointer-events-none absolute -top-1 h-2.5 w-[3px] rounded-sm"
                   style={{ [s.direction === "rtl" ? "right" : "left"]: `calc(${((cue.page - 1) / (count - 1)) * 100}% - 1px)`, background: cue.sound?.mood?.color ?? "#9aa2b1" }}
                 />

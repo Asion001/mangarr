@@ -53,7 +53,7 @@ func TestSoundtrackStorage(t *testing.T) {
 			t.Fatalf("deleted built-ins came back: %+v", moods)
 		}
 		m := &model.AudioMood{Name: " Storm ", Color: "#AABBCC", Icon: "zap", Genres: []string{"Action", " Action ", ""}, SpotifyURI: "spotify:playlist:37i9dQZF1DX4sWSpwq3LiO"}
-		if err := CreateMood(ctx, d, m); err != nil || m.Name != "Storm" || m.Color != "#aabbcc" || len(m.Genres) != 1 {
+		if err := CreateMood(ctx, d, m, nil); err != nil || m.Name != "Storm" || m.Color != "#aabbcc" || len(m.Genres) != 1 {
 			t.Fatalf("create %v %+v", err, m)
 		}
 

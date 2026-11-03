@@ -85,8 +85,6 @@ var operationPermissions = map[string][]string{
 	"read-chapter-soundtrack":         {permSignedIn},
 	"audio-tracks":                    {permSignedIn},
 	"audio-track-stream":              {permSignedIn},
-	"audio-scenes":                    {permSignedIn},
-	"audio-scene":                     {permSignedIn},
 	"me-series-soundtrack-cue":        {permSignedIn},
 	"series-soundtrack-export":        {permSignedIn},
 	"me-series-soundtrack-import":     {permSignedIn},

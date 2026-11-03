@@ -60,6 +60,9 @@ func (s *Service) Prompts(ctx context.Context) ([]moodscore.Prompt, string, erro
 	h := sha256.New()
 	for _, m := range moods {
 		texts := m.Prompts
+		if len(texts) == 0 && m.PackID != nil {
+			continue // a place a pack brought ("Café"), not a mood to find
+		}
 		if len(texts) == 0 {
 			texts = []string{"a manga page that feels " + strings.ToLower(m.Name)}
 		}

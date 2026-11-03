@@ -30,8 +30,9 @@ func trackByTitle(t *testing.T, d *db.DB, title string) model.AudioTrack {
 }
 
 // TestPackInstall: a pack zip installs content-addressed files, guesses
-// what pack.json leaves out, makes its scenes, and a reinstall keeps the
-// tracks scenes use; bad packs are refused; leftovers are found.
+// what pack.json leaves out, makes its scenes as moods (and gives a
+// built-in mood without sounds theirs), and a reinstall keeps the tracks
+// moods use; bad packs are refused; leftovers are found.
 func TestPackInstall(t *testing.T) {
 	dbtest.ForEachDialect(t, func(t *testing.T, d *db.DB) {
 		ctx := context.Background()
@@ -61,21 +62,23 @@ func TestPackInstall(t *testing.T) {
 		if boop := trackByTitle(t, d, "Boop"); boop.Kind != model.TrackSFX || boop.Icon != "swords" {
 			t.Fatalf("boop %+v", boop)
 		}
-		scenes, err := Scenes(ctx, d)
-		if err != nil || len(scenes) != 1 || scenes[0].Name != "Humming room" || scenes[0].MoodID == nil || len(scenes[0].Ambience) != 1 ||
-			scenes[0].Ambience[0].Volume != 0.6 || len(scenes[0].SFX) != 1 || scenes[0].SFX[0].Label != "Beep" {
-			t.Fatalf("pack scenes %v %+v", err, scenes)
+		room := moodByName(t, d, st, "Humming room")
+		if room.PackID == nil || room.Color != "#3fb98a" || len(room.Ambience) != 1 || room.Ambience[0].Volume != 0.6 || len(room.SFX) != 1 || room.SFX[0].Label != "Beep" {
+			t.Fatalf("pack mood %+v", room)
+		}
+		if calm := moodByName(t, d, st, "Calm"); len(calm.Ambience) != 1 || len(calm.SFX) != 1 {
+			t.Fatalf("the built-in mood didn't get the pack's sounds: %+v", calm)
 		}
 
-		// an update keeps unchanged tracks (and the scenes using them)
+		// an update keeps unchanged tracks (and the moods using them)
 		if pack, err = p.InstallZip(ctx, tonepack.Zip(t, "test-tones", "1.1.0"), "upload"); err != nil || pack.Version != "1.1.0" {
 			t.Fatalf("reinstall %v %+v", err, pack)
 		}
 		if again := trackByTitle(t, d, "Low hum"); again.ID != hum.ID {
 			t.Fatalf("reinstall changed the track id %d → %d", hum.ID, again.ID)
 		}
-		if scenes, _ = Scenes(ctx, d); len(scenes) != 1 || len(scenes[0].Ambience) != 1 {
-			t.Fatalf("scenes after reinstall %+v", scenes)
+		if room := moodByName(t, d, st, "Humming room"); len(room.Ambience) != 1 {
+			t.Fatalf("mood after reinstall %+v", room)
 		}
 		views, usage, err := p.List(ctx)
 		if err != nil || len(views) != 1 || views[0].Ambience != 2 || views[0].SFX != 2 || usage.Size != pack.Size || usage.Over {
@@ -104,8 +107,8 @@ func TestPackInstall(t *testing.T) {
 		if _, err := os.Stat(filepath.Join(p.Dir, "test-tones")); !os.IsNotExist(err) {
 			t.Fatalf("pack folder left: %v", err)
 		}
-		if scenes, _ = Scenes(ctx, d); len(scenes) != 1 || len(scenes[0].Ambience) != 0 {
-			t.Fatalf("a scene keeps a deleted pack's sounds: %+v", scenes)
+		if room := moodByName(t, d, st, "Humming room"); len(room.Ambience) != 0 || room.PackID != nil {
+			t.Fatalf("a mood keeps a deleted pack's sounds: %+v", room)
 		}
 	})
 }
@@ -225,7 +228,7 @@ func seedChapters(t *testing.T, d *db.DB, series int64, pages map[float64]int) {
 	}
 }
 
-// TestCuesScenesAndSuggestions: scenes check their sounds; a reader's cue
+// TestCuesScenesAndSuggestions: moods check their sounds; a reader's cue
 // beats an admin cue, which beats the title mood; page cues remember the
 // page count and get flagged; genres suggest a mood when asked to; an
 // exported soundtrack imports back by chapter numbers and sound hashes.
@@ -244,23 +247,32 @@ func TestCuesScenesAndSuggestions(t *testing.T) {
 		}
 		low, high, beep := trackByTitle(t, d, "Low hum"), trackByTitle(t, d, "High hum"), trackByTitle(t, d, "Beep")
 
-		if _, err := CreateScene(ctx, d, SceneInput{Name: "Wrong", Ambience: []SceneLayer{{TrackID: beep.ID, Volume: 1}}}); err == nil {
+		newMood := func(name string) *model.AudioMood {
+			return &model.AudioMood{Name: name, Color: tense.Color, Icon: "zap", Genres: []string{}, Keywords: []string{}, Prompts: []string{}}
+		}
+		if err := CreateMood(ctx, d, newMood("Wrong"), &Sounds{Ambience: []MoodLayer{{TrackID: beep.ID, Volume: 1}}}); err == nil {
 			t.Fatal("an effect as an ambience layer")
 		}
-		five := slices.Repeat([]SceneLayer{{TrackID: low.ID, Volume: 1}}, 5)
-		if _, err := CreateScene(ctx, d, SceneInput{Name: "Crowded", Ambience: five}); err == nil {
+		five := slices.Repeat([]MoodLayer{{TrackID: low.ID, Volume: 1}}, 5)
+		if err := CreateMood(ctx, d, newMood("Crowded"), &Sounds{Ambience: five}); err == nil {
 			t.Fatal("five ambience layers")
 		}
-		storm, err := CreateScene(ctx, d, SceneInput{Name: "Storm", MoodID: &tense.ID, SpotifyURI: "spotify:playlist:37i9dQZF1DX4sWSpwq3LiO", Shuffle: true,
-			Ambience: []SceneLayer{{TrackID: low.ID, Volume: 0.5}, {TrackID: high.ID, Volume: 0.3}}, SFX: []ScenePad{{TrackID: beep.ID, Label: "Bell"}}})
+		storm := newMood("Storm")
+		storm.SpotifyURI, storm.Shuffle = "spotify:playlist:37i9dQZF1DX4sWSpwq3LiO", true
+		err = CreateMood(ctx, d, storm, &Sounds{Ambience: []MoodLayer{{TrackID: low.ID, Volume: 0.5}, {TrackID: high.ID, Volume: 0.3}}, SFX: []MoodPad{{TrackID: beep.ID, Label: "Bell"}}})
 		if err != nil || len(storm.Ambience) != 2 || storm.SFX[0].Label != "Bell" {
 			t.Fatalf("storm %v %+v", err, storm)
+		}
+		// an update that leaves the sounds out keeps them
+		storm.Description = "Rain on the harbor"
+		if err := UpdateMood(ctx, d, storm.ID, storm, nil); err != nil || len(storm.Ambience) != 2 || storm.Description == "" {
+			t.Fatalf("update %v %+v", err, storm)
 		}
 
 		user, series := seedLibrary(t, d)
 		seedChapters(t, d, series, map[float64]int{3: 20, 5: 30})
 		page := 10
-		shared := Doc{Cues: []Cue{{ChapterNumber: 0, MoodID: &calm.ID}, {ChapterNumber: 5, SceneID: &storm.ID}, {ChapterNumber: 5, Page: &page, MoodID: &calm.ID}}}
+		shared := Doc{Cues: []Cue{{ChapterNumber: 0, MoodID: &calm.ID}, {ChapterNumber: 5, MoodID: &storm.ID}, {ChapterNumber: 5, Page: &page, MoodID: &calm.ID}}}
 		if err := Save(ctx, d, series, nil, shared); err != nil {
 			t.Fatal(err)
 		}
@@ -281,9 +293,9 @@ func TestCuesScenesAndSuggestions(t *testing.T) {
 			t.Fatalf("ch 3 plays the title mood: %+v", r.Start)
 		}
 		r := at(5)
-		if r.Start == nil || r.Start.Scene == nil || r.Start.Scene.ID != storm.ID || r.Start.Mood.ID != tense.ID ||
+		if r.Start == nil || r.Start.Mood.ID != storm.ID || len(r.Start.Mood.Ambience) != 2 ||
 			r.Start.Music == nil || r.Start.Music.URI != "spotify:playlist:37i9dQZF1DX4sWSpwq3LiO" || len(r.Pages) != 1 || r.Pages[0].Page != 10 {
-			t.Fatalf("ch 5 plays the admin's scene: %+v", r)
+			t.Fatalf("ch 5 plays the admin's mood: %+v", r)
 		}
 		// the reader's own cues win where they sit
 		if _, err := SetCue(ctx, d, series, &user, Cue{ChapterNumber: 5, MoodID: &horror.ID}); err != nil {
@@ -295,11 +307,11 @@ func TestCuesScenesAndSuggestions(t *testing.T) {
 		if r := at(3); r.Start.Mood.ID != calm.ID {
 			t.Fatalf("elsewhere the admin's still play: %+v", r.Start)
 		}
-		// removing it (no mood or scene) brings the admin's back
+		// removing it (no mood) brings the admin's back
 		if _, err := SetCue(ctx, d, series, &user, Cue{ChapterNumber: 5}); err != nil {
 			t.Fatal(err)
 		}
-		if r := at(5); r.Start.Scene == nil {
+		if r := at(5); r.Start.Mood.ID != storm.ID {
 			t.Fatalf("after removing my cue: %+v", r.Start)
 		}
 
@@ -314,24 +326,34 @@ func TestCuesScenesAndSuggestions(t *testing.T) {
 			t.Fatalf("flags %+v", got.Cues)
 		}
 
-		// export, wipe, import: scenes come back from installed sounds
+		// export, wipe, import: moods come back from installed sounds
 		exp, err := MakeExport(ctx, d, "Harbor", got)
-		if err != nil || len(exp.Cues) != 3 || exp.Cues[1].Scene == nil || exp.Cues[1].Scene.Ambience[0].SHA256 != low.SHA256 || exp.Cues[0].Mood.Slug != "calm" {
+		if err != nil || len(exp.Cues) != 3 || exp.Cues[1].Mood == nil || exp.Cues[1].Mood.Name != "Storm" || exp.Cues[1].Mood.Ambience[0].SHA256 != low.SHA256 || exp.Cues[0].Mood.Slug != "calm" {
 			t.Fatalf("export %v %+v", err, exp)
 		}
-		exp.Cues[1].Scene.Ambience = append(exp.Cues[1].Scene.Ambience, ExportedSound{SHA256: "ff00", Volume: 1})
-		if err := DeleteScene(ctx, d, storm.ID); err != nil {
+		exp.Cues[1].Mood.Ambience = append(exp.Cues[1].Mood.Ambience, ExportedSound{SHA256: "ff00", Volume: 1})
+		if err := DeleteMood(ctx, d, storm.ID); err != nil {
 			t.Fatal(err)
 		}
 		doc, res, err := ReadExport(ctx, d, *exp, true)
-		if err != nil || res.ScenesCreated != 1 || res.MissingSounds != 1 || res.Cues != 3 || doc.Cues[1].SceneID == nil {
+		if err != nil || res.MoodsCreated != 1 || res.MissingSounds != 1 || res.Cues != 3 || doc.Cues[1].MoodID == nil {
 			t.Fatalf("import %v %+v %+v", err, res, doc)
 		}
 		if err := Save(ctx, d, series, nil, *doc); err != nil {
 			t.Fatal(err)
 		}
-		if r := at(5); r.Start.Scene == nil || len(r.Start.Scene.Ambience) != 2 {
-			t.Fatalf("imported scene: %+v", r.Start)
+		if r := at(5); r.Start.Mood.Name != "Storm" || len(r.Start.Mood.Ambience) != 2 {
+			t.Fatalf("imported mood: %+v", r.Start)
+		}
+		// a file from before moods and scenes were one: its scene is a mood
+		old := Export{Format: ExportFormat, Version: 1, Cues: []ExportedCue{{Chapter: 7, Scene: &ExportedScene{Name: "Old rain", Mood: &ExportedMood{Slug: "tense", Name: "Tense"},
+			Ambience: []ExportedSound{{SHA256: high.SHA256, Volume: 0.7}}}}}}
+		odoc, ores, err := ReadExport(ctx, d, old, true)
+		if err != nil || ores.MoodsCreated != 1 || odoc.Cues[0].MoodID == nil {
+			t.Fatalf("old import %v %+v", err, ores)
+		}
+		if m, _ := Mood(ctx, d, *odoc.Cues[0].MoodID); m.Name != "Old rain" || m.Color != tense.Color || len(m.Ambience) != 1 {
+			t.Fatalf("old scene as a mood %+v", m)
 		}
 		credits, err := Credits(ctx, d, doc)
 		if err != nil || len(credits) != 3 {
@@ -377,4 +399,19 @@ func TestCategoryAndKind(t *testing.T) {
 	if k, _ := kindOf("misc/long.ogg", 5<<20); k != model.TrackAmbience {
 		t.Errorf("a long unnamed file is %s", k)
 	}
+}
+
+func moodByName(t *testing.T, d *db.DB, st *settings.Store, name string) model.AudioMood {
+	t.Helper()
+	moods, err := Moods(context.Background(), d, st)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, m := range moods {
+		if m.Name == name {
+			return m
+		}
+	}
+	t.Fatalf("no mood %q", name)
+	return model.AudioMood{}
 }

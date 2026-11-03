@@ -65,7 +65,7 @@ func EnsureMoods(ctx context.Context, db bun.IDB, st *settings.Store) error {
 	if done.MoodsSeeded {
 		return nil
 	}
-	n, err := db.NewSelect().Model((*model.AudioMood)(nil)).Count(ctx)
+	n, err := db.NewSelect().Model((*model.AudioMood)(nil)).Where("slug <> ''").Count(ctx)
 	if err != nil {
 		return err
 	}
@@ -88,8 +88,10 @@ func Moods(ctx context.Context, db bun.IDB, st *settings.Store) ([]model.AudioMo
 		return nil, err
 	}
 	out := []model.AudioMood{}
-	err := db.NewSelect().Model(&out).Order("position", "id").Scan(ctx)
-	return out, err
+	if err := db.NewSelect().Model(&out).Order("position", "id").Scan(ctx); err != nil {
+		return nil, err
+	}
+	return out, withSounds(ctx, db, out)
 }
 
 // Mood returns one mood.
@@ -101,7 +103,11 @@ func Mood(ctx context.Context, db bun.IDB, id int64) (*model.AudioMood, error) {
 		}
 		return nil, err
 	}
-	return &m, nil
+	list := []model.AudioMood{m}
+	if err := withSounds(ctx, db, list); err != nil {
+		return nil, err
+	}
+	return &list[0], nil
 }
 
 var (
@@ -119,6 +125,10 @@ func clean(m *model.AudioMood) error {
 	m.Name = strings.TrimSpace(m.Name)
 	if m.Name == "" || len([]rune(m.Name)) > 60 {
 		return invalid("give the mood a name of up to 60 characters")
+	}
+	m.Description = strings.TrimSpace(m.Description)
+	if len([]rune(m.Description)) > 500 {
+		return invalid("a description is up to 500 characters")
 	}
 	if !colorRe.MatchString(m.Color) {
 		return invalid("the colour must look like #3fb98a")
@@ -164,24 +174,44 @@ func clean(m *model.AudioMood) error {
 	return nil
 }
 
-// CreateMood adds a mood at the end.
-func CreateMood(ctx context.Context, db bun.IDB, m *model.AudioMood) error {
+// CreateMood adds a mood at the end, with its sounds (if any).
+func CreateMood(ctx context.Context, db bun.IDB, m *model.AudioMood, sounds *Sounds) error {
 	if err := clean(m); err != nil {
 		return err
 	}
-	var last sql.NullInt64
-	if err := db.NewSelect().Model((*model.AudioMood)(nil)).ColumnExpr("MAX(position)").Scan(ctx, &last); err != nil {
-		return err
+	if sounds != nil {
+		if err := checkSounds(ctx, db, *sounds); err != nil {
+			return err
+		}
 	}
-	now := time.Now().UTC()
-	m.ID, m.Slug, m.CreatedAt, m.UpdatedAt = 0, "", now, now
-	m.Position = int(last.Int64) + 1
-	_, err := db.NewInsert().Model(m).Exec(ctx)
-	return err
+	return db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		var last sql.NullInt64
+		if err := tx.NewSelect().Model((*model.AudioMood)(nil)).ColumnExpr("MAX(position)").Scan(ctx, &last); err != nil {
+			return err
+		}
+		now := time.Now().UTC()
+		m.ID, m.Slug, m.CreatedAt, m.UpdatedAt = 0, "", now, now
+		m.Position = int(last.Int64) + 1
+		if _, err := tx.NewInsert().Model(m).Exec(ctx); err != nil {
+			return err
+		}
+		if sounds != nil {
+			if err := setSounds(ctx, tx, m.ID, *sounds); err != nil {
+				return err
+			}
+		}
+		list := []model.AudioMood{*m}
+		if err := withSounds(ctx, tx, list); err != nil {
+			return err
+		}
+		*m = list[0]
+		return nil
+	})
 }
 
-// UpdateMood changes a mood (built-in ones too: their slug stays).
-func UpdateMood(ctx context.Context, db bun.IDB, id int64, m *model.AudioMood) error {
+// UpdateMood changes a mood (built-in ones too: their slug stays), and its
+// sounds unless sounds is nil.
+func UpdateMood(ctx context.Context, db bun.IDB, id int64, m *model.AudioMood, sounds *Sounds) error {
 	old, err := Mood(ctx, db, id)
 	if err != nil {
 		return err
@@ -196,9 +226,28 @@ func UpdateMood(ctx context.Context, db bun.IDB, id int64, m *model.AudioMood) e
 	if err := clean(m); err != nil {
 		return err
 	}
-	m.ID, m.Slug, m.Position, m.CreatedAt, m.UpdatedAt = old.ID, old.Slug, old.Position, old.CreatedAt, time.Now().UTC()
-	_, err = db.NewUpdate().Model(m).WherePK().Exec(ctx)
-	return err
+	if sounds != nil {
+		if err := checkSounds(ctx, db, *sounds); err != nil {
+			return err
+		}
+	}
+	m.ID, m.Slug, m.Position, m.PackID, m.CreatedAt, m.UpdatedAt = old.ID, old.Slug, old.Position, old.PackID, old.CreatedAt, time.Now().UTC()
+	return db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		if _, err := tx.NewUpdate().Model(m).WherePK().Exec(ctx); err != nil {
+			return err
+		}
+		if sounds != nil {
+			if err := setSounds(ctx, tx, m.ID, *sounds); err != nil {
+				return err
+			}
+		}
+		list := []model.AudioMood{*m}
+		if err := withSounds(ctx, tx, list); err != nil {
+			return err
+		}
+		*m = list[0]
+		return nil
+	})
 }
 
 // DeleteMood removes a mood; cues that used it fall back to the title's
@@ -214,7 +263,7 @@ func DeleteMood(ctx context.Context, db bun.IDB, id int64) error {
 	return nil
 }
 
-// Cue starts a mood or a scene from a chapter, and a page in it. Chapter
+// Cue starts a mood from a chapter, and a page in it. Chapter
 // 0 without a page is the title's mood.
 type Cue struct {
 	ChapterNumber float64 `json:"chapterNumber" minimum:"0"`
@@ -222,8 +271,7 @@ type Cue struct {
 	// PageCount is the chapter's page count when the cue was placed (filled
 	// in when left out).
 	PageCount *int   `json:"pageCount,omitempty"`
-	MoodID    *int64 `json:"moodId,omitempty" doc:"None (and no scene): no music from here"`
-	SceneID   *int64 `json:"sceneId,omitempty"`
+	MoodID    *int64 `json:"moodId,omitempty" doc:"None: nothing plays from here"`
 	// Source is manual (placed by someone) or auto (found by mangarr);
 	// editing an auto cue makes it manual.
 	Source       string   `json:"source,omitempty" enum:"manual,auto,"`
@@ -315,7 +363,7 @@ func Get(ctx context.Context, db bun.IDB, seriesID int64, userID *int64) (*Doc, 
 	at := st.UpdatedAt
 	d := &Doc{Cues: make([]Cue, 0, len(cues)), Muted: st.Muted, UpdatedAt: &at}
 	for _, c := range cues {
-		d.Cues = append(d.Cues, Cue{ChapterNumber: c.ChapterNumber, Page: c.Page, PageCount: c.PageCount, MoodID: c.MoodID, SceneID: c.SceneID,
+		d.Cues = append(d.Cues, Cue{ChapterNumber: c.ChapterNumber, Page: c.Page, PageCount: c.PageCount, MoodID: c.MoodID,
 			Source: c.Source, Confidence: c.Confidence, ModelVersion: c.ModelVersion})
 	}
 	sortCues(d.Cues)
@@ -350,11 +398,6 @@ func Save(ctx context.Context, db bun.IDB, seriesID int64, userID *int64, d Doc)
 		seen[c.key()] = true
 		if c.MoodID != nil {
 			if _, err := Mood(ctx, db, *c.MoodID); err != nil {
-				return err
-			}
-		}
-		if c.SceneID != nil {
-			if err := sceneExists(ctx, db, *c.SceneID); err != nil {
 				return err
 			}
 		}
@@ -405,7 +448,7 @@ func Save(ctx context.Context, db bun.IDB, seriesID int64, userID *int64, d Doc)
 			if c.auto() {
 				src = model.CueAuto
 			}
-			rows[i] = model.SoundtrackCue{SoundtrackID: st.ID, ChapterNumber: c.ChapterNumber, Page: c.Page, PageCount: c.PageCount, MoodID: c.MoodID, SceneID: c.SceneID,
+			rows[i] = model.SoundtrackCue{SoundtrackID: st.ID, ChapterNumber: c.ChapterNumber, Page: c.Page, PageCount: c.PageCount, MoodID: c.MoodID,
 				Source: src, Confidence: c.Confidence, ModelVersion: c.ModelVersion}
 		}
 		_, err = tx.NewInsert().Model(&rows).Exec(ctx)
@@ -414,7 +457,7 @@ func Save(ctx context.Context, db bun.IDB, seriesID int64, userID *int64, d Doc)
 }
 
 // SetCue adds or replaces one cue in a soundtrack (a cue with neither a
-// mood nor a scene removes the one there).
+// mood removes the one there).
 func SetCue(ctx context.Context, db bun.IDB, seriesID int64, userID *int64, c Cue) (*Doc, error) {
 	d, err := Get(ctx, db, seriesID, userID)
 	if err != nil {
@@ -426,7 +469,7 @@ func SetCue(ctx context.Context, db bun.IDB, seriesID int64, userID *int64, c Cu
 	// a cue someone sets is theirs, even where mangarr had found one
 	c.Source, c.Confidence, c.ModelVersion = model.CueManual, nil, ""
 	cues := slices.DeleteFunc(slices.Clone(d.Cues), func(x Cue) bool { return x.key() == c.key() })
-	if c.MoodID != nil || c.SceneID != nil {
+	if c.MoodID != nil {
 		cues = append(cues, c)
 	}
 	d.Cues = cues
@@ -502,14 +545,13 @@ type Music struct {
 	Shuffle  bool   `json:"shuffle"`
 }
 
-// Sound is what plays from a cue: a mood, or a scene (with the mood it
-// starts from), and the music that comes with it.
+// Sound is what plays from a cue: a mood (with its ambience and effects)
+// and its Spotify music.
 type Sound struct {
 	Source string `json:"source" enum:"shared,personal,suggested,auto"`
 	// Confidence is how sure mangarr is of a mood it found (auto only).
 	Confidence *float64         `json:"confidence,omitempty"`
 	Mood       *model.AudioMood `json:"mood,omitempty"`
-	Scene      *Scene           `json:"scene,omitempty"`
 	Music      *Music           `json:"music,omitempty"`
 }
 
@@ -529,12 +571,11 @@ type Resolved struct {
 	Pages []PageCue `json:"pages"`
 }
 
-// resolver loads moods and scenes once per resolve.
+// resolver loads moods once per resolve.
 type resolver struct {
-	ctx    context.Context
-	db     bun.IDB
-	moods  map[int64]*model.AudioMood
-	scenes map[int64]*Scene
+	ctx   context.Context
+	db    bun.IDB
+	moods map[int64]*model.AudioMood
 }
 
 func (r *resolver) mood(id *int64) (*model.AudioMood, error) {
@@ -553,41 +594,13 @@ func (r *resolver) mood(id *int64) (*model.AudioMood, error) {
 }
 
 func (r *resolver) sound(c Cue, source string) (*Sound, error) {
-	s := &Sound{Source: source}
-	if c.SceneID != nil {
-		sc, ok := r.scenes[*c.SceneID]
-		if !ok {
-			got, err := GetScene(r.ctx, r.db, *c.SceneID)
-			if err != nil && !errors.Is(err, ErrSceneNotFound) {
-				return nil, err
-			}
-			sc = got
-			r.scenes[*c.SceneID] = sc
-		}
-		s.Scene = sc
-		if sc != nil {
-			m, err := r.mood(sc.MoodID)
-			if err != nil {
-				return nil, err
-			}
-			s.Mood = m
-			if sc.SpotifyURI != "" {
-				s.Music = &Music{URI: sc.SpotifyURI, Name: sc.SpotifyName, ImageURL: sc.SpotifyImageURL, Shuffle: sc.Shuffle}
-			}
-		}
+	m, err := r.mood(c.MoodID)
+	if err != nil || m == nil {
+		return nil, err
 	}
-	if s.Scene == nil {
-		m, err := r.mood(c.MoodID)
-		if err != nil {
-			return nil, err
-		}
-		s.Mood = m
-	}
-	if s.Music == nil && s.Mood != nil && s.Mood.SpotifyURI != "" {
-		s.Music = &Music{URI: s.Mood.SpotifyURI, Name: s.Mood.SpotifyName, ImageURL: s.Mood.SpotifyImageURL, Shuffle: s.Mood.Shuffle}
-	}
-	if s.Mood == nil && s.Scene == nil {
-		return nil, nil
+	s := &Sound{Source: source, Mood: m}
+	if m.SpotifyURI != "" {
+		s.Music = &Music{URI: m.SpotifyURI, Name: m.SpotifyName, ImageURL: m.SpotifyImageURL, Shuffle: m.Shuffle}
 	}
 	return s, nil
 }
@@ -667,7 +680,7 @@ func Resolve(ctx context.Context, db bun.IDB, st *settings.Store, seriesID, user
 	if personal != nil {
 		out.Muted = personal.Muted
 	}
-	r := &resolver{ctx: ctx, db: db, moods: map[int64]*model.AudioMood{}, scenes: map[int64]*Scene{}}
+	r := &resolver{ctx: ctx, db: db, moods: map[int64]*model.AudioMood{}}
 	var humanStart, autoStart, title *mergedCue
 	var humanPages, autoPages []mergedCue
 	cues := merge(shared, personal)
@@ -766,7 +779,7 @@ type Credit struct {
 	SourceURL   string `json:"sourceUrl,omitempty"`
 }
 
-// Credits lists the pack sounds the scenes in these soundtracks use.
+// Credits lists the pack sounds the moods in these soundtracks use.
 func Credits(ctx context.Context, db bun.IDB, docs ...*Doc) ([]Credit, error) {
 	var ids []int64
 	for _, d := range docs {
@@ -774,8 +787,8 @@ func Credits(ctx context.Context, db bun.IDB, docs ...*Doc) ([]Credit, error) {
 			continue
 		}
 		for _, c := range d.Cues {
-			if c.SceneID != nil && !slices.Contains(ids, *c.SceneID) {
-				ids = append(ids, *c.SceneID)
+			if c.MoodID != nil && !slices.Contains(ids, *c.MoodID) {
+				ids = append(ids, *c.MoodID)
 			}
 		}
 	}
@@ -783,13 +796,16 @@ func Credits(ctx context.Context, db bun.IDB, docs ...*Doc) ([]Credit, error) {
 	if len(ids) == 0 {
 		return out, nil
 	}
-	scenes, err := scenesBy(ctx, db, ids)
-	if err != nil {
+	var moods []model.AudioMood
+	if err := db.NewSelect().Model(&moods).Where("id IN (?)", bun.In(ids)).Scan(ctx); err != nil {
+		return nil, err
+	}
+	if err := withSounds(ctx, db, moods); err != nil {
 		return nil, err
 	}
 	seen := map[string]bool{}
-	for _, s := range scenes {
-		for _, t := range slices.Concat(s.Ambience, s.SFX) {
+	for _, m := range moods {
+		for _, t := range slices.Concat(m.Ambience, m.SFX) {
 			if seen[t.SHA256] {
 				continue
 			}

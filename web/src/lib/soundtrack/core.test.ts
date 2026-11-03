@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { currentSound, dbGain, defaultPrefs, diffLayers, isPhone, layersOf, parsePrefs, turnOn, upcoming, withMode, type Mood, type Resolved, type Sound } from './core';
+import { currentSound, dbGain, defaultPrefs, diffLayers, isPhone, layersOf, parsePrefs, sourceOf, turnOn, upcoming, withMode, type Mood, type Resolved, type Sound } from './core';
 
-const mood = (id: number, name: string): Mood => ({ id, name, slug: '', color: '#3fb98a', icon: 'leaf', genres: [], keywords: [], prompts: [], spotifyUri: '', spotifyName: '', spotifyImageUrl: '', shuffle: true, position: id, createdAt: '', updatedAt: '' });
+const mood = (id: number, name: string): Mood => ({ id, name, slug: '', color: '#3fb98a', icon: 'leaf', genres: [], keywords: [], prompts: [], description: '', ambience: [], sfx: [], spotifyUri: '', spotifyName: '', spotifyImageUrl: '', shuffle: true, position: id, createdAt: '', updatedAt: '' });
 
 describe('parsePrefs', () => {
   it('starts with music off', () => {
@@ -9,7 +9,7 @@ describe('parsePrefs', () => {
     expect(parsePrefs('not json')).toEqual(defaultPrefs);
   });
   it('keeps what makes sense', () => {
-    expect(parsePrefs(JSON.stringify({ mode: 'manual', lastMode: 'manual', moodId: 3, volume: 140, deviceId: 'phone' }))).toEqual({ mode: 'manual', lastMode: 'manual', moodId: 3, volume: 100, ambience: 60, deviceId: 'phone' });
+    expect(parsePrefs(JSON.stringify({ mode: 'manual', lastMode: 'manual', moodId: 3, volume: 140, deviceId: 'phone' }))).toEqual({ mode: 'manual', lastMode: 'manual', moodId: 3, source: 'spotify', volume: 100, ambience: 60, deviceId: 'phone' });
     expect(parsePrefs(JSON.stringify({ mode: 'loud', moodId: -1, volume: 'x' }))).toEqual(defaultPrefs);
   });
 });
@@ -59,10 +59,9 @@ describe('currentSound', () => {
 });
 
 describe('ambience layers', () => {
-  it('turns scene tracks into gains', () => {
-    const scene = { id: 1, name: 'Rain', description: '', spotifyUri: '', spotifyName: '', spotifyImageUrl: '', shuffle: true, updatedAt: '', sfx: [],
-      ambience: [{ trackId: 7, title: 'Rain', category: 'weather', icon: 'cloud-rain', sha256: 'a', ext: 'ogg', gainDb: -6, volume: 0.5, pack: 'P', license: '', attribution: '', sourceUrl: '' }] };
-    const layers = layersOf({ source: 'shared', scene }, (id) => `/t/${id}`);
+  it('turns a mood\'s tracks into gains', () => {
+    const rain = { ...mood(1, 'Rain'), ambience: [{ trackId: 7, title: 'Rain', category: 'weather', icon: 'cloud-rain', sha256: 'a', ext: 'ogg', gainDb: -6, volume: 0.5, pack: 'P', license: '', attribution: '', sourceUrl: '' }] };
+    const layers = layersOf({ source: 'shared', mood: rain }, (id) => `/t/${id}`);
     expect(layers[0].url).toBe('/t/7');
     expect(layers[0].gain).toBeCloseTo(0.5 * dbGain(-6));
     expect(dbGain(0)).toBe(1);
@@ -72,5 +71,15 @@ describe('ambience layers', () => {
     expect(d.start.map((l) => l.id)).toEqual([3]);
     expect(d.stop.map((l) => l.id)).toEqual([1]);
     expect(d.change.map((l) => l.id)).toEqual([2]);
+  });
+});
+
+describe('sourceOf', () => {
+  it('plays ambience without Spotify, or when picked', () => {
+    expect(sourceOf(defaultPrefs, true)).toBe('spotify');
+    expect(sourceOf(defaultPrefs, false)).toBe('ambience');
+    expect(sourceOf({ ...defaultPrefs, source: 'ambience' }, true)).toBe('ambience');
+    expect(parsePrefs('{"source":"ambience"}').source).toBe('ambience');
+    expect(parsePrefs('{"source":"radio"}').source).toBe('spotify');
   });
 });

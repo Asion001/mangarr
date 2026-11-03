@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, unwrap } from "../../api/client";
-import { clampVolume, currentSound, dbGain, isPhone, layersOf, setPrefs, soundName, turnOn, upcoming, useSoundPrefs, withMode, type SceneTrack, type SoundMode } from "../../lib/soundtrack/core";
+import { clampVolume, currentSound, dbGain, isPhone, layersOf, setPrefs, soundName, sourceOf, turnOn, upcoming, useSoundPrefs, withMode, type MoodTrack, type SoundMode, type SoundSource } from "../../lib/soundtrack/core";
 import { AmbienceEngine } from "../../lib/soundtrack/engine";
 import { moodName } from "../../lib/soundtrack/moods";
 import { startSdk, useMoods, useMySpotify, type NowPlaying, type SdkPlayer } from "../../lib/soundtrack/spotify";
@@ -44,7 +44,8 @@ export function useSettledPage(page: number, wait: number) {
 
 /**
  * useSoundtrack plays a chapter's soundtrack while it's on: music from
- * Spotify and a scene's ambience and effects from sound packs. On a
+ * Spotify and its mood's ambience and effects from sound packs, or (picked
+ * by the reader, or without Spotify) the ambience and effects alone. On a
  * computer this tab becomes a Spotify device (Web Playback SDK); on phones,
  * where the SDK doesn't run, Spotify plays on the reader's own app or
  * speaker and mangarr only tells it what to play. Ambience plays in the
@@ -55,6 +56,8 @@ export function useSoundtrack(chapterId: number, page: number, webtoon: boolean,
   const on = prefs.mode !== "off";
   const me = useMySpotify();
   const connected = !!me.data?.connected;
+  const source = sourceOf(prefs, connected);
+  const spotifyOn = on && source === "spotify";
   const moods = useMoods(on || connected);
   const resolved = useQuery({
     queryKey: ["soundtrack", "chapter", chapterId],
@@ -102,9 +105,9 @@ export function useSoundtrack(chapterId: number, page: number, webtoon: boolean,
   }, [engine, layerKey, loading]);
   useEffect(() => engine.setVolume(prefs.ambience / 100), [engine, prefs.ambience]);
   const ahead = upcoming(resolved.data, settled, 3);
-  const aheadKey = ahead.map((a) => a.scene?.id ?? 0).join(",");
+  const aheadKey = ahead.map((a) => a.mood?.id ?? 0).join(",");
   useEffect(() => {
-    if (on) engine.prefetch(ahead.flatMap((a) => (a.scene?.ambience ?? []).map((t) => trackUrl(t.trackId))));
+    if (on) engine.prefetch(ahead.flatMap((a) => (a.mood?.ambience ?? []).map((t) => trackUrl(t.trackId))));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- prefetches when the cues ahead change
   }, [engine, on, aheadKey]);
 
@@ -126,7 +129,7 @@ export function useSoundtrack(chapterId: number, page: number, webtoon: boolean,
   sdkRef.current = sdk;
   const starting = useRef(false);
   useEffect(() => {
-    if (!on || !connected || phone || sdk || sdkError || starting.current) return;
+    if (!spotifyOn || phone || sdk || sdkError || starting.current) return;
     starting.current = true;
     const session = playing.value;
     startSdk(prefs.volume, (n) => session.onNow(n))
@@ -135,7 +138,7 @@ export function useSoundtrack(chapterId: number, page: number, webtoon: boolean,
         setSdk(s);
       }, (e) => setSdkError(errorText(e)))
       .finally(() => (starting.current = false));
-  }, [on, connected, phone, sdk, sdkError, prefs.volume]);
+  }, [spotifyOn, phone, sdk, sdkError, prefs.volume]);
 
   // where music plays: this browser unless another device was picked
   const inBrowser = !!sdk && (prefs.deviceId === "" || prefs.deviceId === sdk.deviceId);
@@ -151,7 +154,7 @@ export function useSoundtrack(chapterId: number, page: number, webtoon: boolean,
   prefsRef.current = prefs;
   const deviceRef = useRef(deviceId);
   deviceRef.current = deviceId;
-  const uri = on ? (sound?.music?.uri ?? "") : "";
+  const uri = spotifyOn ? (sound?.music?.uri ?? "") : "";
   useEffect(() => {
     if (!ready || loading) return;
     const key = uri && `${uri}|${deviceId}`;
@@ -182,7 +185,7 @@ export function useSoundtrack(chapterId: number, page: number, webtoon: boolean,
 
   // volume: the browser's player at once, other devices after a pause in dragging
   useEffect(() => {
-    if (!on || !connected) return;
+    if (!spotifyOn) return;
     if (inBrowser) {
       void sdk.player.setVolume(prefs.volume / 100).catch(() => {});
       return;
@@ -199,10 +202,12 @@ export function useSoundtrack(chapterId: number, page: number, webtoon: boolean,
   const remote = useQuery({
     queryKey: ["soundtrack", "player"],
     queryFn: () => unwrap(api.GET("/api/v1/me/spotify/player")),
-    enabled: on && connected && !inBrowser,
+    enabled: spotifyOn && !inBrowser,
     refetchInterval: 15_000,
   });
-  const now: NowPlaying | null = inBrowser
+  const now: NowPlaying | null = !spotifyOn
+    ? null
+    : inBrowser
     ? sdkNow
     : remote.data?.track
       ? { playing: remote.data.isPlaying, track: remote.data.track, artists: remote.data.artists ?? "", imageUrl: remote.data.imageUrl ?? "", device: remote.data.device?.name ?? "" }
@@ -245,11 +250,12 @@ export function useSoundtrack(chapterId: number, page: number, webtoon: boolean,
     },
     [unlock],
   );
+  const setSource = useCallback((v: SoundSource) => setPrefs({ source: v }), []);
   const setVolume = useCallback((v: number) => setPrefs({ volume: clampVolume(v) }), []);
   const setAmbience = useCallback((v: number) => setPrefs({ ambience: clampVolume(v) }), []);
   // an effect ducks the music in this tab while it plays
   const playEffect = useCallback(
-    async (t: SceneTrack): Promise<number> => {
+    async (t: MoodTrack): Promise<number> => {
       try {
         const secs = await engine.playEffect(trackUrl(t.trackId), dbGain(t.gainDb));
         const player = sdkRef.current?.player;
@@ -302,8 +308,9 @@ export function useSoundtrack(chapterId: number, page: number, webtoon: boolean,
     sound,
     mood,
     starting: requesting,
-    layers: on ? (sound?.scene?.ambience ?? []) : [],
-    effects: on ? (sound?.scene?.sfx ?? []) : [],
+    layers: on ? (sound?.mood?.ambience ?? []) : [],
+    effects: on ? (sound?.mood?.sfx ?? []) : [],
+    source,
     moods: moods.data ?? [],
     resolved: resolved.data,
     spotify: me.data,
@@ -317,6 +324,7 @@ export function useSoundtrack(chapterId: number, page: number, webtoon: boolean,
     setMode,
     toggleOn,
     pickMood,
+    setSource,
     setVolume,
     setAmbience,
     playEffect,

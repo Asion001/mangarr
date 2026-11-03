@@ -376,11 +376,7 @@ func TestSoundtracks(t *testing.T) {
 	type sound struct {
 		Source string
 		Mood   *mood
-		Scene  *struct {
-			ID       int64
-			Ambience []struct{ TrackID int64 }
-		}
-		Music *struct{ URI string }
+		Music  *struct{ URI string }
 	}
 	type resolved struct {
 		Source string

@@ -8,11 +8,6 @@ audio-pack-import-folder POST /api/v1/audio/packs/import-folder -> admin
 audio-pack-install POST /api/v1/audio/packs/install -> admin
 audio-pack-upload POST /api/v1/audio/packs/upload -> admin
 audio-packs GET /api/v1/audio/packs -> admin
-audio-scene GET /api/v1/audio/scenes/{id} -> signedin
-audio-scene-create POST /api/v1/audio/scenes -> admin
-audio-scene-delete DELETE /api/v1/audio/scenes/{id} -> admin
-audio-scene-update PUT /api/v1/audio/scenes/{id} -> admin
-audio-scenes GET /api/v1/audio/scenes -> signedin
 audio-track-stream GET /api/v1/audio/tracks/{id}/stream -> signedin
 audio-tracks GET /api/v1/audio/tracks -> signedin
 auth-login POST /api/v1/auth/login -> public

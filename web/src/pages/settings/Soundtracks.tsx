@@ -10,13 +10,46 @@ import { tint, type Mood } from "../../lib/soundtrack/core";
 import { MoodIcon, moodColors, moodIcons, moodName } from "../../lib/soundtrack/moods";
 import { connectSpotify, useMoods, useMySpotify, useSpotifyReturn } from "../../lib/soundtrack/spotify";
 import { useToast } from "../../lib/toast";
-import { ScenesTab } from "./SoundScenes";
+import { MoodSounds, soundsOf, usePreview, type Layer, type Pad } from "./MoodSounds";
 import { SoundPacksCard } from "./SoundPacks";
 
-type Tab = "moods" | "scenes" | "spotify";
+type Tab = "moods" | "spotify";
 type SearchType = "playlist" | "album" | "track";
 type Item = S["SoundtrackSearchItem"];
-type MoodDraft = { name: string; color: string; icon: string; genres: string[]; keywords: string[]; prompts: string[]; spotifyUri: string; spotifyName: string; spotifyImageUrl: string; shuffle: boolean };
+type MoodDraft = {
+  name: string;
+  description: string;
+  color: string;
+  icon: string;
+  genres: string[];
+  keywords: string[];
+  prompts: string[];
+  spotifyUri: string;
+  spotifyName: string;
+  spotifyImageUrl: string;
+  shuffle: boolean;
+  ambience: Layer[];
+  sfx: Pad[];
+};
+
+/** draftOf is a mood (or a new one) as the editor keeps it. */
+function draftOf(m: Mood | null): MoodDraft {
+  if (!m) return { name: "", description: "", color: moodColors[0], icon: "music", genres: [], keywords: [], prompts: [], spotifyUri: "", spotifyName: "", spotifyImageUrl: "", shuffle: true, ambience: [], sfx: [] };
+  return {
+    name: m.name,
+    description: m.description ?? "",
+    color: m.color,
+    icon: m.icon,
+    genres: m.genres ?? [],
+    keywords: m.keywords ?? [],
+    prompts: m.prompts ?? [],
+    spotifyUri: m.spotifyUri,
+    spotifyName: m.spotifyName,
+    spotifyImageUrl: m.spotifyImageUrl,
+    shuffle: m.shuffle,
+    ...soundsOf(m),
+  };
+}
 
 const dashboard = "https://developer.spotify.com/dashboard";
 const proxyDocs = "https://github.com/Asion001/mangarr/blob/main/docs/reverse-proxy.md";
@@ -117,11 +150,9 @@ function MoodEditor({ mood, onClose }: { mood: Mood | null; onClose: () => void 
   const qc = useQueryClient();
   const toast = useToast();
   const me = useMySpotify();
-  const [d, setD] = useState<MoodDraft>(
-    mood
-      ? { name: mood.name, color: mood.color, icon: mood.icon, genres: mood.genres ?? [], keywords: mood.keywords ?? [], prompts: mood.prompts ?? [], spotifyUri: mood.spotifyUri, spotifyName: mood.spotifyName, spotifyImageUrl: mood.spotifyImageUrl, shuffle: mood.shuffle }
-      : { name: "", color: moodColors[0], icon: "music", genres: [], keywords: [], prompts: [], spotifyUri: "", spotifyName: "", spotifyImageUrl: "", shuffle: true },
-  );
+  const moods = useMoods();
+  const preview = usePreview();
+  const [d, setD] = useState<MoodDraft>(() => draftOf(mood));
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const patch = (p: Partial<MoodDraft>) => setD((v) => ({ ...v, ...p }));
@@ -132,8 +163,13 @@ function MoodEditor({ mood, onClose }: { mood: Mood | null; onClose: () => void 
   const save = async () => {
     setSaving(true);
     try {
-      if (mood) await unwrap(api.PUT("/api/v1/audio/moods/{id}", { params: { path: { id: mood.id } }, body: d }));
-      else await unwrap(api.POST("/api/v1/audio/moods", { body: d }));
+      const body = {
+        ...d,
+        ambience: d.ambience.map((a) => ({ trackId: a.trackId, volume: a.volume })),
+        sfx: d.sfx.map((p) => ({ trackId: p.trackId, label: p.label || undefined })),
+      };
+      if (mood) await unwrap(api.PUT("/api/v1/audio/moods/{id}", { params: { path: { id: mood.id } }, body }));
+      else await unwrap(api.POST("/api/v1/audio/moods", { body }));
       toast.success(t("Mood saved"));
       done();
     } catch (e) {
@@ -215,24 +251,34 @@ function MoodEditor({ mood, onClose }: { mood: Mood | null; onClose: () => void 
             ))}
           </div>
         </Field>
-        <Field label={t("Genres")} help={t("Titles with these genres or tags suit the mood.")}>
-          <TagInput value={d.genres} onChange={(genres) => patch({ genres })} placeholder={t("Drama")} />
-        </Field>
-        <Field label={t("How its pages look")} help={t("One description per line, in English, for finding the mood in pages (when that's on).")}>
-          <Textarea
-            rows={3}
-            value={d.prompts.join("\n")}
-            onChange={(e) => patch({ prompts: e.target.value.split("\n") })}
-            onBlur={() => patch({ prompts: d.prompts.map((p) => p.trim()).filter(Boolean) })}
-            placeholder={t("a manga page of a tense standoff")}
-          />
-        </Field>
-        <Field label={t("Keywords")} help={t("Words in chapter titles that bring this mood when moods are found automatically.")}>
-          <TagInput value={d.keywords} onChange={(keywords) => patch({ keywords })} placeholder={t("battle")} />
-        </Field>
+        {!mood && (moods.data ?? []).length > 0 && (
+          <Field label={t("Start from")} help={t("Copies a mood's colour, music, ambience and effects.")}>
+            <select
+              className="h-10 rounded-md border border-border bg-bg px-3 text-sm"
+              value=""
+              onChange={(e) => {
+                const from = (moods.data ?? []).find((m) => m.id === Number(e.target.value));
+                if (from) {
+                  const copy = draftOf(from);
+                  patch({ color: copy.color, icon: copy.icon, spotifyUri: copy.spotifyUri, spotifyName: copy.spotifyName, spotifyImageUrl: copy.spotifyImageUrl, shuffle: copy.shuffle, ambience: copy.ambience, sfx: copy.sfx });
+                }
+              }}
+            >
+              <option value="">{t("Nothing: start empty")}</option>
+              {(moods.data ?? []).map((m) => (
+                <option key={m.id} value={m.id}>
+                  {moodName(m)}
+                </option>
+              ))}
+            </select>
+          </Field>
+        )}
 
         <div className="flex flex-col gap-3 border-t border-border pt-4">
-          <h3 className="text-sm font-semibold">{t("Music · Spotify")}</h3>
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h3 className="text-sm font-semibold">{t("Spotify music")}</h3>
+            <span className="text-xs text-muted">{t("Plays for readers who pick Spotify music")}</span>
+          </div>
           {d.spotifyUri ? (
             <div className="flex items-center gap-3 rounded-lg border border-border bg-bg p-2">
               {d.spotifyImageUrl ? <img src={d.spotifyImageUrl} alt="" className="size-12 rounded object-cover" /> : <span className="flex size-12 items-center justify-center rounded bg-border text-muted"><Music className="size-5" aria-hidden="true" /></span>}
@@ -256,12 +302,35 @@ function MoodEditor({ mood, onClose }: { mood: Mood | null; onClose: () => void 
           )}
           <Switch checked={d.shuffle} onChange={(shuffle) => patch({ shuffle })} label={t("Shuffle")} />
         </div>
+
+        <div className="flex flex-col gap-4 border-t border-border pt-4">
+          <MoodSounds ambience={d.ambience} sfx={d.sfx} preview={preview} onChange={(v) => patch(v)} />
+        </div>
+
+        <div className="flex flex-col gap-4 border-t border-border pt-4">
+        <h3 className="text-sm font-semibold">{t("Finding it automatically")}</h3>
+        <Field label={t("Genres")} help={t("Titles with these genres or tags suit the mood.")}>
+          <TagInput value={d.genres} onChange={(genres) => patch({ genres })} placeholder={t("Drama")} />
+        </Field>
+        <Field label={t("How its pages look")} help={t("One description per line, in English, for finding the mood in pages (when that's on).")}>
+          <Textarea
+            rows={3}
+            value={d.prompts.join("\n")}
+            onChange={(e) => patch({ prompts: e.target.value.split("\n") })}
+            onBlur={() => patch({ prompts: d.prompts.map((p) => p.trim()).filter(Boolean) })}
+            placeholder={t("a manga page of a tense standoff")}
+          />
+        </Field>
+        <Field label={t("Keywords")} help={t("Words in chapter titles that bring this mood when moods are found automatically.")}>
+          <TagInput value={d.keywords} onChange={(keywords) => patch({ keywords })} placeholder={t("battle")} />
+        </Field>
+        </div>
       </div>
       <Confirm
         open={deleting}
         danger
         title={t("Delete the mood?")}
-        message={t("Titles that used it play no music there until someone picks another mood.")}
+        message={t("Titles that used it play nothing there until someone picks another mood.")}
         confirmLabel={t("Delete")}
         onConfirm={() => void remove()}
         onClose={() => setDeleting(false)}
@@ -289,7 +358,7 @@ function MoodsTab() {
   return (
     <div className="flex flex-col gap-5">
       <p className="max-w-3xl text-sm leading-relaxed text-muted">
-        {t("Moods are ready-made presets: Spotify music with a colour and an icon. Readers pick a mood with one tap, and each title gets a mood that plays while it's read. Mangarr starts with these eight; change them or add more.")}
+        {t("A mood is what plays: a Spotify playlist for readers who listen with Spotify, and ambience loops with effect pads for everyone else. Each reader picks Spotify music or Ambience in the reader. Mangarr ships eight, with ambience from the starter packs; add your own for places and moments.")}
       </p>
       <div className="grid grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-3.5">
         {(moods ?? []).map((m) => (
@@ -306,6 +375,10 @@ function MoodsTab() {
             <div className="flex items-center gap-2.5">
               {m.spotifyImageUrl ? <img src={m.spotifyImageUrl} alt="" className="size-10 shrink-0 rounded object-cover" /> : <span className="flex size-10 shrink-0 items-center justify-center rounded bg-panel-2 text-muted"><Music className="size-4" aria-hidden="true" /></span>}
               <div className="min-w-0 truncate text-[13px] font-medium">{m.spotifyUri ? m.spotifyName || m.spotifyUri : <span className="font-normal text-muted">{t("No music yet")}</span>}</div>
+            </div>
+            <div className="-mt-1.5 flex flex-col gap-0.5 text-xs text-muted">
+              <span className="truncate">{(m.ambience ?? []).length ? (m.ambience ?? []).map((a) => a.title).join(" + ") : t("No ambience yet")}</span>
+              {(m.sfx ?? []).length > 0 && <span>{t("{count} effects", { count: (m.sfx ?? []).length })}</span>}
             </div>
             <div className="mt-auto flex gap-2">
               {me.data?.connected && m.spotifyUri && (
@@ -453,21 +526,19 @@ export function SoundtracksPage() {
   const [search, setSearch] = useSearchParams();
   useSpotifyReturn();
   const asked = search.get("tab");
-  const tab: Tab = asked === "spotify" || asked === "scenes" ? asked : "moods";
+  const tab: Tab = asked === "spotify" ? asked : "moods";
   return (
     <>
-      <PageHeader title={t("Soundtracks")} subtitle={t("Music that plays while people read: mood presets, and the Spotify app it comes from.")} />
+      <PageHeader title={t("Soundtracks")} subtitle={t("What plays while people read: moods with their Spotify music and ambience, the Spotify app, and sound packs.")} />
       <Tabs
         value={tab}
         onChange={(v) => setSearch(v === "moods" ? {} : { tab: v }, { replace: true })}
         tabs={[
           { value: "moods", label: t("Moods") },
-          { value: "scenes", label: t("Scenes") },
           { value: "spotify", label: t("Spotify & packs") },
         ]}
       />
       {tab === "moods" && <MoodsTab />}
-      {tab === "scenes" && <ScenesTab />}
       {tab === "spotify" && (
         <div className="flex flex-col gap-6">
           <SpotifyTab />

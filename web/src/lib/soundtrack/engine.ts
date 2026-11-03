@@ -1,11 +1,11 @@
-// The ambience engine: one AudioContext playing a scene's loops, decoded
+// The ambience engine: one AudioContext playing a mood's loops, decoded
 // once and looped without gaps, with gain ramps to crossfade between
-// scenes, and sound effects played once over them.
+// moods, and sound effects played once over them.
 import { diffLayers, type Layer } from "./core";
 
 type Playing = { src: AudioBufferSourceNode; gain: GainNode; layer: Layer };
 
-/** fadeSeconds is how long scenes crossfade. */
+/** fadeSeconds is how long moods crossfade. */
 export const fadeSeconds = 2;
 
 export class AmbienceEngine {
@@ -96,7 +96,7 @@ export class AmbienceEngine {
         } catch {
           return;
         }
-        // the scene may have moved on while this loaded
+        // the mood may have moved on while this loaded
         if (!this.current.some((c) => c.id === l.id) || this.playing.has(l.id)) return;
         const src = ctx.createBufferSource();
         src.buffer = buf;
@@ -106,7 +106,7 @@ export class AmbienceEngine {
         gain.gain.setValueAtTime(0, t);
         gain.gain.linearRampToValueAtTime(l.gain, t + fadeSeconds);
         src.connect(gain).connect(bed);
-        // loops start at a random point so the same sound in two scenes doesn't phase
+        // loops start at a random point so the same sound in two moods doesn't phase
         src.start(t, Math.random() * buf.duration);
         this.playing.set(l.id, { src, gain, layer: l });
       }),

@@ -124,7 +124,7 @@ export function SoundPacksCard() {
   return (
     <Card title={t("Sound packs")} actions={usage && <span className="text-xs text-muted">{t("{size} used", { size: bytes(usage.size) })}</span>}>
       <div className="flex flex-col gap-4">
-        <p className="text-sm leading-relaxed text-muted">{t("Ambience and sound effects that play over the music, also for readers without Spotify. Scenes layer them over a mood.")}</p>
+        <p className="text-sm leading-relaxed text-muted">{t("Ambience and sound effects for the moods: they play under the music, or on their own for readers without Spotify.")}</p>
         {usage?.over && (
           <div className="flex gap-2.5 rounded-lg border border-warn/40 bg-warn/10 px-3 py-2.5 text-sm">
             <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warn" aria-hidden="true" />
@@ -228,7 +228,7 @@ export function SoundPacksCard() {
         open={!!removing}
         danger
         title={t("Remove the pack?")}
-        message={t("Its sounds are deleted, and scenes lose the layers and effects that used them.")}
+        message={t("Its sounds are deleted, and moods lose the ambience and effects that used them.")}
         confirmLabel={t("Remove")}
         onConfirm={() => void remove()}
         onClose={() => setRemoving(null)}

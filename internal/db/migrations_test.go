@@ -643,3 +643,72 @@ func TestProgressPerUserMigration(t *testing.T) {
 		})
 	}
 }
+
+// TestScenesBecomeMoods: each scene becomes a mood with its music (or its
+// mood's) and its sounds, cues that started it start that mood, and a
+// built-in mood without sounds takes those of the first pack scene for it.
+func TestScenesBecomeMoods(t *testing.T) {
+	for _, dialect := range []Dialect{SQLite, Postgres} {
+		t.Run(string(dialect), func(t *testing.T) {
+			d := migrationTestDB(t, dialect)
+			p := migrationProvider(t, d)
+			ctx := t.Context()
+			if _, err := p.UpTo(ctx, 52); err != nil {
+				t.Fatal(err)
+			}
+			const at = "'2024-01-02T03:04:05Z'"
+			for _, q := range []string{
+				`INSERT INTO root_folders (id, path, language, created_at) VALUES (1, '/library', 'en', ` + at + `)`,
+				`INSERT INTO profiles (id, name, created_at, updated_at) VALUES (1, 'Default', ` + at + `, ` + at + `)`,
+				`INSERT INTO series (id, title, sort_title, root_folder_id, path, profile_id, added_at, updated_at) VALUES (1, 'Abyss', 'abyss', 1, 'abyss', 1, ` + at + `, ` + at + `)`,
+				`INSERT INTO audio_moods (id, slug, name, color, icon, spotify_uri, position, created_at, updated_at) VALUES
+					(1, 'calm', 'Calm', '#3fb98a', 'leaf', 'spotify:playlist:calmcalmcalm', 0, ` + at + `, ` + at + `),
+					(2, 'tense', 'Tense', '#d29922', 'zap', '', 1, ` + at + `, ` + at + `)`,
+				`INSERT INTO audio_packs (id, slug, name, installed_at) VALUES (1, 'weather', 'Weather', ` + at + `)`,
+				`INSERT INTO audio_tracks (id, pack_id, sha256, ext, kind, title) VALUES (1, 1, 'aa', 'ogg', 'ambience', 'Rain'), (2, 1, 'bb', 'ogg', 'sfx', 'Thunder')`,
+				`INSERT INTO audio_scenes (id, name, mood_id, spotify_uri, pack_id, created_at, updated_at) VALUES
+					(1, 'Rainy night', 1, '', 1, ` + at + `, ` + at + `),
+					(2, 'Storm', 2, 'spotify:playlist:stormstorm', NULL, ` + at + `, ` + at + `)`,
+				`INSERT INTO audio_scene_items (scene_id, track_id, role, volume, position, label) VALUES
+					(1, 1, 'ambience', 0.6, 0, ''), (2, 1, 'ambience', 0.3, 0, ''), (2, 2, 'sfx', 1, 0, 'Boom')`,
+				`INSERT INTO soundtracks (id, series_id, updated_at) VALUES (1, 1, ` + at + `)`,
+				`INSERT INTO soundtrack_cues (soundtrack_id, chapter_number, mood_id, scene_id) VALUES (1, 0, 1, NULL), (1, 3, NULL, 2)`,
+			} {
+				if _, err := d.ExecContext(ctx, q); err != nil {
+					t.Fatalf("seed: %v\n%s", err, q)
+				}
+			}
+			if dialect == Postgres {
+				if _, err := d.ExecContext(ctx, `SELECT setval('audio_moods_id_seq', 2)`); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := d.Migrate(ctx); err != nil {
+				t.Fatal(err)
+			}
+			count := func(q string) int {
+				t.Helper()
+				var n int
+				if err := d.QueryRowContext(ctx, q).Scan(&n); err != nil {
+					t.Fatalf("%s: %v", q, err)
+				}
+				return n
+			}
+			for q, want := range map[string]int{
+				`SELECT COUNT(*) FROM audio_moods WHERE name = 'Rainy night' AND color = '#3fb98a' AND spotify_uri = 'spotify:playlist:calmcalmcalm' AND pack_id = 1`: 1,
+				`SELECT COUNT(*) FROM audio_moods WHERE name = 'Storm' AND icon = 'zap' AND spotify_uri = 'spotify:playlist:stormstorm' AND pack_id IS NULL`:          1,
+				`SELECT COUNT(*) FROM audio_mood_items AS i JOIN audio_moods AS m ON m.id = i.mood_id WHERE m.name = 'Storm'`:                                         2,
+				`SELECT COUNT(*) FROM audio_mood_items AS i JOIN audio_moods AS m ON m.id = i.mood_id WHERE m.name = 'Storm' AND i.label = 'Boom'`:                    1,
+				// the built-in calm takes the pack's rainy night; tense's scene came from no pack
+				`SELECT COUNT(*) FROM audio_mood_items WHERE mood_id = 1 AND volume = 0.6`:                                                            1,
+				`SELECT COUNT(*) FROM audio_mood_items WHERE mood_id = 2`:                                                                             0,
+				`SELECT COUNT(*) FROM soundtrack_cues AS c JOIN audio_moods AS m ON m.id = c.mood_id WHERE c.chapter_number = 3 AND m.name = 'Storm'`: 1,
+				`SELECT COUNT(*) FROM soundtrack_cues WHERE chapter_number = 0 AND mood_id = 1`:                                                       1,
+			} {
+				if got := count(q); got != want {
+					t.Errorf("%s: %d, want %d", q, got, want)
+				}
+			}
+		})
+	}
+}

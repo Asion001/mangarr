@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
-import { Check, Laptop, Pause, Play, Plus, RefreshCw, SkipForward, Smartphone, Speaker, X } from "lucide-react";
+import { AudioLines, Check, Laptop, Music, Pause, Play, Plus, RefreshCw, SkipForward, Smartphone, Speaker, X } from "lucide-react";
 import { api, unwrap } from "../../api/client";
 import { Button, Spinner } from "../../components/ui";
 import { useAccount } from "../../lib/account";
@@ -12,7 +12,7 @@ import { MoodIcon, moodName } from "../../lib/soundtrack/moods";
 import { connectSpotify } from "../../lib/soundtrack/spotify";
 import { useToast } from "../../lib/toast";
 import { categoryColor, TrackIcon } from "../../lib/soundtrack/tracks";
-import { StartScene } from "./StartScene";
+import { StartMood } from "./StartMood";
 import type { Soundtrack } from "./sound";
 
 function DeviceIcon({ type }: { type: string }) {
@@ -60,6 +60,7 @@ export function SoundSheet({ s, onClose, here }: { s: Soundtrack; onClose: () =>
   const toast = useToast();
   const [picking, setPicking] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [allMoods, setAllMoods] = useState(false);
   // what was tapped and is still on its way, and the effects sounding now
   const [busy, setBusy] = useState<"" | "play" | "next">("");
   const [lit, setLit] = useState<number[]>([]);
@@ -96,6 +97,16 @@ export function SoundSheet({ s, onClose, here }: { s: Soundtrack; onClose: () =>
             : t("No soundtrack for this title yet");
   const color = m?.color ?? "#9aa2b1";
   const spotify = s.spotify;
+  const music = s.source === "spotify";
+  const sources = [
+    { value: "spotify" as const, label: t("Spotify music"), icon: <Music className="size-4" aria-hidden="true" /> },
+    { value: "ambience" as const, label: t("Ambience"), icon: <AudioLines className="size-4" aria-hidden="true" /> },
+  ];
+  const ambienceLine = s.layers.map((l) => l.title).join(" · ");
+  // the moods packs brought (places like "Café") wait behind "More moods",
+  // unless one of them is playing
+  const extra = s.moods.filter((x) => x.packId && x.id !== m?.id).length;
+  const pads = allMoods ? s.moods : s.moods.filter((x) => !x.packId || x.id === m?.id);
   return (
     <>
       <div className="fixed inset-0 z-30 bg-black/40" onClick={onClose} onPointerUp={(e) => e.stopPropagation()} aria-hidden="true" />
@@ -131,19 +142,44 @@ export function SoundSheet({ s, onClose, here }: { s: Soundtrack; onClose: () =>
           </div>
         </header>
 
-        {spotify && !spotify.available && (
+        <div className="flex flex-col gap-1.5">
+          <div role="radiogroup" aria-label={t("What plays")} className="flex rounded-[10px] border border-border bg-bg p-0.5">
+            {sources.map((o) => (
+              <button
+                key={o.value}
+                type="button"
+                role="radio"
+                aria-checked={s.source === o.value}
+                disabled={o.value === "spotify" && !s.connected}
+                onClick={() => s.setSource(o.value)}
+                className={clsx(
+                  "press flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg text-[13px] font-medium disabled:opacity-50",
+                  s.source === o.value ? "bg-panel-2 text-fg" : "text-muted hover:text-fg",
+                )}
+              >
+                {o.icon}
+                {o.label}
+              </button>
+            ))}
+          </div>
+          <p className="text-[11px] text-muted">
+            {music ? t("Each mood's playlist on Spotify, with its ambience quietly under it.") : t("Each mood's ambience and effects from sound packs, in this tab. No Spotify needed.")}
+          </p>
+        </div>
+
+        {spotify && !spotify.available && isAdmin && (
           <p className="rounded-lg border border-border bg-bg px-3 py-2.5 text-sm text-muted">
-            {t("Music comes from Spotify, which isn't set up on this server yet.")}{" "}
-            {isAdmin && <Link className="text-accent-2 hover:underline" to="/settings/soundtracks?tab=spotify">{t("Set it up")}</Link>}
+            {t("Spotify music needs the Spotify app set up on this server.")}{" "}
+            <Link className="text-accent-2 hover:underline" to="/settings/soundtracks?tab=spotify">{t("Set it up")}</Link>
           </p>
         )}
         {spotify?.available && !spotify.connected && (
           <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-bg px-3 py-2.5">
-            <p className="min-w-0 flex-1 text-sm text-muted">{t("Connect your Spotify account to hear music while you read. Playing needs Spotify Premium.")}</p>
-            <Button variant="primary" size="sm" onClick={() => void connectSpotify().catch((e) => toast.fromError(e))}>{t("Connect Spotify")}</Button>
+            <p className="min-w-0 flex-1 text-sm text-muted">{t("Connect your Spotify account for music while you read (it needs Spotify Premium).")}</p>
+            <Button size="sm" onClick={() => void connectSpotify().catch((e) => toast.fromError(e))}>{t("Connect Spotify")}</Button>
           </div>
         )}
-        {spotify?.connected && !spotify.premium && <p className="rounded-lg border border-warn/40 bg-warn/10 px-3 py-2 text-sm">{t("Spotify plays music only for Premium accounts.")}</p>}
+        {music && spotify?.connected && !spotify.premium && <p className="rounded-lg border border-warn/40 bg-warn/10 px-3 py-2 text-sm">{t("Spotify plays music only for Premium accounts.")}</p>}
         {(s.error || (s.sdkError && s.on && !s.prefs.deviceId)) && (
           <p className="rounded-lg border border-err/40 bg-err/10 px-3 py-2 text-sm">
             {s.error || t("Spotify's player didn't start in this browser: pick a device to play on.") + " (" + s.sdkError + ")"}
@@ -152,22 +188,26 @@ export function SoundSheet({ s, onClose, here }: { s: Soundtrack; onClose: () =>
 
         <div className="flex items-center gap-3 rounded-xl border bg-panel-2 p-2.5" style={{ borderColor: s.on && m ? color : undefined }}>
           <div className="flex size-13 shrink-0 items-center justify-center overflow-hidden rounded-lg" style={{ background: tint(color, "33"), color }}>
-            {s.now?.imageUrl ? <img src={s.now.imageUrl} alt="" className="size-full object-cover" /> : <MoodIcon icon={m?.icon ?? "music"} className="size-6" />}
+            {music && s.now?.imageUrl ? <img src={s.now.imageUrl} alt="" className="size-full object-cover" /> : <MoodIcon icon={m?.icon ?? "music"} className="size-6" />}
           </div>
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
             <div className="truncate text-xs font-medium" style={{ color: m ? color : undefined }}>
-              {!s.on ? t("Music is off") : s.sound ? soundName(s.sound, moodName) + " · " + source : source}
+              {!s.on ? t("Sound is off") : s.sound ? soundName(s.sound, moodName) + " · " + source : source}
             </div>
             <div className="truncate text-sm font-medium">
-              {s.now?.track ? s.now.track + (s.now.artists ? " · " + s.now.artists : "") : s.sound?.music?.name || (s.on && s.sound && !s.sound.music ? t("No music here") : "—")}
+              {!music
+                ? ambienceLine || (s.on && s.sound ? t("No ambience here") : "—")
+                : s.now?.track
+                  ? s.now.track + (s.now.artists ? " · " + s.now.artists : "")
+                  : s.sound?.music?.name || (s.on && s.sound && !s.sound.music ? t("No music here") : "—")}
             </div>
-            {s.on && (s.now?.device || s.layers.length > 0) && (
+            {music && s.on && (s.now?.device || s.layers.length > 0) && (
               <div className="truncate text-xs text-muted">
                 {[s.now?.device ? t("Spotify on {device}", { device: s.now.device }) : "", s.layers.map((l) => l.title.toLowerCase()).join(" + ")].filter(Boolean).join(" · ")}
               </div>
             )}
           </div>
-          {s.connected && s.on && (
+          {music && s.on && (
             <div className="flex shrink-0 items-center gap-1">
               <button
                 type="button"
@@ -191,12 +231,14 @@ export function SoundSheet({ s, onClose, here }: { s: Soundtrack; onClose: () =>
           )}
         </div>
 
-        <label className="grid grid-cols-[5rem_1fr_2rem] items-center gap-2 text-[13px] text-muted">
-          {t("Music")}
-          <input type="range" min={0} max={100} value={s.prefs.volume} onChange={(e) => s.setVolume(Number(e.target.value))} className="accent-accent" />
-          <span className="text-right tabular-nums">{s.prefs.volume}</span>
-        </label>
-        <label className="-mt-2 grid grid-cols-[5rem_1fr_2rem] items-center gap-2 text-[13px] text-muted">
+        {music && (
+          <label className="grid grid-cols-[5rem_1fr_2rem] items-center gap-2 text-[13px] text-muted">
+            {t("Music")}
+            <input type="range" min={0} max={100} value={s.prefs.volume} onChange={(e) => s.setVolume(Number(e.target.value))} className="accent-accent" />
+            <span className="text-right tabular-nums">{s.prefs.volume}</span>
+          </label>
+        )}
+        <label className={clsx(music && "-mt-2", "grid grid-cols-[5rem_1fr_2rem] items-center gap-2 text-[13px] text-muted")}>
           {t("Ambience")}
           <input type="range" min={0} max={100} value={s.prefs.ambience} onChange={(e) => s.setAmbience(Number(e.target.value))} className="accent-accent" />
           <span className="text-right tabular-nums">{s.prefs.ambience}</span>
@@ -208,7 +250,7 @@ export function SoundSheet({ s, onClose, here }: { s: Soundtrack; onClose: () =>
             <span className="text-xs text-muted">{t("One tap presets")}</span>
           </div>
           <div className="grid grid-cols-4 gap-2">
-            {s.moods.map((mood) => {
+            {pads.map((mood) => {
               const active = s.on && m?.id === mood.id;
               return (
                 <button
@@ -227,6 +269,11 @@ export function SoundSheet({ s, onClose, here }: { s: Soundtrack; onClose: () =>
               );
             })}
           </div>
+          {extra > 0 && (
+            <button type="button" onClick={() => setAllMoods(!allMoods)} aria-expanded={allMoods} className="press h-9 rounded-lg text-[13px] font-medium text-muted hover:bg-panel-2 hover:text-fg">
+              {allMoods ? t("Fewer moods") : t("More moods ({count})", { count: extra })}
+            </button>
+          )}
         </div>
 
         {s.effects.length > 0 && (
@@ -259,23 +306,23 @@ export function SoundSheet({ s, onClose, here }: { s: Soundtrack; onClose: () =>
         <div className="flex gap-2">
           {account?.kind === "user" && here.seriesId > 0 && (
             <button type="button" onClick={() => setStarting(true)} className="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl border border-border text-[13px] font-medium hover:bg-panel-2">
-              <Plus className="size-4" aria-hidden="true" /> {t("Start a scene here")}
+              <Plus className="size-4" aria-hidden="true" /> {t("Start a mood here")}
             </button>
           )}
-          {s.connected && (
+          {music && (
             <button type="button" onClick={() => setPicking(!picking)} aria-expanded={picking} className="h-11 flex-1 rounded-xl border border-border text-[13px] font-medium hover:bg-panel-2">
               {t("Play music on…")}
             </button>
           )}
         </div>
-        {picking && s.connected && <Devices s={s} />}
+        {picking && music && <Devices s={s} />}
         {s.layers.length > 0 && (
           <p className="text-[11px] leading-relaxed text-muted">
             {t("Credits")}: {[...s.layers, ...s.effects].map((l) => `“${l.title}”${l.license ? ` (${l.license}${l.attribution ? ", " + l.attribution : ""})` : ""}`).join(", ")}
-            {s.sound?.music ? ". " + t("Music from Spotify.") : ""}
+            {music && s.sound?.music ? ". " + t("Music from Spotify.") : ""}
           </p>
         )}
-        {starting && <StartScene seriesId={here.seriesId} chapter={here.chapter} page={here.page} pageCount={here.pageCount} onClose={() => setStarting(false)} />}
+        {starting && <StartMood seriesId={here.seriesId} chapter={here.chapter} page={here.page} pageCount={here.pageCount} onClose={() => setStarting(false)} />}
       </section>
     </>
   );

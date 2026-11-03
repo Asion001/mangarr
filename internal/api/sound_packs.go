@@ -35,7 +35,7 @@ type CatalogPack struct {
 
 func packError(err error) error {
 	switch {
-	case errors.Is(err, soundtrack.ErrPackNotFound), errors.Is(err, soundtrack.ErrSceneNotFound):
+	case errors.Is(err, soundtrack.ErrPackNotFound):
 		return huma.Error404NotFound(err.Error())
 	}
 	return soundtrackError(err)
@@ -133,7 +133,7 @@ func (s *Server) registerSoundPacks() {
 			return &struct{ Body *model.Command }{c}, toHTTPError(err)
 		})
 	huma.Register(s.api, huma.Operation{OperationID: "audio-pack-delete", Method: http.MethodDelete, Path: "/api/v1/audio/packs/{id}", Tags: tags,
-		Summary: "Remove a pack and its sounds (scenes lose those layers)", DefaultStatus: http.StatusNoContent},
+		Summary: "Remove a pack and its sounds (moods lose them)", DefaultStatus: http.StatusNoContent},
 		func(ctx context.Context, in *IDPath) (*struct{}, error) {
 			if err := s.app.Packs.Delete(ctx, in.ID); err != nil {
 				return nil, packError(err)
@@ -222,53 +222,7 @@ func (s *Server) registerSoundPacks() {
 			}}, nil
 		})
 
-	// scenes
-	huma.Register(s.api, huma.Operation{OperationID: "audio-scenes", Method: http.MethodGet, Path: "/api/v1/audio/scenes", Tags: tags,
-		Summary: "Scenes: a mood's music with ambience layers and sound effect pads"},
-		func(ctx context.Context, _ *struct{}) (*struct{ Body []soundtrack.Scene }, error) {
-			out, err := soundtrack.Scenes(ctx, s.app.DB)
-			return &struct{ Body []soundtrack.Scene }{out}, toHTTPError(err)
-		})
-	huma.Register(s.api, huma.Operation{OperationID: "audio-scene", Method: http.MethodGet, Path: "/api/v1/audio/scenes/{id}", Tags: tags,
-		Summary: "One scene"},
-		func(ctx context.Context, in *IDPath) (*struct{ Body *soundtrack.Scene }, error) {
-			out, err := soundtrack.GetScene(ctx, s.app.DB, in.ID)
-			return &struct{ Body *soundtrack.Scene }{out}, packError(err)
-		})
-	huma.Register(s.api, huma.Operation{OperationID: "audio-scene-create", Method: http.MethodPost, Path: "/api/v1/audio/scenes", Tags: tags,
-		Summary: "Add a scene"},
-		func(ctx context.Context, in *struct{ Body soundtrack.SceneInput }) (*struct{ Body *soundtrack.Scene }, error) {
-			out, err := soundtrack.CreateScene(ctx, s.app.DB, in.Body)
-			if err != nil {
-				return nil, packError(err)
-			}
-			s.app.Bus.Changed("soundtrack", "updated", 0)
-			return &struct{ Body *soundtrack.Scene }{out}, nil
-		})
-	huma.Register(s.api, huma.Operation{OperationID: "audio-scene-update", Method: http.MethodPut, Path: "/api/v1/audio/scenes/{id}", Tags: tags,
-		Summary: "Change a scene"},
-		func(ctx context.Context, in *struct {
-			IDPath
-			Body soundtrack.SceneInput
-		}) (*struct{ Body *soundtrack.Scene }, error) {
-			out, err := soundtrack.UpdateScene(ctx, s.app.DB, in.ID, in.Body)
-			if err != nil {
-				return nil, packError(err)
-			}
-			s.app.Bus.Changed("soundtrack", "updated", 0)
-			return &struct{ Body *soundtrack.Scene }{out}, nil
-		})
-	huma.Register(s.api, huma.Operation{OperationID: "audio-scene-delete", Method: http.MethodDelete, Path: "/api/v1/audio/scenes/{id}", Tags: tags,
-		Summary: "Delete a scene (cues that used it keep their mood)", DefaultStatus: http.StatusNoContent},
-		func(ctx context.Context, in *IDPath) (*struct{}, error) {
-			if err := soundtrack.DeleteScene(ctx, s.app.DB, in.ID); err != nil {
-				return nil, packError(err)
-			}
-			s.app.Bus.Changed("soundtrack", "updated", 0)
-			return nil, nil
-		})
-
-	// one cue at a time (the reader's "Start a scene here")
+	// one cue at a time (the reader's "Start a mood here")
 	setCue := func(ctx context.Context, seriesID int64, userID *int64, c soundtrack.Cue) (*SeriesSoundtrack, error) {
 		if _, err := s.visibleSeries(ctx, seriesID); err != nil {
 			return nil, err
@@ -282,7 +236,7 @@ func (s *Server) registerSoundPacks() {
 		return s.seriesSoundtrack(ctx, seriesID)
 	}
 	huma.Register(s.api, huma.Operation{OperationID: "series-soundtrack-cue", Method: http.MethodPut, Path: "/api/v1/series/{id}/soundtrack/cue", Tags: tags,
-		Summary: "Add or replace one cue of the shared soundtrack (no mood or scene removes it)"},
+		Summary: "Add or replace one cue of the shared soundtrack (no mood removes it)"},
 		func(ctx context.Context, in *struct {
 			IDPath
 			Body soundtrack.Cue
@@ -291,7 +245,7 @@ func (s *Server) registerSoundPacks() {
 			return &struct{ Body *SeriesSoundtrack }{out}, err
 		})
 	huma.Register(s.api, huma.Operation{OperationID: "me-series-soundtrack-cue", Method: http.MethodPut, Path: "/api/v1/me/series/{id}/soundtrack/cue", Tags: tags,
-		Summary: "Add or replace one of your own cues (no mood or scene removes it)"},
+		Summary: "Add or replace one of your own cues (no mood removes it)"},
 		func(ctx context.Context, in *struct {
 			IDPath
 			Body soundtrack.Cue
@@ -424,7 +378,7 @@ func (s *Server) registerSoundPacks() {
 		if _, err := s.visibleSeries(ctx, seriesID); err != nil {
 			return nil, err
 		}
-		// only admins (the shared soundtrack) make scenes
+		// only admins (the shared soundtrack) make moods
 		d, res, err := soundtrack.ReadExport(ctx, s.app.DB, e, owner == nil)
 		if err != nil {
 			return nil, packError(err)
@@ -448,7 +402,7 @@ func (s *Server) registerSoundPacks() {
 		return out, nil
 	}
 	huma.Register(s.api, huma.Operation{OperationID: "series-soundtrack-import", Method: http.MethodPost, Path: "/api/v1/series/{id}/soundtrack/import", Tags: tags,
-		Summary: "Replace the shared soundtrack with an exported one (scenes it names are made from installed sounds)"},
+		Summary: "Replace the shared soundtrack with an exported one (moods it names that aren't here are made from installed sounds)"},
 		func(ctx context.Context, in *struct {
 			IDPath
 			Body soundtrack.Export
@@ -456,7 +410,7 @@ func (s *Server) registerSoundPacks() {
 			return doImport(ctx, in.ID, nil, in.Body)
 		})
 	huma.Register(s.api, huma.Operation{OperationID: "me-series-soundtrack-import", Method: http.MethodPost, Path: "/api/v1/me/series/{id}/soundtrack/import", Tags: tags,
-		Summary: "Replace your own cues with an exported soundtrack (scenes by name only)"},
+		Summary: "Replace your own cues with an exported soundtrack (moods by name only)"},
 		func(ctx context.Context, in *struct {
 			IDPath
 			Body soundtrack.Export

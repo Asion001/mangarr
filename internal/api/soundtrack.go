@@ -79,6 +79,7 @@ type SoundtrackChapter struct {
 
 type moodBody struct {
 	Name            string   `json:"name" minLength:"1" maxLength:"60"`
+	Description     string   `json:"description,omitempty" maxLength:"500"`
 	Color           string   `json:"color" pattern:"^#[0-9a-fA-F]{6}$"`
 	Icon            string   `json:"icon"`
 	Genres          []string `json:"genres,omitempty"`
@@ -88,10 +89,21 @@ type moodBody struct {
 	SpotifyName     string   `json:"spotifyName,omitempty"`
 	SpotifyImageURL string   `json:"spotifyImageUrl,omitempty"`
 	Shuffle         bool     `json:"shuffle" required:"false"`
+	// Ambience and SFX are its sounds; left out, they stay as they are.
+	Ambience []soundtrack.MoodLayer `json:"ambience,omitempty" maxItems:"4" nullable:"false"`
+	SFX      []soundtrack.MoodPad   `json:"sfx,omitempty" maxItems:"8" nullable:"false"`
+}
+
+// sounds is the body's sounds, nil when it leaves them out.
+func (b moodBody) sounds() *soundtrack.Sounds {
+	if b.Ambience == nil && b.SFX == nil {
+		return nil
+	}
+	return &soundtrack.Sounds{Ambience: b.Ambience, SFX: b.SFX}
 }
 
 func (b moodBody) mood() *model.AudioMood {
-	return &model.AudioMood{Name: b.Name, Color: b.Color, Icon: b.Icon, Genres: b.Genres, Keywords: b.Keywords, Prompts: b.Prompts, SpotifyURI: b.SpotifyURI, SpotifyName: b.SpotifyName, SpotifyImageURL: b.SpotifyImageURL, Shuffle: b.Shuffle}
+	return &model.AudioMood{Name: b.Name, Description: b.Description, Color: b.Color, Icon: b.Icon, Genres: b.Genres, Keywords: b.Keywords, Prompts: b.Prompts, SpotifyURI: b.SpotifyURI, SpotifyName: b.SpotifyName, SpotifyImageURL: b.SpotifyImageURL, Shuffle: b.Shuffle}
 }
 
 type deviceBody struct {
@@ -497,7 +509,7 @@ func (s *Server) registerSoundtracks() {
 				return nil, toHTTPError(err)
 			}
 			m := in.Body.mood()
-			if err := soundtrack.CreateMood(ctx, s.app.DB, m); err != nil {
+			if err := soundtrack.CreateMood(ctx, s.app.DB, m, in.Body.sounds()); err != nil {
 				return nil, soundtrackError(err)
 			}
 			s.app.Bus.Changed("soundtrack", "updated", 0)
@@ -510,7 +522,7 @@ func (s *Server) registerSoundtracks() {
 			Body moodBody
 		}) (*struct{ Body *model.AudioMood }, error) {
 			m := in.Body.mood()
-			if err := soundtrack.UpdateMood(ctx, s.app.DB, in.ID, m); err != nil {
+			if err := soundtrack.UpdateMood(ctx, s.app.DB, in.ID, m, in.Body.sounds()); err != nil {
 				return nil, soundtrackError(err)
 			}
 			s.app.Bus.Changed("soundtrack", "updated", 0)

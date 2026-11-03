@@ -12494,5 +12494,113 @@
   "Finds soundtrack moods in pages with an image model (needs ONNX Runtime: the worker downloads and the full image have it)": {
     "ru": "Находит настроения саундтрека в страницах моделью изображений (нужен ONNX Runtime: он есть в загрузках воркера и полном образе)",
     "uk": "Знаходить настрої саундтреку на сторінках моделлю зображень (потрібен ONNX Runtime: він є в завантаженнях воркера та повному образі)"
+  },
+  "A mood is what plays: a Spotify playlist for readers who listen with Spotify, and ambience loops with effect pads for everyone else. Each reader picks Spotify music or Ambience in the reader. Mangarr ships eight, with ambience from the starter packs; add your own for places and moments.": {
+    "ru": "Настроение — это то, что играет: плейлист Spotify для читателей со Spotify и фоновые звуки с эффектами для всех остальных. Каждый читатель выбирает в читалке «Музыка Spotify» или «Атмосфера». В Mangarr восемь настроений с атмосферой из стартовых наборов; добавьте свои для мест и моментов.",
+    "uk": "Настрій — це те, що грає: плейлист Spotify для читачів зі Spotify і фонові звуки з ефектами для всіх інших. Кожен читач обирає в читалці «Музика Spotify» або «Атмосфера». У Mangarr вісім настроїв з атмосферою зі стартових наборів; додайте свої для місць і моментів."
+  },
+  "Ambience and sound effects for the moods: they play under the music, or on their own for readers without Spotify.": {
+    "ru": "Фоновые звуки и эффекты для настроений: они играют под музыку или сами по себе у читателей без Spotify.",
+    "uk": "Фонові звуки й ефекти для настроїв: вони грають під музику або самі по собі в читачів без Spotify."
+  },
+  "Ambience · from sound packs": {
+    "ru": "Атмосфера · из наборов звуков",
+    "uk": "Атмосфера · з наборів звуків"
+  },
+  "Connect your Spotify account for music while you read (it needs Spotify Premium).": {
+    "ru": "Подключите Spotify, чтобы слушать музыку во время чтения (нужен Spotify Premium).",
+    "uk": "Підключіть Spotify, щоб слухати музику під час читання (потрібен Spotify Premium)."
+  },
+  "Find a mood": {
+    "ru": "Найти настроение",
+    "uk": "Знайти настрій"
+  },
+  "Finding it automatically": {
+    "ru": "Автоматический поиск",
+    "uk": "Автоматичний пошук"
+  },
+  "Its sounds are deleted, and moods lose the ambience and effects that used them.": {
+    "ru": "Его звуки удаляются, и настроения теряют использовавшие их фоны и эффекты.",
+    "uk": "Його звуки видаляються, і настрої втрачають фони й ефекти, що їх використовували."
+  },
+  "No ambience here": {
+    "ru": "Здесь нет атмосферы",
+    "uk": "Тут немає атмосфери"
+  },
+  "No ambience yet": {
+    "ru": "Атмосферы пока нет",
+    "uk": "Атмосфери поки немає"
+  },
+  "Nothing plays": {
+    "ru": "Ничего не играет",
+    "uk": "Нічого не грає"
+  },
+  "Nothing: start empty": {
+    "ru": "Ничего: начать с нуля",
+    "uk": "Нічого: почати з нуля"
+  },
+  "Plays for readers who pick Spotify music": {
+    "ru": "Играет у читателей, выбравших музыку Spotify",
+    "uk": "Грає в читачів, які обрали музику Spotify"
+  },
+  "Preview ambience": {
+    "ru": "Прослушать атмосферу",
+    "uk": "Прослухати атмосферу"
+  },
+  "Sound is off": {
+    "ru": "Звук выключен",
+    "uk": "Звук вимкнено"
+  },
+  "Spotify music": {
+    "ru": "Музыка Spotify",
+    "uk": "Музика Spotify"
+  },
+  "Spotify music needs the Spotify app set up on this server.": {
+    "ru": "Для музыки Spotify на сервере нужно настроить приложение Spotify.",
+    "uk": "Для музики Spotify на сервері треба налаштувати застосунок Spotify."
+  },
+  "Start a mood here": {
+    "ru": "Начать настроение здесь",
+    "uk": "Почати настрій тут"
+  },
+  "Titles that used it play nothing there until someone picks another mood.": {
+    "ru": "В тайтлах, где оно было, там ничего не играет, пока кто-нибудь не выберет другое настроение.",
+    "uk": "У тайтлах, де він був, там нічого не грає, доки хтось не обере інший настрій."
+  },
+  "Up to 4 loops; plays for readers who pick Ambience, and quietly under Spotify": {
+    "ru": "До 4 петель; играет у читателей, выбравших атмосферу, и тихо под Spotify",
+    "uk": "До 4 петель; грає в читачів, які обрали атмосферу, і тихо під Spotify"
+  },
+  "What plays": {
+    "ru": "Что играет",
+    "uk": "Що грає"
+  },
+  "What plays while people read: moods with their Spotify music and ambience, the Spotify app, and sound packs.": {
+    "ru": "Что играет во время чтения: настроения с музыкой Spotify и атмосферой, приложение Spotify и наборы звуков.",
+    "uk": "Що грає під час читання: настрої з музикою Spotify та атмосферою, застосунок Spotify і набори звуків."
+  },
+  "{count} moods made": {
+    "ru": "Создано настроений: {count}",
+    "uk": "Створено настроїв: {count}"
+  },
+  "Each mood's playlist on Spotify, with its ambience quietly under it.": {
+    "ru": "Плейлист настроения в Spotify, а под ним тихо его атмосфера.",
+    "uk": "Плейлист настрою в Spotify, а під ним тихо його атмосфера."
+  },
+  "Each mood's ambience and effects from sound packs, in this tab. No Spotify needed.": {
+    "ru": "Атмосфера и эффекты настроения из наборов звуков, в этой вкладке. Spotify не нужен.",
+    "uk": "Атмосфера й ефекти настрою з наборів звуків, у цій вкладці. Spotify не потрібен."
+  },
+  "Copies a mood's colour, music, ambience and effects.": {
+    "ru": "Копирует цвет, музыку, атмосферу и эффекты настроения.",
+    "uk": "Копіює колір, музику, атмосферу й ефекти настрою."
+  },
+  "Fewer moods": {
+    "ru": "Меньше настроений",
+    "uk": "Менше настроїв"
+  },
+  "More moods ({count})": {
+    "ru": "Ещё настроения ({count})",
+    "uk": "Більше настроїв ({count})"
   }
 }

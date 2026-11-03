@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -17,7 +18,7 @@ import (
 	"github.com/Asion001/mangarr/internal/testutil/tonepack"
 )
 
-// TestSoundPacksAPI: admins upload a pack and make scenes; readers stream
+// TestSoundPacksAPI: admins upload a pack and make moods with its sounds; readers stream
 // its sounds (with Range and ETag), place their own cues, and export and
 // import soundtracks; leftovers show in the cleanup plan.
 func TestSoundPacksAPI(t *testing.T) {
@@ -121,24 +122,31 @@ func TestSoundPacksAPI(t *testing.T) {
 	}
 	resp.Body.Close()
 
-	// scenes: readers see them, admins edit them
-	var scenes []struct {
+	// moods with sounds: readers see them, admins edit them
+	type moodView struct {
 		ID       int64
 		Name     string
 		Ambience []struct{ TrackID int64 }
 	}
-	if code := ann.do("GET", "/api/v1/audio/scenes", "", &scenes); code != 200 || len(scenes) != 1 || scenes[0].Name != "Humming room" {
-		t.Fatalf("pack scenes: %d %+v", code, scenes)
+	var moods []moodView
+	if code := ann.do("GET", "/api/v1/audio/moods", "", &moods); code != 200 || !slices.ContainsFunc(moods, func(m moodView) bool {
+		return m.Name == "Humming room" && len(m.Ambience) == 1
+	}) {
+		t.Fatalf("pack moods: %d %+v", code, moods)
 	}
-	sceneBody := `{"name":"Hum","ambience":[{"trackId":` + strconv.FormatInt(hum.ID, 10) + `,"volume":0.4}]}`
-	if code := ann.do("POST", "/api/v1/audio/scenes", sceneBody, nil); code != 403 {
-		t.Fatalf("a reader making a scene: %d", code)
+	moodBody := `{"name":"Hum","color":"#3fb98a","icon":"music","ambience":[{"trackId":` + strconv.FormatInt(hum.ID, 10) + `,"volume":0.4}]}`
+	if code := ann.do("POST", "/api/v1/audio/moods", moodBody, nil); code != 403 {
+		t.Fatalf("a reader making a mood: %d", code)
 	}
-	var scene struct{ ID int64 }
-	if code := boss.do("POST", "/api/v1/audio/scenes", sceneBody, &scene); code != 200 || scene.ID == 0 {
-		t.Fatalf("make a scene: %d", code)
+	var made moodView
+	if code := boss.do("POST", "/api/v1/audio/moods", moodBody, &made); code != 200 || made.ID == 0 || len(made.Ambience) != 1 {
+		t.Fatalf("make a mood: %d %+v", code, made)
 	}
-	sceneID := strconv.FormatInt(scene.ID, 10)
+	// a change that leaves the sounds out keeps them
+	if code := boss.do("PUT", "/api/v1/audio/moods/"+strconv.FormatInt(made.ID, 10), `{"name":"Hum","color":"#3fb98a","icon":"wind"}`, &made); code != 200 || len(made.Ambience) != 1 {
+		t.Fatalf("change a mood: %d %+v", code, made)
+	}
+	moodID := strconv.FormatInt(made.ID, 10)
 
 	now := time.Now().UTC()
 	rf := &model.RootFolder{Path: t.TempDir(), CreatedAt: now}
@@ -156,17 +164,17 @@ func TestSoundPacksAPI(t *testing.T) {
 			Cues []struct {
 				ChapterNumber float64
 				Page          *int
-				SceneID       *int64
+				MoodID        *int64
 			}
 		}
 		Credits  []struct{ Title, License string }
 		Chapters []struct{ Number float64 }
 	}
 	var st stView
-	if code := ann.do("PUT", "/api/v1/series/"+sid+"/soundtrack/cue", `{"chapterNumber":4,"sceneId":`+sceneID+`}`, nil); code != 403 {
+	if code := ann.do("PUT", "/api/v1/series/"+sid+"/soundtrack/cue", `{"chapterNumber":4,"moodId":`+moodID+`}`, nil); code != 403 {
 		t.Fatalf("a reader changing the shared cues: %d", code)
 	}
-	if code := ann.do("PUT", "/api/v1/me/series/"+sid+"/soundtrack/cue", `{"chapterNumber":4,"page":3,"sceneId":`+sceneID+`}`, &st); code != 200 ||
+	if code := ann.do("PUT", "/api/v1/me/series/"+sid+"/soundtrack/cue", `{"chapterNumber":4,"page":3,"moodId":`+moodID+`}`, &st); code != 200 ||
 		st.Personal == nil || len(st.Personal.Cues) != 1 || len(st.Credits) != 1 || st.Credits[0].Title != "Low hum" || len(st.Chapters) != 1 {
 		t.Fatalf("my cue: %d %+v", code, st)
 	}
@@ -176,11 +184,11 @@ func TestSoundPacksAPI(t *testing.T) {
 			Page  int
 			Sound struct {
 				Source string
-				Scene  struct{ ID int64 }
+				Mood   struct{ ID int64 }
 			}
 		}
 	}
-	if code := ann.do("GET", "/api/v1/read/chapters/"+strconv.FormatInt(ch.ID, 10)+"/soundtrack", "", &r); code != 200 || len(r.Pages) != 1 || r.Pages[0].Sound.Scene.ID != scene.ID || r.Pages[0].Sound.Source != "personal" {
+	if code := ann.do("GET", "/api/v1/read/chapters/"+strconv.FormatInt(ch.ID, 10)+"/soundtrack", "", &r); code != 200 || len(r.Pages) != 1 || r.Pages[0].Sound.Mood.ID != made.ID || r.Pages[0].Sound.Source != "personal" {
 		t.Fatalf("resolved: %d %+v", code, r)
 	}
 
@@ -195,7 +203,7 @@ func TestSoundPacksAPI(t *testing.T) {
 		t.Fatalf("export: %d %v %s", resp.StatusCode, resp.Header, exported)
 	}
 	var imp struct {
-		Result     struct{ Cues, ScenesCreated, MissingSounds int }
+		Result     struct{ Cues, MoodsCreated, MissingSounds int }
 		Soundtrack stView
 	}
 	if code := ann.do("POST", "/api/v1/series/"+sid+"/soundtrack/import", string(exported), nil); code != 403 {

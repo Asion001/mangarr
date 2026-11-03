@@ -6,14 +6,17 @@ import (
 	"github.com/uptrace/bun"
 )
 
-// AudioMood is a soundtrack preset: music from Spotify (a playlist, album or
-// track) with a colour and an icon. Slug names the built-in moods mangarr
-// seeds ("calm"…); moods admins add have none.
+// AudioMood is what plays: music from Spotify (a playlist, album or track)
+// for readers who listen with Spotify, and ambience loops with sound effect
+// pads from sound packs for everyone, with a colour and an icon. Slug names
+// the built-in moods mangarr seeds ("calm"…); moods admins add, or packs
+// bring, have none.
 type AudioMood struct {
 	bun.BaseModel `bun:"table:audio_moods"`
 	ID            int64  `bun:"id,pk,autoincrement" json:"id"`
 	Slug          string `bun:"slug,notnull" json:"slug" doc:"The built-in mood this is (calm, melancholy…); empty for moods admins made"`
 	Name          string `bun:"name,notnull" json:"name"`
+	Description   string `bun:"description,notnull" json:"description"`
 	Color         string `bun:"color,notnull" json:"color" doc:"#rrggbb"`
 	Icon          string `bun:"icon,notnull" json:"icon"`
 	// Genres are the genres and tags the mood suits (for suggestions).
@@ -27,8 +30,30 @@ type AudioMood struct {
 	SpotifyImageURL string    `bun:"spotify_image_url,notnull" json:"spotifyImageUrl"`
 	Shuffle         bool      `bun:"shuffle,notnull" json:"shuffle"`
 	Position        int       `bun:"position,notnull" json:"position"`
+	PackID          *int64    `bun:"pack_id" json:"packId,omitempty" doc:"The sound pack that brought it"`
 	CreatedAt       time.Time `bun:"created_at,notnull" json:"createdAt"`
 	UpdatedAt       time.Time `bun:"updated_at,notnull" json:"updatedAt"`
+	// Ambience and SFX are its sounds (filled in when listed).
+	Ambience []MoodTrack `bun:"-" json:"ambience"`
+	SFX      []MoodTrack `bun:"-" json:"sfx"`
+}
+
+// MoodTrack is a mood's ambience loop or effect pad with what the player
+// needs.
+type MoodTrack struct {
+	TrackID     int64   `json:"trackId"`
+	Title       string  `json:"title"`
+	Category    string  `json:"category"`
+	Icon        string  `json:"icon"`
+	SHA256      string  `json:"sha256"`
+	Ext         string  `json:"ext"`
+	GainDB      float64 `json:"gainDb"`
+	Volume      float64 `json:"volume"`
+	Label       string  `json:"label,omitempty"`
+	Pack        string  `json:"pack"`
+	License     string  `json:"license"`
+	Attribution string  `json:"attribution"`
+	SourceURL   string  `json:"sourceUrl"`
 }
 
 // SpotifyAccount is a user's connected Spotify account. The refresh token
@@ -66,7 +91,6 @@ type SoundtrackCue struct {
 	// PageCount is the chapter's page count when a page cue was placed.
 	PageCount *int   `bun:"page_count"`
 	MoodID    *int64 `bun:"mood_id"`
-	SceneID   *int64 `bun:"scene_id"`
 	// Source is manual (placed by someone) or auto (found by mangarr, with a
 	// confidence and the detector's version).
 	Source       string   `bun:"source,notnull"`
@@ -123,28 +147,11 @@ type AudioTrack struct {
 	SourceURL     string   `bun:"source_url,notnull" json:"sourceUrl"`
 }
 
-// AudioScene is a mood's music (or its own) with ambience layers and
-// sound effect pads.
-type AudioScene struct {
-	bun.BaseModel   `bun:"table:audio_scenes"`
-	ID              int64     `bun:"id,pk,autoincrement"`
-	Name            string    `bun:"name,notnull"`
-	Description     string    `bun:"description,notnull"`
-	MoodID          *int64    `bun:"mood_id"`
-	SpotifyURI      string    `bun:"spotify_uri,notnull"`
-	SpotifyName     string    `bun:"spotify_name,notnull"`
-	SpotifyImageURL string    `bun:"spotify_image_url,notnull"`
-	Shuffle         bool      `bun:"shuffle,notnull"`
-	PackID          *int64    `bun:"pack_id"`
-	CreatedAt       time.Time `bun:"created_at,notnull"`
-	UpdatedAt       time.Time `bun:"updated_at,notnull"`
-}
-
-// AudioSceneItem puts a track in a scene: an ambience layer or an SFX pad.
-type AudioSceneItem struct {
-	bun.BaseModel `bun:"table:audio_scene_items"`
+// AudioMoodItem puts a track in a mood: an ambience loop or an SFX pad.
+type AudioMoodItem struct {
+	bun.BaseModel `bun:"table:audio_mood_items"`
 	ID            int64   `bun:"id,pk,autoincrement"`
-	SceneID       int64   `bun:"scene_id,notnull"`
+	MoodID        int64   `bun:"mood_id,notnull"`
 	TrackID       int64   `bun:"track_id,notnull"`
 	Role          string  `bun:"role,notnull"`
 	Volume        float64 `bun:"volume,notnull"`
