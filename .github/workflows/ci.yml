@@ -48,7 +48,8 @@ jobs:
       - name: test (SQLite + Postgres)
         env:
           MANGARR_TEST_POSTGRES: postgres://postgres:pg@localhost:5432/postgres?sslmode=disable
-        run: go test -race -count=1 ./...
+        # internal/app runs close to go test's 10 minute default under -race
+        run: go test -race -count=1 -timeout 20m ./...
 
   web:
     runs-on: ubuntu-latest
