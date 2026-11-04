@@ -42,6 +42,32 @@ func TestChanges(t *testing.T) {
 	if got := Changes(flat, 0); len(got) != 1 || got[0].Page != 1 {
 		t.Fatalf("an unsure opening: %+v", got)
 	}
+	// ten moods: a clear page scores about 0.3, its neighbours less
+	ten := func(m int64, v float64) Scores {
+		s := Scores{}
+		for id := int64(1); id <= 10; id++ {
+			s[id] = (1 - v) / 9
+		}
+		s[m] = v
+		return s
+	}
+	var many []Scores
+	for range 6 {
+		many = append(many, ten(1, 0.3))
+	}
+	for range 6 {
+		many = append(many, ten(4, 0.3))
+	}
+	if got := Changes(many, 0); len(got) != 2 || got[0].Mood != 1 || got[1].Mood != 4 {
+		t.Fatalf("ten moods: %+v", got)
+	}
+	var even []Scores
+	for range 8 {
+		even = append(even, ten(3, 0.12))
+	}
+	if got := Changes(even, 1); len(got) != 0 {
+		t.Fatalf("ten moods, none clear: %+v", got)
+	}
 	if got := Changes(nil, 0); len(got) != 0 {
 		t.Fatalf("no pages: %+v", got)
 	}

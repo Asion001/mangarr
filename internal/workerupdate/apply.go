@@ -37,6 +37,13 @@ const (
 // are left as they are: they change rarely and are far larger.
 const encoders = "encoders"
 
+// ortFolder is the ONNX Runtime folder the zip carries for finding moods in
+// pages (scripts/worker-zip.sh). It is added when the worker has none, as
+// a worker installed before it existed only ever got the program and the
+// encoders from updates, but never replaced: the running program may have
+// the library loaded.
+const ortFolder = "onnxruntime"
+
 // maxStarts is how often an updated program may start without connecting
 // before the one it replaced is put back.
 const maxStarts = 3
@@ -104,7 +111,26 @@ func Apply(ctx context.Context, client *http.Client, o Offer, exe string, curren
 		cleanup()
 		return err
 	}
-	return swap(exe, next, staged, Marker{From: current.String(), To: o.ID()})
+	if err := swap(exe, next, staged, Marker{From: current.String(), To: o.ID()}); err != nil {
+		return err
+	}
+	addRuntime(zr, dir)
+	return nil
+}
+
+// addRuntime puts the zip's onnxruntime folder next to the program when
+// there is none yet. It is best effort: without it the worker still runs,
+// it just doesn't offer to find moods.
+func addRuntime(zr *zip.Reader, dir string) {
+	dst := filepath.Join(dir, ortFolder)
+	if _, err := os.Stat(dst); err == nil || !errors.Is(err, fs.ErrNotExist) {
+		return
+	}
+	staged := dst + newSuffix
+	found, err := extractFolder(zr, ortFolder, staged)
+	if err != nil || !found || os.Rename(staged, dst) != nil {
+		_ = os.RemoveAll(staged)
+	}
 }
 
 func fetchChecksum(ctx context.Context, client *http.Client, url string) (string, error) {

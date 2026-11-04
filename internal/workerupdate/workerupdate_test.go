@@ -103,6 +103,7 @@ func publish(t *testing.T, program []byte, sum string) *httptest.Server {
 		"mangarr-worker-test/upscalers/waifu2x/waifu2x-ncnn-vulkan": []byte("x"),
 		"mangarr-worker-test/encoders/avifenc":                      []byte("new avifenc"),
 		"mangarr-worker-test/encoders/cwebp":                        []byte("new cwebp"),
+		"mangarr-worker-test/onnxruntime/libonnxruntime.so":         []byte("new ort"),
 	} {
 		f, err := zw.Create(name)
 		if err != nil {
@@ -172,6 +173,24 @@ func offerFrom(srv *httptest.Server) Offer {
 	return Offer{Build: offered, URL: srv.URL + "/w.zip", Checksum: srv.URL + "/w.zip.sha256"}
 }
 
+func TestApplyKeepsRuntime(t *testing.T) {
+	exe := installed(t)
+	ort := filepath.Join(filepath.Dir(exe), "onnxruntime")
+	if err := os.Mkdir(ort, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(ort, "libonnxruntime.so"), []byte("old ort"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	srv := publish(t, script("v1.3.0"), "")
+	if err := Apply(context.Background(), srv.Client(), offerFrom(srv), exe, running); err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(encoderFiles(t, exe, "onnxruntime"), ","); got != "libonnxruntime.so=old ort" {
+		t.Errorf("onnxruntime: %s", got)
+	}
+}
+
 func TestApplyThenConfirm(t *testing.T) {
 	exe := installed(t)
 	srv := publish(t, script("v1.3.0"), "")
@@ -189,6 +208,9 @@ func TestApplyThenConfirm(t *testing.T) {
 	}
 	if got := strings.Join(encoderFiles(t, exe, "encoders.old"), ","); got != "avifenc=old avifenc" {
 		t.Errorf("encoders kept: %s", got)
+	}
+	if got := strings.Join(encoderFiles(t, exe, "onnxruntime"), ","); got != "libonnxruntime.so=new ort" {
+		t.Errorf("onnxruntime added: %s", got)
 	}
 	if back, m, err := Settle(exe); err != nil || back || m.Starts != 1 || m.To != "v1.3.0 build 7" || m.From != "v1.2.0 build 7" {
 		t.Errorf("Settle = %v %+v %v", back, m, err)

@@ -367,7 +367,7 @@ func (s *Server) registerSoundPacks() {
 				return nil, toHTTPError(err)
 			}
 			if len(ids) > 0 {
-				_, _ = s.app.Queue.Push(ctx, "ScorePages", map[string]any{"seriesId": ser.ID, "chapterIds": ids}, "reader")
+				_, _ = s.app.Queue.Push(ctx, "ScoreReaderPages", map[string]any{"seriesId": ser.ID, "chapterIds": ids}, "reader")
 			}
 			return nil, nil
 		})

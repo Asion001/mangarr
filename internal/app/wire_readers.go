@@ -54,34 +54,37 @@ func (a *App) wireReaders(ctx context.Context) error {
 		}
 		return b.Path, nil
 	}
-	a.Queue.Register(jobs.Definition{Name: "ScorePages", Description: "Find soundtrack moods in chapters' pages", Priority: 60,
-		Handler: func(ctx context.Context, r *jobs.Run) error {
-			var body struct {
-				SeriesID   int64   `json:"seriesId"`
-				ChapterIDs []int64 `json:"chapterIds"`
+	scorePages := func(ctx context.Context, r *jobs.Run) error {
+		var body struct {
+			SeriesID   int64   `json:"seriesId"`
+			ChapterIDs []int64 `json:"chapterIds"`
+		}
+		_ = r.Body(&body)
+		ids := []int64{body.SeriesID}
+		if body.SeriesID == 0 {
+			ids = nil
+			if err := a.DB.NewSelect().TableExpr("series").Column("id").Where("preview = ?", false).Scan(ctx, &ids); err != nil {
+				return err
 			}
-			_ = r.Body(&body)
-			ids := []int64{body.SeriesID}
-			if body.SeriesID == 0 {
-				ids = nil
-				if err := a.DB.NewSelect().TableExpr("series").Column("id").Where("preview = ?", false).Scan(ctx, &ids); err != nil {
-					return err
-				}
+		}
+		scored, queued := 0, 0
+		for i, id := range ids {
+			res, err := a.PageMoods.Score(ctx, id, body.ChapterIDs, func(msg string) { r.Progress("series %d of %d: %s", i+1, len(ids), msg) })
+			if res != nil {
+				scored, queued = scored+res.Scored, queued+res.Queued
 			}
-			scored, queued := 0, 0
-			for i, id := range ids {
-				res, err := a.PageMoods.Score(ctx, id, body.ChapterIDs, func(msg string) { r.Progress("series %d of %d: %s", i+1, len(ids), msg) })
-				if res != nil {
-					scored, queued = scored+res.Scored, queued+res.Queued
-				}
-				if err != nil {
-					return err
-				}
+			if err != nil {
+				return err
 			}
-			r.Progress("%d chapters scored here, %d handed to workers", scored, queued)
-			a.Bus.Changed("soundtrack", "updated", body.SeriesID)
-			return nil
-		}})
+		}
+		r.Progress("%d chapters scored here, %d handed to workers", scored, queued)
+		a.Bus.Changed("soundtrack", "updated", body.SeriesID)
+		return nil
+	}
+	a.Queue.Register(jobs.Definition{Name: "ScorePages", Description: "Find soundtrack moods in chapters' pages", Priority: 60, Handler: scorePages})
+	// The chapters someone is reading now: ahead of whole series scored
+	// after imports, and beside them (a command name runs one at a time).
+	a.Queue.Register(jobs.Definition{Name: "ScoreReaderPages", Description: "Find soundtrack moods in the pages someone is reading", Handler: scorePages})
 	a.Cleaner.Leftovers = func(ctx context.Context) ([]cleanup.LeftoverFile, error) {
 		list, err := a.Packs.Leftovers(ctx)
 		out := make([]cleanup.LeftoverFile, len(list))

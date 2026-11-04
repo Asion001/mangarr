@@ -12,14 +12,28 @@ const (
 	// window is how many pages around each page its scores are averaged
 	// over (the page and two either side).
 	window = 2
-	// Lead is how far ahead of the playing mood another must score.
+	// Lead is how far ahead of the playing mood another must score (less
+	// with many moods: see sureness).
 	Lead = 0.08
 	// Hold is how many pages in a row it must lead for before the mood
 	// switches (the switch is placed at the first of them).
 	Hold = 4
-	// MinScore is how sure the model must be of a mood at all.
+	// MinScore is how sure the model must be of a mood at all (less with
+	// many moods: see sureness).
 	MinScore = 0.3
 )
+
+// sureness is how sure the model must be of a mood, and how far ahead of
+// the playing one, when it chooses among n moods. The scores share 1
+// between them, so with ten moods a clear page scores about 0.3 and its
+// neighbours average it down: a mood counts when it gets twice an even
+// share, and leads by half of one.
+func sureness(n int) (minScore, lead float64) {
+	if n <= 0 {
+		return MinScore, Lead
+	}
+	return min(MinScore, 2/float64(n)), min(Lead, 0.5/float64(n))
+}
 
 // Changes finds where a chapter's mood changes, from its pages' scores.
 // carry is the mood the previous chapter ended on (0: none); when it has
@@ -27,6 +41,11 @@ const (
 // (empty Scores) are skipped over.
 func Changes(pages []Scores, carry int64) []Change {
 	smooth := smoothed(pages)
+	moods := 0
+	for _, p := range pages {
+		moods = max(moods, len(p))
+	}
+	minScore, lead := sureness(moods)
 	var out []Change
 	current := carry
 	if current == 0 {
@@ -43,7 +62,7 @@ func Changes(pages []Scores, carry int64) []Change {
 			n++
 		}
 		if n > 0 {
-			if m, v := best(sum); v/float64(n) >= MinScore {
+			if m, v := best(sum); v/float64(n) >= minScore {
 				current = m
 				out = append(out, Change{Page: 1, Mood: m, Confidence: round2(v / float64(n))})
 			}
@@ -55,7 +74,7 @@ func Changes(pages []Scores, carry int64) []Change {
 			continue
 		}
 		m, v := best(s)
-		if m == current || v < MinScore || v-s[current] < Lead {
+		if m == current || v < minScore || v-s[current] < lead {
 			runMood, runLen = 0, 0
 			continue
 		}
