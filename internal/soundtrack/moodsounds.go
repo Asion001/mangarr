@@ -19,6 +19,18 @@ const (
 type MoodLayer struct {
 	TrackID int64   `json:"trackId"`
 	Volume  float64 `json:"volume" minimum:"0" maximum:"1"`
+	// Plays is when it plays as a reader turns the intensity up or down:
+	// always (at calm too), normal (the default) or intense (only then).
+	Plays string `json:"plays,omitempty" enum:"always,normal,intense"`
+}
+
+// plays is a layer's Plays, normal when unset.
+func plays(v string) string {
+	switch v {
+	case model.PlaysAlways, model.PlaysIntense:
+		return v
+	}
+	return model.PlaysNormal
 }
 
 // MoodPad is a sound effect pad.
@@ -77,6 +89,7 @@ func withSounds(ctx context.Context, db bun.IDB, moods []model.AudioMood) error 
 		t := model.MoodTrack{TrackID: it.TrackID, Title: it.Title, Category: it.Category, Icon: it.Icon, SHA256: it.SHA256, Ext: it.Ext, GainDB: it.GainDB,
 			Volume: it.Volume, Label: it.Label, Pack: it.Pack, License: it.License, Attribution: it.Attribution, SourceURL: it.SourceURL}
 		if it.Role == model.TrackAmbience {
+			t.Plays = plays(it.Plays)
 			m.Ambience = append(m.Ambience, t)
 		} else {
 			m.SFX = append(m.SFX, t)
@@ -120,10 +133,10 @@ func setSounds(ctx context.Context, db bun.IDB, moodID int64, in Sounds) error {
 	}
 	var items []model.AudioMoodItem
 	for i, a := range in.Ambience {
-		items = append(items, model.AudioMoodItem{MoodID: moodID, TrackID: a.TrackID, Role: model.TrackAmbience, Volume: max(0, min(1, a.Volume)), Position: i})
+		items = append(items, model.AudioMoodItem{MoodID: moodID, TrackID: a.TrackID, Role: model.TrackAmbience, Volume: max(0, min(1, a.Volume)), Position: i, Plays: plays(a.Plays)})
 	}
 	for i, s := range in.SFX {
-		items = append(items, model.AudioMoodItem{MoodID: moodID, TrackID: s.TrackID, Role: model.TrackSFX, Volume: 1, Position: i, Label: strings.TrimSpace(s.Label)})
+		items = append(items, model.AudioMoodItem{MoodID: moodID, TrackID: s.TrackID, Role: model.TrackSFX, Volume: 1, Position: i, Label: strings.TrimSpace(s.Label), Plays: model.PlaysNormal})
 	}
 	if len(items) == 0 {
 		return nil

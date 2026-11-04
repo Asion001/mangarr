@@ -57,6 +57,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/audio/moods/{id}/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Put a built-in mood or pack scene back to its defaults (name, colour, icon, genres, keywords, page descriptions); its music and sounds stay */
+        post: operations["audio-mood-reset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/audio/packs": {
         parameters: {
             query?: never;
@@ -5137,7 +5154,11 @@ export interface components {
             /** Format: date-time */
             createdAt: string;
             description: string;
+            /** @description Fields changed from the defaults; the others follow them */
+            edited?: string[];
             genres: string[];
+            /** @description A built-in mood or pack scene, which can go back to its defaults */
+            hasDefaults?: boolean;
             icon: string;
             /** Format: int64 */
             id: number;
@@ -7162,6 +7183,8 @@ export interface components {
             label?: string;
             license: string;
             pack: string;
+            /** @enum {string} */
+            plays?: "always" | "normal" | "intense";
             sha256: string;
             sourceUrl: string;
             title: string;
@@ -8787,6 +8810,7 @@ export interface components {
         };
         SoundtrackExportedSound: {
             label?: string;
+            plays?: string;
             sha256: string;
             title?: string;
             /** Format: double */
@@ -8803,6 +8827,8 @@ export interface components {
             moodsCreated: number;
         };
         SoundtrackMoodLayer: {
+            /** @enum {string} */
+            plays?: "always" | "normal" | "intense";
             /** Format: int64 */
             trackId: number;
             /** Format: double */
@@ -10019,6 +10045,37 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "audio-mood-reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AudioMood"];
+                };
             };
             /** @description Error */
             default: {

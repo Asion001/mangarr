@@ -63,7 +63,7 @@ func EnsureMoods(ctx context.Context, db bun.IDB, st *settings.Store) error {
 		return err
 	}
 	if done.MoodsSeeded {
-		return nil
+		return followDefaults(ctx, db, st, done)
 	}
 	n, err := db.NewSelect().Model((*model.AudioMood)(nil)).Where("slug <> ''").Count(ctx)
 	if err != nil {
@@ -73,13 +73,28 @@ func EnsureMoods(ctx context.Context, db bun.IDB, st *settings.Store) error {
 		now := time.Now().UTC()
 		moods := make([]model.AudioMood, len(builtins))
 		for i, b := range builtins {
-			moods[i] = model.AudioMood{Slug: b.slug, Name: b.name, Color: b.color, Icon: b.icon, Genres: b.genres, Keywords: b.keywords, Prompts: b.prompts, Shuffle: true, Position: i, CreatedAt: now, UpdatedAt: now}
+			moods[i] = model.AudioMood{Slug: b.slug, Name: b.name, Color: b.color, Icon: b.icon, Genres: b.genres, Keywords: b.keywords, Prompts: b.prompts, Edited: []string{}, Shuffle: true, Position: i, CreatedAt: now, UpdatedAt: now}
 		}
 		if _, err := db.NewInsert().Model(&moods).Exec(ctx); err != nil {
 			return err
 		}
 	}
-	return st.Set(ctx, settings.KeySoundtracks, settings.Soundtracks{MoodsSeeded: true})
+	done.MoodsSeeded = true
+	return followDefaults(ctx, db, st, done)
+}
+
+// followDefaults brings moods to the defaults when those changed since
+// they last were (a new version, or the first run that has them).
+func followDefaults(ctx context.Context, db bun.IDB, st *settings.Store, done settings.Soundtracks) error {
+	key := defaultsKey()
+	if done.DefaultsKey == key {
+		return nil
+	}
+	if err := syncDefaults(ctx, db, done.DefaultsKey == ""); err != nil {
+		return err
+	}
+	done.DefaultsKey = key
+	return st.Set(ctx, settings.KeySoundtracks, done)
 }
 
 // Moods lists the moods in their order.
@@ -90,6 +105,9 @@ func Moods(ctx context.Context, db bun.IDB, st *settings.Store) ([]model.AudioMo
 	out := []model.AudioMood{}
 	if err := db.NewSelect().Model(&out).Order("position", "id").Scan(ctx); err != nil {
 		return nil, err
+	}
+	for i := range out {
+		out[i].HasDefaults = DefaultsOf(&out[i]) != nil
 	}
 	return out, withSounds(ctx, db, out)
 }
@@ -103,6 +121,7 @@ func Mood(ctx context.Context, db bun.IDB, id int64) (*model.AudioMood, error) {
 		}
 		return nil, err
 	}
+	m.HasDefaults = DefaultsOf(&m) != nil
 	list := []model.AudioMood{m}
 	if err := withSounds(ctx, db, list); err != nil {
 		return nil, err
@@ -191,6 +210,9 @@ func CreateMood(ctx context.Context, db bun.IDB, m *model.AudioMood, sounds *Sou
 		}
 		now := time.Now().UTC()
 		m.ID, m.Slug, m.CreatedAt, m.UpdatedAt = 0, "", now, now
+		if m.Edited == nil {
+			m.Edited = []string{}
+		}
 		m.Position = int(last.Int64) + 1
 		if _, err := tx.NewInsert().Model(m).Exec(ctx); err != nil {
 			return err
@@ -232,6 +254,10 @@ func UpdateMood(ctx context.Context, db bun.IDB, id int64, m *model.AudioMood, s
 		}
 	}
 	m.ID, m.Slug, m.Position, m.PackID, m.CreatedAt, m.UpdatedAt = old.ID, old.Slug, old.Position, old.PackID, old.CreatedAt, time.Now().UTC()
+	m.Scene = old.Scene
+	// what differs from the defaults is the admin's; the rest follows them
+	m.Edited = DefaultsOf(m).edited(m)
+	m.HasDefaults = DefaultsOf(m) != nil
 	return db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
 		if _, err := tx.NewUpdate().Model(m).WherePK().Exec(ctx); err != nil {
 			return err

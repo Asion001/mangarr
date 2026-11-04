@@ -178,6 +178,20 @@ function MoodEditor({ mood, onClose }: { mood: Mood | null; onClose: () => void 
       setSaving(false);
     }
   };
+  const [resetting, setResetting] = useState(false);
+  const reset = async () => {
+    if (!mood) return;
+    setResetting(true);
+    try {
+      await unwrap(api.POST("/api/v1/audio/moods/{id}/reset", { params: { path: { id: mood.id } } }));
+      toast.success(t("Mood reset to its defaults"));
+      done();
+    } catch (e) {
+      toast.fromError(e);
+    } finally {
+      setResetting(false);
+    }
+  };
   const remove = async () => {
     if (!mood) return;
     try {
@@ -199,6 +213,11 @@ function MoodEditor({ mood, onClose }: { mood: Mood | null; onClose: () => void 
           {mood && (
             <Button variant="danger" className="mr-auto" onClick={() => setDeleting(true)}>
               {t("Delete")}
+            </Button>
+          )}
+          {mood?.hasDefaults && (mood.edited?.length ?? 0) > 0 && (
+            <Button loading={resetting} onClick={() => void reset()}>
+              {t("Reset to default")}
             </Button>
           )}
           <Button onClick={onClose}>{t("Cancel")}</Button>

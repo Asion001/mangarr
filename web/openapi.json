@@ -761,11 +761,22 @@
           "description": {
             "type": "string"
           },
+          "edited": {
+            "description": "Fields changed from the defaults; the others follow them",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "genres": {
             "items": {
               "type": "string"
             },
             "type": "array"
+          },
+          "hasDefaults": {
+            "description": "A built-in mood or pack scene, which can go back to its defaults",
+            "type": "boolean"
           },
           "icon": {
             "type": "string"
@@ -7402,6 +7413,14 @@
           "pack": {
             "type": "string"
           },
+          "plays": {
+            "enum": [
+              "always",
+              "normal",
+              "intense"
+            ],
+            "type": "string"
+          },
           "sha256": {
             "type": "string"
           },
@@ -12807,6 +12826,9 @@
           "label": {
             "type": "string"
           },
+          "plays": {
+            "type": "string"
+          },
           "sha256": {
             "type": "string"
           },
@@ -12854,6 +12876,14 @@
       "SoundtrackMoodLayer": {
         "additionalProperties": false,
         "properties": {
+          "plays": {
+            "enum": [
+              "always",
+              "normal",
+              "intense"
+            ],
+            "type": "string"
+          },
           "trackId": {
             "format": "int64",
             "type": "integer"
@@ -16616,6 +16646,48 @@
           }
         },
         "summary": "Change a mood",
+        "tags": [
+          "Soundtracks"
+        ]
+      }
+    },
+    "/api/v1/audio/moods/{id}/reset": {
+      "post": {
+        "operationId": "audio-mood-reset",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudioMood"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Put a built-in mood or pack scene back to its defaults (name, colour, icon, genres, keywords, page descriptions); its music and sounds stay",
         "tags": [
           "Soundtracks"
         ]

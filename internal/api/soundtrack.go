@@ -530,6 +530,16 @@ func (s *Server) registerSoundtracks() {
 			s.app.Bus.Changed("soundtrack", "updated", 0)
 			return &struct{ Body *model.AudioMood }{m}, nil
 		})
+	huma.Register(s.api, huma.Operation{OperationID: "audio-mood-reset", Method: http.MethodPost, Path: "/api/v1/audio/moods/{id}/reset", Tags: tags,
+		Summary: "Put a built-in mood or pack scene back to its defaults (name, colour, icon, genres, keywords, page descriptions); its music and sounds stay"},
+		func(ctx context.Context, in *IDPath) (*struct{ Body *model.AudioMood }, error) {
+			m, err := soundtrack.ResetMood(ctx, s.app.DB, in.ID)
+			if err != nil {
+				return nil, soundtrackError(err)
+			}
+			s.app.Bus.Changed("soundtrack", "updated", 0)
+			return &struct{ Body *model.AudioMood }{m}, nil
+		})
 	huma.Register(s.api, huma.Operation{OperationID: "audio-mood-delete", Method: http.MethodDelete, Path: "/api/v1/audio/moods/{id}", Tags: tags,
 		Summary: "Delete a mood (soundtracks that used it play nothing there)", DefaultStatus: http.StatusNoContent},
 		func(ctx context.Context, in *IDPath) (*struct{}, error) {

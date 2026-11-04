@@ -62,6 +62,8 @@ type ExportedSound struct {
 	Title  string  `json:"title,omitempty"`
 	Volume float64 `json:"volume,omitempty"`
 	Label  string  `json:"label,omitempty"`
+	// Plays is an ambience loop's intensity (always, normal or intense).
+	Plays string `json:"plays,omitempty"`
 }
 
 func exportMood(m *model.AudioMood) *ExportedMood {
@@ -70,7 +72,7 @@ func exportMood(m *model.AudioMood) *ExportedMood {
 	}
 	e := &ExportedMood{Slug: m.Slug, Name: m.Name, Color: m.Color, Icon: m.Icon, SpotifyURI: m.SpotifyURI, Shuffle: m.Shuffle}
 	for _, t := range m.Ambience {
-		e.Ambience = append(e.Ambience, ExportedSound{SHA256: t.SHA256, Title: t.Title, Volume: t.Volume})
+		e.Ambience = append(e.Ambience, ExportedSound{SHA256: t.SHA256, Title: t.Title, Volume: t.Volume, Plays: exportedPlays(t.Plays)})
 	}
 	for _, t := range m.SFX {
 		e.SFX = append(e.SFX, ExportedSound{SHA256: t.SHA256, Title: t.Title, Label: t.Label})
@@ -170,7 +172,7 @@ func ReadExport(ctx context.Context, db bun.IDB, e Export, makeMoods bool) (*Doc
 		var sounds Sounds
 		for _, a := range m.Ambience {
 			if id := track(a.SHA256); id != nil && len(sounds.Ambience) < MaxAmbience {
-				sounds.Ambience = append(sounds.Ambience, MoodLayer{TrackID: *id, Volume: a.Volume})
+				sounds.Ambience = append(sounds.Ambience, MoodLayer{TrackID: *id, Volume: a.Volume, Plays: plays(a.Plays)})
 			}
 		}
 		for _, s := range m.SFX {
@@ -206,4 +208,12 @@ func ReadExport(ctx context.Context, db bun.IDB, e Export, makeMoods bool) (*Doc
 	}
 	res.Cues = len(d.Cues)
 	return d, res, nil
+}
+
+// exportedPlays leaves the default out of a file.
+func exportedPlays(v string) string {
+	if v == model.PlaysNormal {
+		return ""
+	}
+	return v
 }

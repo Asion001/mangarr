@@ -24,15 +24,22 @@ type AudioMood struct {
 	// Prompts describe how the mood's pages look, for finding it in pages.
 	Prompts []string `bun:"prompts,notnull" json:"prompts"`
 	// Keywords are words in chapter titles that suggest the mood.
-	Keywords        []string  `bun:"keywords,notnull" json:"keywords"`
-	SpotifyURI      string    `bun:"spotify_uri,notnull" json:"spotifyUri" doc:"spotify:playlist:…, spotify:album:… or spotify:track:…; empty plays nothing"`
-	SpotifyName     string    `bun:"spotify_name,notnull" json:"spotifyName"`
-	SpotifyImageURL string    `bun:"spotify_image_url,notnull" json:"spotifyImageUrl"`
-	Shuffle         bool      `bun:"shuffle,notnull" json:"shuffle"`
-	Position        int       `bun:"position,notnull" json:"position"`
-	PackID          *int64    `bun:"pack_id" json:"packId,omitempty" doc:"The sound pack that brought it"`
-	CreatedAt       time.Time `bun:"created_at,notnull" json:"createdAt"`
-	UpdatedAt       time.Time `bun:"updated_at,notnull" json:"updatedAt"`
+	Keywords        []string `bun:"keywords,notnull" json:"keywords"`
+	SpotifyURI      string   `bun:"spotify_uri,notnull" json:"spotifyUri" doc:"spotify:playlist:…, spotify:album:… or spotify:track:…; empty plays nothing"`
+	SpotifyName     string   `bun:"spotify_name,notnull" json:"spotifyName"`
+	SpotifyImageURL string   `bun:"spotify_image_url,notnull" json:"spotifyImageUrl"`
+	Shuffle         bool     `bun:"shuffle,notnull" json:"shuffle"`
+	Position        int      `bun:"position,notnull" json:"position"`
+	PackID          *int64   `bun:"pack_id" json:"packId,omitempty" doc:"The sound pack that brought it"`
+	// Scene is the pack scene it was installed as (its name may change).
+	Scene string `bun:"scene,notnull" json:"-"`
+	// Edited lists the fields an admin changed from the defaults (name,
+	// color, icon, genres, keywords, prompts); the others follow them.
+	Edited []string `bun:"edited,notnull" json:"edited,omitempty" doc:"Fields changed from the defaults; the others follow them"`
+	// HasDefaults says it can be reset (filled in when listed).
+	HasDefaults bool      `bun:"-" json:"hasDefaults,omitempty" doc:"A built-in mood or pack scene, which can go back to its defaults"`
+	CreatedAt   time.Time `bun:"created_at,notnull" json:"createdAt"`
+	UpdatedAt   time.Time `bun:"updated_at,notnull" json:"updatedAt"`
 	// Ambience and SFX are its sounds (filled in when listed).
 	Ambience []MoodTrack `bun:"-" json:"ambience"`
 	SFX      []MoodTrack `bun:"-" json:"sfx"`
@@ -41,19 +48,21 @@ type AudioMood struct {
 // MoodTrack is a mood's ambience loop or effect pad with what the player
 // needs.
 type MoodTrack struct {
-	TrackID     int64   `json:"trackId"`
-	Title       string  `json:"title"`
-	Category    string  `json:"category"`
-	Icon        string  `json:"icon"`
-	SHA256      string  `json:"sha256"`
-	Ext         string  `json:"ext"`
-	GainDB      float64 `json:"gainDb"`
-	Volume      float64 `json:"volume"`
-	Label       string  `json:"label,omitempty"`
-	Pack        string  `json:"pack"`
-	License     string  `json:"license"`
-	Attribution string  `json:"attribution"`
-	SourceURL   string  `json:"sourceUrl"`
+	TrackID  int64   `json:"trackId"`
+	Title    string  `json:"title"`
+	Category string  `json:"category"`
+	Icon     string  `json:"icon"`
+	SHA256   string  `json:"sha256"`
+	Ext      string  `json:"ext"`
+	GainDB   float64 `json:"gainDb"`
+	Volume   float64 `json:"volume"`
+	Label    string  `json:"label,omitempty"`
+	// Plays is when an ambience loop plays (always, normal or intense).
+	Plays       string `json:"plays,omitempty" enum:"always,normal,intense"`
+	Pack        string `json:"pack"`
+	License     string `json:"license"`
+	Attribution string `json:"attribution"`
+	SourceURL   string `json:"sourceUrl"`
 }
 
 // SpotifyAccount is a user's connected Spotify account. The refresh token
@@ -167,7 +176,18 @@ type AudioMoodItem struct {
 	Volume        float64 `bun:"volume,notnull"`
 	Position      int     `bun:"position,notnull"`
 	Label         string  `bun:"label,notnull"`
+	// Plays is when an ambience loop plays as a reader turns the intensity
+	// up or down (Plays*).
+	Plays string `bun:"plays,notnull"`
 }
+
+// When an ambience loop plays: always (at calm too), from normal (the
+// default), or only at intense.
+const (
+	PlaysAlways  = "always"
+	PlaysNormal  = "normal"
+	PlaysIntense = "intense"
+)
 
 // PageMoods are a chapter file's pages scored against the moods: one
 // map of mood id to probability per page, made with a model (Version) and

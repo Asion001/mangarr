@@ -1,6 +1,7 @@
 audio-catalog GET /api/v1/audio/catalog -> admin
 audio-mood-create POST /api/v1/audio/moods -> admin
 audio-mood-delete DELETE /api/v1/audio/moods/{id} -> admin
+audio-mood-reset POST /api/v1/audio/moods/{id}/reset -> admin
 audio-mood-update PUT /api/v1/audio/moods/{id} -> admin
 audio-moods GET /api/v1/audio/moods -> signedin
 audio-pack-delete DELETE /api/v1/audio/packs/{id} -> admin

@@ -447,7 +447,7 @@ func (p *Packs) installScenes(ctx context.Context, tx bun.Tx, pack *model.AudioP
 			uri = ""
 		}
 		var old model.AudioMood
-		err := tx.NewSelect().Model(&old).Where("pack_id = ? AND name = ?", pack.ID, ms.Name).Limit(1).Scan(ctx)
+		err := tx.NewSelect().Model(&old).Where("pack_id = ? AND (scene = ? OR (scene = '' AND name = ?))", pack.ID, ms.Name, ms.Name).Limit(1).Scan(ctx)
 		if err == nil {
 			// a reinstall brings the pack's sounds back; the rest is the admin's
 			if err := setSounds(ctx, tx, old.ID, sounds); err != nil {
@@ -456,7 +456,7 @@ func (p *Packs) installScenes(ctx context.Context, tx bun.Tx, pack *model.AudioP
 		} else {
 			packID := pack.ID
 			m := &model.AudioMood{Name: ms.Name, Description: ms.Description, Color: "#9aa2b1", Icon: "music", Genres: []string{}, Keywords: []string{},
-				Prompts: []string{}, SpotifyURI: uri, Shuffle: true}
+				Prompts: []string{}, SpotifyURI: uri, Shuffle: true, Scene: ms.Name}
 			if base != nil {
 				m.Color, m.Icon = base.Color, base.Icon
 				if m.SpotifyURI == "" {
@@ -466,7 +466,9 @@ func (p *Packs) installScenes(ctx context.Context, tx bun.Tx, pack *model.AudioP
 			if err := CreateMood(ctx, tx, m, &sounds); err != nil {
 				return err
 			}
-			if _, err := tx.NewUpdate().Model(m).Set("pack_id = ?", packID).WherePK().Exec(ctx); err != nil {
+			m.PackID = &packID
+			DefaultsOf(m).follow(m)
+			if _, err := tx.NewUpdate().Model(m).Column("pack_id", "scene", "keywords", "prompts").WherePK().Exec(ctx); err != nil {
 				return err
 			}
 		}

@@ -29,6 +29,8 @@ const KeySoundtracks = "soundtracks"
 // moods admins delete stay deleted.
 type Soundtracks struct {
 	MoodsSeeded bool `json:"moodsSeeded"`
+	// DefaultsKey is the version of the mood defaults moods last followed.
+	DefaultsKey string `json:"defaultsKey,omitempty"`
 }
 
 // KeySound holds the sound pack and suggestion settings.
