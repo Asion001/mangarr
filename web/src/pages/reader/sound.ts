@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, ApiError, unwrap } from "../../api/client";
-import { clampVolume, currentSound, dbGain, isPhone, layersOf, setPrefs, soundName, sourceOf, turnOn, upcoming, useSoundPrefs, withMode, type MoodTrack, type SoundMode, type SoundSource } from "../../lib/soundtrack/core";
+import { clampVolume, currentSound, dbGain, isPhone, layersOf, playingLoops, setPrefs, soundName, sourceOf, turnOn, upcoming, useSoundPrefs, withMode, type Intensity, type MoodTrack, type SoundMode, type SoundSource } from "../../lib/soundtrack/core";
 import { AmbienceEngine } from "../../lib/soundtrack/engine";
 import { moodName } from "../../lib/soundtrack/moods";
 import { startSdk, useMoods, useMySpotify, type NowPlaying, type SdkPlayer } from "../../lib/soundtrack/spotify";
@@ -99,7 +99,7 @@ export function useSoundtrack(chapterId: number, page: number, webtoon: boolean,
       window.removeEventListener("keydown", unlock);
     };
   }, [on, engine]);
-  const layers = useMemo(() => layersOf(on ? sound : null, trackUrl), [on, sound]);
+  const layers = useMemo(() => layersOf(on ? sound : null, trackUrl, prefs.intensity), [on, sound, prefs.intensity]);
   const layerKey = layers.map((l) => `${l.id}:${l.gain}`).join(",");
   useEffect(() => {
     if (!loading) void engine.setLayers(layers);
@@ -274,6 +274,7 @@ export function useSoundtrack(chapterId: number, page: number, webtoon: boolean,
   const setSource = useCallback((v: SoundSource) => setPrefs({ source: v }), []);
   const setVolume = useCallback((v: number) => setPrefs({ volume: clampVolume(v) }), []);
   const setAmbience = useCallback((v: number) => setPrefs({ ambience: clampVolume(v) }), []);
+  const setIntensity = useCallback((v: Intensity) => setPrefs({ intensity: v }), []);
   // an effect ducks the music in this tab while it plays
   const playEffect = useCallback(
     async (t: MoodTrack): Promise<number> => {
@@ -329,7 +330,7 @@ export function useSoundtrack(chapterId: number, page: number, webtoon: boolean,
     sound,
     mood,
     starting: requesting,
-    layers: on ? (sound?.mood?.ambience ?? []) : [],
+    layers: on ? playingLoops(sound?.mood?.ambience ?? [], prefs.intensity) : [],
     effects: on ? (sound?.mood?.sfx ?? []) : [],
     source,
     moods: moods.data ?? [],
@@ -348,6 +349,7 @@ export function useSoundtrack(chapterId: number, page: number, webtoon: boolean,
     setSource,
     setVolume,
     setAmbience,
+    setIntensity,
     playEffect,
     setDevice,
     togglePlay,

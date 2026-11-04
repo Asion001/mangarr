@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { currentSound, dbGain, defaultPrefs, diffLayers, isPhone, layersOf, parsePrefs, sourceOf, turnOn, upcoming, withMode, type Mood, type Resolved, type Sound } from './core';
+import { currentSound, playingLoops, dbGain, defaultPrefs, diffLayers, isPhone, layersOf, parsePrefs, sourceOf, turnOn, upcoming, withMode, type Mood, type Resolved, type Sound } from './core';
 
 const mood = (id: number, name: string): Mood => ({ id, name, slug: '', color: '#3fb98a', icon: 'leaf', genres: [], keywords: [], prompts: [], description: '', ambience: [], sfx: [], spotifyUri: '', spotifyName: '', spotifyImageUrl: '', shuffle: true, position: id, createdAt: '', updatedAt: '' });
 
@@ -9,7 +9,7 @@ describe('parsePrefs', () => {
     expect(parsePrefs('not json')).toEqual(defaultPrefs);
   });
   it('keeps what makes sense', () => {
-    expect(parsePrefs(JSON.stringify({ mode: 'manual', lastMode: 'manual', moodId: 3, volume: 140, deviceId: 'phone' }))).toEqual({ mode: 'manual', lastMode: 'manual', moodId: 3, source: 'spotify', volume: 100, ambience: 60, deviceId: 'phone' });
+    expect(parsePrefs(JSON.stringify({ mode: 'manual', lastMode: 'manual', moodId: 3, volume: 140, deviceId: 'phone' }))).toEqual({ mode: 'manual', lastMode: 'manual', moodId: 3, source: 'spotify', volume: 100, ambience: 60, deviceId: 'phone', intensity: 'normal' });
     expect(parsePrefs(JSON.stringify({ mode: 'loud', moodId: -1, volume: 'x' }))).toEqual(defaultPrefs);
   });
 });
@@ -81,5 +81,19 @@ describe('sourceOf', () => {
     expect(sourceOf({ ...defaultPrefs, source: 'ambience' }, true)).toBe('ambience');
     expect(parsePrefs('{"source":"ambience"}').source).toBe('ambience');
     expect(parsePrefs('{"source":"radio"}').source).toBe('spotify');
+  });
+});
+
+describe('intensity', () => {
+  const loop = (id: number, plays?: 'always' | 'normal' | 'intense') => ({ trackId: id, plays }) as unknown as Parameters<typeof playingLoops>[0][number];
+  const loops = [loop(1, 'always'), loop(2), loop(3, 'intense')];
+  const ids = (l: { trackId: number }[]) => l.map((t) => t.trackId);
+  it('picks the loops that play at each intensity', () => {
+    expect(ids(playingLoops(loops, 'calm'))).toEqual([1]);
+    expect(ids(playingLoops(loops, 'normal'))).toEqual([1, 2]);
+    expect(ids(playingLoops(loops, 'intense'))).toEqual([1, 2, 3]);
+  });
+  it('calm plays the normal loops when none is marked always', () => {
+    expect(ids(playingLoops([loop(2), loop(3, 'intense')], 'calm'))).toEqual([2]);
   });
 });

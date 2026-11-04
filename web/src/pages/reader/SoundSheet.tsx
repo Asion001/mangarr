@@ -5,15 +5,21 @@ import { useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
 import { AudioLines, Check, Laptop, Music, Pause, Play, Plus, RefreshCw, SkipForward, Smartphone, Speaker, X } from "lucide-react";
 import { api, unwrap } from "../../api/client";
-import { Button, Spinner } from "../../components/ui";
+import { Button, Segmented, Spinner } from "../../components/ui";
 import { useAccount } from "../../lib/account";
-import { soundName, tint, type SoundMode } from "../../lib/soundtrack/core";
+import { soundName, tint, type Intensity, type SoundMode } from "../../lib/soundtrack/core";
 import { MoodIcon, moodName } from "../../lib/soundtrack/moods";
 import { connectSpotify } from "../../lib/soundtrack/spotify";
 import { useToast } from "../../lib/toast";
 import { categoryColor, TrackIcon } from "../../lib/soundtrack/tracks";
 import { StartMood } from "./StartMood";
 import type { Soundtrack } from "./sound";
+
+const intensityHint: Record<Intensity, () => string> = {
+  calm: () => t("Calm: only the quiet loops, a little softer."),
+  normal: () => t("Normal: the mood as it was set up."),
+  intense: () => t("Intense: adds the loops marked Intense and turns ambience up a step."),
+};
 
 function DeviceIcon({ type }: { type: string }) {
   if (type === "Smartphone" || type === "Tablet") return <Smartphone className="size-4" aria-hidden="true" />;
@@ -243,6 +249,24 @@ export function SoundSheet({ s, onClose, here }: { s: Soundtrack; onClose: () =>
           <input type="range" min={0} max={100} value={s.prefs.ambience} onChange={(e) => s.setAmbience(Number(e.target.value))} className="accent-accent" />
           <span className="text-right tabular-nums">{s.prefs.ambience}</span>
         </label>
+        <div className="-mt-1 flex flex-col gap-1">
+          <div className="grid grid-cols-[5rem_1fr] items-center gap-2 text-[13px] text-muted">
+            <span id="sound-intensity">{t("Intensity")}</span>
+            <div aria-labelledby="sound-intensity" className="[&>div]:w-full [&>div>button]:flex-1">
+              <Segmented<Intensity>
+                label={t("Intensity")}
+                value={s.prefs.intensity}
+                onChange={s.setIntensity}
+                options={[
+                  { value: "calm", label: t("Calm") },
+                  { value: "normal", label: t("Normal") },
+                  { value: "intense", label: t("Intense") },
+                ]}
+              />
+            </div>
+          </div>
+          <p className="text-[11px] text-muted">{intensityHint[s.prefs.intensity]()}</p>
+        </div>
 
         <div className="flex flex-col gap-2">
           <div className="flex items-baseline justify-between">
@@ -319,7 +343,10 @@ export function SoundSheet({ s, onClose, here }: { s: Soundtrack; onClose: () =>
         {s.layers.length > 0 && (
           <p className="text-[11px] leading-relaxed text-muted">
             {t("Credits")}: {[...s.layers, ...s.effects].map((l) => `“${l.title}”${l.license ? ` (${l.license}${l.attribution ? ", " + l.attribution : ""})` : ""}`).join(", ")}
-            {music && s.sound?.music ? ". " + t("Music from Spotify.") : ""}
+            {music && s.sound?.music ? ". " + t("Music from Spotify.") : ""}{" "}
+            <Link to="/soundtracks/credits" className="text-accent hover:underline">
+              {t("All credits")}
+            </Link>
           </p>
         )}
         {starting && <StartMood seriesId={here.seriesId} chapter={here.chapter} page={here.page} pageCount={here.pageCount} onClose={() => setStarting(false)} />}

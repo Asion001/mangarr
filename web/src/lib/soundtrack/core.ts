@@ -30,9 +30,14 @@ export type SoundPrefs = {
   ambience: number;
   /** the Spotify device music plays on ("" = this browser, or the active one) */
   deviceId: string;
+  /** which ambience loops play: calm only those marked always (softer), intense adds those marked intense (louder) */
+  intensity: Intensity;
 };
 
-export const defaultPrefs: SoundPrefs = { mode: "off", lastMode: "auto", moodId: null, source: "spotify", volume: 70, ambience: 60, deviceId: "" };
+export type Intensity = "calm" | "normal" | "intense";
+export const intensities: Intensity[] = ["calm", "normal", "intense"];
+
+export const defaultPrefs: SoundPrefs = { mode: "off", lastMode: "auto", moodId: null, source: "spotify", volume: 70, ambience: 60, deviceId: "", intensity: "normal" };
 
 const key = "mangarr:soundtrack";
 
@@ -54,6 +59,7 @@ export function parsePrefs(raw: string | null): SoundPrefs {
     volume: clampVolume(typeof v.volume === "number" ? v.volume : defaultPrefs.volume),
     ambience: clampVolume(typeof v.ambience === "number" ? v.ambience : defaultPrefs.ambience),
     deviceId: typeof v.deviceId === "string" ? v.deviceId : "",
+    intensity: intensities.includes(v.intensity as Intensity) ? (v.intensity as Intensity) : "normal",
   };
 }
 
@@ -168,9 +174,28 @@ export function diffLayers(from: Layer[], to: Layer[]) {
   };
 }
 
+/** intensityGain is how much softer or louder ambience plays at an intensity. */
+export const intensityGain: Record<Intensity, number> = { calm: 0.75, normal: 1, intense: 1.25 };
+
+/**
+ * playingLoops are the ambience loops that play at an intensity: calm only
+ * those marked always (all of the normal ones when none is), normal those
+ * and the unmarked ones, intense every loop.
+ */
+export function playingLoops(loops: MoodTrack[], intensity: Intensity = "normal"): MoodTrack[] {
+  const normal = loops.filter((t) => t.plays !== "intense");
+  if (intensity === "intense") return loops;
+  if (intensity === "calm") {
+    const always = loops.filter((t) => t.plays === "always");
+    return always.length > 0 ? always : normal;
+  }
+  return normal;
+}
+
 /** layersOf are a sound's ambience loops as the engine plays them. */
-export function layersOf(s: Sound | null | undefined, url: (trackId: number) => string): Layer[] {
-  return (s?.mood?.ambience ?? []).map((t) => ({ id: t.trackId, url: url(t.trackId), gain: (t.volume ?? 1) * dbGain(t.gainDb) }));
+export function layersOf(s: Sound | null | undefined, url: (trackId: number) => string, intensity: Intensity = "normal"): Layer[] {
+  const k = intensityGain[intensity];
+  return playingLoops(s?.mood?.ambience ?? [], intensity).map((t) => ({ id: t.trackId, url: url(t.trackId), gain: (t.volume ?? 1) * dbGain(t.gainDb) * k }));
 }
 
 /** tint is a mood colour at an opacity (00-ff), for backgrounds and borders. */

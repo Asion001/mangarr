@@ -165,7 +165,7 @@ function MoodEditor({ mood, onClose }: { mood: Mood | null; onClose: () => void 
     try {
       const body = {
         ...d,
-        ambience: d.ambience.map((a) => ({ trackId: a.trackId, volume: a.volume })),
+        ambience: d.ambience.map((a) => ({ trackId: a.trackId, volume: a.volume, plays: a.plays })),
         sfx: d.sfx.map((p) => ({ trackId: p.trackId, label: p.label || undefined })),
       };
       if (mood) await unwrap(api.PUT("/api/v1/audio/moods/{id}", { params: { path: { id: mood.id } }, body }));

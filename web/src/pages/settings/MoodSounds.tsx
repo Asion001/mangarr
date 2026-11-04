@@ -10,13 +10,14 @@ import { AmbienceEngine } from "../../lib/soundtrack/engine";
 import { categoryColor, categoryName, TrackIcon, trackUrl } from "../../lib/soundtrack/tracks";
 
 type Track = S["SoundtrackTrackView"];
-export type Layer = { trackId: number; volume: number; title: string; category: string; icon: string; gainDb: number; pack: string; license: string };
+export type Plays = "always" | "normal" | "intense";
+export type Layer = { trackId: number; volume: number; title: string; category: string; icon: string; gainDb: number; pack: string; license: string; plays?: Plays };
 export type Pad = { trackId: number; label: string; title: string; category: string; icon: string; gainDb: number };
 
 /** soundsOf are a mood's sounds as the editor keeps them. */
 export function soundsOf(m: Mood | null | undefined): { ambience: Layer[]; sfx: Pad[] } {
   return {
-    ambience: (m?.ambience ?? []).map((a) => ({ trackId: a.trackId, volume: a.volume, title: a.title, category: a.category, icon: a.icon, gainDb: a.gainDb, pack: a.pack, license: a.license })),
+    ambience: (m?.ambience ?? []).map((a) => ({ trackId: a.trackId, volume: a.volume, title: a.title, category: a.category, icon: a.icon, gainDb: a.gainDb, pack: a.pack, license: a.license, plays: a.plays ?? "normal" })),
     sfx: (m?.sfx ?? []).map((a) => ({ trackId: a.trackId, label: a.label ?? "", title: a.title, category: a.category, icon: a.icon, gainDb: a.gainDb })),
   };
 }
@@ -103,6 +104,12 @@ function TrackPicker({ kind, onPick, onClose, preview }: { kind: "ambience" | "s
   );
 }
 
+const playsOptions: [Plays, () => string][] = [
+  ["always", () => t("Always")],
+  ["normal", () => t("Normal and up")],
+  ["intense", () => t("Intense only")],
+];
+
 /** MoodSounds edits a mood's ambience loops and effect pads. */
 export function MoodSounds({ ambience, sfx, onChange, preview }: { ambience: Layer[]; sfx: Pad[]; onChange: (v: { ambience?: Layer[]; sfx?: Pad[] }) => void; preview: ReturnType<typeof usePreview> }) {
   const [adding, setAdding] = useState<"ambience" | "sfx" | null>(null);
@@ -117,7 +124,7 @@ export function MoodSounds({ ambience, sfx, onChange, preview }: { ambience: Lay
         {ambience.map((a, i) => {
           const key = "layer" + a.trackId;
           return (
-            <div key={a.trackId} className="grid grid-cols-[minmax(0,1fr)_minmax(6rem,15rem)_2.75rem_2.75rem] items-center gap-2.5 rounded-lg bg-panel-2 px-2.5 py-2">
+            <div key={a.trackId} className="grid grid-cols-[minmax(0,1fr)_minmax(6rem,15rem)_2.75rem_2.75rem] items-center gap-x-2.5 gap-y-2 rounded-lg bg-panel-2 px-2.5 py-2">
               <div className="min-w-0">
                 <div className="truncate text-sm">{a.title}</div>
                 <div className="truncate text-[11px] text-muted">{[a.pack, a.license].filter(Boolean).join(" · ")}</div>
@@ -137,9 +144,28 @@ export function MoodSounds({ ambience, sfx, onChange, preview }: { ambience: Lay
               <button type="button" className="flex size-11 items-center justify-center rounded text-muted hover:bg-border hover:text-fg" aria-label={t("Remove")} onClick={() => onChange({ ambience: ambience.filter((_, k) => k !== i) })}>
                 <X className="size-4" />
               </button>
+              <div className="col-span-full flex flex-wrap items-center gap-2" role="radiogroup" aria-label={t("When {name} plays", { name: a.title })}>
+                <span className="w-10 text-xs text-muted">{t("Plays")}</span>
+                {playsOptions.map(([value, label]) => {
+                  const on = (a.plays ?? "normal") === value;
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      role="radio"
+                      aria-checked={on}
+                      onClick={() => onChange({ ambience: ambience.map((x, k) => (k === i ? { ...x, plays: value } : x)) })}
+                      className={clsx("h-8 rounded-full border px-3 text-xs font-medium", on ? "border-accent bg-accent/15 text-fg" : "border-border text-muted hover:border-muted/60")}
+                    >
+                      {label()}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           );
         })}
+        {ambience.length > 0 && <p className="text-xs text-muted">{t("Readers pick an intensity: Calm plays the loops marked Always, a little softer; Normal adds the rest; Intense adds the loops marked Intense only and turns ambience up a step.")}</p>}
         <div className="flex flex-wrap gap-2">
           {ambience.length < 4 && (
             <button type="button" onClick={() => setAdding("ambience")} className="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-lg border border-dashed border-border text-[13px] font-medium hover:border-muted/60">

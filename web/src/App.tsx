@@ -21,6 +21,7 @@ import { retryWhenBack, RouteBoundary } from "./components/RouteBoundary";
 // restarts loads once it's back.
 const ReaderPage = lazy(() => retryWhenBack(() => import("./pages/reader/Reader"), (m) => ({ default: m.ReaderPage })));
 const RequestsPage = lazy(() => retryWhenBack(() => import("./pages/requests/Requests"), (m) => ({ default: m.RequestsPage })));
+const CreditsPage = lazy(() => retryWhenBack(() => import("./pages/soundtracks/Credits"), (m) => ({ default: m.CreditsPage })));
 const OnDevicePage = lazy(() => retryWhenBack(() => import("./pages/account/OnDevice"), (m) => ({ default: m.OnDevicePage })));
 const AccountPage = lazy(() => retryWhenBack(() => import("./pages/account/Account"), (m) => ({ default: m.AccountPage })));
 const UsersPage = lazy(() => retryWhenBack(() => import("./pages/settings/Users"), (m) => ({ default: m.UsersPage })));
@@ -140,6 +141,7 @@ export function App() {
           <Route path="updates" element={<UpdatesPage />} />
           <Route path="account" element={<AccountPage />} />
           <Route path="on-device" element={<OnDevicePage />} />
+          <Route path="soundtracks/credits" element={<CreditsPage />} />
           <Route path="account/:section" element={<AccountPage />} />
           <Route path="add" element={<Need perm={["library.add", "requests.manage"]}><AddSearchStep /></Need>} />
           <Route path="add/:moduleId/:metaId/sources" element={<Need perm={["library.add", "requests.manage"]}><AddReviewStep /></Need>} />

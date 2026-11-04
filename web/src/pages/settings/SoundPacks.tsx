@@ -1,6 +1,7 @@
 import { t } from "../../lib/i18n/core";
 import { useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "react-router";
 import { AlertTriangle, FolderSearch, Trash2, Upload } from "lucide-react";
 import { api, basePath, unwrap, type S } from "../../api/client";
 import { Badge, Button, Card, Confirm, ErrorBox, Field, Input, Loading, SaveBar, Switch } from "../../components/ui";
@@ -155,6 +156,11 @@ export function SoundPacksCard() {
           </ul>
         )}
         {data && data.packs.length === 0 && <p className="text-sm text-muted">{t("No sound packs yet.")}</p>}
+        {data && data.packs.length > 0 && (
+          <Link to="/soundtracks/credits" className="self-start text-sm text-accent hover:underline">
+            {t("Credits for every sound")}
+          </Link>
+        )}
 
         <div className="flex flex-col gap-2 border-t border-border pt-4">
           <h3 className="text-sm font-semibold">{t("From the catalog")}</h3>
