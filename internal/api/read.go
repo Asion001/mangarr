@@ -289,19 +289,24 @@ func (s *Server) registerRead() {
 		func(ctx context.Context, in *struct {
 			ID   int64 `path:"id"`
 			Body struct {
-				Page      int  `json:"page" minimum:"0"`
-				Completed bool `json:"completed,omitempty"`
+				Page      int        `json:"page" minimum:"0"`
+				Completed bool       `json:"completed,omitempty"`
+				At        *time.Time `json:"at,omitempty" doc:"When the reader got there, for progress sent late (read offline); default now. Older than 30 days counts as 30 days ago."`
 			}
 		}) (*struct{}, error) {
 			rid, err := s.userOf(ctx)
 			if err != nil {
 				return nil, toHTTPError(err)
 			}
+			at, err := reportedAt(in.Body.At, time.Now())
+			if err != nil {
+				return nil, err
+			}
 			ch, pages, err := s.app.Reading.ChapterPages(ctx, in.ID)
 			if err != nil {
 				return nil, readError(err)
 			}
-			c := reading.Change{ChapterID: ch.ID, SeriesID: ch.SeriesID, Page: in.Body.Page, Completed: in.Body.Completed}
+			c := reading.Change{ChapterID: ch.ID, SeriesID: ch.SeriesID, Page: in.Body.Page, Completed: in.Body.Completed, At: at}
 			if pages > 0 && c.Page >= pages {
 				c.Completed = true
 			}
@@ -317,15 +322,20 @@ func (s *Server) registerRead() {
 		func(ctx context.Context, in *struct {
 			ID   int64 `path:"id"`
 			Body struct {
-				SessionID     string `json:"sessionId" minLength:"16" maxLength:"64"`
-				ActiveSeconds int    `json:"activeSeconds" minimum:"1" maximum:"43200"`
+				SessionID     string     `json:"sessionId" minLength:"16" maxLength:"64"`
+				ActiveSeconds int        `json:"activeSeconds" minimum:"1" maximum:"43200"`
+				At            *time.Time `json:"at,omitempty" doc:"When this was reported, for time read offline and sent later; default now. Older than 30 days counts as 30 days ago."`
 			}
 		}) (*struct{}, error) {
 			rid, err := s.userOf(ctx)
 			if err != nil {
 				return nil, toHTTPError(err)
 			}
-			if err := s.app.Reading.RecordTime(ctx, rid, in.ID, in.Body.SessionID, in.Body.ActiveSeconds); err != nil {
+			at, err := reportedAt(in.Body.At, time.Now())
+			if err != nil {
+				return nil, err
+			}
+			if err := s.app.Reading.RecordTime(ctx, rid, in.ID, in.Body.SessionID, in.Body.ActiveSeconds, at); err != nil {
 				if errors.Is(err, reading.ErrNotFound) {
 					return nil, readError(err)
 				}
@@ -577,4 +587,26 @@ func (s *Server) smallerPage(ctx context.Context, b *reading.BookInfo, n int, pa
 	etag := variantETag(page.ETag, width)
 	return &reading.PageContent{Body: io.NopCloser(bytes.NewReader(data)), Size: int64(len(data)), ContentType: ct,
 		ETag: etag, ModTime: page.ModTime}
+}
+
+// lateReportLimit is how far back a late report (read offline) may date itself.
+const lateReportLimit = 30 * 24 * time.Hour
+
+// reportedAt checks the time a reader says progress happened: never in the
+// future (a minute of clock skew allowed), and no further back than
+// lateReportLimit. Zero means now.
+func reportedAt(at *time.Time, now time.Time) (time.Time, error) {
+	if at == nil || at.IsZero() {
+		return time.Time{}, nil
+	}
+	if at.After(now.Add(time.Minute)) {
+		return time.Time{}, huma.Error422UnprocessableEntity("at is in the future")
+	}
+	if oldest := now.Add(-lateReportLimit); at.Before(oldest) {
+		return oldest.UTC(), nil
+	}
+	if at.After(now) {
+		return now.UTC(), nil
+	}
+	return at.UTC(), nil
 }

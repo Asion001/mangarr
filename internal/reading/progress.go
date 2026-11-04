@@ -39,6 +39,18 @@ type Change struct {
 	Completed bool
 	Page      int  // 1-based; 0 = not reported
 	Unread    bool // explicitly marked unread
+	// At is when the reader got there, for progress sent late (read offline,
+	// sent once back online); zero is now. It dates the chapter's read time
+	// and the history entry, not the sync.
+	At time.Time
+}
+
+// when is the time a change happened: its own, or now.
+func (c Change) when(now time.Time) time.Time {
+	if c.At.IsZero() {
+		return now
+	}
+	return c.At.UTC()
 }
 
 // Outcome is what Record did with a change (Result is a model.Outcome*).
@@ -125,7 +137,8 @@ func apply(ctx context.Context, tx bun.Tx, userID int64, st *model.ChapterReadSt
 		st = &model.ChapterReadState{UserID: userID, ChapterID: c.ChapterID, SeriesID: c.SeriesID, Completed: c.Completed,
 			Page: max(c.Page, 0), SyncedAt: now, Origin: model.ReadOriginApp}
 		if c.Completed {
-			st.ReadAt = &now
+			at := c.when(now)
+			st.ReadAt = &at
 		}
 		return model.OutcomeApplied, readstate.Save(ctx, tx, st)
 	case st.Completed && !c.Completed:
@@ -134,7 +147,8 @@ func apply(ctx context.Context, tx bun.Tx, userID int64, st *model.ChapterReadSt
 		return model.OutcomeUnchanged, nil
 	}
 	if c.Completed && !st.Completed {
-		st.ReadAt = &now
+		at := c.when(now)
+		st.ReadAt = &at
 	}
 	st.Completed = c.Completed
 	if c.Page > 0 {

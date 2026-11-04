@@ -188,4 +188,38 @@ func TestWebReader(t *testing.T) {
 	if ch.Progress.Completed {
 		t.Fatalf("current chapter stayed read: %+v", ch.Progress)
 	}
+
+	// Progress and time read offline arrive late, dated when they happened.
+	readAt := time.Now().Add(-3 * time.Hour).UTC().Truncate(time.Second)
+	body := `{"page":0,"completed":true,"at":"` + readAt.Format(time.RFC3339) + `"}`
+	if code, _ := call("PUT", "/api/v1/read/chapters/"+c2+"/progress", body, nil); code != 204 {
+		t.Fatalf("late progress: %d", code)
+	}
+	var st model.ChapterReadState
+	if err := e.App.DB.NewSelect().Model(&st).Where("chapter_id = ?", chs[1].ID).Scan(e.Ctx); err != nil {
+		t.Fatal(err)
+	}
+	if !st.Completed || st.ReadAt == nil || !st.ReadAt.Equal(readAt) {
+		t.Fatalf("late progress read at %v, want %v", st.ReadAt, readAt)
+	}
+	ev = model.ReadEvent{}
+	_ = e.App.DB.NewSelect().Model(&ev).Where("chapter_id = ?", chs[1].ID).OrderExpr("id DESC").Limit(1).Scan(e.Ctx)
+	if !ev.At.Equal(readAt) {
+		t.Fatalf("history dated %v, want %v", ev.At, readAt)
+	}
+	future := time.Now().Add(time.Hour).UTC().Format(time.RFC3339)
+	if code, _ := call("PUT", "/api/v1/read/chapters/"+c2+"/progress", `{"page":1,"at":"`+future+`"}`, nil); code != http.StatusUnprocessableEntity {
+		t.Fatalf("progress from the future: %d", code)
+	}
+	body = `{"sessionId":"reader-session-0003","activeSeconds":60,"at":"` + readAt.Format(time.RFC3339) + `"}`
+	if code, _ := call("POST", "/api/v1/read/chapters/"+c2+"/time", body, nil); code != http.StatusNoContent {
+		t.Fatalf("late reading time: %d", code)
+	}
+	session = model.ReadingSession{}
+	if err := e.App.DB.NewSelect().Model(&session).Where("id = ?", "reader-session-0003").Scan(e.Ctx); err != nil {
+		t.Fatal(err)
+	}
+	if !session.UpdatedAt.Equal(readAt) || !session.StartedAt.Equal(readAt) {
+		t.Fatalf("late session %+v, want %v", session, readAt)
+	}
 }

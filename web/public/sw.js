@@ -189,6 +189,17 @@ function flush() {
   return flushing;
 }
 
+/** dated adds when it happened to progress or reading time kept for later, so the server dates it then and not when it arrives. */
+function dated(body) {
+  try {
+    const v = JSON.parse(body);
+    if (v && typeof v === "object" && !Array.isArray(v) && !v.at) return JSON.stringify({ ...v, at: new Date().toISOString() });
+  } catch {
+    // not JSON: sent as it came
+  }
+  return body;
+}
+
 let seq = 0;
 /** outbox sends progress or reading time, or keeps it to send later when the server doesn't answer. */
 async function outbox(request) {
@@ -202,7 +213,7 @@ async function outbox(request) {
   }
   const cache = await caches.open(OUTBOX);
   const key = `${new URL(request.url).origin}/__outbox/${String(Date.now()).padStart(15, "0")}-${String(seq++).padStart(6, "0")}`;
-  await cache.put(key, new Response(body, { headers: { "x-url": request.url, "x-method": request.method, "content-type": request.headers.get("content-type") || "application/json" } }));
+  await cache.put(key, new Response(dated(body), { headers: { "x-url": request.url, "x-method": request.method, "content-type": request.headers.get("content-type") || "application/json" } }));
   queued = true;
   return new Response(JSON.stringify({ queued: true }), { status: 202, headers: { "Content-Type": "application/json", [OFFLINE_HEADER]: "1" } });
 }

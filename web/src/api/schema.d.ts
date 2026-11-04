@@ -7649,6 +7649,11 @@ export interface components {
             changed: number;
         };
         "Read-progressRequest": {
+            /**
+             * Format: date-time
+             * @description When the reader got there, for progress sent late (read offline); default now. Older than 30 days counts as 30 days ago.
+             */
+            at?: string;
             completed?: boolean;
             /** Format: int64 */
             page: number;
@@ -7663,6 +7668,11 @@ export interface components {
         "Read-timeRequest": {
             /** Format: int64 */
             activeSeconds: number;
+            /**
+             * Format: date-time
+             * @description When this was reported, for time read offline and sent later; default now. Older than 30 days counts as 30 days ago.
+             */
+            at?: string;
             sessionId: string;
         };
         ReadAhead: {

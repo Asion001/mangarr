@@ -10,8 +10,9 @@ import (
 )
 
 // RecordTime stores one web-reader session's cumulative active time. Repeated
-// or out-of-order heartbeats can only increase the stored duration.
-func (s *Service) RecordTime(ctx context.Context, userID, chapterID int64, sessionID string, activeSeconds int) error {
+// or out-of-order heartbeats can only increase the stored duration. at is
+// when the heartbeat was sent (zero: now), for time read offline and sent later.
+func (s *Service) RecordTime(ctx context.Context, userID, chapterID int64, sessionID string, activeSeconds int, at time.Time) error {
 	var chapter model.Chapter
 	if err := s.DB.NewSelect().Model(&chapter).Column("id", "series_id").Where("id = ?", chapterID).Scan(ctx); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -23,6 +24,9 @@ func (s *Service) RecordTime(ctx context.Context, userID, chapterID int64, sessi
 		return ErrNotFound
 	}
 	now := time.Now().UTC()
+	if !at.IsZero() {
+		now = at.UTC()
+	}
 	session := &model.ReadingSession{ID: sessionID, UserID: userID, SeriesID: chapter.SeriesID, ChapterID: chapter.ID,
 		ActiveSeconds: activeSeconds, StartedAt: now, UpdatedAt: now}
 	if _, err := s.DB.NewInsert().Model(session).On("CONFLICT (id) DO NOTHING").Exec(ctx); err != nil {

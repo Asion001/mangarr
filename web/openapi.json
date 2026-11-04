@@ -9024,6 +9024,11 @@
       "Read-progressRequest": {
         "additionalProperties": false,
         "properties": {
+          "at": {
+            "description": "When the reader got there, for progress sent late (read offline); default now. Older than 30 days counts as 30 days ago.",
+            "format": "date-time",
+            "type": "string"
+          },
           "completed": {
             "type": "boolean"
           },
@@ -9060,6 +9065,11 @@
             "maximum": 43200,
             "minimum": 1,
             "type": "integer"
+          },
+          "at": {
+            "description": "When this was reported, for time read offline and sent later; default now. Older than 30 days counts as 30 days ago.",
+            "format": "date-time",
+            "type": "string"
           },
           "sessionId": {
             "maxLength": 64,

@@ -98,7 +98,7 @@ func (s *Service) logOutcomes(ctx context.Context, userID int64, out []Outcome, 
 		g := groups[k]
 		last := g[len(g)-1] // changes come in reading order
 		ev := &model.ReadEvent{UserID: userID, SeriesID: k.series, ChapterID: last.ChapterID, Chapters: len(g), Completed: k.completed,
-			Page: last.Page, Origin: by.Origin, Client: by.Client, Device: by.Device, Outcome: k.result, At: now}
+			Page: last.Page, Origin: by.Origin, Client: by.Client, Device: by.Device, Outcome: k.result, At: last.when(now)}
 		if (k.result == model.OutcomeKept || len(g) == 1 && k.result == model.OutcomeApplied) && s.mergeEvent(ctx, ev) {
 			continue
 		}

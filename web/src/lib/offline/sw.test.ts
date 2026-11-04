@@ -134,7 +134,10 @@ describe("service worker", () => {
     const sent: string[] = [];
     const back = load(async (req) => (sent.push(await req.text()), new Response("{}")), stored);
     await back.flush();
-    expect(sent).toEqual(['{"page":2}', '{"page":3}']);
+    // each goes dated when it happened, for the reading history
+    const bodies = sent.map((b) => JSON.parse(b) as { page: number; at: string });
+    expect(bodies.map((b) => b.page)).toEqual([2, 3]);
+    for (const b of bodies) expect(Math.abs(Date.parse(b.at) - Date.now())).toBeLessThan(60_000);
     expect(stored["mangarr-outbox-v1"].size).toBe(0);
   });
 });
