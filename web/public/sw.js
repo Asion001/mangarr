@@ -20,6 +20,8 @@ const REMEMBER_MAX = 5e6;
 const CHAPTER_PREFIX = "mangarr-chapter-";
 /** The width a saved page was stored at, on the cached response. */
 const WIDTH_HEADER = "x-mangarr-width";
+/** Ambience and effects already played, so a soundtrack carries on offline; a sound's file never changes (its ETag is its hash). */
+const SOUNDS = "mangarr-sounds-v1";
 
 /** route sorts a request path (below the app's base) into what answers it. */
 function route(path) {
@@ -28,6 +30,7 @@ function route(path) {
   m = path.match(/^api\/v1\/read\/chapters\/(\d+)(\/bounds|\/pages\/\d+\/bounds)?$/);
   if (m) return { kind: m[2] ? "bounds" : "chapter", chapter: m[1] };
   if (/^api\/v1\/read\/chapters\/\d+\/(progress|time)$/.test(path)) return { kind: "outbox" };
+  if (/^api\/v1\/audio\/tracks\/\d+\/stream$/.test(path)) return { kind: "sound" };
   // live events, signed page links and chapter files go straight to the server
   if (path === "api/v1/events" || path.startsWith("api/v1/img/p/") || /\/file$/.test(path)) return { kind: "network" };
   if (path.startsWith("api/")) return { kind: "remember" };
@@ -218,6 +221,19 @@ async function outbox(request) {
   return new Response(JSON.stringify({ queued: true }), { status: 202, headers: { "Content-Type": "application/json", [OFFLINE_HEADER]: "1" } });
 }
 
+/** sound answers a sound pack's file from the copy kept the first time it played. */
+async function sound(request) {
+  // a part of a file (Range) can't be told apart from the whole in the cache
+  if (request.headers.has("range")) return fetch(request);
+  const cache = await caches.open(SOUNDS);
+  const hit = await cache.match(request);
+  if (hit) return hit;
+  const r = await fetch(request);
+  heard(answered(r));
+  if (r.status === 200) void cache.put(request, r.clone()).catch(() => undefined);
+  return r;
+}
+
 async function shell(request) {
   // every page of the app is index.html; the router takes it from there
   return fresh(request, await caches.open(SHELL), "./index.html");
@@ -245,6 +261,7 @@ function handle(request, scope) {
   if (r.kind === "bounds") return chapterData(request, r.chapter, true);
   if (r.kind === "chapter") return chapterData(request, r.chapter, false);
   if (r.kind === "asset") return asset(request);
+  if (r.kind === "sound") return sound(request);
   if (r.kind === "remember") return remember(request);
   if (r.kind === "shell" && request.mode === "navigate") return shell(request);
   return undefined;

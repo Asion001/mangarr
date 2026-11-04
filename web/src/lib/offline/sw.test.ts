@@ -140,4 +140,17 @@ describe("service worker", () => {
     for (const b of bodies) expect(Math.abs(Date.parse(b.at) - Date.now())).toBeLessThan(60_000);
     expect(stored["mangarr-outbox-v1"].size).toBe(0);
   });
+
+  test("keeps a sound once it played, so ambience plays on offline", async () => {
+    const stored: Record<string, Entry> = {};
+    const url = `${scope}api/v1/audio/tracks/4/stream`;
+    let asked = 0;
+    const up = load(async () => (asked++, new Response("rain", { headers: { "Content-Type": "audio/ogg" } })), stored);
+    expect(await (await up.handle(new Request(url), scope)!).text()).toBe("rain");
+    const offline = load(down, stored);
+    expect(await (await offline.handle(new Request(url), scope)!).text()).toBe("rain");
+    // a part of a file goes to the server as before
+    await expect(offline.handle(new Request(url, { headers: { Range: "bytes=0-1" } }), scope)!).rejects.toThrow();
+    expect(asked).toBe(1);
+  });
 });
