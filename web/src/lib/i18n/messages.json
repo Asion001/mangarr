@@ -12710,5 +12710,13 @@
   "Keep turns a found cue into a normal one, so a new scan won't move it. Not here removes it and stops mangarr placing it again.": {
     "ru": "«Оставить» делает найденную метку обычной, и новый поиск её не сдвинет. «Не здесь» убирает её, и mangarr больше её не поставит.",
     "uk": "«Залишити» робить знайдену мітку звичайною, і новий пошук її не зсуне. «Не тут» прибирає її, і mangarr більше її не поставить."
+  },
+  "Save the next chapters of what I'm reading": {
+    "ru": "Сохранять следующие главы того, что я читаю",
+    "uk": "Зберігати наступні розділи того, що я читаю"
+  },
+  "When the app opens, the next unread chapters of each title on Continue reading are saved here, and removed once read. Not on mobile data when the browser can tell; iPhone and iPad only save while the app is open.": {
+    "ru": "Когда приложение открывается, следующие непрочитанные главы каждого тайтла из «Продолжить чтение» сохраняются здесь и удаляются после прочтения. Не по мобильным данным, если браузер может это определить; iPhone и iPad сохраняют только пока приложение открыто.",
+    "uk": "Коли застосунок відкривається, наступні непрочитані розділи кожного тайтлу з «Продовжити читання» зберігаються тут і видаляються після прочитання. Не через мобільні дані, якщо браузер може це визначити; iPhone та iPad зберігають лише поки застосунок відкритий."
   }
 }

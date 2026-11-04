@@ -18,6 +18,8 @@ export type SavedChapter = {
   at: number;
   /** When it was read to the end on this device. */
   readAt?: number;
+  /** chapterVersion of the details it was saved from, to notice the file changing on the server. */
+  version?: string;
 };
 
 export type Index = Record<string, SavedChapter>;
@@ -67,4 +69,29 @@ export function nearestSaved(saved: Index, from: { id: number; seriesId: number;
     .filter((c) => (dir === "next" ? Number(c.number) > n : Number(c.number) < n))
     .sort((a, b) => (dir === "next" ? 1 : -1) * (Number(a.number) - Number(b.number)));
   return list[0] ? { id: list[0].id, number: list[0].number } : undefined;
+}
+
+/**
+ * chapterVersion sums up a chapter's pages (count, types and sizes): it
+ * changes when the server's file does (a better release, upscaled or
+ * re-encoded pages), so a copy saved before is known to be out of date.
+ */
+export function chapterVersion(pages: readonly { number: number; mediaType: string; size?: number }[]) {
+  let h = 0x811c9dc5;
+  for (const p of pages) {
+    for (const ch of `${p.number}:${p.mediaType}:${p.size ?? ""};`) {
+      h ^= ch.charCodeAt(0);
+      h = Math.imul(h, 0x01000193);
+    }
+  }
+  return `${pages.length}-${(h >>> 0).toString(36)}`;
+}
+
+/** readSince is the chapters of a title saved ahead that come before the next one to read. */
+export function readSince(saved: Index, seriesId: number, next: string) {
+  const n = Number(next);
+  if (!next || !Number.isFinite(n)) return [];
+  return Object.values(saved)
+    .filter((c) => c.kind === "ahead" && c.seriesId === seriesId && Number(c.number) < n)
+    .map((c) => c.id);
 }

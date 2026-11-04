@@ -1,8 +1,8 @@
 import { useSyncExternalStore } from "react";
 import { apiUrl, type S } from "../../api/client";
-import { pageWidths, saveWidth, unfinished, type Index, type SaveKind, type SavedChapter } from "./plan";
+import { chapterVersion, pageWidths, saveWidth, unfinished, type Index, type SaveKind, type SavedChapter } from "./plan";
 
-export { estimateBytes, nearestSaved, pageWidths, readKept, saveWidth, staleAhead, type SaveKind, type SavedChapter } from "./plan";
+export { chapterVersion, estimateBytes, nearestSaved, pageWidths, readKept, saveWidth, staleAhead, type SaveKind, type SavedChapter } from "./plan";
 
 /**
  * Chapters saved on this device, for reading through a server restart or
@@ -132,7 +132,16 @@ const running = new Map<number, Promise<void>>();
  */
 export function saveChapter(ch: Chapter, kind: SaveKind, width: number, signal?: AbortSignal): Promise<void> {
   const had = index[ch.id];
+  const version = chapterVersion(ch.pages);
+  if (had && had.version && had.version !== version && !running.has(ch.id)) {
+    // the server's file changed since (a better release, processed pages): save it again, as it was saved
+    const again = had.kind === "kept" ? "kept" : kind;
+    const at = had.width;
+    return removeChapter(ch.id).then(() => saveChapter(ch, again, at, signal));
+  }
   if (had && kind === "kept" && had.kind !== "kept") patch(ch.id, { kind });
+  // saved before versions were kept: take this one as theirs
+  if (had && !had.version) patch(ch.id, { version });
   if (isSaved(ch.id)) return Promise.resolve();
   // a chapter half saved at another width carries on at that width
   if (had) width = had.width;
@@ -155,6 +164,7 @@ export function saveChapter(ch: Chapter, kind: SaveKind, width: number, signal?:
       bytes: had?.bytes ?? 0,
       width,
       at: Date.now(),
+      version,
     });
     // the details without a CDN link, so the reader asks for pages the service worker has
     await put(cache, url(`api/v1/read/chapters/${ch.id}`), new Blob([JSON.stringify({ ...ch, pageBase: undefined })]), "application/json");

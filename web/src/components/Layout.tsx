@@ -40,6 +40,8 @@ import { OfflineBanner, useOfflineReady } from "./OnDevice";
 import { isStandalone } from "../pages/reader/fullscreen";
 import { useReachable } from "../lib/offline/connection";
 import { saving as stillSaving, useSavedChapters, useSaveQueue } from "../lib/offline/store";
+// saves the next chapters of what you're reading when the app opens, when turned on
+import "../lib/offline/autoSave";
 
 import { useUIMode } from "../lib/uiPreferences";
 import { useToast } from "../lib/toast";

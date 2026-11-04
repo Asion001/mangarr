@@ -2,16 +2,19 @@ import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { S } from "../../api/client";
 import { offlineReady, readKept, removeChapter, removeRead, saveChapter, savedChapters, staleAhead } from "../../lib/offline/store";
+import { autoSaveCount } from "../../lib/offline/autoSave";
 import { chapterQuery } from "./query";
 
 /**
  * useSaveAhead keeps the open chapter and the next `count` saved on this
  * device while reading, so the reader carries on when the server restarts
  * or the network drops, and removes chapters it saved ahead that are no
- * longer ahead (read, or skipped past).
+ * longer ahead (read, or skipped past). With auto-save on (On this device)
+ * it keeps at least as many as that does, so the two don't undo each other.
  */
-export function useSaveAhead(ch: S["ReadChapter"] | null | undefined, count: number, width: number) {
+export function useSaveAhead(ch: S["ReadChapter"] | null | undefined, setting: number, width: number) {
   const qc = useQueryClient();
+  const count = Math.max(setting, autoSaveCount());
   useEffect(() => {
     if (!ch || !offlineReady()) return;
     if (removeRead()) for (const id of readKept(savedChapters(), ch.seriesId, ch.id)) void removeChapter(id);

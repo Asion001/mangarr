@@ -3,9 +3,10 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 import clsx from "clsx";
 import { Trash2, X } from "lucide-react";
-import { Button, Card, Confirm, PageHeader, Progress, Switch } from "../../components/ui";
+import { Button, Card, Confirm, PageHeader, Progress, Segmented, Switch } from "../../components/ui";
 import { DeviceIcon, useOfflineReady } from "../../components/OnDevice";
 import { bytes } from "../../lib/format";
+import { setAutoSaveCount, useAutoSaveCount } from "../../lib/offline/autoSave";
 import { removeAll, removeChapter, saving, setRemoveRead, unqueue, useRemoveRead, useSavedChapters, useSaveQueue, type QueuedChapter, type SavedChapter } from "../../lib/offline/store";
 
 type Usage = { usage: number; quota: number; persisted: boolean };
@@ -74,6 +75,7 @@ export function OnDevicePage() {
   const ready = useOfflineReady();
   const saved = useSavedChapters();
   const removeRead = useRemoveRead();
+  const autoSave = useAutoSaveCount();
   const usage = useStorage(saved);
   const [confirmAll, setConfirmAll] = useState(false);
   const [show, setShow] = useState<Show>("all");
@@ -116,6 +118,20 @@ export function OnDevicePage() {
                   {!usage.persisted && <span>{t("The browser may clear these when it runs low on space")}</span>}
                 </div>
               </>
+            )}
+            {ready && (
+              <div className="flex flex-col gap-1.5">
+                <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+                  {t("Save the next chapters of what I'm reading")}
+                  <Segmented<number>
+                    label={t("Save the next chapters of what I'm reading")}
+                    value={[0, 1, 3, 5].includes(autoSave) ? autoSave : 0}
+                    options={[0, 1, 3, 5].map((n) => ({ value: n, label: n === 0 ? t("Off") : String(n) }))}
+                    onChange={setAutoSaveCount}
+                  />
+                </div>
+                <p className="text-xs text-muted">{t("When the app opens, the next unread chapters of each title on Continue reading are saved here, and removed once read. Not on mobile data when the browser can tell; iPhone and iPad only save while the app is open.")}</p>
+              </div>
             )}
             <label className="flex items-center justify-between gap-3 text-sm">
               {t("Remove chapters I saved once I've read them")}
