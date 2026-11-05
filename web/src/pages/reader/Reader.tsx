@@ -216,8 +216,13 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
     });
   }, [ch, qc]);
   useEffect(() => onServerBack(flush), [flush]);
+  // Opened at the last page (Previous chapter, from the next one's start),
+  // the chapter isn't read yet: it counts once the reader moves from there.
+  const atLast = useRef(search.get("page") === "last");
   useEffect(() => {
     if (!ch || !page || !pos) return;
+    if (atLast.current && ch.id === chapterId && page === count) return;
+    atLast.current = false;
     pending.current = page;
     if (page === count) {
       markRead(ch.id);
@@ -225,7 +230,7 @@ function Reader({ chapterId, preloader }: { chapterId: number; preloader: ImageP
     }
     const t = window.setTimeout(flush, 1500);
     return () => window.clearTimeout(t);
-  }, [ch, page, count, pos, flush]);
+  }, [ch, chapterId, page, count, pos, flush]);
   useEffect(() => {
     const hide = () => document.visibilityState === "hidden" && flush();
     document.addEventListener("visibilitychange", hide);

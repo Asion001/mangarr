@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, Check, Download, Search, X } from "lucide-react";
-import { api, unwrap } from "../../api/client";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowRight, CheckCircle2, Circle, Search, X } from "lucide-react";
+import { api, unwrap, type S } from "../../api/client";
 import { Spinner } from "../../components/ui";
 import { t } from "../../lib/i18n/core";
 import { DeviceIcon } from "../../components/OnDevice";
 import { isSaved, useSavedChapters } from "../../lib/offline/store";
+import { useToast } from "../../lib/toast";
 
 export function ChapterPicker({ seriesId, currentId, onPick, onClose }: { seriesId: number; currentId: number; onPick: (id: number) => void; onClose: () => void }) {
   const [draft, setDraft] = useState("");
@@ -20,6 +21,28 @@ export function ChapterPicker({ seriesId, currentId, onPick, onClose }: { series
     return () => window.clearTimeout(timeout);
   }, [draft, query]);
   const saved = useSavedChapters();
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [marking, setMarking] = useState<number | null>(null);
+  // Read marks this chapter and every one before it read (you got this far);
+  // unread takes back only this one.
+  const toggleRead = async (chapter: S["ReadChapterItem"]) => {
+    const read = !chapter.completed;
+    setMarking(chapter.id);
+    try {
+      const mark = (scope: "chapter" | "previous") => unwrap(api.PUT("/api/v1/read/chapters/{id}/mark", { params: { path: { id: chapter.id } }, body: { read, scope } }));
+      await mark("chapter");
+      if (read) await mark("previous");
+      toast.success(read ? t("Chapters up to {number} marked read", { number: chapter.number }) : t("Chapter {number} marked unread", { number: chapter.number }));
+    } catch (e) {
+      toast.fromError(e);
+    } finally {
+      setMarking(null);
+      void qc.invalidateQueries({ queryKey: ["read-chapter-picker", seriesId] });
+      void qc.invalidateQueries({ queryKey: ["progress"] });
+      void qc.invalidateQueries({ queryKey: ["series"] });
+    }
+  };
   const result = useQuery({
     queryKey: ["read-chapter-picker", seriesId, currentId, query, page],
     queryFn: () => unwrap(api.GET("/api/v1/read/series/{id}/chapters", { params: { path: { id: seriesId }, query: { q: query || undefined, currentId, page, pageSize: 50 } } })),
@@ -90,21 +113,34 @@ export function ChapterPicker({ seriesId, currentId, onPick, onClose }: { series
           {result.isFetching && !data && <div className="flex justify-center p-8"><Spinner /></div>}
           {result.error && <p className="p-3 text-sm text-err">{String(result.error)}</p>}
           {data?.items.map((chapter) => (
-            <button
+            <div
               key={chapter.id}
-              type="button"
               data-current={chapter.id === currentId || undefined}
-              disabled={!chapter.available}
-              onClick={() => onPick(chapter.id)}
-              className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left ${chapter.id === currentId ? "bg-accent/20 text-accent-2" : "hover:bg-panel-2"} disabled:cursor-not-allowed disabled:opacity-40`}
+              className={`flex items-center rounded-lg ${chapter.id === currentId ? "bg-accent/20 text-accent-2" : "hover:bg-panel-2"}`}
             >
-              <span className="w-20 shrink-0 font-mono text-sm">{chapter.volume ? `v${chapter.volume} · ` : ""}{chapter.number}</span>
-              <span className="min-w-0 flex-1 truncate text-sm">{chapter.title || `${t("Chapter")} ${chapter.number}`}</span>
-              {isSaved(chapter.id) && <span aria-label={t("Saved on this device")}><DeviceIcon chapter={saved[chapter.id]} className="size-3.5" /></span>}
-              {chapter.downloaded && <Download className="size-3.5 text-muted" aria-label={t("Downloaded")} />}
-              {chapter.completed && <Check className="size-4 text-ok" aria-label={t("Read")} />}
-              {!chapter.available && <span className="text-xs text-muted">{t("unavailable")}</span>}
-            </button>
+              <button
+                type="button"
+                disabled={!chapter.available}
+                onClick={() => onPick(chapter.id)}
+                className="flex min-w-0 flex-1 items-center gap-3 py-2 pl-3 text-left disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <span className="w-20 shrink-0 font-mono text-sm">{chapter.volume ? `v${chapter.volume} · ` : ""}{chapter.number}</span>
+                <span className="min-w-0 flex-1 truncate text-sm">{chapter.title || `${t("Chapter")} ${chapter.number}`}</span>
+                {isSaved(chapter.id) && <span aria-label={t("Saved on this device")}><DeviceIcon chapter={saved[chapter.id]} className="size-3.5" /></span>}
+                {!chapter.available && <span className="text-xs text-muted">{t("unavailable")}</span>}
+              </button>
+              <button
+                type="button"
+                disabled={marking !== null}
+                onClick={() => void toggleRead(chapter)}
+                aria-label={chapter.completed ? t("Mark unread") : t("Mark read")}
+                aria-pressed={chapter.completed}
+                title={chapter.completed ? t("Mark unread") : t("Mark read")}
+                className="shrink-0 rounded-lg px-3 py-2 hover:bg-panel-2 disabled:opacity-60"
+              >
+                {marking === chapter.id ? <Spinner className="size-4" /> : chapter.completed ? <CheckCircle2 className="size-4 text-ok" /> : <Circle className="size-4 text-muted" />}
+              </button>
+            </div>
           ))}
           {data && data.items.length === 0 && <p className="p-6 text-center text-sm text-muted">{t("No chapters match this search.")}</p>}
         </div>

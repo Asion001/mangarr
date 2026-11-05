@@ -76,6 +76,9 @@ export function WebtoonViewer({
   const [near, setNear] = useState<Set<number>>(() => widen(new Set(), startPage - 1, startPage + ahead, first?.pages.length ?? 0));
   const current = useRef(startPage);
   const spot = useRef<{ k: number; at: number } | null>(null);
+  // where the strip itself last scrolled to (opening, holding the spot):
+  // that scroll isn't the reader moving
+  const own = useRef(NaN);
   const settling = useRef(0);
   // a readable column on wide screens; side padding narrows it further
   const width = Math.min(vp.w, 900) * (1 - (2 * s.padding) / 100);
@@ -137,12 +140,22 @@ export function WebtoonViewer({
   useEffect(() => {
     if (!first) return;
     const el = items.current[startPage - 1];
-    if (pageScroll) {
-      // the page may still be scrolled from the chapter before
-      const box = document.scrollingElement as HTMLElement;
-      box.scrollTop = 0;
-      if (el && startPage > 1) box.scrollTop = el.getBoundingClientRect().top;
-    } else if (el && startPage > 1) scrollToTop(el);
+    const box = scroller.current && scrollBox(scroller.current, pageScroll);
+    // the page may still be scrolled from the chapter before
+    if (pageScroll && box) box.scrollTop = 0;
+    if (el && box && startPage > 1) {
+      if (pageScroll) box.scrollTop = el.getBoundingClientRect().top;
+      else scrollToTop(el);
+      // Opened at a chapter's last page (Previous chapter from the next
+      // one's top): its end sits just under the reading line, so that page
+      // is the current one rather than the next chapter's start below it.
+      const line = (pageScroll ? 0 : box.getBoundingClientRect().top) + box.clientHeight / 3;
+      if (startPage === first.pages.length) box.scrollTop += el.getBoundingClientRect().bottom - line - 8;
+      // the spot to hold while the pages around it load (see below)
+      const r = el.getBoundingClientRect();
+      if (r.height > 0) spot.current = { k: startPage, at: (line - r.top) / r.height };
+      own.current = box.scrollTop;
+    }
     current.current = startPage;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [!!first]);
@@ -154,11 +167,17 @@ export function WebtoonViewer({
     let raf = 0;
     const lineAt = () => (pageScroll ? 0 : root.getBoundingClientRect().top) + root.clientHeight / 3;
     // the page the line is on and how far down it, to come back to
+    // (from the last spot outwards: the strip can be hundreds of pages long)
     const measure = () => {
       const line = lineAt();
-      for (let i = 0; i < stripRef.current.length; i++) {
-        const r = items.current[i]?.getBoundingClientRect();
-        if (r && r.top <= line && r.bottom > line) return { k: i + 1, at: (line - r.top) / r.height };
+      const n = stripRef.current.length;
+      const from = Math.min(Math.max((spot.current?.k ?? 1) - 1, 0), n - 1);
+      for (let d = 0; d < n; d++) {
+        for (const i of d ? [from + d, from - d] : [from]) {
+          const r = i >= 0 && i < n ? items.current[i]?.getBoundingClientRect() : undefined;
+          if (r && r.top <= line && r.bottom > line) return { k: i + 1, at: (line - r.top) / r.height };
+        }
+        if (from + d >= n - 1 && from - d <= 0) break;
       }
       return null;
     };
@@ -170,7 +189,11 @@ export function WebtoonViewer({
     const keep = () => {
       const at = spot.current;
       const r = at && items.current[at.k - 1]?.getBoundingClientRect();
-      if (at && r) root.scrollTop += r.top - (lineAt() - at.at * r.height);
+      const by = r ? r.top - (lineAt() - at.at * r.height) : 0;
+      // nothing to put back: setting it anyway would stop a fling on iOS
+      if (Math.abs(by) < 1) return;
+      root.scrollTop += by;
+      own.current = root.scrollTop;
     };
     const set = (k: number) => {
       const at = stripRef.current[k - 1];
@@ -180,6 +203,15 @@ export function WebtoonViewer({
       setNear((prev) => widen(prev, k - 1, k + ahead, stripRef.current.length));
     };
     const on = () => {
+      // The strip's own scroll moves no one. It can fall short of the spot
+      // (nothing below to scroll into yet), and that mustn't become the
+      // spot, or count the pages under it as read.
+      const ours = Math.abs(root.scrollTop - own.current) < 1;
+      own.current = NaN;
+      if (ours) return;
+      // where the reader is, right away: a page loading before the next
+      // frame puts the strip back to this spot, not to one a scroll ago
+      if (performance.now() >= settling.current) spot.current = measure() ?? spot.current;
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
         if (performance.now() < settling.current) return keep();
@@ -204,11 +236,20 @@ export function WebtoonViewer({
     const touched = () => {
       settling.current = 0;
     };
+    // Pages load taller (or shorter) than the shape they borrowed while
+    // waiting. One above the reading spot growing would push the strip on
+    // under the reader: Safari doesn't hold the spot as other browsers do,
+    // and the reader would land pages, even chapters, further on, which then
+    // count as read. Like the browsers' own scroll anchoring, the spot is
+    // put back whenever the strip changes height.
+    const sizes = new ResizeObserver(() => keep());
+    if (scroller.current.firstElementChild) sizes.observe(scroller.current.firstElementChild);
     const target = pageScroll ? window : root;
     target.addEventListener("scroll", on, { passive: true });
     window.addEventListener("pointerdown", touched);
     const stop = onFullscreenChange(settle);
     return () => {
+      sizes.disconnect();
       cancelAnimationFrame(raf);
       timers.forEach(clearTimeout);
       target.removeEventListener("scroll", on);
@@ -301,7 +342,7 @@ export function WebtoonViewer({
   let offset = 0;
   return (
     <div ref={scroller} className={pageScroll ? "w-full overflow-x-clip" : "h-full w-full overflow-y-auto overflow-x-hidden"} onClick={onClick} style={{ touchAction: "pan-y pinch-zoom" }}>
-      <div className="mx-auto flex flex-col items-center" style={{ width }}>
+      <div className="mx-auto flex flex-col items-center" style={{ width, overflowAnchor: "none" }}>
         {first.prev && (
           <div className="w-full py-6 text-center text-sm text-muted">
             <button type="button" className="rounded-md border border-muted/40 px-3 py-1.5" onClick={(e) => (e.stopPropagation(), onChapter("prev"))}>{t("Previous chapter: ch.") + " "}{first.prev.number}
