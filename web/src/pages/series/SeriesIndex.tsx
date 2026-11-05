@@ -460,9 +460,9 @@ export function SeriesIndex() {
         <div aria-label={t("Loading titles…")} role="status" className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-4">
           {Array.from({ length: 12 }, (_, i) => (
             <div key={i} aria-hidden className="flex flex-col gap-2">
-              <div className="cover-shimmer aspect-[2/3] w-full rounded-md" />
-              <div className="cover-shimmer h-1.5 w-full rounded" />
-              <div className="cover-shimmer h-4 w-3/4 rounded" />
+              <div className="cover-shimmer relative aspect-[2/3] w-full rounded-md" />
+              <div className="cover-shimmer relative h-1.5 w-full rounded" />
+              <div className="cover-shimmer relative h-4 w-3/4 rounded" />
             </div>
           ))}
         </div>
