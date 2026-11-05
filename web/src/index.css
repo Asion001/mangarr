@@ -149,3 +149,25 @@ fieldset:disabled :is(input, select, textarea, button) {
   .press-busy, .press-flash { animation: none; }
   .press-busy { box-shadow: 0 0 0 2px currentColor; }
 }
+
+/* a cover on its way: one light sweep across the page, the same moment in
+   every box (fixed to the viewport), then the image fades in over it */
+.cover-shimmer {
+  background-color: var(--color-panel-2);
+  background-image: linear-gradient(100deg, transparent 35%, color-mix(in oklab, var(--color-fg) 7%, transparent) 50%, transparent 65%);
+  background-size: 200vw 100%;
+  background-attachment: fixed;
+  animation: cover-shimmer 1.6s linear infinite;
+}
+@keyframes cover-shimmer {
+  from { background-position: 100vw 0; }
+  to { background-position: -100vw 0; }
+}
+.cover-fade-in { animation: cover-fade-in 0.35s ease-out; }
+@keyframes cover-fade-in {
+  from { opacity: 0; transform: scale(1.02); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cover-shimmer, .cover-fade-in { animation: none; }
+}

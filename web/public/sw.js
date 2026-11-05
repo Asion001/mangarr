@@ -22,6 +22,8 @@ const CHAPTER_PREFIX = "mangarr-chapter-";
 const WIDTH_HEADER = "x-mangarr-width";
 /** Ambience and effects already played, so a soundtrack carries on offline; a sound's file never changes (its ETag is its hash). */
 const SOUNDS = "mangarr-sounds-v1";
+/** Series covers, shown from here at once and checked with the server behind them. */
+const COVERS = "mangarr-covers-v1";
 
 /** route sorts a request path (below the app's base) into what answers it. */
 function route(path) {
@@ -31,6 +33,7 @@ function route(path) {
   if (m) return { kind: m[2] ? "bounds" : "chapter", chapter: m[1] };
   if (/^api\/v1\/read\/chapters\/\d+\/(progress|time)$/.test(path)) return { kind: "outbox" };
   if (/^api\/v1\/audio\/tracks\/\d+\/stream$/.test(path)) return { kind: "sound" };
+  if (/^api\/v1\/series\/\d+\/cover$/.test(path)) return { kind: "cover" };
   // live events, signed page links and chapter files go straight to the server
   if (path === "api/v1/events" || path.startsWith("api/v1/img/p/") || /\/file$/.test(path)) return { kind: "network" };
   if (path.startsWith("api/")) return { kind: "remember" };
@@ -152,7 +155,7 @@ async function remember(request) {
   const r = await fresh(request, cache);
   // signed out: what was remembered for that account goes too
   if (r.status === 200 && new URL(request.url).pathname.endsWith("/auth/status")) {
-    r.clone().json().then((a) => a && a.authenticated === false && caches.delete(REMEMBERED), () => undefined);
+    r.clone().json().then((a) => a && a.authenticated === false && Promise.all([caches.delete(REMEMBERED), caches.delete(COVERS)]), () => undefined);
   }
   return r;
 }
@@ -234,6 +237,55 @@ async function sound(request) {
   return r;
 }
 
+/** Covers already checked with the server since this worker started. */
+const checkedCovers = new Set();
+
+/**
+ * cover answers a series cover from the copy kept last time, at once, and
+ * asks the server behind it (once per cover while this worker runs) so a
+ * changed picture shows next time. Waiting on the server for every cover of
+ * the library, as other API answers do, made a reloaded library fill in one
+ * cover at a time. The link carries the series' version, so a new cover
+ * usually comes under a new link; a cover's older versions are dropped.
+ */
+async function cover(request) {
+  // the full-size file (?size=full) is a different picture under the same path
+  if (new URL(request.url).searchParams.has("size")) return remember(request);
+  const cache = await caches.open(COVERS);
+  const hit = await cache.match(request);
+  const ask = async () => {
+    const r = await fetch(request);
+    heard(answered(r));
+    if (keep(r)) {
+      const copy = r.clone();
+      void (async () => {
+        await cache.delete(request, { ignoreSearch: true });
+        await cache.put(request, copy);
+      })().catch(() => undefined);
+    }
+    return r;
+  };
+  if (hit) {
+    if (!checkedCovers.has(request.url)) {
+      checkedCovers.add(request.url);
+      void ask().catch(() => heard(false));
+    }
+    return hit;
+  }
+  try {
+    const r = await ask();
+    if (answered(r)) return r;
+    const old = await cache.match(request, { ignoreSearch: true });
+    return old ? mine(old) : r;
+  } catch (err) {
+    heard(false);
+    // another version of the same cover beats none while the server is away
+    const old = await cache.match(request, { ignoreSearch: true });
+    if (old) return mine(old);
+    throw err;
+  }
+}
+
 async function shell(request) {
   // every page of the app is index.html; the router takes it from there
   return fresh(request, await caches.open(SHELL), "./index.html");
@@ -262,6 +314,7 @@ function handle(request, scope) {
   if (r.kind === "chapter") return chapterData(request, r.chapter, false);
   if (r.kind === "asset") return asset(request);
   if (r.kind === "sound") return sound(request);
+  if (r.kind === "cover") return cover(request);
   if (r.kind === "remember") return remember(request);
   if (r.kind === "shell" && request.mode === "navigate") return shell(request);
   return undefined;

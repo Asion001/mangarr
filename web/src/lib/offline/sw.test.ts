@@ -50,6 +50,7 @@ describe("service worker", () => {
     expect(route("api/v1/read/chapters/7/bounds")).toEqual({ kind: "bounds", chapter: "7" });
     expect(route("api/v1/read/chapters/7/pages/3/bounds")).toEqual({ kind: "bounds", chapter: "7" });
     expect(route("api/v1/series").kind).toBe("remember");
+    expect(route("api/v1/series/12/cover").kind).toBe("cover");
     expect(route("api/v1/events").kind).toBe("network");
     expect(route("api/v1/read/chapters/7/file").kind).toBe("network");
     expect(route("api/v1/read/chapters/7/progress").kind).toBe("outbox");
@@ -139,6 +140,34 @@ describe("service worker", () => {
     expect(bodies.map((b) => b.page)).toEqual([2, 3]);
     for (const b of bodies) expect(Math.abs(Date.parse(b.at) - Date.now())).toBeLessThan(60_000);
     expect(stored["mangarr-outbox-v1"].size).toBe(0);
+  });
+
+  test("shows a kept cover at once and checks it with the server behind it", async () => {
+    const stored: Record<string, Entry> = {};
+    const url = (v: number) => `${scope}api/v1/series/3/cover?v=${v}`;
+    let asked = 0;
+    let picture = "first";
+    const up = load(async () => (asked++, new Response(picture, { headers: { "Content-Type": "image/jpeg" } })), stored);
+    expect(await (await up.handle(new Request(url(1)), scope)!).text()).toBe("first");
+    await new Promise((r) => setTimeout(r));
+    expect(stored["mangarr-covers-v1"].size).toBe(1);
+
+    // the next load answers from the kept copy without waiting on the server
+    let release = () => {};
+    const slow = load(() => new Promise((r) => (release = () => (asked++, r(new Response("second", { headers: { "Content-Type": "image/jpeg" } }))))), stored);
+    picture = "second";
+    expect(await (await slow.handle(new Request(url(1)), scope)!).text()).toBe("first");
+    release();
+    await new Promise((r) => setTimeout(r));
+    // the server's newer picture is kept for next time, and asked for once only
+    expect(await (await slow.handle(new Request(url(1)), scope)!).text()).toBe("second");
+    expect(asked).toBe(2);
+
+    // with the server away, an older version of the cover beats none
+    const offline = load(down, stored);
+    const old = await offline.handle(new Request(url(2)), scope)!;
+    expect(await old.text()).toBe("second");
+    expect(old.headers.get("x-mangarr-offline")).toBe("1");
   });
 
   test("keeps a sound once it played, so ambience plays on offline", async () => {

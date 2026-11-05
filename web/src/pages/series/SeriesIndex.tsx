@@ -456,7 +456,17 @@ export function SeriesIndex() {
       {!q && active.length === 0 && !rootFolderId && !language && !listParam && !genres.length && <ContinueReading />}
       {/* the bar's row is always there so showing it never moves the list; it only shows while a new filter or page loads, not on live refreshes */}
       <div className={clsx("mb-2 h-0.5 overflow-hidden rounded", isPlaceholderData ? "bg-panel-2" : "invisible")} aria-hidden={!isPlaceholderData}><div className="h-full w-1/3 animate-pulse rounded bg-accent" /></div>
-      {isLoading && <Loading />}
+      {isLoading && (view === "posters" ? (
+        <div aria-label={t("Loading titles…")} role="status" className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-4">
+          {Array.from({ length: 12 }, (_, i) => (
+            <div key={i} aria-hidden className="flex flex-col gap-2">
+              <div className="cover-shimmer aspect-[2/3] w-full rounded-md" />
+              <div className="cover-shimmer h-1.5 w-full rounded" />
+              <div className="cover-shimmer h-4 w-3/4 rounded" />
+            </div>
+          ))}
+        </div>
+      ) : <Loading />)}
       {error && <ErrorBox error={error} />}
       {selecting && data && list.length > 0 && list.every((s) => selected.has(s.id)) && data.total > selected.size && (
         <div role="status" className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-panel px-4 py-2 text-sm">
@@ -507,7 +517,7 @@ export function SeriesIndex() {
                       {on && <Check className="size-4" />}
                     </span>
                   )}
-                  <Cover src={apiUrl(s.coverUrl)} alt={s.displayTitle || s.title} className="aspect-[2/3] w-full ring-accent/60 transition group-hover:ring-2" />
+                  <Cover eager={idx < 18} src={apiUrl(s.coverUrl)} alt={s.displayTitle || s.title} className="aspect-[2/3] w-full ring-accent/60 transition group-hover:ring-2" />
                   {manage && !s.monitored && <div className={`absolute top-1.5 ${selecting ? "left-9" : "left-1.5"}`}><Badge>{t("unmonitored")}</Badge></div>}
                   {manage && s.stats.missingCount > 0 && (
                     <div className="absolute right-1.5 top-1.5">
