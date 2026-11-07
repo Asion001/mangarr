@@ -78,6 +78,8 @@ func TestRestartLeavesWorkerJobs(t *testing.T) {
 		}
 	}
 
+	// the app's own manager would start the re-queued job straight away
+	e.App.Downloads.Hold(true)
 	// a second manager over the same database starts up like a restart would
 	ctx, cancel := context.WithCancel(e.Ctx)
 	m := downloads.NewManager(e.App.DB, e.App.Bus, e.App.Modules, e.App.Settings, e.App.Library, e.App.DLQueue, e.App.Searcher,
