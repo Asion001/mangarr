@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"sort"
 	"strconv"
 	"time"
 
@@ -432,9 +431,9 @@ func (s *Service) enrich(ctx context.Context, userID int64, chapters []model.Cha
 	var rels []model.ChapterRelease
 	relq := s.DB.NewSelect().Model(&rels).Column("chapter_id", "scanlator").Where("chapter_id IS NOT NULL").Where("removed = ?", false)
 	if len(only) > 0 {
-		fq = fq.Where("series_id IN (?)", bun.In(only))
-		sq = sq.Where("series_id IN (?)", bun.In(only))
-		relq = relq.Where("series_id IN (?)", bun.In(only))
+		fq = fq.Where("series_id IN (?)", bun.List(only))
+		sq = sq.Where("series_id IN (?)", bun.List(only))
+		relq = relq.Where("series_id IN (?)", bun.List(only))
 	}
 	if err := fq.Scan(ctx); err != nil {
 		return nil, err
@@ -498,7 +497,7 @@ func (s *Service) seriesDirs(ctx context.Context, chapters []model.Chapter) (map
 		return dirs, nil
 	}
 	var list []model.Series
-	if err := s.DB.NewSelect().Model(&list).Column("id", "root_folder_id", "path").Where("id IN (?)", bun.In(ids)).Scan(ctx); err != nil {
+	if err := s.DB.NewSelect().Model(&list).Column("id", "root_folder_id", "path").Where("id IN (?)", bun.List(ids)).Scan(ctx); err != nil {
 		return nil, err
 	}
 	var rfs []model.RootFolder
@@ -515,11 +514,6 @@ func (s *Service) seriesDirs(ctx context.Context, chapters []model.Chapter) (map
 		}
 	}
 	return dirs, nil
-}
-
-// SortSeries orders series by title (the default).
-func SortSeries(list []SeriesInfo) {
-	sort.SliceStable(list, func(i, j int) bool { return list[i].Series.SortTitle < list[j].Series.SortTitle })
 }
 
 // coverClient fetches cover links. They come from metadata providers and

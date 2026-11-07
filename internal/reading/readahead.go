@@ -75,7 +75,7 @@ func (s *Service) ReadAhead(ctx context.Context, userID, seriesID int64) (int, e
 	}
 	if len(newlyMonitored) > 0 {
 		if _, err := s.DB.NewUpdate().Model((*model.Chapter)(nil)).Set("monitored = ?", true).Set("updated_at = ?", time.Now().UTC()).
-			Where("id IN (?)", bun.In(newlyMonitored)).Exec(ctx); err != nil {
+			Where("id IN (?)", bun.List(newlyMonitored)).Exec(ctx); err != nil {
 			return 0, err
 		}
 		_ = history.Record(ctx, s.DB, seriesID, nil, model.HistoryReadAhead, "",

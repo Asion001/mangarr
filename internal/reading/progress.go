@@ -80,7 +80,7 @@ func (s *Service) Record(ctx context.Context, userID int64, changes []Change, by
 	for start := 0; start < len(ids); start += 500 {
 		var states []model.ChapterReadState
 		if err := s.DB.NewSelect().Model(&states).Where("user_id = ?", userID).
-			Where("chapter_id IN (?)", bun.In(ids[start:min(start+500, len(ids))])).Scan(ctx); err != nil {
+			Where("chapter_id IN (?)", bun.List(ids[start:min(start+500, len(ids))])).Scan(ctx); err != nil {
 			return nil, err
 		}
 		for i := range states {

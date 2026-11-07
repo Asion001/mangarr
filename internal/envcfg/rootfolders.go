@@ -65,7 +65,7 @@ func SyncRootFolders(ctx context.Context, d *db.DB, env map[string]string) error
 		}
 		q := tx.NewUpdate().Model((*model.RootFolder)(nil)).Set("managed_by = ''").Where("managed_by = ?", ManagedEnv)
 		if len(keep) > 0 {
-			q = q.Where("path NOT IN (?)", bun.In(keep))
+			q = q.Where("path NOT IN (?)", bun.List(keep))
 		}
 		_, err := q.Exec(ctx)
 		return err

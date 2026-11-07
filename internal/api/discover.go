@@ -247,7 +247,7 @@ func (s *Server) discoverLatestChapters(ctx context.Context, items []DiscoverLib
 		ids = append(ids, item.SeriesID)
 	}
 	var chapters []model.Chapter
-	if err := s.app.DB.NewSelect().Model(&chapters).Column("series_id", "number_key").Where("series_id IN (?)", bun.In(ids)).
+	if err := s.app.DB.NewSelect().Model(&chapters).Column("series_id", "number_key").Where("series_id IN (?)", bun.List(ids)).
 		OrderExpr("COALESCE(release_date, updated_at) DESC").OrderExpr("number_sort DESC").Scan(ctx); err != nil {
 		return err
 	}

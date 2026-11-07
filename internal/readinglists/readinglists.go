@@ -174,9 +174,9 @@ func Set(ctx context.Context, db bun.IDB, userID, titleID int64, e TitleLists) e
 		if err := setStatus(ctx, tx, userID, titleID, e.Status, now); err != nil {
 			return err
 		}
-		q := tx.NewDelete().Model((*model.ReadingListTitle)(nil)).Where("title_id = ? AND list_id IN (?)", titleID, bun.In(ids))
+		q := tx.NewDelete().Model((*model.ReadingListTitle)(nil)).Where("title_id = ? AND list_id IN (?)", titleID, bun.List(ids))
 		if len(e.Lists) > 0 {
-			q = q.Where("list_id NOT IN (?)", bun.In(e.Lists))
+			q = q.Where("list_id NOT IN (?)", bun.List(e.Lists))
 		}
 		if _, err := q.Exec(ctx); err != nil {
 			return err
@@ -223,7 +223,7 @@ func ApplyBulk(ctx context.Context, db bun.IDB, userID int64, titleIDs []int64, 
 	now := time.Now().UTC()
 	return db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
 		if b.Action == "remove" {
-			_, err := tx.NewDelete().Model((*model.ReadingListTitle)(nil)).Where("list_id = ? AND title_id IN (?)", b.ListID, bun.In(titleIDs)).Exec(ctx)
+			_, err := tx.NewDelete().Model((*model.ReadingListTitle)(nil)).Where("list_id = ? AND title_id IN (?)", b.ListID, bun.List(titleIDs)).Exec(ctx)
 			return err
 		}
 		for _, id := range titleIDs {

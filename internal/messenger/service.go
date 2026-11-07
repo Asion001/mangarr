@@ -237,7 +237,7 @@ func (s *Service) SetPreferences(ctx context.Context, userID int64, mode string,
 		}
 	}
 	now := time.Now().UTC()
-	digestModes := bun.In([]string{model.DeliveryDigest, model.DeliveryBoth})
+	digestModes := bun.List([]string{model.DeliveryDigest, model.DeliveryBoth})
 	// a digest starting now covers what comes from now on, not what was
 	// already sent as it arrived
 	_, err := s.DB.NewUpdate().Model((*model.MessengerLink)(nil)).

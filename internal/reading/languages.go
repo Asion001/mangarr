@@ -200,6 +200,6 @@ func count(si *SeriesInfo, books []BookInfo) {
 // chaptersOf loads the chapters of several series in reading order.
 func (s *Service) chaptersOf(ctx context.Context, ids []int64) ([]model.Chapter, error) {
 	var chapters []model.Chapter
-	err := s.DB.NewSelect().Model(&chapters).Where("series_id IN (?)", bun.In(ids)).Order("series_id", "number_sort", "id").Scan(ctx)
+	err := s.DB.NewSelect().Model(&chapters).Where("series_id IN (?)", bun.List(ids)).Order("series_id", "number_sort", "id").Scan(ctx)
 	return chapters, err
 }

@@ -173,7 +173,7 @@ func (s *Server) storageSummary(ctx context.Context) (StorageSummary, error) {
 			Size  int64 `bun:"size"`
 		}
 		readChapters := s.app.DB.NewSelect().TableExpr("chapter_read_states").ColumnExpr("chapter_id").
-			Where("completed = ?", true).Where("user_id IN (?)", bun.In(readers))
+			Where("completed = ?", true).Where("user_id IN (?)", bun.List(readers))
 		err := s.app.DB.NewSelect().TableExpr("chapter_files AS cf").
 			ColumnExpr("COUNT(*) AS files, COALESCE(SUM(cf.size), 0) AS size").
 			Where("cf.series_id IN (SELECT id FROM series WHERE preview = ?)", false).

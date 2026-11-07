@@ -111,7 +111,7 @@ func (s *Server) seenItems(ctx context.Context, seen *model.UpdateSeen, rows []u
 		return out, nil
 	}
 	var found []model.UpdateSeenItem
-	if err := s.app.DB.NewSelect().Model(&found).Where("user_id = ?", seen.UserID).Where("item_id IN (?)", bun.In(ids)).Scan(ctx); err != nil {
+	if err := s.app.DB.NewSelect().Model(&found).Where("user_id = ?", seen.UserID).Where("item_id IN (?)", bun.List(ids)).Scan(ctx); err != nil {
 		return nil, err
 	}
 	for _, it := range found {
@@ -247,7 +247,7 @@ func (s *Server) seriesGroups(ctx context.Context, refs []UpdateRef) (map[int64]
 		Group int64 `bun:"grp"`
 	}
 	err := s.app.DB.NewSelect().TableExpr("series AS s").ColumnExpr("s.id").ColumnExpr(seriesUpdateGroup+" AS grp").
-		Where("s.id IN (?)", bun.In(ids)).Scan(ctx, &rows)
+		Where("s.id IN (?)", bun.List(ids)).Scan(ctx, &rows)
 	for _, r := range rows {
 		out[r.ID] = r.Group
 	}

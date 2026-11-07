@@ -56,7 +56,7 @@ func lookupIDs(md metadata.SeriesMetadata) map[string]string {
 // requestedByExternalID finds open requests for lookup results.
 func (s *Server) requestedByExternalID(ctx context.Context) func(ids map[string]string) *LookupRequest {
 	var open []model.Request
-	_ = s.app.DB.NewSelect().Model(&open).Where("status IN (?)", bun.In([]string{model.RequestPending, model.RequestApproved})).Scan(ctx)
+	_ = s.app.DB.NewSelect().Model(&open).Where("status IN (?)", bun.List([]string{model.RequestPending, model.RequestApproved})).Scan(ctx)
 	mine := map[int64]bool{}
 	if p := access.From(ctx); p != nil && p.Kind == access.KindUser && len(open) > 0 {
 		var ids []int64

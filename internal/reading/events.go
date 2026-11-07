@@ -41,7 +41,7 @@ func (s *Service) inReadingOrder(ctx context.Context, out []Outcome) {
 		ids[o.ChapterID] = true
 	}
 	var chs []model.Chapter
-	_ = s.DB.NewSelect().Model(&chs).Column("id", "number_sort").Where("id IN (?)", bun.In(keys(ids))).Scan(ctx)
+	_ = s.DB.NewSelect().Model(&chs).Column("id", "number_sort").Where("id IN (?)", bun.List(keys(ids))).Scan(ctx)
 	num := map[int64]float64{}
 	for _, c := range chs {
 		num[c.ID] = c.NumberSort
@@ -222,12 +222,12 @@ func (s *Service) recentEvents(ctx context.Context, userID int64, limit int) ([]
 	titles, numbers := map[int64]string{}, map[int64]string{}
 	if len(evs) > 0 {
 		var sers []model.Series
-		_ = s.DB.NewSelect().Model(&sers).Column("id", "title").Where("id IN (?)", bun.In(keys(seriesIDs))).Scan(ctx)
+		_ = s.DB.NewSelect().Model(&sers).Column("id", "title").Where("id IN (?)", bun.List(keys(seriesIDs))).Scan(ctx)
 		for _, x := range sers {
 			titles[x.ID] = x.Title
 		}
 		var chs []model.Chapter
-		_ = s.DB.NewSelect().Model(&chs).Column("id", "number_key").Where("id IN (?)", bun.In(keys(chapterIDs))).Scan(ctx)
+		_ = s.DB.NewSelect().Model(&chs).Column("id", "number_key").Where("id IN (?)", bun.List(keys(chapterIDs))).Scan(ctx)
 		for _, c := range chs {
 			numbers[c.ID] = c.NumberKey
 		}

@@ -36,7 +36,7 @@ func (s *Server) registerSourceUsage() {
 			out := []SourceUsage{}
 			err := s.app.DB.NewSelect().Model((*model.SeriesSource)(nil)).
 				ColumnExpr("module_id, source_id, MAX(source_name) AS source_name, COUNT(DISTINCT series_id) AS series").
-				Where("series_id IN (?)", bun.In(in.Body.SeriesIDs)).Group("module_id", "source_id").OrderExpr("series DESC, source_name").
+				Where("series_id IN (?)", bun.List(in.Body.SeriesIDs)).Group("module_id", "source_id").OrderExpr("series DESC, source_name").
 				Scan(ctx, &out)
 			return &struct{ Body []SourceUsage }{out}, toHTTPError(err)
 		})

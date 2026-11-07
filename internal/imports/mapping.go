@@ -138,7 +138,7 @@ func (s *Service) Map(ctx context.Context, id int64, entryIDs []int64, progress 
 	var entries []model.ImportEntry
 	q := s.DB.NewSelect().Model(&entries).Where("import_id = ?", id).Order("position")
 	if len(entryIDs) > 0 {
-		q = q.Where("id IN (?) AND state <> ?", bun.In(entryIDs), model.EntryImported)
+		q = q.Where("id IN (?) AND state <> ?", bun.List(entryIDs), model.EntryImported)
 	} else {
 		q = q.Where("state = ?", model.EntryPending)
 	}

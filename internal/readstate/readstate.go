@@ -76,7 +76,7 @@ func Delete(ctx context.Context, db bun.IDB, ids ...int64) error {
 	if len(ids) == 0 {
 		return nil
 	}
-	_, err := db.NewDelete().Model((*model.TitleReadState)(nil)).Where("id IN (?)", bun.In(ids)).Exec(ctx)
+	_, err := db.NewDelete().Model((*model.TitleReadState)(nil)).Where("id IN (?)", bun.List(ids)).Exec(ctx)
 	return err
 }
 
@@ -142,7 +142,7 @@ func FinishLastPages(ctx context.Context, idb bun.IDB, seriesID int64, now time.
 		ids = append(ids, st.ChapterID)
 	}
 	var files []model.ChapterFile
-	if err := idb.NewSelect().Model(&files).Column("chapter_id", "page_count", "source_pages").Where("chapter_id IN (?)", bun.In(ids)).
+	if err := idb.NewSelect().Model(&files).Column("chapter_id", "page_count", "source_pages").Where("chapter_id IN (?)", bun.List(ids)).
 		Scan(ctx); err != nil {
 		return 0, err
 	}

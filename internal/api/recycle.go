@@ -95,10 +95,10 @@ func (s *Server) recycleResources(ctx context.Context, rows []model.RecycledFile
 	files := []model.ChapterFile{}
 	chapters := []model.Chapter{}
 	if len(ids) > 0 {
-		if err := s.app.DB.NewSelect().Model(&files).Where("chapter_id IN (?)", bun.In(ids)).Scan(ctx); err != nil {
+		if err := s.app.DB.NewSelect().Model(&files).Where("chapter_id IN (?)", bun.List(ids)).Scan(ctx); err != nil {
 			return nil, err
 		}
-		if err := s.app.DB.NewSelect().Model(&chapters).Where("id IN (?)", bun.In(ids)).Scan(ctx); err != nil {
+		if err := s.app.DB.NewSelect().Model(&chapters).Where("id IN (?)", bun.List(ids)).Scan(ctx); err != nil {
 			return nil, err
 		}
 	}

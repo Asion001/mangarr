@@ -67,7 +67,7 @@ func (s *Service) Stats(ctx context.Context, userID int64) (ReadingStats, error)
 	var sessions []model.ReadingSession
 	if err := s.DB.NewSelect().Model(&sessions).
 		Column("series_id", "active_seconds", "updated_at").
-		Where("user_id = ?", userID).Where("series_id IN (?)", bun.In(ids)).Scan(ctx); err != nil {
+		Where("user_id = ?", userID).Where("series_id IN (?)", bun.List(ids)).Scan(ctx); err != nil {
 		return out, err
 	}
 	type totals struct {
@@ -96,7 +96,7 @@ func (s *Service) Stats(ctx context.Context, userID int64) (ReadingStats, error)
 	if err := s.DB.NewSelect().TableExpr("chapter_read_states").
 		ColumnExpr("series_id, COUNT(*) AS count").
 		Where("user_id = ? AND completed = ?", userID, true).
-		Where("series_id IN (?)", bun.In(ids)).GroupExpr("series_id").Scan(ctx, &completed); err != nil {
+		Where("series_id IN (?)", bun.List(ids)).GroupExpr("series_id").Scan(ctx, &completed); err != nil {
 		return out, err
 	}
 	for _, item := range completed {
@@ -106,7 +106,7 @@ func (s *Service) Stats(ctx context.Context, userID int64) (ReadingStats, error)
 	// chapter (the editions share the state)
 	if err := s.DB.NewSelect().TableExpr("chapter_read_states").ColumnExpr("COUNT(DISTINCT id)").
 		Where("user_id = ? AND completed = ?", userID, true).
-		Where("series_id IN (?)", bun.In(ids)).Scan(ctx, &out.CompletedChapters); err != nil {
+		Where("series_id IN (?)", bun.List(ids)).Scan(ctx, &out.CompletedChapters); err != nil {
 		return out, err
 	}
 

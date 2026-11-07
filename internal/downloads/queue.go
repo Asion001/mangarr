@@ -71,7 +71,7 @@ func (q *Queue) EnqueueConfigured(ctx context.Context, seriesID, chapterID int64
 		return nil, false, ErrPreview
 	}
 	var existing model.DownloadJob
-	err := q.db.NewSelect().Model(&existing).Where("chapter_id = ?", chapterID).Where("status IN (?)", bun.In(activeStatuses)).Limit(1).Scan(ctx)
+	err := q.db.NewSelect().Model(&existing).Where("chapter_id = ?", chapterID).Where("status IN (?)", bun.List(activeStatuses)).Limit(1).Scan(ctx)
 	if err == nil {
 		if err := q.Raise(ctx, chapterID, priority); err != nil {
 			return nil, false, err
@@ -111,7 +111,7 @@ func (q *Queue) EnqueueConfigured(ctx context.Context, seriesID, chapterID int64
 		if isUniqueViolation(err) {
 			// lost a race with a concurrent enqueue: return the winner
 			var winner model.DownloadJob
-			if e2 := q.db.NewSelect().Model(&winner).Where("chapter_id = ?", chapterID).Where("status IN (?)", bun.In(activeStatuses)).Limit(1).Scan(ctx); e2 == nil {
+			if e2 := q.db.NewSelect().Model(&winner).Where("chapter_id = ?", chapterID).Where("status IN (?)", bun.List(activeStatuses)).Limit(1).Scan(ctx); e2 == nil {
 				return &winner, false, nil
 			}
 		}
@@ -215,13 +215,13 @@ func (q *Queue) base(d bun.IDB, f ListFilter, withStatus bool) *bun.SelectQuery 
 		sel = sel.Where("ss.module_id = ? AND ss.source_id = ?", m, src)
 	}
 	if len(f.IDs) > 0 {
-		sel = sel.Where("j.id IN (?)", bun.In(f.IDs))
+		sel = sel.Where("j.id IN (?)", bun.List(f.IDs))
 	}
 	if f.Scoped {
 		if len(f.Visible) == 0 {
 			sel = sel.Where("1 = 0")
 		} else {
-			sel = sel.Where("j.series_id IN (?)", bun.In(f.Visible))
+			sel = sel.Where("j.series_id IN (?)", bun.List(f.Visible))
 		}
 	}
 	if qs := strings.TrimSpace(f.Query); qs != "" {
@@ -229,13 +229,13 @@ func (q *Queue) base(d bun.IDB, f ListFilter, withStatus bool) *bun.SelectQuery 
 	}
 	switch {
 	case withStatus && len(f.Statuses) > 0:
-		sel = sel.Where("j.status IN (?)", bun.In(f.Statuses))
+		sel = sel.Where("j.status IN (?)", bun.List(f.Statuses))
 	case f.IncludeDone:
 		// a failed job stays until it is retried or removed, however old: the
 		// status counts come from here and must match the failed rows listed
-		sel = sel.Where("(j.status IN (?) OR j.updated_at > ?)", bun.In(append(ActiveStatuses(), model.JobFailed)), time.Now().UTC().Add(-24*time.Hour))
+		sel = sel.Where("(j.status IN (?) OR j.updated_at > ?)", bun.List(append(ActiveStatuses(), model.JobFailed)), time.Now().UTC().Add(-24*time.Hour))
 	default:
-		sel = sel.Where("j.status IN (?)", bun.In(activeStatuses))
+		sel = sel.Where("j.status IN (?)", bun.List(activeStatuses))
 	}
 	return sel
 }
@@ -318,7 +318,7 @@ func (q *Queue) ListPageAt(ctx context.Context, f ListFilter, page, pageSize int
 			SeriesID int64 `bun:"series_id"`
 			N        int   `bun:"n"`
 		}
-		if err := q.base(tx, f, true).Where("j.series_id IN (?)", bun.In(series)).ColumnExpr("j.series_id AS series_id, COUNT(*) AS n").GroupExpr("j.series_id").Scan(ctx, &totals); err != nil {
+		if err := q.base(tx, f, true).Where("j.series_id IN (?)", bun.List(series)).ColumnExpr("j.series_id AS series_id, COUNT(*) AS n").GroupExpr("j.series_id").Scan(ctx, &totals); err != nil {
 			return err
 		}
 		for _, t := range totals {
@@ -349,7 +349,7 @@ func (q *Queue) IDs(ctx context.Context, f ListFilter) ([]int64, error) {
 func (q *Queue) ActiveChapters(ctx context.Context, seriesID int64) (map[int64]bool, error) {
 	var ids []int64
 	err := q.db.NewSelect().Model((*model.DownloadJob)(nil)).Column("chapter_id").
-		Where("series_id = ?", seriesID).Where("status IN (?)", bun.In(activeStatuses)).Scan(ctx, &ids)
+		Where("series_id = ?", seriesID).Where("status IN (?)", bun.List(activeStatuses)).Scan(ctx, &ids)
 	out := map[int64]bool{}
 	for _, id := range ids {
 		out[id] = true
@@ -399,7 +399,7 @@ func (q *Queue) RetryFailed(ctx context.Context, ids []int64) (retried, skipped 
 	}
 	var failed []model.DownloadJob
 	if err := q.db.NewSelect().Model(&failed).Column("id", "chapter_id").
-		Where("id IN (?) AND status = ?", bun.In(ids), model.JobFailed).OrderExpr("id DESC").Scan(ctx); err != nil {
+		Where("id IN (?) AND status = ?", bun.List(ids), model.JobFailed).OrderExpr("id DESC").Scan(ctx); err != nil {
 		return 0, 0, err
 	}
 	if len(failed) == 0 {
@@ -411,7 +411,7 @@ func (q *Queue) RetryFailed(ctx context.Context, ids []int64) (retried, skipped 
 	}
 	var activeChapters []int64
 	if err := q.db.NewSelect().Model((*model.DownloadJob)(nil)).Column("chapter_id").
-		Where("chapter_id IN (?) AND status IN (?)", bun.In(chapters), bun.In(activeStatuses)).Scan(ctx, &activeChapters); err != nil {
+		Where("chapter_id IN (?) AND status IN (?)", bun.List(chapters), bun.List(activeStatuses)).Scan(ctx, &activeChapters); err != nil {
 		return 0, 0, err
 	}
 	active := map[int64]bool{}
@@ -453,7 +453,7 @@ func (q *Queue) RetryFailed(ctx context.Context, ids []int64) (retried, skipped 
 // ClearFinished removes completed/failed jobs older than d.
 func (q *Queue) ClearFinished(ctx context.Context, d time.Duration) error {
 	_, err := q.db.NewDelete().Model((*model.DownloadJob)(nil)).
-		Where("status IN (?)", bun.In([]string{model.JobCompleted, model.JobFailed})).
+		Where("status IN (?)", bun.List([]string{model.JobCompleted, model.JobFailed})).
 		Where("updated_at < ?", time.Now().UTC().Add(-d)).Exec(ctx)
 	return err
 }

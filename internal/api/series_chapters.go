@@ -141,7 +141,7 @@ func (s *Server) registerSeriesChapters() {
 			}
 		}) (*struct{}, error) {
 			_, err := s.app.DB.NewUpdate().Model((*model.Chapter)(nil)).Set("monitored = ?", in.Body.Monitored).
-				Set("updated_at = ?", time.Now().UTC()).Where("id IN (?)", bun.In(in.Body.ChapterIDs)).Exec(ctx)
+				Set("updated_at = ?", time.Now().UTC()).Where("id IN (?)", bun.List(in.Body.ChapterIDs)).Exec(ctx)
 			s.app.Bus.Changed("chapter", "updated", 0)
 			return nil, toHTTPError(err)
 		})

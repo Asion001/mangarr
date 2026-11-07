@@ -49,7 +49,7 @@ func (s *Searcher) load(ctx context.Context, seriesID int64, chapterIDs []int64)
 	}
 	q := s.db.NewSelect().Model(&st.chapters).Where("series_id = ?", seriesID)
 	if len(chapterIDs) > 0 {
-		q = q.Where("id IN (?)", bun.In(chapterIDs))
+		q = q.Where("id IN (?)", bun.List(chapterIDs))
 	}
 	if err := q.Order("number_sort").Scan(ctx); err != nil {
 		return nil, err

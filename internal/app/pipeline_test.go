@@ -112,7 +112,7 @@ func (e *testEnv) runCommand(t *testing.T, name string, body map[string]any) {
 func (e *testEnv) waitIdle(t *testing.T) {
 	t.Helper()
 	waitFor(t, 20*time.Second, "idle command queue", func() bool {
-		n, _ := e.App.DB.NewSelect().Model((*model.Command)(nil)).Where("status IN (?)", bun.In([]string{model.CommandQueued, model.CommandStarted})).Count(e.Ctx)
+		n, _ := e.App.DB.NewSelect().Model((*model.Command)(nil)).Where("status IN (?)", bun.List([]string{model.CommandQueued, model.CommandStarted})).Count(e.Ctx)
 		return n == 0
 	})
 }

@@ -88,9 +88,9 @@ func (m *Manager) Start(ctx context.Context) error {
 	now := time.Now().UTC()
 	q := m.db.NewUpdate().Model((*model.DownloadJob)(nil)).
 		Set("status = ?", model.JobQueued).Set("not_before = ?", now).Set("updated_at = ?", now).
-		Where("status IN (?)", bun.In([]string{model.JobDownloading, model.JobProcessing, model.JobImporting}))
+		Where("status IN (?)", bun.List([]string{model.JobDownloading, model.JobProcessing, model.JobImporting}))
 	if len(live) > 0 {
-		q = q.Where("id NOT IN (?)", bun.In(keys(live)))
+		q = q.Where("id NOT IN (?)", bun.List(keys(live)))
 	}
 	if _, err := q.Exec(ctx); err != nil {
 		return err
@@ -136,7 +136,7 @@ func (m *Manager) failCrashedProcessing(ctx context.Context, live map[int64]bool
 	var jobs []model.DownloadJob
 	q := m.db.NewSelect().Model(&jobs).Where("kind = ? AND status = ?", model.JobKindReprocess, model.JobProcessing)
 	if len(live) > 0 {
-		q = q.Where("id NOT IN (?)", bun.In(keys(live)))
+		q = q.Where("id NOT IN (?)", bun.List(keys(live)))
 	}
 	if err := q.Scan(ctx); err != nil {
 		return err
@@ -179,7 +179,7 @@ func (m *Manager) Release() {
 	now := time.Now().UTC()
 	if _, err := m.db.NewUpdate().Model((*model.DownloadJob)(nil)).
 		Set("status = ?", model.JobQueued).Set("not_before = ?", now).Set("updated_at = ?", now).
-		Where("id IN (?) AND status IN (?)", bun.In(ids), bun.In([]string{model.JobDownloading, model.JobProcessing, model.JobImporting})).
+		Where("id IN (?) AND status IN (?)", bun.List(ids), bun.List([]string{model.JobDownloading, model.JobProcessing, model.JobImporting})).
 		Exec(ctx); err != nil {
 		m.log.Warn("could not hand running jobs back to the queue", "err", err)
 	}

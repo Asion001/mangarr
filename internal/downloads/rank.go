@@ -122,7 +122,7 @@ func ranks(ctx context.Context, tx bun.Tx, action string, anchorID int64, n int)
 func insertionRanks(ctx context.Context, tx bun.Tx, priority, n int) ([]int64, error) {
 	var anchor int64
 	err := tx.NewSelect().Table("download_jobs").Column("id").
-		Where("status IN (?) AND priority < ?", bun.In(pendingStatuses), priority).
+		Where("status IN (?) AND priority < ?", bun.List(pendingStatuses), priority).
 		OrderExpr("rank, id").Limit(1).Scan(ctx, &anchor)
 	if errors.Is(err, sql.ErrNoRows) {
 		return ranks(ctx, tx, "bottom", 0, n)
@@ -159,7 +159,7 @@ func (q *Queue) Move(ctx context.Context, ids []int64, action string, anchorID i
 	err := q.orderTx(ctx, func(ctx context.Context, tx bun.Tx) error {
 		if anchorID != 0 {
 			var anchor model.DownloadJob
-			sel := tx.NewSelect().Model(&anchor).Where("id = ? AND status IN (?)", anchorID, bun.In(pendingStatuses))
+			sel := tx.NewSelect().Model(&anchor).Where("id = ? AND status IN (?)", anchorID, bun.List(pendingStatuses))
 			if q.db.Kind == db.Postgres {
 				sel = sel.For("UPDATE")
 			}
@@ -174,7 +174,7 @@ func (q *Queue) Move(ctx context.Context, ids []int64, action string, anchorID i
 			return nil
 		}
 		var jobs []model.DownloadJob
-		sel := tx.NewSelect().Model(&jobs).Where("id IN (?) AND status IN (?)", bun.In(ids), bun.In(pendingStatuses)).OrderExpr("rank, id")
+		sel := tx.NewSelect().Model(&jobs).Where("id IN (?) AND status IN (?)", bun.List(ids), bun.List(pendingStatuses)).OrderExpr("rank, id")
 		if q.db.Kind == db.Postgres {
 			sel = sel.For("UPDATE")
 		}
@@ -224,7 +224,7 @@ func (q *Queue) SortByChapter(ctx context.Context, ids []int64) (int, error) {
 		var jobs []sortJob
 		sel := tx.NewSelect().TableExpr("download_jobs AS j").Join("JOIN chapters AS c ON c.id = j.chapter_id").
 			ColumnExpr("j.id, j.series_id, j.rank, c.number_sort").
-			Where("j.id IN (?) AND j.status IN (?)", bun.In(ids), bun.In(pendingStatuses)).OrderExpr("j.rank, j.id")
+			Where("j.id IN (?) AND j.status IN (?)", bun.List(ids), bun.List(pendingStatuses)).OrderExpr("j.rank, j.id")
 		if q.db.Kind == db.Postgres {
 			sel = sel.For("UPDATE OF j")
 		}

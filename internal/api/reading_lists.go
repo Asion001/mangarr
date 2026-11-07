@@ -192,7 +192,7 @@ func (s *Server) registerReadingLists() {
 				return nil, toHTTPError(err)
 			}
 			var list []model.Series
-			if err := s.app.DB.NewSelect().Model(&list).Where("id IN (?)", bun.In(in.Body.SeriesIDs)).Scan(ctx); err != nil {
+			if err := s.app.DB.NewSelect().Model(&list).Where("id IN (?)", bun.List(in.Body.SeriesIDs)).Scan(ctx); err != nil {
 				return nil, toHTTPError(err)
 			}
 			// editions of one title count once; series the caller can't see don't count

@@ -43,7 +43,7 @@ func (s *Service) announceEditions(ctx context.Context, userID int64, out []Outc
 			Join("JOIN series AS s2 ON s2.work_id = s.work_id AND s2.id <> s.id").
 			Join("JOIN chapters AS c2 ON c2.series_id = s2.id AND c2.number_key = c.number_key").
 			ColumnExpr("c.id AS from_id, c2.id AS chapter_id, c2.series_id").
-			Where("c.id IN (?)", bun.In(ids[start:min(start+500, len(ids))])).
+			Where("c.id IN (?)", bun.List(ids[start:min(start+500, len(ids))])).
 			OrderExpr("c2.series_id, c2.number_sort, c2.id").Scan(ctx, &rows)
 		if err != nil {
 			s.Log.Warn("other editions not told about reading progress", "reader", userID, "error", err)

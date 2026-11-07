@@ -131,12 +131,6 @@ func parse(v string) (parsed, bool) {
 	return p, true
 }
 
-// IsRelease reports whether v is a tagged release version.
-func IsRelease(v string) bool {
-	_, ok := parse(v)
-	return ok
-}
-
 // Newer reports whether target is a later release than current. Anything
 // that isn't a release version on either side is never newer: a build from
 // a branch or a local checkout is left alone, and nothing moves backwards.

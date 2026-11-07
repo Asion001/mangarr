@@ -146,7 +146,7 @@ func (s *Server) registerReadPicker() {
 				var releaseRows []struct {
 					ChapterID int64 `bun:"chapter_id"`
 				}
-				if err := s.app.DB.NewSelect().Model((*model.ChapterRelease)(nil)).Column("chapter_id").Where("chapter_id IN (?)", bun.In(releaseIDs)).Where("removed = ?", false).Group("chapter_id").Scan(ctx, &releaseRows); err != nil {
+				if err := s.app.DB.NewSelect().Model((*model.ChapterRelease)(nil)).Column("chapter_id").Where("chapter_id IN (?)", bun.List(releaseIDs)).Where("removed = ?", false).Group("chapter_id").Scan(ctx, &releaseRows); err != nil {
 					return nil, toHTTPError(err)
 				}
 				for _, row := range releaseRows {
@@ -158,7 +158,7 @@ func (s *Server) registerReadPicker() {
 			}
 			if len(ids) > 0 {
 				var stateRows []model.ChapterReadState
-				if err := s.app.DB.NewSelect().Model(&stateRows).Where("user_id = ? AND chapter_id IN (?)", userID, bun.In(ids)).Scan(ctx); err != nil {
+				if err := s.app.DB.NewSelect().Model(&stateRows).Where("user_id = ? AND chapter_id IN (?)", userID, bun.List(ids)).Scan(ctx); err != nil {
 					return nil, toHTTPError(err)
 				}
 				for _, state := range stateRows {

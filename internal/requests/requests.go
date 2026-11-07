@@ -250,7 +250,7 @@ func (s *Service) Create(ctx context.Context, p *access.Principal, in CreateInpu
 	note := trimNote(in.Note)
 	now := time.Now().UTC()
 	var open []model.Request
-	if err := s.DB.NewSelect().Model(&open).Where("status IN (?)", bun.In([]string{model.RequestPending, model.RequestApproved})).Scan(ctx); err != nil {
+	if err := s.DB.NewSelect().Model(&open).Where("status IN (?)", bun.List([]string{model.RequestPending, model.RequestApproved})).Scan(ctx); err != nil {
 		return nil, false, err
 	}
 	for _, r := range open {
@@ -433,7 +433,7 @@ func (s *Service) SetLanguage(ctx context.Context, ids []int64, lang string) (in
 		}
 	}
 	res, err := s.DB.NewUpdate().Model((*model.Request)(nil)).Set("language = ?", lang).Set("reason = ''").Set("updated_at = ?", time.Now().UTC()).
-		Where("id IN (?) AND status = ? AND kind = ''", bun.In(ids), model.RequestPending).Exec(ctx)
+		Where("id IN (?) AND status = ? AND kind = ''", bun.List(ids), model.RequestPending).Exec(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -584,7 +584,7 @@ func (s *Service) link(ctx context.Context, id, seriesID int64, handler *access.
 	r.HandledBy = handledBy
 	// linking twice (the add hook and whoever added it) tells people once
 	res, err := s.DB.NewUpdate().Model(&r).Column("series_id", "status", "reason", "handled_by", "handled_at", "available_at", "updated_at").
-		Where("id = ?", id).Where("NOT (series_id IS NOT NULL AND series_id = ? AND status IN (?))", seriesID, bun.In([]string{model.RequestApproved, model.RequestAvailable})).
+		Where("id = ?", id).Where("NOT (series_id IS NOT NULL AND series_id = ? AND status IN (?))", seriesID, bun.List([]string{model.RequestApproved, model.RequestAvailable})).
 		Exec(ctx)
 	if err != nil {
 		return false, err
@@ -645,7 +645,7 @@ func (s *Service) Decline(ctx context.Context, id int64, reason string, handler 
 // import (titles and languages, not downloads or users' imports).
 func (s *Service) ForBatch(ctx context.Context, ids []int64) ([]model.Request, error) {
 	var rs []model.Request
-	err := s.DB.NewSelect().Model(&rs).Where("id IN (?) AND status = ? AND kind = '' AND import_id IS NULL", bun.In(ids), model.RequestPending).
+	err := s.DB.NewSelect().Model(&rs).Where("id IN (?) AND status = ? AND kind = '' AND import_id IS NULL", bun.List(ids), model.RequestPending).
 		Order("created_at").Scan(ctx)
 	return rs, err
 }
@@ -658,7 +658,7 @@ func (s *Service) Names(ctx context.Context, ids []int64) (map[int64][]string, e
 		DisplayName string `bun:"display_name"`
 	}
 	err := s.DB.NewSelect().TableExpr("request_users AS ru").ColumnExpr("ru.request_id, u.username, u.display_name").
-		Join("JOIN users AS u ON u.id = ru.user_id").Where("ru.request_id IN (?)", bun.In(ids)).OrderExpr("ru.created_at").Scan(ctx, &rows)
+		Join("JOIN users AS u ON u.id = ru.user_id").Where("ru.request_id IN (?)", bun.List(ids)).OrderExpr("ru.created_at").Scan(ctx, &rows)
 	out := map[int64][]string{}
 	for _, r := range rows {
 		name := r.Username
@@ -673,7 +673,7 @@ func (s *Service) Names(ctx context.Context, ids []int64) (map[int64][]string, e
 // InBatch marks requests as handled in an import.
 func (s *Service) InBatch(ctx context.Context, ids []int64, importID int64) error {
 	if _, err := s.DB.NewUpdate().Model((*model.Request)(nil)).Set("import_id = ?", importID).Set("reason = ''").Set("updated_at = ?", time.Now().UTC()).
-		Where("id IN (?)", bun.In(ids)).Exec(ctx); err != nil {
+		Where("id IN (?)", bun.List(ids)).Exec(ctx); err != nil {
 		return err
 	}
 	for _, id := range ids {
@@ -893,7 +893,7 @@ func (s *Service) views(ctx context.Context, p *access.Principal, rs []model.Req
 		}
 	}
 	var rus []model.RequestUser
-	if err := s.DB.NewSelect().Model(&rus).Where("request_id IN (?)", bun.In(ids)).Order("created_at").Scan(ctx); err != nil {
+	if err := s.DB.NewSelect().Model(&rus).Where("request_id IN (?)", bun.List(ids)).Order("created_at").Scan(ctx); err != nil {
 		return nil, err
 	}
 	for _, ru := range rus {
@@ -902,7 +902,7 @@ func (s *Service) views(ctx context.Context, p *access.Principal, rs []model.Req
 	names := map[int64]string{}
 	if len(userIDs) > 0 {
 		var us []model.User
-		if err := s.DB.NewSelect().Model(&us).Column("id", "username", "display_name").Where("id IN (?)", bun.In(userIDs)).Scan(ctx); err != nil {
+		if err := s.DB.NewSelect().Model(&us).Column("id", "username", "display_name").Where("id IN (?)", bun.List(userIDs)).Scan(ctx); err != nil {
 			return nil, err
 		}
 		for _, u := range us {
@@ -921,7 +921,7 @@ func (s *Service) views(ctx context.Context, p *access.Principal, rs []model.Req
 	}
 	if len(workIDs) > 0 {
 		var ss []model.Series
-		if err := s.DB.NewSelect().Model(&ss).Column("id", "work_id").Where("work_id IN (?)", bun.In(workIDs)).Where("preview = ?", false).Order("id").Scan(ctx); err != nil {
+		if err := s.DB.NewSelect().Model(&ss).Column("id", "work_id").Where("work_id IN (?)", bun.List(workIDs)).Where("preview = ?", false).Order("id").Scan(ctx); err != nil {
 			return nil, err
 		}
 		for _, x := range ss {
@@ -939,7 +939,7 @@ func (s *Service) views(ctx context.Context, p *access.Principal, rs []model.Req
 	}
 	if len(importIDs) > 0 {
 		var es []model.ImportEntry
-		if err := s.DB.NewSelect().Model(&es).Column("import_id", "state", "data").Where("import_id IN (?)", bun.In(importIDs)).Scan(ctx); err != nil {
+		if err := s.DB.NewSelect().Model(&es).Column("import_id", "state", "data").Where("import_id IN (?)", bun.List(importIDs)).Scan(ctx); err != nil {
 			return nil, err
 		}
 		for _, e := range es {
@@ -960,7 +960,7 @@ func (s *Service) views(ctx context.Context, p *access.Principal, rs []model.Req
 	titles := map[int64]string{}
 	if len(seriesIDs) > 0 {
 		var ss []model.Series
-		if err := s.DB.NewSelect().Model(&ss).Column("id", "title").Where("id IN (?)", bun.In(seriesIDs)).Scan(ctx); err != nil {
+		if err := s.DB.NewSelect().Model(&ss).Column("id", "title").Where("id IN (?)", bun.List(seriesIDs)).Scan(ctx); err != nil {
 			return nil, err
 		}
 		for _, x := range ss {

@@ -255,7 +255,7 @@ func (f EntryFilter) apply(q *bun.SelectQuery) *bun.SelectQuery {
 		q = q.Where("LOWER(title) LIKE ?", "%"+strings.ToLower(f.Query)+"%")
 	}
 	if len(f.IDs) > 0 {
-		q = q.Where("id IN (?)", bun.In(f.IDs))
+		q = q.Where("id IN (?)", bun.List(f.IDs))
 	}
 	return q
 }
@@ -576,7 +576,7 @@ func (s *Service) saveEntry(ctx context.Context, e *model.ImportEntry) error {
 // running ones wait for the user to start them again.
 func (s *Service) Recover(ctx context.Context) ([]int64, error) {
 	var list []model.Import
-	if err := s.DB.NewSelect().Model(&list).Where("status IN (?)", bun.In([]string{model.ImportMapping, model.ImportRunning})).Scan(ctx); err != nil {
+	if err := s.DB.NewSelect().Model(&list).Where("status IN (?)", bun.List([]string{model.ImportMapping, model.ImportRunning})).Scan(ctx); err != nil {
 		return nil, err
 	}
 	var remap []int64

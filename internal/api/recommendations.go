@@ -172,9 +172,7 @@ func (s *Server) registerRecommendations() {
 					}
 				}
 			}
-			for _, m := range similarInLibrary(ser.Metadata, library, func(info reading.SeriesInfo) bool { return own(info.Series) || shown[info.Series.ID] }) {
-				out.Body.Similar = append(out.Body.Similar, m)
-			}
+			out.Body.Similar = append(out.Body.Similar, similarInLibrary(ser.Metadata, library, func(info reading.SeriesInfo) bool { return own(info.Series) || shown[info.Series.ID] })...)
 			return out, nil
 		})
 }

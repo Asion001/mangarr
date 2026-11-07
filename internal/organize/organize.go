@@ -248,7 +248,7 @@ type SeriesRename struct {
 // Preview lists the renames needed for the current naming settings.
 func (s *Service) Preview(ctx context.Context, seriesIDs []int64, folders bool) ([]SeriesRename, error) {
 	var list []model.Series
-	if err := s.db.NewSelect().Model(&list).Where("id IN (?)", bun.In(seriesIDs)).Order("sort_title").Scan(ctx); err != nil {
+	if err := s.db.NewSelect().Model(&list).Where("id IN (?)", bun.List(seriesIDs)).Order("sort_title").Scan(ctx); err != nil {
 		return nil, err
 	}
 	out := []SeriesRename{}

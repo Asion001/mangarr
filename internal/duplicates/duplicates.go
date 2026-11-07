@@ -776,7 +776,7 @@ func (s *Service) Link(ctx context.Context, kind string, seriesIDs []int64) (int
 		kind = KindMetadata
 	}
 	var list []Finding
-	if err := s.DB.NewSelect().Model(&list).Where("kind = ? AND series_a IN (?)", kind, bun.In(seriesIDs)).Scan(ctx); err != nil {
+	if err := s.DB.NewSelect().Model(&list).Where("kind = ? AND series_a IN (?)", kind, bun.List(seriesIDs)).Scan(ctx); err != nil {
 		return 0, err
 	}
 	n := 0

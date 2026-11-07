@@ -160,7 +160,7 @@ func (s *Server) seriesStats(ctx context.Context, seriesID int64) (map[int64]Ser
 		ColumnExpr("COUNT(DISTINCT CASE WHEN rs.completed THEN rs.chapter_id END) AS read_count").
 		ColumnExpr("COUNT(DISTINCT CASE WHEN NOT rs.completed AND rs.page > 0 THEN rs.chapter_id END) AS in_progress").
 		ColumnExpr("MAX(rs.read_at) AS last_read").
-		Where("rs.user_id IN (?)", bun.In(users)).GroupExpr("rs.series_id")
+		Where("rs.user_id IN (?)", bun.List(users)).GroupExpr("rs.series_id")
 	if seriesID > 0 {
 		rq = rq.Where("rs.series_id = ?", seriesID)
 	}
@@ -271,7 +271,7 @@ func (s *Server) readingInfo(ctx context.Context, ser *model.Series, fullPath st
 		// the first chapter after the highest one read
 		var maxRead float64
 		err := s.app.DB.NewSelect().TableExpr("chapter_read_states AS rs").Join("JOIN chapters AS c ON c.id = rs.chapter_id").
-			ColumnExpr("COALESCE(MAX(c.number_sort), -1)").Where("rs.series_id = ? AND rs.completed AND rs.user_id IN (?)", ser.ID, bun.In(users)).
+			ColumnExpr("COALESCE(MAX(c.number_sort), -1)").Where("rs.series_id = ? AND rs.completed AND rs.user_id IN (?)", ser.ID, bun.List(users)).
 			Scan(ctx, &maxRead)
 		if err == nil && maxRead >= 0 {
 			var next model.Chapter
@@ -311,9 +311,9 @@ func (s *Server) sourceCounts(ctx context.Context, links []model.SeriesSource) {
 	}
 	var chapters, files []row
 	_ = s.app.DB.NewSelect().Model((*model.ChapterRelease)(nil)).ColumnExpr("series_source_id, COUNT(DISTINCT chapter_id) AS n").
-		Where("series_source_id IN (?)", bun.In(ids)).Where("chapter_id IS NOT NULL").Where("removed = ?", false).Group("series_source_id").Scan(ctx, &chapters)
+		Where("series_source_id IN (?)", bun.List(ids)).Where("chapter_id IS NOT NULL").Where("removed = ?", false).Group("series_source_id").Scan(ctx, &chapters)
 	_ = s.app.DB.NewSelect().TableExpr("chapter_files AS f").Join("JOIN chapter_releases AS r ON r.id = f.release_id").
-		ColumnExpr("r.series_source_id, COUNT(*) AS n").Where("r.series_source_id IN (?)", bun.In(ids)).Group("r.series_source_id").Scan(ctx, &files)
+		ColumnExpr("r.series_source_id, COUNT(*) AS n").Where("r.series_source_id IN (?)", bun.List(ids)).Group("r.series_source_id").Scan(ctx, &files)
 	byID := func(rows []row) map[int64]int {
 		m := map[int64]int{}
 		for _, r := range rows {

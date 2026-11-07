@@ -22,7 +22,7 @@ func (a *App) ClearProcessBacklog(ctx context.Context) (jobs, chapters int, err 
 	err = a.DB.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
 		res, err := tx.NewDelete().Model((*model.DownloadJob)(nil)).
 			Where("kind = ?", model.JobKindReprocess).
-			Where("status IN (?)", bun.In([]string{model.JobQueued, model.JobPaused})).Exec(ctx)
+			Where("status IN (?)", bun.List([]string{model.JobQueued, model.JobPaused})).Exec(ctx)
 		if err != nil {
 			return err
 		}
@@ -37,7 +37,7 @@ func (a *App) ClearProcessBacklog(ctx context.Context) (jobs, chapters int, err 
 				Where("process_params <> ?", params).
 				Where("series_id IN (SELECT id FROM series WHERE profile_id = ?)", p.ID).
 				Where("process_attempts < ?", downloads.MaxProcessAttempts).
-				Where("NOT EXISTS (SELECT 1 FROM download_jobs j WHERE j.chapter_id = chapter_file.chapter_id AND j.status IN (?))", bun.In(downloads.ActiveStatuses())).
+				Where("NOT EXISTS (SELECT 1 FROM download_jobs j WHERE j.chapter_id = chapter_file.chapter_id AND j.status IN (?))", bun.List(downloads.ActiveStatuses())).
 				Exec(ctx)
 			if err != nil {
 				return err

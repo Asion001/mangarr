@@ -90,7 +90,7 @@ func (s *Server) registerDuplicates() {
 				out.Findings = append(out.Findings, d)
 			}
 			n, err := s.app.DB.NewSelect().Model((*model.Command)(nil)).
-				Where("name = ? AND status IN (?)", "FindDuplicates", bun.In([]string{model.CommandQueued, model.CommandStarted})).Count(ctx)
+				Where("name = ? AND status IN (?)", "FindDuplicates", bun.List([]string{model.CommandQueued, model.CommandStarted})).Count(ctx)
 			if err != nil {
 				return nil, toHTTPError(err)
 			}
@@ -188,11 +188,11 @@ func (s *Server) duplicateTitles(ctx context.Context, list []duplicates.Finding)
 		return out, nil
 	}
 	var series []model.Series
-	if err := s.app.DB.NewSelect().Model(&series).Where("id IN (?)", bun.In(ids)).Scan(ctx); err != nil {
+	if err := s.app.DB.NewSelect().Model(&series).Where("id IN (?)", bun.List(ids)).Scan(ctx); err != nil {
 		return nil, err
 	}
 	var sources []model.SeriesSource
-	if err := s.app.DB.NewSelect().Model(&sources).Column("series_id", "source_name").Where("series_id IN (?)", bun.In(ids)).Order("priority", "id").Scan(ctx); err != nil {
+	if err := s.app.DB.NewSelect().Model(&sources).Column("series_id", "source_name").Where("series_id IN (?)", bun.List(ids)).Order("priority", "id").Scan(ctx); err != nil {
 		return nil, err
 	}
 	var counts []struct {
@@ -202,7 +202,7 @@ func (s *Server) duplicateTitles(ctx context.Context, list []duplicates.Finding)
 	}
 	if err := s.app.DB.NewSelect().TableExpr("chapters").ColumnExpr("series_id").ColumnExpr("COUNT(*) AS chapters").
 		ColumnExpr("SUM(CASE WHEN file_id IS NOT NULL THEN 1 ELSE 0 END) AS files").
-		Where("series_id IN (?)", bun.In(ids)).GroupExpr("series_id").Scan(ctx, &counts); err != nil {
+		Where("series_id IN (?)", bun.List(ids)).GroupExpr("series_id").Scan(ctx, &counts); err != nil {
 		return nil, err
 	}
 	for _, ser := range series {

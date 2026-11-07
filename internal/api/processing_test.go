@@ -157,7 +157,6 @@ func TestClearProcessingBacklog(t *testing.T) {
 		t.Fatal(err)
 	}
 	// 0: waiting, 1: waiting with a queued job, 2: being processed, 3: already done
-	var files []*model.ChapterFile
 	for i := range 4 {
 		ch := &model.Chapter{SeriesID: ser.ID, NumberKey: fmt.Sprint(i), NumberSort: float64(i), FirstSeenAt: now, UpdatedAt: now}
 		if _, err := a.DB.NewInsert().Model(ch).Exec(ctx); err != nil {
@@ -170,7 +169,6 @@ func TestClearProcessingBacklog(t *testing.T) {
 		if _, err := a.DB.NewInsert().Model(f).Exec(ctx); err != nil {
 			t.Fatal(err)
 		}
-		files = append(files, f)
 		status := map[int]string{1: model.JobQueued, 2: model.JobProcessing}[i]
 		if status == "" {
 			continue

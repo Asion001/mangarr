@@ -40,7 +40,7 @@ func (a *App) sampleGauges(ctx context.Context) {
 		N      int    `bun:"n"`
 	}
 	if err := a.DB.NewSelect().Model((*model.DownloadJob)(nil)).Column("status").ColumnExpr("count(*) AS n").
-		Where("status NOT IN (?)", bun.In([]string{model.JobCompleted, model.JobFailed})).Group("status").Scan(ctx, &rows); err == nil {
+		Where("status NOT IN (?)", bun.List([]string{model.JobCompleted, model.JobFailed})).Group("status").Scan(ctx, &rows); err == nil {
 		for _, r := range rows {
 			switch r.Status {
 			case model.JobQueued, model.JobPaused:

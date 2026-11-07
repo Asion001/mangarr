@@ -123,7 +123,7 @@ func (s *Service) BulkSources(ctx context.Context, req BulkRequest, dryRun bool,
 func (s *Service) bulkSeries(ctx context.Context, req BulkRequest) ([]model.Series, error) {
 	q := s.db.NewSelect().Model((*model.Series)(nil)).Where("preview = ?", false).Order("sort_title")
 	if len(req.SeriesIDs) > 0 {
-		q = q.Where("id IN (?)", bun.In(req.SeriesIDs))
+		q = q.Where("id IN (?)", bun.List(req.SeriesIDs))
 	}
 	if req.RootFolderID > 0 {
 		q = q.Where("root_folder_id = ?", req.RootFolderID)

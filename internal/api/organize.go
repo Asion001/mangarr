@@ -42,7 +42,7 @@ func (s *Server) registerOrganize() {
 		func(ctx context.Context, in *struct{ Body EditorRequest }) (*struct{ Body EditorResult }, error) {
 			req := in.Body
 			var list []model.Series
-			if err := s.app.DB.NewSelect().Model(&list).Where("id IN (?)", bun.In(req.SeriesIDs)).Scan(ctx); err != nil {
+			if err := s.app.DB.NewSelect().Model(&list).Where("id IN (?)", bun.List(req.SeriesIDs)).Scan(ctx); err != nil {
 				return nil, toHTTPError(err)
 			}
 			if req.ProfileID != nil {

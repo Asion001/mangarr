@@ -167,7 +167,7 @@ func (a *App) busyJobs(ctx context.Context) []string {
 		ColumnExpr("j.kind, j.status, s.title, c.number_key").
 		Join("JOIN series AS s ON s.id = j.series_id").
 		Join("JOIN chapters AS c ON c.id = j.chapter_id").
-		Where("j.status IN (?)", bun.In([]string{model.JobDownloading, model.JobProcessing, model.JobImporting})).
+		Where("j.status IN (?)", bun.List([]string{model.JobDownloading, model.JobProcessing, model.JobImporting})).
 		OrderExpr("j.id").Limit(10).Scan(ctx, &rows)
 	if err != nil {
 		return nil

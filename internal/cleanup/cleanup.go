@@ -607,7 +607,7 @@ func (c *Cleaner) RemoveSeriesFiles(ctx context.Context, seriesIDs []int64) (*Re
 	}
 	var ids []int64
 	err := c.db.NewSelect().Table("chapters").Column("id").
-		Where("series_id IN (?)", bun.In(seriesIDs)).Where("file_id IS NOT NULL").
+		Where("series_id IN (?)", bun.List(seriesIDs)).Where("file_id IS NOT NULL").
 		Order("id").Scan(ctx, &ids)
 	if err != nil {
 		return &RemoveResult{}, err
@@ -663,7 +663,7 @@ func (c *Cleaner) RemoveChapters(ctx context.Context, chapterIDs []int64) (*Remo
 		ColumnExpr("s.title AS series_title, s.path AS series_path, s.root_folder_id AS root_id").
 		ColumnExpr("f.id AS file_id, f.relative_path AS relative_path, f.size AS size").
 		Join("JOIN series AS s ON s.id = ch.series_id").Join("JOIN chapter_files AS f ON f.id = ch.file_id").
-		Where("ch.id IN (?)", bun.In(ids)).
+		Where("ch.id IN (?)", bun.List(ids)).
 		Where("NOT EXISTS (SELECT 1 FROM download_jobs AS j WHERE j.chapter_id = ch.id AND j.status NOT IN (?, ?))", model.JobCompleted, model.JobFailed).
 		Scan(ctx, &rows)
 	if err != nil {

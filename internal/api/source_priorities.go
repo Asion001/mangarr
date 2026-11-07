@@ -112,7 +112,7 @@ func (s *Server) registerSourcePriorities() {
 		}
 	}) (*struct{ Body []PriorityPreview }, error) {
 		var series []model.Series
-		if err := s.app.DB.NewSelect().Model(&series).Where("id IN (?)", bun.In(in.Body.SeriesIDs)).Order("id").Scan(ctx); err != nil {
+		if err := s.app.DB.NewSelect().Model(&series).Where("id IN (?)", bun.List(in.Body.SeriesIDs)).Order("id").Scan(ctx); err != nil {
 			return nil, toHTTPError(err)
 		}
 		rows := []PriorityPreview{}
@@ -133,7 +133,7 @@ func (s *Server) registerSourcePriorities() {
 			rows = append(rows, row)
 		}
 		if !in.Body.DryRun {
-			if _, err := s.app.DB.NewUpdate().Model((*model.Series)(nil)).Set("source_priority_mode = 'inherit'").Where("id IN (?)", bun.In(in.Body.SeriesIDs)).Exec(ctx); err != nil {
+			if _, err := s.app.DB.NewUpdate().Model((*model.Series)(nil)).Set("source_priority_mode = 'inherit'").Where("id IN (?)", bun.List(in.Body.SeriesIDs)).Exec(ctx); err != nil {
 				return nil, toHTTPError(err)
 			}
 			s.app.Catalogs.Bump()

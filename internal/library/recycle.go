@@ -199,7 +199,7 @@ func (l *Library) WithRecycled(ctx context.Context, id int64, fn func(*model.Rec
 }
 
 func (l *Library) recycleInUse(ctx context.Context, r *model.RecycledFile, chapter bool) (bool, error) {
-	q := l.db.NewSelect().Model((*model.DownloadJob)(nil)).Where("status IN (?)", bun.In([]string{model.JobQueued, model.JobPaused, model.JobDownloading, model.JobProcessing, model.JobImporting}))
+	q := l.db.NewSelect().Model((*model.DownloadJob)(nil)).Where("status IN (?)", bun.List([]string{model.JobQueued, model.JobPaused, model.JobDownloading, model.JobProcessing, model.JobImporting}))
 	if chapter && r.ChapterID != nil {
 		q = q.Where("chapter_id = ?", *r.ChapterID)
 	} else {

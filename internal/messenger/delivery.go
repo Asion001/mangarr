@@ -48,10 +48,6 @@ func instantFor(mode, event string) bool {
 	return mode == model.DeliveryInstant || mode == model.DeliveryBoth
 }
 
-func digestFor(mode string) bool {
-	return mode == model.DeliveryDigest || mode == model.DeliveryBoth
-}
-
 // Enqueue records a message for each of users who has an account linked
 // that wants event, and queues it for the accounts that get it right
 // away. Chapters for digest accounts wait in the inbox for the digest.
@@ -60,7 +56,7 @@ func (s *Service) Enqueue(ctx context.Context, users []int64, event string, seri
 		return nil
 	}
 	var links []model.MessengerLink
-	if err := s.DB.NewSelect().Model(&links).Where("user_id IN (?)", bun.In(users)).Where("mode <> ?", model.DeliveryOff).Scan(ctx); err != nil {
+	if err := s.DB.NewSelect().Model(&links).Where("user_id IN (?)", bun.List(users)).Where("mode <> ?", model.DeliveryOff).Scan(ctx); err != nil {
 		return err
 	}
 	byUser := map[int64][]model.MessengerLink{}
@@ -254,7 +250,7 @@ func (s *Service) SendDigests(ctx context.Context, now time.Time) {
 	}
 	due := digestTime(now, m.DigestHour).UTC()
 	var links []model.MessengerLink
-	if err := s.DB.NewSelect().Model(&links).Where("mode IN (?)", bun.In([]string{model.DeliveryDigest, model.DeliveryBoth})).Scan(ctx); err != nil {
+	if err := s.DB.NewSelect().Model(&links).Where("mode IN (?)", bun.List([]string{model.DeliveryDigest, model.DeliveryBoth})).Scan(ctx); err != nil {
 		return
 	}
 	for _, l := range links {

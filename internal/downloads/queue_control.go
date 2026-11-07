@@ -68,7 +68,7 @@ func (m *Manager) setStatus(ctx context.Context, job *model.DownloadJob, status 
 	// compare-and-set: a job paused meanwhile keeps its paused status, and
 	// one handed back to the queue (Release on shutdown) stays queued
 	res, err := m.db.NewUpdate().Model(job).Column(cols...).WherePK().
-		Where("status NOT IN (?)", bun.In([]string{model.JobPaused, model.JobQueued})).Exec(ctx)
+		Where("status NOT IN (?)", bun.List([]string{model.JobPaused, model.JobQueued})).Exec(ctx)
 	if err != nil {
 		return
 	}
@@ -127,7 +127,7 @@ func (m *Manager) Bulk(ctx context.Context, ids []int64, action string) (int, er
 	now := time.Now().UTC()
 	affected := 0
 	exec := func(q *bun.UpdateQuery) error {
-		res, err := q.Where("id IN (?)", bun.In(ids)).Exec(ctx)
+		res, err := q.Where("id IN (?)", bun.List(ids)).Exec(ctx)
 		if err == nil {
 			n, _ := res.RowsAffected()
 			affected = int(n)
@@ -138,15 +138,15 @@ func (m *Manager) Bulk(ctx context.Context, ids []int64, action string) (int, er
 	switch action {
 	case "pause":
 		err = exec(m.db.NewUpdate().Model((*model.DownloadJob)(nil)).Set("status = ?", model.JobPaused).Set("updated_at = ?", now).
-			Where("status IN (?)", bun.In([]string{model.JobQueued, model.JobDownloading, model.JobProcessing})))
+			Where("status IN (?)", bun.List([]string{model.JobQueued, model.JobDownloading, model.JobProcessing})))
 		if err == nil {
 			for _, id := range ids {
 				m.Cancel(id) // stops running ones; their status stays paused
 			}
 			// chapters of paused downloads show as queued again
 			_, err = m.db.NewUpdate().Model((*model.Chapter)(nil)).Set("state = ?", model.ChapterQueued).Set("updated_at = ?", now).
-				Where("id IN (SELECT chapter_id FROM download_jobs WHERE id IN (?) AND status = ? AND kind = ? AND is_upgrade = ?)", bun.In(ids), model.JobPaused, model.JobKindDownload, false).
-				Where("state IN (?)", bun.In([]string{model.ChapterDownloading, model.ChapterProcessing})).Exec(ctx)
+				Where("id IN (SELECT chapter_id FROM download_jobs WHERE id IN (?) AND status = ? AND kind = ? AND is_upgrade = ?)", bun.List(ids), model.JobPaused, model.JobKindDownload, false).
+				Where("state IN (?)", bun.List([]string{model.ChapterDownloading, model.ChapterProcessing})).Exec(ctx)
 		}
 	case "resume":
 		err = exec(m.db.NewUpdate().Model((*model.DownloadJob)(nil)).Set("status = ?", model.JobQueued).Set("not_before = ?", now).Set("updated_at = ?", now).

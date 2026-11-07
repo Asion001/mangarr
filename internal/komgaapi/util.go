@@ -41,15 +41,6 @@ func komgaTime(t time.Time) string {
 	return t.UTC().Format("2006-01-02T15:04:05Z")
 }
 
-// localTime formats without a zone: the Mihon extension parses dates with
-// LocalDateTime and turns anything with a 'Z' into 0.
-func localTime(t time.Time) string {
-	if t.IsZero() {
-		t = time.Unix(0, 0)
-	}
-	return t.UTC().Format("2006-01-02T15:04:05")
-}
-
 func queryInt(r *http.Request, name string, def int) int {
 	if v, err := strconv.Atoi(r.URL.Query().Get(name)); err == nil {
 		return v

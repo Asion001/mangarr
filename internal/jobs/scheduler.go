@@ -166,7 +166,7 @@ func (s *Scheduler) setPaused(ctx context.Context, name string, paused bool) err
 			return nil
 		}
 		// Pausing must not move the daily catch-up anchor.
-		_, err := s.db.NewUpdate().Model((*model.ScheduledTask)(nil)).Set("paused = ?", paused).Where("name IN (?)", bun.In(names)).Exec(ctx)
+		_, err := s.db.NewUpdate().Model((*model.ScheduledTask)(nil)).Set("paused = ?", paused).Where("name IN (?)", bun.List(names)).Exec(ctx)
 		return err
 	}()
 	s.mu.Unlock()

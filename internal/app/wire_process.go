@@ -99,10 +99,10 @@ func (a *App) wireProcess(ctx context.Context) error {
 				r.Progress("no profile upscales or re-encodes pages")
 				return nil
 			}
-			q = q.Where("series_id IN (SELECT id FROM series WHERE profile_id IN (?))", bun.In(ids))
+			q = q.Where("series_id IN (SELECT id FROM series WHERE profile_id IN (?))", bun.List(ids))
 		}
 		if len(body.ChapterIDs) > 0 {
-			q = q.Where("chapter_id IN (?)", bun.In(body.ChapterIDs))
+			q = q.Where("chapter_id IN (?)", bun.List(body.ChapterIDs))
 		}
 		if !body.Force {
 			q = q.Where("process_state <> ? OR process_params = ''", model.ProcessDone)
@@ -225,7 +225,7 @@ func (a *App) processBacklogSeries(ctx context.Context, seriesID int64) (int, er
 			Where("series_id IN (SELECT id FROM series WHERE profile_id = ?)", p.ID).
 			Where("(process_retry_at IS NULL OR process_retry_at <= ?)", now).
 			Where("process_attempts < ?", downloads.MaxProcessAttempts).
-			Where("NOT EXISTS (SELECT 1 FROM download_jobs j WHERE j.chapter_id = chapter_file.chapter_id AND j.status IN (?))", bun.In(downloads.ActiveStatuses()))
+			Where("NOT EXISTS (SELECT 1 FROM download_jobs j WHERE j.chapter_id = chapter_file.chapter_id AND j.status IN (?))", bun.List(downloads.ActiveStatuses()))
 		if seriesID > 0 {
 			q = q.Where("series_id = ?", seriesID)
 		}
@@ -266,12 +266,12 @@ func (a *App) processAhead(ctx context.Context, seriesID int64, chapterIDs []int
 	}
 	var files []model.ChapterFile
 	if err := a.DB.NewSelect().Model(&files).
-		Where("series_id = ? AND chapter_id IN (?)", seriesID, bun.In(chapterIDs)).
+		Where("series_id = ? AND chapter_id IN (?)", seriesID, bun.List(chapterIDs)).
 		Where("process_params <> ?", params).
 		Where("(process_retry_at IS NULL OR process_retry_at <= ?)", time.Now().UTC()).
 		Where("process_attempts < ?", downloads.MaxProcessAttempts).
 		Where("NOT EXISTS (SELECT 1 FROM download_jobs j WHERE j.chapter_id = chapter_file.chapter_id AND j.status IN (?) AND j.status <> ?)",
-			bun.In(downloads.ActiveStatuses()), model.JobQueued).
+			bun.List(downloads.ActiveStatuses()), model.JobQueued).
 		Scan(ctx); err != nil {
 		return 0, err
 	}

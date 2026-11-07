@@ -72,7 +72,7 @@ func withSounds(ctx context.Context, db bun.IDB, moods []model.AudioMood) error 
 		ColumnExpr("audio_mood_item.*, t.title, t.category, t.icon, t.sha256, t.ext, t.gain_db, t.license, t.attribution, t.source_url, p.name AS pack").
 		Join("JOIN audio_tracks AS t ON t.id = audio_mood_item.track_id").
 		Join("JOIN audio_packs AS p ON p.id = t.pack_id").
-		Where("audio_mood_item.mood_id IN (?)", bun.In(ids)).
+		Where("audio_mood_item.mood_id IN (?)", bun.List(ids)).
 		OrderExpr("audio_mood_item.position, audio_mood_item.id").Scan(ctx)
 	if err != nil {
 		return err

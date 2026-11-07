@@ -11,7 +11,7 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "check:i18n": "node scripts/check-i18n.mjs",
-    "lint": "node scripts/check-colors.mjs",
+    "lint": "node scripts/check-colors.mjs && eslint src",
     "check:bundle": "node scripts/check-bundle.mjs",
     "perf:phone": "playwright test -c playwright.perf.config.ts",
     "screenshots": "playwright test -c playwright.screenshots.config.ts"
@@ -31,9 +31,12 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
+    "eslint": "^10.14.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "openapi-typescript": "^7.13.0",
     "tailwindcss": "^4.3.3",
     "typescript": "^5.9.3",
+    "typescript-eslint": "^8.72.1",
     "vite": "^8.3.4",
     "vitest": "^5.0.5"
   }

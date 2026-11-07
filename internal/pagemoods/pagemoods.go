@@ -102,7 +102,7 @@ func (s *Service) chapters(ctx context.Context, seriesID int64, ids []int64) ([]
 		Join("JOIN chapters AS c ON c.file_id = chapter_file.id").
 		Where("c.series_id = ?", seriesID).OrderExpr("c.number_sort, c.id")
 	if len(ids) > 0 {
-		q = q.Where("c.id IN (?)", bun.In(ids))
+		q = q.Where("c.id IN (?)", bun.List(ids))
 	}
 	if err := q.Scan(ctx); err != nil {
 		return nil, err
@@ -121,7 +121,7 @@ func (s *Service) scored(ctx context.Context, keys []string, promptsKey string) 
 		return out, nil
 	}
 	var rows []model.PageMoods
-	if err := s.DB.NewSelect().Model(&rows).Where("file_key IN (?) AND model_version = ? AND prompts_key = ?", bun.In(keys), moodscore.Version, promptsKey).Scan(ctx); err != nil {
+	if err := s.DB.NewSelect().Model(&rows).Where("file_key IN (?) AND model_version = ? AND prompts_key = ?", bun.List(keys), moodscore.Version, promptsKey).Scan(ctx); err != nil {
 		return nil, err
 	}
 	for _, r := range rows {
@@ -289,7 +289,7 @@ func (s *Service) enqueue(ctx context.Context, c Chapter, prompts []moodscore.Pr
 	if err != nil {
 		return false, err
 	}
-	n, err := s.DB.NewSelect().Model((*model.WorkerTask)(nil)).Where("kind = ? AND state IN (?)", model.TaskMoods, bun.In([]string{model.TaskPending, model.TaskLeased})).
+	n, err := s.DB.NewSelect().Model((*model.WorkerTask)(nil)).Where("kind = ? AND state IN (?)", model.TaskMoods, bun.List([]string{model.TaskPending, model.TaskLeased})).
 		Where("CAST(spec AS TEXT) LIKE ?", "%"+FileKey(&c.File)+"%").Count(ctx)
 	if err != nil {
 		return false, err

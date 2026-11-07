@@ -309,10 +309,3 @@ var extraKnown = map[string]bool{
 	"MANGARR_UPSCALER_TILE": true, "MANGARR_UPSCALER_TOKEN": true, "MANGARR_UPSCALER_TIMEOUT": true, "MANGARR_UPSCALER_TMP_DIR": true,
 	"MANGARR_UPSCALER_CWEBP": true, "MANGARR_SERVER_URL": true, "MANGARR_NODE_NAME": true, "MANGARR_NODE_URL": true,
 }
-
-// RegisterKnown marks variables read outside this package as known.
-func RegisterKnown(names ...string) {
-	for _, n := range names {
-		extraKnown[n] = true
-	}
-}

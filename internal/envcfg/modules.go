@@ -287,7 +287,7 @@ func SyncModules(ctx context.Context, d *db.DB, mods *modules.Manager, env map[s
 	// instances whose variables were removed become normal instances
 	q := d.NewUpdate().Model((*model.ProviderDefinition)(nil)).Set("managed_by = ''").Where("managed_by LIKE 'env:%'")
 	if len(keep) > 0 {
-		q = q.Where("managed_by NOT IN (?)", bun.In(keep))
+		q = q.Where("managed_by NOT IN (?)", bun.List(keep))
 	}
 	if _, err := q.Exec(ctx); err != nil {
 		return err

@@ -823,7 +823,7 @@ func Credits(ctx context.Context, db bun.IDB, docs ...*Doc) ([]Credit, error) {
 		return out, nil
 	}
 	var moods []model.AudioMood
-	if err := db.NewSelect().Model(&moods).Where("id IN (?)", bun.In(ids)).Scan(ctx); err != nil {
+	if err := db.NewSelect().Model(&moods).Where("id IN (?)", bun.List(ids)).Scan(ctx); err != nil {
 		return nil, err
 	}
 	if err := withSounds(ctx, db, moods); err != nil {

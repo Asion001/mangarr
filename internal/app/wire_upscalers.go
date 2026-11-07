@@ -163,7 +163,7 @@ func (a *App) NameWorkers(ctx context.Context, items []downloads.JobView) {
 	}
 	err := a.DB.NewSelect().TableExpr("worker_tasks AS t").ColumnExpr("t.job_id, w.name").
 		Join("JOIN workers AS w ON w.id = t.worker_id").
-		Where("t.state = ? AND t.job_id IN (?)", model.TaskLeased, bun.In(ids)).Scan(ctx, &rows)
+		Where("t.state = ? AND t.job_id IN (?)", model.TaskLeased, bun.List(ids)).Scan(ctx, &rows)
 	if err != nil || len(rows) == 0 {
 		return
 	}

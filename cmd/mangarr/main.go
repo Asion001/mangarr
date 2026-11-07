@@ -18,9 +18,6 @@ import (
 	"syscall"
 	"time"
 
-	"golang.org/x/net/http2"
-	"golang.org/x/net/http2/h2c"
-
 	"github.com/Asion001/mangarr/internal/api"
 	"github.com/Asion001/mangarr/internal/app"
 	"github.com/Asion001/mangarr/internal/config"
@@ -126,7 +123,7 @@ func run() error {
 
 	// h2c: a reverse proxy in front (which is where TLS lives) can then speak
 	// HTTP/2 to us and multiplex a reader's page requests over one connection.
-	srv := &http.Server{Addr: cfg.Listen, Handler: h2c.NewHandler(endStreamsOn(ctx, api.New(a)), &http2.Server{}), ReadHeaderTimeout: 10 * time.Second}
+	srv := &http.Server{Addr: cfg.Listen, Handler: endStreamsOn(ctx, api.New(a)), Protocols: cleartextHTTP2(), ReadHeaderTimeout: 10 * time.Second}
 	errCh := make(chan error, 1)
 	go func() { errCh <- srv.ListenAndServe() }()
 	log.Info("http server listening", "addr", cfg.Listen)
@@ -332,4 +329,13 @@ func runWorker() int {
 		return 1
 	}
 	return 0
+}
+
+// cleartextHTTP2 serves HTTP/1.1 and, without TLS, HTTP/2 with prior
+// knowledge (what reverse proxies speak to a backend).
+func cleartextHTTP2() *http.Protocols {
+	var p http.Protocols
+	p.SetHTTP1(true)
+	p.SetUnencryptedHTTP2(true)
+	return &p
 }

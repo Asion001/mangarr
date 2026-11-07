@@ -1,7 +1,6 @@
 package upscaler
 
 import (
-	"archive/zip"
 	"bytes"
 	"context"
 	"errors"
@@ -12,7 +11,6 @@ import (
 	"image/png"
 	"io"
 	"log/slog"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -155,31 +153,6 @@ type Params struct {
 	MaxWidth int
 }
 
-func parseParams(r *http.Request) (Params, error) {
-	q := r.URL.Query()
-	atoi := func(k string, def int) int {
-		if v, err := strconv.Atoi(q.Get(k)); err == nil {
-			return v
-		}
-		return def
-	}
-	p := Params{Model: q.Get("model"), Scale: atoi("scale", 2), Noise: atoi("noise", 1), Format: strings.ToLower(q.Get("format")),
-		Quality: atoi("quality", 90), MaxWidth: atoi("maxWidth", 0)}
-	if p.Format == "" {
-		p.Format = "webp"
-	}
-	if p.Format == "jpg" {
-		p.Format = "jpeg"
-	}
-	if p.Format != "webp" && p.Format != "jpeg" && p.Format != "png" {
-		return p, fmt.Errorf("unsupported format %q", p.Format)
-	}
-	if p.Quality <= 0 || p.Quality > 100 {
-		p.Quality = 90
-	}
-	return p, nil
-}
-
 // Image is a page in memory.
 type Image struct {
 	Name string
@@ -252,47 +225,6 @@ func parseGPUs(value string) ([]string, error) {
 
 // ParseGPUs validates a GPU setting, for use by module settings validators.
 func ParseGPUs(value string) ([]string, error) { return parseGPUs(value) }
-
-func unzipImages(body []byte) ([]Image, error) {
-	zr, err := zip.NewReader(bytes.NewReader(body), int64(len(body)))
-	if err != nil {
-		return nil, fmt.Errorf("invalid zip: %w", err)
-	}
-	var out []Image
-	for _, f := range zr.File {
-		name := filepath.Base(f.Name)
-		if f.FileInfo().IsDir() || name == "." || strings.HasPrefix(name, ".") {
-			continue
-		}
-		rc, err := f.Open()
-		if err != nil {
-			return nil, err
-		}
-		data, err := io.ReadAll(rc)
-		rc.Close()
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, Image{Name: name, Data: data})
-	}
-	return out, nil
-}
-
-func zipImages(images []Image) ([]byte, error) {
-	var buf bytes.Buffer
-	zw := zip.NewWriter(&buf)
-	for _, img := range images {
-		w, err := zw.CreateHeader(&zip.FileHeader{Name: img.Name, Method: zip.Store})
-		if err != nil {
-			return nil, err
-		}
-		if _, err := w.Write(img.Data); err != nil {
-			return nil, err
-		}
-	}
-	err := zw.Close()
-	return buf.Bytes(), err
-}
 
 // process writes the images to disk, runs the engine and reads the results.
 // It holds a GPU only while the engine runs: writing the pages out before

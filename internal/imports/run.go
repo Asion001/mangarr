@@ -93,7 +93,7 @@ func (s *Service) Run(ctx context.Context, id int64, progress func(string)) (Run
 	}
 	var entries []model.ImportEntry
 	if err := s.DB.NewSelect().Model(&entries).Where("import_id = ? AND selected = ? AND state IN (?)", id, true,
-		bun.In([]string{model.EntryReady, model.EntryLibrary, model.EntryFailed})).Order("position").Scan(ctx); err != nil {
+		bun.List([]string{model.EntryReady, model.EntryLibrary, model.EntryFailed})).Order("position").Scan(ctx); err != nil {
 		return res, err
 	}
 	s.setStatus(ctx, imp, model.ImportRunning, fmt.Sprintf("importing 0 of %d", len(entries)), "")
