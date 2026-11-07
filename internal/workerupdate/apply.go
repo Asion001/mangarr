@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"time"
@@ -74,6 +75,9 @@ func Apply(ctx context.Context, client *http.Client, o Offer, exe string, curren
 	// The worker works out where the update lives from its own build, and
 	// takes it only from there: the server (or anyone between it and a
 	// worker on plain HTTP) can say which version, not which program.
+	if !plainBuild(o.Build) {
+		return errors.New("the offered version isn't a release this worker can update to")
+	}
 	if want := urlFor(Template, o.Build, Platform); want == "" || o.URL != want || o.Checksum != want+".sha256" {
 		return errors.New("the offered download isn't where this build's updates are published; update this worker by hand")
 	}
@@ -435,4 +439,18 @@ func Skipped(exe string) string {
 		return ""
 	}
 	return string(bytes.TrimSpace(data))
+}
+
+// buildPart is what a build number or commit may be: letters and digits.
+var buildPart = regexp.MustCompile(`^[0-9A-Za-z]{1,64}$`)
+
+// versionName is what a version may be: a tag (v1.2.3, v1.3.0-rc.1) or a
+// branch name (main), without slashes or anything a link reads as more.
+var versionName = regexp.MustCompile(`^[0-9A-Za-z][0-9A-Za-z._+-]{0,63}$`)
+
+// plainBuild reports whether b's fields can go into the update link as
+// they are, so nothing like "../" or "?" steers the link elsewhere.
+func plainBuild(b Build) bool {
+	return versionName.MatchString(b.Version) && !strings.Contains(b.Version, "..") &&
+		buildPart.MatchString(b.Build) && buildPart.MatchString(b.Commit)
 }

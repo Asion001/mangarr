@@ -301,3 +301,15 @@ func TestSettleRollsBack(t *testing.T) {
 		t.Errorf("skipped %q", Skipped(exe))
 	}
 }
+
+func TestApplyRefusesOddVersions(t *testing.T) {
+	exe := installed(t)
+	srv := publish(t, script("v1.3.0"), "")
+	for _, b := range []Build{{Version: "v1.3.0/../../x", Build: "7", Commit: "abc"}, {Version: "..", Build: "7", Commit: "abc"}, {Version: "v1.3.0", Build: "7?x=", Commit: "abc"}, {Version: "v1.3.0", Build: "7", Commit: "a/b"}} {
+		o := offerFrom(srv)
+		o.Build = b
+		if err := Apply(context.Background(), srv.Client(), o, exe, running); err == nil {
+			t.Errorf("%+v was taken", b)
+		}
+	}
+}

@@ -24,6 +24,9 @@ import (
 // Bucket holds display-sized copies in the image cache.
 const Bucket = "variants"
 
+// its fetches note "keep the original" with keepMarker, never a remote type
+func init() { diskcache.MarkerBuckets[Bucket] = true }
+
 // Widths are the sizes clients may ask for; anything else is rounded up, so
 // a handful of copies covers every screen. The smallest is the reader's
 // placeholder, shown blurred until the page itself arrives.

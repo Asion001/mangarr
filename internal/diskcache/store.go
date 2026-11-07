@@ -105,7 +105,7 @@ func (s *Store) Get(ctx context.Context, bucket, key string, ttl time.Duration, 
 		if err != nil {
 			return nil, "", false
 		}
-		if kept, _ := os.ReadFile(p + ".type"); strings.HasPrefix(string(kept), MarkerPrefix) {
+		if kept, _ := os.ReadFile(p + ".type"); MarkerBuckets[bucket] && strings.HasPrefix(string(kept), MarkerPrefix) {
 			return data, string(kept), true
 		}
 		// copies kept before types were checked may hold anything
@@ -130,7 +130,7 @@ func (s *Store) Get(ctx context.Context, bucket, key string, ttl time.Duration, 
 		ct   string
 	}
 	v, err, _ := s.fetching.Do(bucket+"|"+key, func() (any, error) {
-		data, ct, err := fetchImage(ctx, fetch)
+		data, ct, err := fetchImage(ctx, fetch, MarkerBuckets[bucket])
 		if err != nil {
 			return nil, err
 		}
@@ -282,12 +282,19 @@ func (s *Store) Compact(ctx context.Context, progress func(done int)) (CompactRe
 
 // MarkerPrefix starts the types of entries that are a caller's own notes
 // (imagedeliver's "keep the original"), kept as they are and never served.
+// Only buckets in MarkerBuckets keep them, and only buckets whose fetches
+// never pass on a type a remote server named (imagedeliver's own copies):
+// anywhere else such a type is just one more claim the bytes overrule.
 const MarkerPrefix = "mangarr/"
+
+// MarkerBuckets are the buckets whose callers write notes of their own
+// (registered in their package's init, never changed after).
+var MarkerBuckets = map[string]bool{}
 
 // ErrNotImage is returned for fetched data that isn't a raster image.
 var ErrNotImage = errors.New("not an image")
 
-func fetchImage(ctx context.Context, fetch Fetch) ([]byte, string, error) {
+func fetchImage(ctx context.Context, fetch Fetch, markers bool) ([]byte, string, error) {
 	body, ct, err := fetch(ctx)
 	if err != nil {
 		return nil, "", err
@@ -300,7 +307,7 @@ func fetchImage(ctx context.Context, fetch Fetch) ([]byte, string, error) {
 	if len(data) == 0 {
 		return nil, "", errors.New("empty image")
 	}
-	if strings.HasPrefix(ct, MarkerPrefix) {
+	if markers && strings.HasPrefix(ct, MarkerPrefix) {
 		return data, ct, nil // a note of the caller's own, not an image
 	}
 	// the bytes say what it is, never the server it came from: anything

@@ -133,6 +133,12 @@ func TestStoreRefusesNonImages(t *testing.T) {
 			t.Errorf("%q was kept", body)
 		}
 	}
+	// a remote server can't pass its answer off as a note of mangarr's own
+	if _, _, _, err := s.Get(context.Background(), "covers", "marker", time.Hour, func(context.Context) (io.ReadCloser, string, error) {
+		return io.NopCloser(strings.NewReader("<script>alert(1)</script>")), MarkerPrefix + "original", nil
+	}); err == nil {
+		t.Error("a marker type was taken from a cover fetch")
+	}
 	data, ct, _, err := s.Get(context.Background(), "pages", "x", time.Hour, func(context.Context) (io.ReadCloser, string, error) {
 		return io.NopCloser(bytes.NewReader(pageBytes)), "text/html", nil
 	})
