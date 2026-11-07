@@ -7,7 +7,6 @@ import (
 	"errors"
 	"io"
 	"log/slog"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -106,8 +105,15 @@ func (s *Store) Get(ctx context.Context, bucket, key string, ttl time.Duration, 
 		if err != nil {
 			return nil, "", false
 		}
-		ct, _ := os.ReadFile(p + ".type")
-		return data, string(ct), true
+		if kept, _ := os.ReadFile(p + ".type"); strings.HasPrefix(string(kept), MarkerPrefix) {
+			return data, string(kept), true
+		}
+		// copies kept before types were checked may hold anything
+		ct := thumbs.SafeType(data)
+		if ct == "" {
+			return nil, "", false
+		}
+		return data, ct, true
 	}
 	st, statErr := os.Stat(p)
 	if statErr == nil && time.Since(st.ModTime()) < ttl {
@@ -274,6 +280,13 @@ func (s *Store) Compact(ctx context.Context, progress func(done int)) (CompactRe
 	return res, err
 }
 
+// MarkerPrefix starts the types of entries that are a caller's own notes
+// (imagedeliver's "keep the original"), kept as they are and never served.
+const MarkerPrefix = "mangarr/"
+
+// ErrNotImage is returned for fetched data that isn't a raster image.
+var ErrNotImage = errors.New("not an image")
+
 func fetchImage(ctx context.Context, fetch Fetch) ([]byte, string, error) {
 	body, ct, err := fetch(ctx)
 	if err != nil {
@@ -287,8 +300,13 @@ func fetchImage(ctx context.Context, fetch Fetch) ([]byte, string, error) {
 	if len(data) == 0 {
 		return nil, "", errors.New("empty image")
 	}
-	if ct == "" || ct == "application/octet-stream" {
-		ct = http.DetectContentType(data)
+	if strings.HasPrefix(ct, MarkerPrefix) {
+		return data, ct, nil // a note of the caller's own, not an image
+	}
+	// the bytes say what it is, never the server it came from: anything
+	// but a raster image (HTML, SVG) would run script on mangarr's origin
+	if ct = thumbs.SafeType(data); ct == "" {
+		return nil, "", ErrNotImage
 	}
 	return data, ct, nil
 }

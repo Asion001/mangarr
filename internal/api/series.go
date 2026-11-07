@@ -234,6 +234,17 @@ func (s *Server) registerSeries() {
 			ID   int64 `path:"id"`
 			Body series.MetadataPicks
 		}) (*struct{ Body SeriesResource }, error) {
+			if c := in.Body.CoverURL; c != nil && *c != "" {
+				// a cover is picked from what the providers offer, never a link
+				// of the caller's own: the server fetches and keeps it
+				ser, err := s.app.Series.Get(ctx, in.ID)
+				if err != nil {
+					return nil, seriesError(err)
+				}
+				if !offeredCover(s.app.Metadata.Options(ctx, ser.Metadata.ExternalIDs, ser.Language), *c) {
+					return nil, huma.Error400BadRequest("pick one of the covers the metadata providers offer")
+				}
+			}
 			ser, err := s.app.Series.PickMetadata(ctx, in.ID, in.Body)
 			if err != nil {
 				return nil, seriesError(err)
@@ -264,7 +275,7 @@ func (s *Server) registerSeries() {
 			if in.Size == "full" {
 				if p := s.app.Library.CoverPath(ctx, ser); p != "" {
 					if data, err := os.ReadFile(p); err == nil {
-						return imageReply(ctx, data, http.DetectContentType(data), coverCache(in.V)), nil
+						return imageReply(ctx, data, "", coverCache(in.V)), nil
 					}
 				}
 			}
@@ -274,4 +285,19 @@ func (s *Server) registerSeries() {
 			}
 			return imageReply(ctx, data, ct, coverCache(in.V)), nil
 		})
+}
+
+// offeredCover reports whether url is one of the covers the providers offer.
+func offeredCover(options []metadataagg.Option, url string) bool {
+	for _, o := range options {
+		if o.CoverURL == url {
+			return true
+		}
+		for _, c := range o.Covers {
+			if c.URL == url {
+				return true
+			}
+		}
+	}
+	return false
 }

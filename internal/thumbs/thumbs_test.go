@@ -100,3 +100,22 @@ func TestNormalizeCorrupt(t *testing.T) {
 		t.Fatal("corrupt input must pass through")
 	}
 }
+
+func TestSafeType(t *testing.T) {
+	for _, c := range []struct {
+		data []byte
+		want string
+	}{
+		{[]byte("\xFF\xD8\xFF\xE0\x00\x10JFIF"), "image/jpeg"},
+		{[]byte("\x89PNG\r\n\x1a\n\x00\x00"), "image/png"},
+		{[]byte("RIFF\x00\x00\x00\x00WEBPVP8 "), "image/webp"},
+		{[]byte("\x00\x00\x00\x1cftypavif\x00\x00"), "image/avif"},
+		{[]byte("<script>alert(1)</script>"), ""},
+		{[]byte(`<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>`), ""},
+		{[]byte("%PDF-1.4"), ""},
+	} {
+		if got := SafeType(c.data); got != c.want {
+			t.Errorf("SafeType(%q) = %q, want %q", c.data, got, c.want)
+		}
+	}
+}

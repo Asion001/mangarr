@@ -170,7 +170,21 @@ func encoderFiles(t *testing.T, exe string, folder string) []string {
 }
 
 func offerFrom(srv *httptest.Server) Offer {
+	Template, Platform = srv.URL+"/w.zip", Zipped[0] // where this test publishes
 	return Offer{Build: offered, URL: srv.URL + "/w.zip", Checksum: srv.URL + "/w.zip.sha256"}
+}
+
+func TestApplyRefusesAnotherPlace(t *testing.T) {
+	exe := installed(t)
+	srv := publish(t, script("v1.3.0"), "")
+	o := offerFrom(srv)
+	Template = "https://releases.example/{version}/{zip}"
+	if err := Apply(context.Background(), srv.Client(), o, exe, running); err == nil {
+		t.Fatal("expected the download to be refused")
+	}
+	if got, _ := os.ReadFile(exe); bytes.Equal(got, script("v1.3.0")) {
+		t.Fatal("the program was replaced")
+	}
 }
 
 func TestApplyKeepsRuntime(t *testing.T) {

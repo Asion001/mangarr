@@ -15,8 +15,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
+
+	"github.com/Asion001/mangarr/internal/version"
 )
 
 // The files kept next to the program while an update settles:
@@ -48,6 +51,14 @@ const ortFolder = "onnxruntime"
 // before the one it replaced is put back.
 const maxStarts = 3
 
+// Template and Platform say where this worker's own updates are published
+// (version.UpdateURL, filled in for the offered build) and for which
+// platform; tests change them.
+var (
+	Template = version.UpdateURL
+	Platform = runtime.GOOS + "/" + runtime.GOARCH
+)
+
 // maxZip bounds a download: a worker zip is a few tens of MB.
 const maxZip = 1 << 30
 
@@ -59,6 +70,12 @@ const maxZip = 1 << 30
 func Apply(ctx context.Context, client *http.Client, o Offer, exe string, current Build) error {
 	if o.URL == "" || o.Checksum == "" {
 		return errors.New("no worker zip is published for this platform")
+	}
+	// The worker works out where the update lives from its own build, and
+	// takes it only from there: the server (or anyone between it and a
+	// worker on plain HTTP) can say which version, not which program.
+	if want := urlFor(Template, o.Build, Platform); want == "" || o.URL != want || o.Checksum != want+".sha256" {
+		return errors.New("the offered download isn't where this build's updates are published; update this worker by hand")
 	}
 	if client == nil {
 		client = &http.Client{Timeout: 10 * time.Minute}

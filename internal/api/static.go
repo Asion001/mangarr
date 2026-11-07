@@ -35,6 +35,7 @@ func (s *Server) staticHandler() http.Handler {
 	if hasUI && s.app.Cfg.URLBase != "" {
 		index = withBase(index, s.app.Cfg.URLBase)
 	}
+	policy := uiPolicy(index, s.app.Cfg.FrameAncestors)
 	files := http.FileServerFS(root)
 	gz := newGzipAssets(root)
 	start := time.Now()
@@ -66,6 +67,10 @@ func (s *Server) staticHandler() http.Handler {
 			}
 		}
 		w.Header().Set("Cache-Control", cacheRecheck)
+		w.Header().Set("Content-Security-Policy", policy)
+		if s.app.Cfg.FrameAncestors == "" || s.app.Cfg.FrameAncestors == "'self'" {
+			w.Header().Set("X-Frame-Options", "SAMEORIGIN") // browsers without frame-ancestors
+		}
 		http.ServeContent(w, r, "index.html", start, bytes.NewReader(index))
 	})
 }

@@ -245,15 +245,11 @@ func (s *Server) sessionOutput(ctx context.Context, userID int64, c *http.Cookie
 // them. Administrators keep theirs, to get back in when the provider is
 // down.
 func (s *Server) passwordAllowed(ctx context.Context, u *model.User) error {
-	cfg, err := s.app.Settings.SSO(ctx)
-	if err != nil || !cfg.Enabled || cfg.PasswordLogin {
-		return nil
-	}
-	p, err := s.app.Auth.UserPrincipal(ctx, u.ID)
+	ok, err := s.app.Auth.PasswordAllowed(ctx, u.ID)
 	if err != nil {
 		return toHTTPError(err)
 	}
-	if p == nil || !p.IsAdmin() {
+	if !ok {
 		return huma.Error403Forbidden("sign in with single sign-on")
 	}
 	return nil

@@ -20,6 +20,7 @@ import (
 	"github.com/Asion001/mangarr/internal/access"
 	"github.com/Asion001/mangarr/internal/apitiming"
 	"github.com/Asion001/mangarr/internal/app"
+	"github.com/Asion001/mangarr/internal/clientip"
 	"github.com/Asion001/mangarr/internal/metrics"
 	"github.com/Asion001/mangarr/internal/version"
 )
@@ -51,12 +52,12 @@ func Permissions(a *app.App) []string {
 
 func build(a *app.App) (http.Handler, *Server) {
 	r := chi.NewMux()
-	r.Use(middleware.RealIP, middleware.RequestID, middleware.Recoverer, apitiming.Middleware, requestLogger(a.Log, a.Metrics, a.Cfg.URLBase))
+	r.Use(clientip.Middleware(a.Cfg.TrustedProxies), middleware.RequestID, middleware.Recoverer, apitiming.Middleware, requestLogger(a.Log, a.Metrics, a.Cfg.URLBase))
 
 	base := a.Cfg.URLBase
 	sub := chi.NewMux()
 	s := &Server{app: a}
-	sub.Use(apiCacheDefaults, compressAPI, s.authMiddleware, s.maintenanceMiddleware, uiLanguageMiddleware)
+	sub.Use(securityHeaders("/api/docs"), apiCacheDefaults, compressAPI, s.authMiddleware, s.maintenanceMiddleware, uiLanguageMiddleware)
 
 	cfg := huma.DefaultConfig("mangarr", version.Version)
 	cfg.Info.Description = "Sonarr-style PVR for manga. All endpoints accept an X-Api-Key header."
@@ -172,7 +173,8 @@ func isPublic(p string) bool {
 	return false
 }
 
-// clientOf is where a request comes from (RealIP has resolved proxies).
+// clientOf is where a request comes from (clientip has resolved trusted
+// proxies and dropped forwarding headers from anyone else).
 func clientOf(r *http.Request) access.Client {
 	ip := r.RemoteAddr
 	if host, _, err := net.SplitHostPort(ip); err == nil {
@@ -210,6 +212,12 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusForbidden)
 			_, _ = w.Write([]byte(`{"title":"Forbidden","status":403,"detail":"this worker is switched off"}`))
+			return
+		}
+		if crossSite(r, p) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusForbidden)
+			_, _ = w.Write([]byte(`{"title":"Forbidden","status":403,"detail":"this request came from another site"}`))
 			return
 		}
 		if p == nil && !isPublic(r.URL.Path) {

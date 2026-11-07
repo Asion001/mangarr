@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Asion001/mangarr/internal/reading"
+	"github.com/Asion001/mangarr/internal/thumbs"
 )
 
 // Cache-Control values. Anything behind a login is private: the browser may
@@ -63,6 +64,11 @@ func apiCacheDefaults(next http.Handler) http.Handler {
 // imageReply sends image bytes with an ETag taken from them, or a 304 when
 // the browser already has the same bytes.
 func imageReply(ctx context.Context, data []byte, contentType, cacheControl string) *imageOutput {
+	// only what the bytes are, and only raster images: a page served as
+	// text/html or SVG would run script on this origin
+	if contentType = thumbs.SafeType(data); contentType == "" {
+		contentType = "application/octet-stream"
+	}
 	h := fnv.New64a()
 	_, _ = h.Write(data)
 	etag := fmt.Sprintf(`"%x"`, h.Sum64())

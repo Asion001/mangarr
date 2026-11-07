@@ -364,10 +364,27 @@ func contains(list []string, s string) bool {
 
 // safeNext keeps only local paths ("/series/3"), never another site.
 func safeNext(next string) string {
-	if !strings.HasPrefix(next, "/") || strings.HasPrefix(next, "//") || strings.HasPrefix(next, "/\\") {
+	if !LocalPath(next) {
 		return "/"
 	}
 	return next
+}
+
+// LocalPath reports whether p is a path on this site ("/series/3") that a
+// browser can't read as another site: not "//evil", "/\\evil", and no
+// control characters (browsers drop tabs and newlines, so "/\t/evil" would
+// become "//evil").
+func LocalPath(p string) bool {
+	if !strings.HasPrefix(p, "/") || strings.HasPrefix(p, "//") || strings.HasPrefix(p, "/\\") || strings.ContainsRune(p, '\\') {
+		return false
+	}
+	for _, r := range p {
+		if r < 0x20 || r == 0x7f {
+			return false
+		}
+	}
+	u, err := url.Parse(p)
+	return err == nil && u.Scheme == "" && u.Host == "" && u.User == nil
 }
 
 func random() string {

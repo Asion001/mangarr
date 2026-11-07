@@ -256,7 +256,7 @@ func (s *Service) StartSession(ctx context.Context, userID int64, c access.Clien
 		return nil, err
 	}
 	_, _ = s.db.NewUpdate().Model((*model.User)(nil)).Set("last_login_at = ?", now).Where("id = ?", userID).Exec(ctx)
-	return &http.Cookie{Name: CookieName, Value: sess.ID, Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode,
+	return &http.Cookie{Name: CookieName, Value: sess.ID, Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode, Secure: c.Secure,
 		Expires: sess.ExpiresAt}, nil
 }
 
@@ -408,4 +408,20 @@ func (s *Service) SetDisabled(ctx context.Context, userID int64, disabled bool) 
 	}
 	s.Invalidate()
 	return nil
+}
+
+// PasswordAllowed reports whether a user may sign in with a password: not
+// when single sign-on replaced passwords, except for administrators (to get
+// back in when the provider is down). Every password login checks it, the
+// web's and the reading apps'.
+func (s *Service) PasswordAllowed(ctx context.Context, userID int64) (bool, error) {
+	cfg, err := s.settings.SSO(ctx)
+	if err != nil || !cfg.Enabled || cfg.PasswordLogin {
+		return true, nil
+	}
+	p, err := s.UserPrincipal(ctx, userID)
+	if err != nil {
+		return false, err
+	}
+	return p != nil && p.IsAdmin(), nil
 }

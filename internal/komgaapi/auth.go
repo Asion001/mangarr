@@ -173,15 +173,35 @@ func (s *Service) sessionKey(ctx context.Context) []byte {
 	return sum[:]
 }
 
+// passwordStamp is what a password login's session is tied to: the
+// account's password hash, so a new password ends the sessions the old one
+// started.
+func (s *Service) passwordStamp(ctx context.Context, userID int64) string {
+	var hash string
+	if err := s.deps.DB.NewSelect().Model((*model.User)(nil)).Column("password_hash").Where("id = ?", userID).Scan(ctx, &hash); err != nil {
+		return ""
+	}
+	return hash
+}
+
+// tokenMAC signs a token's payload; a password login's also covers the
+// password it was made with.
+func (s *Service) tokenMAC(ctx context.Context, payload []byte, keyID, userID int64) []byte {
+	mac := hmac.New(sha256.New, s.sessionKey(ctx))
+	mac.Write(payload)
+	if keyID == 0 {
+		mac.Write([]byte("|" + s.passwordStamp(ctx, userID)))
+	}
+	return mac.Sum(nil)
+}
+
 // issueToken signs a session for a key (keyID) or a password login (userID).
 func (s *Service) issueToken(ctx context.Context, keyID, userID int64) string {
 	payload := make([]byte, 24)
 	binary.BigEndian.PutUint64(payload[:8], uint64(keyID))
 	binary.BigEndian.PutUint64(payload[8:16], uint64(userID))
 	binary.BigEndian.PutUint64(payload[16:], uint64(time.Now().Add(sessionTTL).Unix()))
-	mac := hmac.New(sha256.New, s.sessionKey(ctx))
-	mac.Write(payload)
-	return base64.RawURLEncoding.EncodeToString(payload) + "." + base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
+	return base64.RawURLEncoding.EncodeToString(payload) + "." + base64.RawURLEncoding.EncodeToString(s.tokenMAC(ctx, payload, keyID, userID))
 }
 
 var errBadToken = errors.New("invalid session")
@@ -197,22 +217,28 @@ func (s *Service) verifyToken(ctx context.Context, tok string) (keyID, userID in
 	if err1 != nil || err2 != nil || len(payload) != 24 {
 		return 0, 0, time.Time{}, errBadToken
 	}
-	h := hmac.New(sha256.New, s.sessionKey(ctx))
-	h.Write(payload)
-	if !hmac.Equal(mac, h.Sum(nil)) {
-		return 0, 0, time.Time{}, errBadToken
-	}
+	keyID, userID = int64(binary.BigEndian.Uint64(payload[:8])), int64(binary.BigEndian.Uint64(payload[8:16]))
 	exp = time.Unix(int64(binary.BigEndian.Uint64(payload[16:])), 0)
 	if time.Now().After(exp) {
 		return 0, 0, time.Time{}, errBadToken
 	}
-	return int64(binary.BigEndian.Uint64(payload[:8])), int64(binary.BigEndian.Uint64(payload[8:16])), exp, nil
+	if !hmac.Equal(mac, s.tokenMAC(ctx, payload, keyID, userID)) {
+		return 0, 0, time.Time{}, errBadToken
+	}
+	return keyID, userID, exp, nil
 }
 
-// basicCache remembers verified passwords briefly (bcrypt is slow).
+// basicCache remembers verified passwords briefly (bcrypt is slow), with
+// the password hash they matched: a changed password doesn't match it.
 type basicCache struct {
 	mu   sync.Mutex
-	seen map[string]time.Time
+	seen map[string]basicEntry
+}
+
+type basicEntry struct {
+	at     time.Time
+	userID int64
+	hash   string
 }
 
 func (s *Service) verifyBasic(ctx context.Context, user, pass string) bool {
@@ -220,19 +246,20 @@ func (s *Service) verifyBasic(ctx context.Context, user, pass string) bool {
 	k := hex.EncodeToString(sum[:])
 	c := &s.basic
 	c.mu.Lock()
-	if t, ok := c.seen[k]; ok && time.Since(t) < 10*time.Minute {
-		c.mu.Unlock()
+	e, ok := c.seen[k]
+	c.mu.Unlock()
+	if ok && time.Since(e.at) < 10*time.Minute && e.hash != "" && s.passwordStamp(ctx, e.userID) == e.hash {
 		return true
 	}
-	c.mu.Unlock()
-	if _, err := s.deps.Auth.Verify(ctx, user, pass); err != nil {
+	u, err := s.deps.Auth.Verify(ctx, user, pass)
+	if err != nil {
 		return false
 	}
 	c.mu.Lock()
 	if c.seen == nil {
-		c.seen = map[string]time.Time{}
+		c.seen = map[string]basicEntry{}
 	}
-	c.seen[k] = time.Now()
+	c.seen[k] = basicEntry{at: time.Now(), userID: u.ID, hash: u.PasswordHash}
 	c.mu.Unlock()
 	return true
 }
@@ -285,6 +312,9 @@ func (s *Service) authenticate(r *http.Request) (p Principal, issue bool, ok boo
 					return p, renew, true
 				}
 			} else if u := s.userPrincipal(ctx, userID); u != nil {
+				if ok, err := s.deps.Auth.PasswordAllowed(ctx, userID); err != nil || !ok {
+					return p, false, false
+				}
 				p.Device, p.User = "password login", u
 				return p, renew, true
 			}
@@ -305,6 +335,9 @@ func (s *Service) authenticate(r *http.Request) (p Principal, issue bool, ok boo
 			u, err := s.deps.Auth.PrincipalByName(ctx, user)
 			if err != nil || u == nil {
 				return p, false, false
+			}
+			if ok, err := s.deps.Auth.PasswordAllowed(ctx, u.UserID); err != nil || !ok {
+				return p, false, false // single sign-on replaced passwords
 			}
 			p.Device, p.User = "password login", u
 			return p, true, true
@@ -381,7 +414,7 @@ func (s *Service) setSession(w http.ResponseWriter, r *http.Request, p Principal
 	tok := s.issueToken(r.Context(), p.KeyID, userID)
 	w.Header().Set("X-Auth-Token", tok)
 	http.SetCookie(w, &http.Cookie{Name: SessionCookie, Value: tok, Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode,
-		Expires: time.Now().Add(sessionTTL), Secure: r.TLS != nil})
+		Expires: time.Now().Add(sessionTTL), Secure: r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")})
 }
 
 // requireAuth rejects requests without valid credentials with the 401

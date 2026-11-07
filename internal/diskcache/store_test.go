@@ -118,6 +118,29 @@ func TestStoreCompact(t *testing.T) {
 	}
 }
 
+// pageBytes starts like a JPEG (the store only keeps images).
+var pageBytes = []byte("\xFF\xD8\xFF\xE0\x00\x10JFIF\x00page-bytes")
+
+// TestStoreRefusesNonImages: a remote server's word for a type counts for
+// nothing, and HTML or SVG never gets in.
+func TestStoreRefusesNonImages(t *testing.T) {
+	s := NewStore(t.TempDir(), nil, nil)
+	for _, body := range []string{"<html><script>alert(1)</script>", `<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>`} {
+		_, _, _, err := s.Get(context.Background(), "covers", body, time.Hour, func(context.Context) (io.ReadCloser, string, error) {
+			return io.NopCloser(strings.NewReader(body)), "image/jpeg", nil
+		})
+		if err == nil {
+			t.Errorf("%q was kept", body)
+		}
+	}
+	data, ct, _, err := s.Get(context.Background(), "pages", "x", time.Hour, func(context.Context) (io.ReadCloser, string, error) {
+		return io.NopCloser(bytes.NewReader(pageBytes)), "text/html", nil
+	})
+	if err != nil || ct != "image/jpeg" || !bytes.Equal(data, pageBytes) {
+		t.Fatalf("a JPEG called text/html: %v %q", err, ct)
+	}
+}
+
 // TestStoreFetchesOncePerKey: a burst of readers on a cold page (a chapter
 // streamed to several devices at once) makes one fetch, not one each.
 func TestStoreFetchesOncePerKey(t *testing.T) {
@@ -126,7 +149,7 @@ func TestStoreFetchesOncePerKey(t *testing.T) {
 	fetch := func(ctx context.Context) (io.ReadCloser, string, error) {
 		fetches.Add(1)
 		time.Sleep(20 * time.Millisecond) // long enough for the others to pile up
-		return io.NopCloser(bytes.NewReader([]byte("page-bytes"))), "image/jpeg", nil
+		return io.NopCloser(bytes.NewReader(pageBytes)), "image/jpeg", nil
 	}
 	var wg sync.WaitGroup
 	for i := 0; i < 20; i++ {
@@ -134,7 +157,7 @@ func TestStoreFetchesOncePerKey(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			data, ct, _, err := s.Get(context.Background(), "pages", "ch1|7", time.Hour, fetch)
-			if err != nil || string(data) != "page-bytes" || ct != "image/jpeg" {
+			if err != nil || !bytes.Equal(data, pageBytes) || ct != "image/jpeg" {
 				t.Errorf("get: %v %q %q", err, data, ct)
 			}
 		}()

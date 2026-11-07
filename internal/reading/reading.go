@@ -27,6 +27,7 @@ import (
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/modules"
 	"github.com/Asion001/mangarr/internal/modules/source"
+	"github.com/Asion001/mangarr/internal/netguard"
 	"github.com/Asion001/mangarr/internal/readstate"
 	"github.com/Asion001/mangarr/internal/settings"
 	"github.com/Asion001/mangarr/internal/sourcepriority"
@@ -521,6 +522,10 @@ func SortSeries(list []SeriesInfo) {
 	sort.SliceStable(list, func(i, j int) bool { return list[i].Series.SortTitle < list[j].Series.SortTitle })
 }
 
+// coverClient fetches cover links. They come from metadata providers and
+// could name anything, so it only reaches public addresses.
+var coverClient = netguard.Client(time.Minute)
+
 // Cover returns a series cover for apps: the library's cover.jpg resized,
 // else the metadata cover or the first source's thumbnail (cached).
 func (s *Service) Cover(ctx context.Context, ser *model.Series) ([]byte, string, error) {
@@ -540,7 +545,7 @@ func (s *Service) Cover(ctx context.Context, ser *model.Series) ([]byte, string,
 	data, ct, _, err := s.ImageCache.Get(ctx, "covers", key, 30*24*time.Hour, func(ctx context.Context) (io.ReadCloser, string, error) {
 		if ser.Metadata.CoverURL != "" {
 			req, _ := http.NewRequestWithContext(ctx, http.MethodGet, ser.Metadata.CoverURL, nil)
-			if resp, err := s.HTTP.Do(req); err == nil {
+			if resp, err := coverClient.Do(req); err == nil {
 				if resp.StatusCode == http.StatusOK {
 					return resp.Body, resp.Header.Get("Content-Type"), nil
 				}

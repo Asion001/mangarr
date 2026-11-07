@@ -4,10 +4,13 @@ package config
 
 import (
 	"fmt"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/Asion001/mangarr/internal/clientip"
 )
 
 type Config struct {
@@ -44,6 +47,12 @@ type Config struct {
 	Processing string
 	// Pprof serves Go's profiler to admins at /api/v1/system/pprof/.
 	Pprof bool
+	// TrustedProxies are the reverse proxies whose forwarding headers
+	// (X-Forwarded-For, -Proto, -Host) are believed. Nil: clientip.DefaultTrusted.
+	TrustedProxies []netip.Prefix
+	// FrameAncestors may show the UI in a frame (CSP frame-ancestors;
+	// "" = this site only).
+	FrameAncestors string
 	// Env is the MANGARR_* environment used to pin settings, root folders and
 	// modules (see internal/envcfg). Nil in tests unless set explicitly.
 	Env map[string]string
@@ -66,6 +75,8 @@ var Vars = []VarDoc{
 	{"MANGARR_WEB_DIR", "", "Serve the UI from this directory instead of the embedded copy (development)."},
 	{"MANGARR_PROCESSING", "local", "Where downloaded pages are processed (resized, split, upscaled, re-encoded): local (in this process) or workers (on a worker with the encode role, so heavy image work never runs in the server)."},
 	{"MANGARR_PPROF", "false", "Serve Go's profiler to admins at /api/v1/system/pprof/ (for finding what is slow)."},
+	{"MANGARR_TRUSTED_PROXIES", "private", "Reverse proxies whose X-Forwarded-For/-Proto/-Host headers are believed: addresses or CIDR ranges, comma-separated; private = loopback and private networks; none = no proxy."},
+	{"MANGARR_FRAME_ANCESTORS", "'self'", "Sites that may show the UI in a frame (e.g. a dashboard): origins separated by spaces, or * for any (Content-Security-Policy frame-ancestors)."},
 	{"MANGARR_KOMGA_LISTEN", ":25600", "Listen address of the Komga-compatible API for reading apps (when enabled in Settings → Reading apps)."},
 }
 
@@ -103,14 +114,15 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 	c := &Config{
-		Mode:        mode,
-		Listen:      env("MANGARR_LISTEN", ":8787"),
-		DataDir:     env("MANGARR_DATA_DIR", "./config"),
-		LogLevel:    env("MANGARR_LOG_LEVEL", "info"),
-		URLBase:     strings.TrimRight(env("MANGARR_URL_BASE", ""), "/"),
-		WebDir:      env("MANGARR_WEB_DIR", ""),
-		KomgaListen: env("MANGARR_KOMGA_LISTEN", ":25600"),
-		Env:         Environ(),
+		Mode:           mode,
+		Listen:         env("MANGARR_LISTEN", ":8787"),
+		DataDir:        env("MANGARR_DATA_DIR", "./config"),
+		LogLevel:       env("MANGARR_LOG_LEVEL", "info"),
+		URLBase:        strings.TrimRight(env("MANGARR_URL_BASE", ""), "/"),
+		WebDir:         env("MANGARR_WEB_DIR", ""),
+		KomgaListen:    env("MANGARR_KOMGA_LISTEN", ":25600"),
+		FrameAncestors: env("MANGARR_FRAME_ANCESTORS", "'self'"),
+		Env:            Environ(),
 	}
 	switch c.Processing = strings.ToLower(env("MANGARR_PROCESSING", ProcessingLocal)); c.Processing {
 	case ProcessingLocal, ProcessingWorkers:
@@ -122,6 +134,9 @@ func Load() (*Config, error) {
 	}
 	if c.Pprof, err = envBool("MANGARR_PPROF", false); err != nil {
 		return nil, err
+	}
+	if c.TrustedProxies, err = clientip.Parse(env("MANGARR_TRUSTED_PROXIES", "private")); err != nil {
+		return nil, fmt.Errorf("MANGARR_TRUSTED_PROXIES: %w", err)
 	}
 	abs, err := filepath.Abs(c.DataDir)
 	if err != nil {

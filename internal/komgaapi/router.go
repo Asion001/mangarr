@@ -9,13 +9,14 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/Asion001/mangarr/internal/apitiming"
+	"github.com/Asion001/mangarr/internal/clientip"
 	"github.com/Asion001/mangarr/internal/reading"
 )
 
 // router builds the API. Routes sit at the root, like Komga's.
 func (s *Service) router() http.Handler {
 	r := chi.NewRouter()
-	r.Use(middleware.RequestID, middleware.RealIP, cors, middleware.StripSlashes, apitiming.Middleware, s.logRequests, middleware.Recoverer)
+	r.Use(middleware.RequestID, clientip.Middleware(s.deps.TrustedProxies), cors, middleware.StripSlashes, apitiming.Middleware, s.logRequests, middleware.Recoverer)
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) { writeError(w, r, http.StatusNotFound, "Not Found") })
 	r.MethodNotAllowed(func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, http.StatusMethodNotAllowed, "Method Not Allowed")
@@ -139,6 +140,7 @@ func (s *Service) routes(r chi.Router) {
 func cors(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h := w.Header()
+		h.Set("X-Content-Type-Options", "nosniff")
 		h.Set("Access-Control-Allow-Origin", "*")
 		h.Set("Access-Control-Allow-Headers", "Authorization, Content-Type, X-API-Key, X-Auth-Token")
 		h.Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")

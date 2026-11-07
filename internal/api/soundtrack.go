@@ -16,6 +16,7 @@ import (
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/settings"
 	"github.com/Asion001/mangarr/internal/soundtrack"
+	"github.com/Asion001/mangarr/internal/sso"
 )
 
 func init() { register((*Server).registerSoundtracks) }
@@ -170,7 +171,7 @@ func secureRedirect(redirect string) bool {
 
 // safeReturn keeps a sign-in's way back inside mangarr.
 func safeReturn(p string) string {
-	if !strings.HasPrefix(p, "/") || strings.HasPrefix(p, "//") || strings.ContainsAny(p, "\\\r\n") {
+	if !sso.LocalPath(p) {
 		return "/account"
 	}
 	return p

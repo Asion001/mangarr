@@ -13,6 +13,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/netip"
 	"sync"
 	"time"
 
@@ -43,6 +44,9 @@ type Deps struct {
 	// Maintenance (optional) reports that the database is moving: writes
 	// answer 503 meanwhile.
 	Maintenance func() bool
+	// TrustedProxies are believed about the client's address (nil: the
+	// clientip defaults).
+	TrustedProxies []netip.Prefix
 }
 
 // Service owns the listener: it runs while the API is enabled.

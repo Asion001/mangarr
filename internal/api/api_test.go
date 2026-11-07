@@ -19,8 +19,14 @@ import (
 )
 
 func newServer(t *testing.T, authDisabled bool) (*httptest.Server, *app.App) {
+	return newServerWith(t, func(c *config.Config) { c.AuthDisabled = authDisabled })
+}
+
+// newServerWith is newServer with the config changed by edit.
+func newServerWith(t *testing.T, edit func(*config.Config)) (*httptest.Server, *app.App) {
 	dir := t.TempDir()
-	cfg := &config.Config{DataDir: dir, DB: "sqlite://" + filepath.Join(dir, "t.db"), AuthDisabled: authDisabled}
+	cfg := &config.Config{DataDir: dir, DB: "sqlite://" + filepath.Join(dir, "t.db")}
+	edit(cfg)
 	_, ring := logging.Setup("error", io.Discard)
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)

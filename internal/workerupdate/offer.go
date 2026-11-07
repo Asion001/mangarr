@@ -83,12 +83,20 @@ func For(server, worker Build, platform, urlTemplate, image string) *Offer {
 	if image != "" {
 		o.Image = image + ":" + strings.TrimPrefix(server.Version, "v")
 	}
-	if urlTemplate != "" && slices.Contains(Zipped, platform) {
-		o.URL = strings.NewReplacer("{version}", server.Version, "{build}", server.Build, "{commit}", server.Commit,
-			"{zip}", ZipName(platform)).Replace(urlTemplate)
-		o.Checksum = o.URL + ".sha256"
+	if u := urlFor(urlTemplate, server, platform); u != "" {
+		o.URL, o.Checksum = u, u+".sha256"
 	}
 	return o
+}
+
+// urlFor is where build's worker zip for platform is published ("" when
+// it isn't).
+func urlFor(urlTemplate string, b Build, platform string) string {
+	if urlTemplate == "" || !slices.Contains(Zipped, platform) {
+		return ""
+	}
+	return strings.NewReplacer("{version}", b.Version, "{build}", b.Build, "{commit}", b.Commit,
+		"{zip}", ZipName(platform)).Replace(urlTemplate)
 }
 
 // ZipName is the worker zip of a platform (GOOS/GOARCH).

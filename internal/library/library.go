@@ -14,13 +14,16 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/Asion001/mangarr/internal/comicinfo"
 	"github.com/Asion001/mangarr/internal/db"
 	"github.com/Asion001/mangarr/internal/fsutil"
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/naming"
+	"github.com/Asion001/mangarr/internal/netguard"
 	"github.com/Asion001/mangarr/internal/settings"
+	"github.com/Asion001/mangarr/internal/thumbs"
 )
 
 type Library struct {
@@ -156,12 +159,16 @@ func (l *Library) RefreshCover(ctx context.Context, s *model.Series, fallback fu
 	return l.downloadCover(ctx, s, filepath.Join(dir, "cover.jpg"), fmode, fallback)
 }
 
+// coverClient fetches cover links. They come from metadata providers and
+// could name anything, so it only reaches public addresses.
+var coverClient = netguard.Client(time.Minute)
+
 func (l *Library) downloadCover(ctx context.Context, s *model.Series, dst string, mode os.FileMode, fallback func(ctx context.Context) (io.ReadCloser, error)) error {
 	var body io.ReadCloser
 	if s.Metadata.CoverURL != "" && strings.HasPrefix(s.Metadata.CoverURL, "http") {
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.Metadata.CoverURL, nil)
 		if err == nil {
-			if resp, err := l.http.Do(req); err == nil {
+			if resp, err := coverClient.Do(req); err == nil {
 				if resp.StatusCode == 200 {
 					body = resp.Body
 				} else {
@@ -184,6 +191,9 @@ func (l *Library) downloadCover(ctx context.Context, s *model.Series, dst string
 	data, err := io.ReadAll(io.LimitReader(body, 20<<20))
 	if err != nil {
 		return err
+	}
+	if thumbs.SafeType(data) == "" {
+		return errors.New("the cover is not an image")
 	}
 	// Komga/Kavita only look at the name; the content may be PNG/WebP too,
 	// but convert nothing here: both servers sniff the real format.
