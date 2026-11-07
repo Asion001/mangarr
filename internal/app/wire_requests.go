@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/Asion001/mangarr/internal/events"
@@ -68,14 +69,29 @@ func (a *App) wireRequests() {
 			return err
 		}})
 	// kept progress is written once a request's title is added and listed
+	// a big import fires these by the hundred: one pass after they settle
+	var applyMu sync.Mutex
+	var applyAfter *time.Timer
 	a.Bus.Subscribe(func(events.Event) {
-		go func() {
+		applyMu.Lock()
+		defer applyMu.Unlock()
+		if applyAfter != nil {
+			return // a pass is already due
+		}
+		applyAfter = time.AfterFunc(ApplyProgressDelay, func() {
+			applyMu.Lock()
+			applyAfter = nil
+			applyMu.Unlock()
 			if err := a.UserImport.ApplyReady(context.Background()); err != nil {
 				a.Log.Warn("write requested progress", "err", err)
 			}
-		}()
+		})
 	}, events.SeriesAdded, events.ChapterImported, events.RequestUpdated)
 }
+
+// ApplyProgressDelay gathers the events that may let kept progress be
+// written into one pass.
+var ApplyProgressDelay = 2 * time.Second
 
 // Followers lists the users following a series who can still see it.
 func (a *App) Followers(ctx context.Context, seriesID int64) []int64 {

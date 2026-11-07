@@ -116,3 +116,54 @@ func TestQueueHeldRefusesPush(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// TestExclusiveNotStarved: commands queued behind an exclusive one wait for
+// it, so a steady stream of work can't keep a backup from ever running.
+func TestExclusiveNotStarved(t *testing.T) {
+	d := dbtest.SQLite(t)
+	q := jobs.NewQueue(d, events.NewBus(), slog.New(slog.NewTextHandler(io.Discard, nil)), 3)
+	release := make(chan struct{})
+	var exclusiveDone atomic.Bool
+	var startedAfter atomic.Int32
+	q.Register(jobs.Definition{Name: "Busy", Handler: func(ctx context.Context, r *jobs.Run) error {
+		<-release
+		return nil
+	}})
+	q.Register(jobs.Definition{Name: "Later", Handler: func(ctx context.Context, r *jobs.Run) error {
+		if !exclusiveDone.Load() {
+			startedAfter.Add(1)
+		}
+		return nil
+	}})
+	q.Register(jobs.Definition{Name: "Backup", Exclusive: true, Handler: func(ctx context.Context, r *jobs.Run) error {
+		exclusiveDone.Store(true)
+		return nil
+	}})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	if err := q.Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+	busy, _ := q.Push(ctx, "Busy", nil, "manual")
+	backup, _ := q.Push(ctx, "Backup", nil, "manual")
+	var later []int64
+	for i := range 3 {
+		c, _ := q.Push(ctx, "Later", map[string]any{"n": i}, "manual")
+		later = append(later, c.ID)
+	}
+	time.Sleep(200 * time.Millisecond)
+	if n := startedAfter.Load(); n != 0 {
+		t.Fatalf("%d commands queued behind the exclusive one started first", n)
+	}
+	close(release)
+	wctx, wcancel := context.WithTimeout(ctx, 5*time.Second)
+	defer wcancel()
+	for _, id := range append([]int64{busy.ID, backup.ID}, later...) {
+		if c, err := q.Wait(wctx, id); err != nil || c.Status != model.CommandCompleted {
+			t.Fatalf("command %d: %v %+v", id, err, c)
+		}
+	}
+	if startedAfter.Load() != 0 {
+		t.Fatal("a later command ran before the exclusive one")
+	}
+}

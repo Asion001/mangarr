@@ -124,7 +124,7 @@ func TestDailyCatchUp(t *testing.T) {
 		}
 		s.commandDone(&model.Command{Name: "Housekeeping", EndedAt: &now})
 		q.mu.Lock()
-		q.queued = nil
+		q.queued, q.active = nil, map[string]*model.Command{}
 		q.mu.Unlock()
 		s.checkAt(ctx, now.Add(time.Hour))
 		if len(q.Active()) != 0 {

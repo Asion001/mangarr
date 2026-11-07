@@ -5,6 +5,7 @@ import (
 	"context"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -60,6 +61,10 @@ func (m *Manager) dispatch(ctx context.Context) {
 	}
 	sched, _ := m.settings.Schedule(ctx)
 	quietNow := quiet.Evaluate(sched, now)
+	// catalogs that can't take another chapter right now are left out of
+	// the window, or a long backlog from one of them would fill it and keep
+	// every other catalog waiting behind it
+	blocked := m.blockedSources(dl.MaxPerSource)
 	// each kind gets its own look at the head of the queue: background
 	// processing ranks behind every download, so one window over both would
 	// never reach it while a long download backlog waits on its sources
@@ -74,6 +79,9 @@ func (m *Manager) dispatch(ctx context.Context) {
 			q = q.Where("j.kind = ?", model.JobKindReprocess)
 		} else {
 			q = q.Where("j.kind <> ?", model.JobKindReprocess)
+			for _, k := range blocked {
+				q = q.Where("NOT (COALESCE(ss.module_id, 0) = ? AND COALESCE(ss.source_id, '') = ?)", k.ModuleID, k.SourceID)
+			}
 		}
 		if err := q.OrderExpr("j.rank, j.id").Limit(100).Scan(ctx, &part); err != nil {
 			if ctx.Err() == nil {
@@ -177,6 +185,39 @@ func (m *Manager) dispatch(ctx context.Context) {
 		go m.maintain(context.WithoutCancel(ctx))
 	}
 	m.wasBusy = busy
+}
+
+// blockedSources lists the catalogs that can't start another chapter now:
+// those at their per-source limit and those cooling down.
+func (m *Manager) blockedSources(maxPerSource int) []sourcegov.Key {
+	seen := map[sourcegov.Key]bool{}
+	var out []sourcegov.Key
+	add := func(k sourcegov.Key) {
+		if k.SourceID != "" && !seen[k] {
+			seen[k] = true
+			out = append(out, k)
+		}
+	}
+	m.mu.Lock()
+	for src, n := range m.runningSrc {
+		if n < maxPerSource {
+			continue
+		}
+		mod, id, ok := strings.Cut(src, ":")
+		if !ok {
+			continue
+		}
+		if modID, err := strconv.ParseInt(mod, 10, 64); err == nil {
+			add(sourcegov.Key{ModuleID: modID, SourceID: id})
+		}
+	}
+	m.mu.Unlock()
+	if m.Gov != nil {
+		for _, k := range m.Gov.CoolingDown() {
+			add(k)
+		}
+	}
+	return out
 }
 
 func (m *Manager) maintain(ctx context.Context) {

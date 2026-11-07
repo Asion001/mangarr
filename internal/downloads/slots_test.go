@@ -1,10 +1,18 @@
 package downloads
 
 import (
+	"bytes"
 	"context"
+	"log/slog"
+	"strings"
 	"testing"
+	"time"
 
+	"github.com/Asion001/mangarr/internal/db"
+	"github.com/Asion001/mangarr/internal/dbtest"
 	"github.com/Asion001/mangarr/internal/model"
+	"github.com/Asion001/mangarr/internal/settings"
+	"github.com/Asion001/mangarr/internal/sourcegov"
 )
 
 type workersProcessor struct {
@@ -46,4 +54,36 @@ func TestPagesInFreesDownloadSlots(t *testing.T) {
 			t.Fatalf("after the job: src %d, local %d, running %d", m.runningSrc["6:src"], m.local, len(m.running))
 		}
 	}
+}
+
+// TestBlockedSources: catalogs at their limit or cooling down are left out
+// of the dispatch window, so their backlog can't hide other catalogs' jobs.
+func TestBlockedSources(t *testing.T) {
+	m := &Manager{runningSrc: map[string]int{"6:full": 2, "6:free": 1, "": 5}}
+	got := m.blockedSources(2)
+	if len(got) != 1 || got[0] != (sourcegov.Key{ModuleID: 6, SourceID: "full"}) {
+		t.Fatalf("blocked = %v", got)
+	}
+	gov := sourcegov.New(func(sourcegov.Key) model.ThrottleConfig { return model.ThrottleConfig{} }, nil)
+	gov.Restore(sourcegov.Key{ModuleID: 7, SourceID: "slow"}, time.Now().Add(time.Hour), 1, "429")
+	m.Gov = gov
+	if got := m.blockedSources(2); len(got) != 2 {
+		t.Fatalf("cooling catalog not blocked: %v", got)
+	}
+}
+
+// TestDispatchQueryWithBlockedSources: the window query with catalogs left
+// out runs on both databases.
+func TestDispatchQueryWithBlockedSources(t *testing.T) {
+	dbtest.ForEachDialect(t, func(t *testing.T, d *db.DB) {
+		q, _ := rankFixture(t, d, 1)
+		var logs bytes.Buffer
+		m := NewManager(d, q.bus, nil, settings.NewStore(d), nil, q, nil, slog.New(slog.NewTextHandler(&logs, nil)), t.TempDir())
+		m.runningSrc["6:full"] = 5
+		m.held = true // read the window, start nothing
+		m.dispatch(t.Context())
+		if strings.Contains(logs.String(), "download queue") {
+			t.Fatalf("window query failed: %s", logs.String())
+		}
+	})
 }

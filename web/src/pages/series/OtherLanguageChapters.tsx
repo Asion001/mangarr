@@ -14,13 +14,16 @@ import { borrowChapters } from "./borrow";
  * summary row so it doesn't push the title's own chapters down. */
 export function OtherLanguageChapters({ seriesId, editions, own }: { seriesId: number; editions: S["EditionSummary"][]; own: Chapter[] }) {
   const others = editions.filter((e) => e.id !== seriesId);
-  const lists = useQueries({
+  // combine keeps the same array while no list changes, so it can be a dependency
+  const ready = useQueries({
     queries: others.map((e) => ({ queryKey: ["series", e.id, "chapters"], queryFn: () => unwrap(api.GET("/api/v1/series/{id}/chapters", { params: { path: { id: e.id } } })) })),
+    combine: (results) => results.map((q) => q.data),
   });
-  const ready = lists.map((q) => q.data);
+  const otherIds = others.map((e) => e.id).join(",");
   const borrowed = useMemo(
     () => borrowChapters(own, others.map((edition, i) => ({ edition, chapters: ready[i] ?? [] }))),
-    [own, others.map((e) => e.id).join(","), ...ready],
+    // others is rebuilt each render: its ids stand for it
+    [own, otherIds, ready],
   );
   const [open, setOpen] = useState(false);
   if (!borrowed.length) return null;

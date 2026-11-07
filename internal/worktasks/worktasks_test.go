@@ -125,7 +125,7 @@ func TestClaimHonorsCapacityAndPriority(t *testing.T) {
 		now := time.Now().UTC()
 		if _, err := d.NewUpdate().Model((*model.Worker)(nil)).
 			Set("last_seen_at = ?", now).Set("priority = CASE WHEN id = ? THEN 10 ELSE 20 END", high).
-			Where("id IN (?)", bun.In([]int64{high, low})).Exec(ctx); err != nil {
+			Where("id IN (?)", bun.List([]int64{high, low})).Exec(ctx); err != nil {
 			t.Fatal(err)
 		}
 		for i := range 3 {
@@ -514,6 +514,35 @@ func TestUpscaledEncodeNeedsAnUpscaler(t *testing.T) {
 		}
 		if ok, err := l.CanTake(ctx, &model.WorkerTask{Kind: model.TaskEncode, Spec: map[string]any{worktasks.SpecNeedsUpscale: true}}); err != nil || ok {
 			t.Fatalf("CanTake without an upscaler = %v, %v", ok, err)
+		}
+	})
+}
+
+// TestClaimLooksPastTasksItCantTake: a long run of upscaled pages at the
+// head of the ledger doesn't hide the plain task behind it from a worker
+// without an upscaler.
+func TestClaimLooksPastTasksItCantTake(t *testing.T) {
+	each(t, func(t *testing.T, d *db.DB) {
+		ctx := context.Background()
+		l := ledger(d)
+		job := seedJob(t, d)
+		plain := seedWorker(t, d, "plain")
+		if _, err := d.NewUpdate().Model((*model.Worker)(nil)).Set("roles = ?", []string{model.RoleEncode}).
+			Set("info = ?", map[string]any{worktasks.InfoProcess: true}).Set("last_seen_at = ?", time.Now().UTC()).Where("id = ?", plain).Exec(ctx); err != nil {
+			t.Fatal(err)
+		}
+		for range 150 {
+			if err := l.Add(ctx, &model.WorkerTask{JobID: job, Kind: model.TaskEncode, Spec: map[string]any{worktasks.SpecNeedsUpscale: true}}); err != nil {
+				t.Fatal(err)
+			}
+		}
+		want := &model.WorkerTask{JobID: job, Kind: model.TaskEncode, Spec: map[string]any{worktasks.SpecNeedsUpscale: false}}
+		if err := l.Add(ctx, want); err != nil {
+			t.Fatal(err)
+		}
+		task, err := l.Claim(ctx, plain, []string{model.TaskEncode}, 0, 1)
+		if err != nil || task == nil || task.ID != want.ID {
+			t.Fatalf("the plain task behind 150 upscaled ones: got %v, %v", task, err)
 		}
 	})
 }

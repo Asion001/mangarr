@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sync/atomic"
 	"time"
 
 	"github.com/Asion001/mangarr/internal/access"
@@ -37,13 +38,17 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 	who := access.From(r.Context())
 	admin := who.IsAdmin()
 	watches := who.Can(access.ActivityView)
+	// a client too slow for a burst misses events: it is told to refetch
+	// everything once it catches up
+	var dropped atomic.Bool
 	unsub := s.app.Bus.Subscribe(func(e events.Event) {
 		if !admin && e.Type != events.ResourceChanged && (!watches || e.Type != downloads.EventProgress) {
 			return
 		}
 		select {
 		case ch <- e:
-		default: // slow client: drop; the UI refetches on reconnect
+		default:
+			dropped.Store(true)
 		}
 	})
 	defer unsub()
@@ -69,6 +74,9 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			fmt.Fprintf(w, "event: %s\ndata: %s\n\n", e.Type, b)
+			if len(ch) == 0 && dropped.Swap(false) {
+				fmt.Fprint(w, "event: resync\ndata: {}\n\n")
+			}
 			flusher.Flush()
 		}
 	}

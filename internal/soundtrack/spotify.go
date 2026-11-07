@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/uptrace/bun"
+	"golang.org/x/sync/singleflight"
 
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/settings"
@@ -93,6 +94,10 @@ type Spotify struct {
 	mu      sync.Mutex
 	pending map[string]pendingAuth
 	tokens  map[int64]accessToken
+	// refreshing makes one refresh per reader at a time: Spotify rotates
+	// refresh tokens, so a second refresh with the same token could be
+	// turned away and sign the reader out
+	refreshing singleflight.Group
 }
 
 // New returns the Spotify service.
@@ -288,38 +293,70 @@ func (s *Spotify) Token(ctx context.Context, userID int64) (string, time.Time, e
 	if ok && t.clientID == clientID && time.Until(t.expires) > time.Minute {
 		return t.token, t.expires, nil
 	}
-	acc, err := s.Account(ctx, userID)
+	v, err, _ := s.refreshing.Do(strconv.FormatInt(userID, 10), func() (any, error) {
+		// shared by the callers waiting on it: one caller leaving doesn't
+		// cancel the refresh for the others
+		return s.refresh(context.WithoutCancel(ctx), userID, clientID)
+	})
 	if err != nil {
 		return "", time.Time{}, err
 	}
+	t = v.(accessToken)
+	return t.token, t.expires, nil
+}
+
+// refresh trades a reader's refresh token for a new access token.
+func (s *Spotify) refresh(ctx context.Context, userID int64, clientID string) (accessToken, error) {
+	s.mu.Lock()
+	t, ok := s.tokens[userID]
+	s.mu.Unlock()
+	if ok && t.clientID == clientID && time.Until(t.expires) > time.Minute {
+		return t, nil // refreshed while this caller waited
+	}
+	acc, err := s.Account(ctx, userID)
+	if err != nil {
+		return accessToken{}, err
+	}
 	if acc == nil {
-		return "", time.Time{}, ErrNotConnected
+		return accessToken{}, ErrNotConnected
 	}
 	refresh, err := s.open(ctx, acc.RefreshTokenEnc)
 	if err != nil {
 		// the instance secret changed: the reader signs in again
-		_ = s.Disconnect(ctx, userID)
-		return "", time.Time{}, ErrNotConnected
+		_ = s.disconnectIf(ctx, userID, acc.RefreshTokenEnc)
+		return accessToken{}, ErrNotConnected
 	}
 	a, err := s.tokenRequest(ctx, url.Values{"grant_type": {"refresh_token"}, "refresh_token": {refresh}, "client_id": {clientID}})
 	if err != nil {
 		if a != nil && a.Error == "invalid_grant" {
-			// revoked in Spotify, or made for another Client ID
-			_ = s.Disconnect(ctx, userID)
-			return "", time.Time{}, ErrNotConnected
+			// revoked in Spotify, or made for another Client ID; a token
+			// stored since (a new sign-in) is kept
+			_ = s.disconnectIf(ctx, userID, acc.RefreshTokenEnc)
+			return accessToken{}, ErrNotConnected
 		}
-		return "", time.Time{}, err
+		return accessToken{}, err
 	}
 	if a.RefreshToken != "" && a.RefreshToken != refresh {
 		if enc, err := s.seal(ctx, a.RefreshToken); err == nil {
-			_, _ = s.DB.NewUpdate().Model((*model.SpotifyAccount)(nil)).Set("refresh_token_enc = ?", enc).Where("user_id = ?", userID).Exec(ctx)
+			_, _ = s.DB.NewUpdate().Model((*model.SpotifyAccount)(nil)).Set("refresh_token_enc = ?", enc).
+				Where("user_id = ? AND refresh_token_enc = ?", userID, acc.RefreshTokenEnc).Exec(ctx)
 		}
 	}
 	t = accessToken{token: a.AccessToken, expires: time.Now().Add(time.Duration(a.ExpiresIn) * time.Second), clientID: clientID}
 	s.mu.Lock()
 	s.tokens[userID] = t
 	s.mu.Unlock()
-	return t.token, t.expires, nil
+	return t, nil
+}
+
+// disconnectIf forgets a reader's account when its stored refresh token is
+// still the one that failed.
+func (s *Spotify) disconnectIf(ctx context.Context, userID int64, sealed string) error {
+	s.mu.Lock()
+	delete(s.tokens, userID)
+	s.mu.Unlock()
+	_, err := s.DB.NewDelete().Model((*model.SpotifyAccount)(nil)).Where("user_id = ? AND refresh_token_enc = ?", userID, sealed).Exec(ctx)
+	return err
 }
 
 // key is the token encryption key, from the instance secret.

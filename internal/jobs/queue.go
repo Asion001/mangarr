@@ -71,12 +71,17 @@ type Queue struct {
 	log     *slog.Logger
 	workers int
 
+	// pushMu makes each Push's look for an identical command and its insert
+	// one step, without holding mu (which runs the queue) during the write
+	pushMu  sync.Mutex
 	mu      sync.Mutex
 	defs    map[string]Definition
 	queued  []*model.Command
 	running map[int64]*model.Command
-	wake    chan struct{}
-	held    bool
+	// active is the queued and running commands by their dedup key
+	active map[string]*model.Command
+	wake   chan struct{}
+	held   bool
 
 	onDone []func(cmd *model.Command)
 }
@@ -106,7 +111,7 @@ func NewQueue(d *db.DB, bus *events.Bus, log *slog.Logger, workers int) *Queue {
 		workers = 3
 	}
 	return &Queue{db: d, bus: bus, log: log, workers: workers, defs: map[string]Definition{},
-		running: map[int64]*model.Command{}, wake: make(chan struct{}, 1)}
+		running: map[int64]*model.Command{}, active: map[string]*model.Command{}, wake: make(chan struct{}, 1)}
 }
 
 func (q *Queue) Register(def Definition) {
@@ -144,6 +149,9 @@ func (q *Queue) Push(ctx context.Context, name string, body map[string]any, trig
 		body = map[string]any{}
 		_ = json.Unmarshal(b, &body)
 	}
+	key := bodyKey(name, body)
+	q.pushMu.Lock()
+	defer q.pushMu.Unlock()
 	q.mu.Lock()
 	if q.held {
 		q.mu.Unlock()
@@ -153,29 +161,21 @@ func (q *Queue) Push(ctx context.Context, name string, body map[string]any, trig
 		q.mu.Unlock()
 		return nil, fmt.Errorf("unknown command %q", name)
 	}
-	key := bodyKey(name, body)
-	for _, c := range q.queued {
-		if bodyKey(c.Name, c.Body) == key {
-			cp := *c
-			q.mu.Unlock()
-			return &cp, nil
-		}
+	if c := q.active[key]; c != nil {
+		cp := *c
+		q.mu.Unlock()
+		return &cp, nil
 	}
-	for _, c := range q.running {
-		if bodyKey(c.Name, c.Body) == key {
-			cp := *c
-			q.mu.Unlock()
-			return &cp, nil
-		}
-	}
+	q.mu.Unlock()
 
 	cmd := &model.Command{Name: name, Body: body, Status: model.CommandQueued, Trigger: trigger, QueuedAt: time.Now().UTC()}
 	if _, err := q.db.NewInsert().Model(cmd).Exec(ctx); err != nil {
-		q.mu.Unlock()
 		return nil, err
 	}
+	q.mu.Lock()
 	cp := *cmd
 	q.queued = append(q.queued, cmd)
+	q.active[key] = cmd
 	q.mu.Unlock()
 	q.bus.Changed("command", "created", cp.ID)
 	q.bus.Changed("tasks", "updated", 0)
@@ -204,6 +204,9 @@ func (q *Queue) Start(ctx context.Context) error {
 	}
 	q.mu.Lock()
 	q.queued = append(q.queued, pending...)
+	for _, c := range pending {
+		q.active[bodyKey(c.Name, c.Body)] = c
+	}
 	q.mu.Unlock()
 
 	for i := 0; i < q.workers; i++ {
@@ -256,7 +259,10 @@ func (q *Queue) next() (*model.Command, Definition) {
 	for i, c := range q.queued {
 		def := q.defs[c.Name]
 		if def.Exclusive && len(q.running) > 0 {
-			continue
+			// it waits for the running ones to finish: starting what queues
+			// behind it would keep that from ever happening (a backup on a
+			// busy server)
+			return nil, Definition{}
 		}
 		// never run two commands with the same name concurrently
 		busy := false
@@ -326,6 +332,9 @@ func (q *Queue) execute(ctx context.Context, cmd *model.Command, def Definition)
 	}
 	q.mu.Lock()
 	delete(q.running, final.ID)
+	if key := bodyKey(cmd.Name, cmd.Body); q.active[key] == cmd {
+		delete(q.active, key)
+	}
 	q.mu.Unlock()
 	q.bus.Changed("command", "updated", final.ID)
 	q.bus.Changed("tasks", "updated", 0)

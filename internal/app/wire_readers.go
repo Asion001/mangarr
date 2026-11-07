@@ -133,8 +133,7 @@ func (a *App) wireReaders(ctx context.Context) error {
 			return nil
 		}})
 	// new chapters bring new titles: look again a little after imports settle
-	var detectMu sync.Mutex
-	detectAfter := map[int64]*time.Timer{}
+	detect := NewDebouncer[int64](2 * time.Minute)
 	a.Bus.Subscribe(func(e events.Event) {
 		if e.SeriesID == 0 {
 			return
@@ -143,16 +142,8 @@ func (a *App) wireReaders(ctx context.Context) error {
 		if err != nil || (!cfg.AutoMoods && !cfg.PageMoods) {
 			return
 		}
-		detectMu.Lock()
-		defer detectMu.Unlock()
-		if t := detectAfter[e.SeriesID]; t != nil {
-			t.Stop()
-		}
 		id := e.SeriesID
-		detectAfter[id] = time.AfterFunc(2*time.Minute, func() {
-			detectMu.Lock()
-			delete(detectAfter, id)
-			detectMu.Unlock()
+		detect.Do(id, func() {
 			cfg, _ := a.Settings.Sound(context.Background())
 			if cfg.AutoMoods {
 				_, _ = a.Queue.Push(context.Background(), "DetectMoods", map[string]any{"seriesId": id}, "chapter-imported")

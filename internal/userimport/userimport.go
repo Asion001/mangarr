@@ -181,17 +181,13 @@ func (s *Service) ApplyReady(ctx context.Context) error {
 		SeriesID                int64 `bun:"series_id"`
 	}
 	if err := s.DB.NewSelect().TableExpr("requested_progress AS rp").ColumnExpr("rp.*").ColumnExpr("r.series_id").
-		Join("JOIN requests AS r ON r.id = rp.request_id").Where("r.series_id IS NOT NULL").Scan(ctx, &rows); err != nil {
+		Join("JOIN requests AS r ON r.id = rp.request_id").Where("r.series_id IS NOT NULL").
+		// a title's chapters are listed on its first refresh: wait for them
+		Where("EXISTS (SELECT 1 FROM chapters AS c WHERE c.series_id = r.series_id)").
+		Scan(ctx, &rows); err != nil {
 		return err
 	}
 	for _, row := range rows {
-		n, err := s.DB.NewSelect().Model((*model.Chapter)(nil)).Where("series_id = ?", row.SeriesID).Count(ctx)
-		if err != nil {
-			return err
-		}
-		if n == 0 {
-			continue // listed on the first refresh
-		}
 		var t userdata.ExportTitle
 		if err := json.Unmarshal([]byte(row.Title), &t); err == nil {
 			if err := s.write(ctx, row.UserID, row.SeriesID, &t); err != nil {

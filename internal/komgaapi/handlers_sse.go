@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/Asion001/mangarr/internal/events"
@@ -30,10 +31,15 @@ func (s *Service) events(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ch := make(chan events.Event, 256)
+	// a client too slow for a burst would miss events: the stream ends
+	// instead, and the app reconnects and refetches
+	overflow := make(chan struct{})
+	var once sync.Once
 	unsub := s.deps.Bus.Subscribe(func(e events.Event) {
 		select {
 		case ch <- e:
-		default: // slow client: drop; apps refetch on reconnect
+		default:
+			once.Do(func() { close(overflow) })
 		}
 	}, events.ResourceChanged, events.ChapterImported, events.SeriesAdded, events.SeriesDeleted, reading.ProgressChanged)
 	defer unsub()
@@ -52,6 +58,8 @@ func (s *Service) events(w http.ResponseWriter, r *http.Request) {
 	for {
 		select {
 		case <-r.Context().Done():
+			return
+		case <-overflow:
 			return
 		case <-ping.C:
 			fmt.Fprint(w, ":heartbeat\n\n")

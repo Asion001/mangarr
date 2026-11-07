@@ -65,7 +65,7 @@ type App struct {
 	// FanOut pushes progress changes to library servers.
 	FanOut *FanOut
 	// ReadAhead batches progress before downloading the next chapters.
-	ReadAhead *Debouncer
+	ReadAhead *Debouncer[[2]int64]
 	// Tasks is the ledger of work handed to workers.
 	Tasks     *worktasks.Ledger
 	Queue     *jobs.Queue

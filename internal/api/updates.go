@@ -172,7 +172,7 @@ func updateRowAfter(a, b updateFeedRow) bool {
 	return a.SortID > b.SortID
 }
 
-func (s *Server) applyUpdateVisibility(q *bun.SelectQuery, viewer *access.Principal, alias string) *bun.SelectQuery {
+func (s *Server) applyUpdateVisibility(ctx context.Context, q *bun.SelectQuery, viewer *access.Principal, alias string) *bun.SelectQuery {
 	if viewer == nil {
 		return q.Where("1 = 0")
 	}
@@ -182,33 +182,33 @@ func (s *Server) applyUpdateVisibility(q *bun.SelectQuery, viewer *access.Princi
 	}
 	if viewer.Scope.ContentLimited() {
 		// ratings and genres live in the metadata: list the titles it lets through
-		ids, err := s.seriesSeenBy(context.Background(), viewer)
+		ids, err := s.seriesSeenBy(ctx, viewer)
 		if err != nil || len(ids) == 0 {
 			return q.Where("1 = 0")
 		}
-		q = q.Where(alias+".id IN (?)", bun.In(ids))
+		q = q.Where(alias+".id IN (?)", bun.List(ids))
 	}
 	if len(viewer.Scope.RootFolders) > 0 {
-		q = q.Where(alias+".root_folder_id IN (?)", bun.In(viewer.Scope.RootFolders))
+		q = q.Where(alias+".root_folder_id IN (?)", bun.List(viewer.Scope.RootFolders))
 	}
 	if len(viewer.Scope.ExcludeTags) > 0 {
 		if s.app.DB.Kind == db.Postgres {
-			q = q.Where("NOT EXISTS (SELECT 1 FROM jsonb_array_elements_text("+alias+".tags) AS scope_tag(value) WHERE CAST(scope_tag.value AS BIGINT) IN (?))", bun.In(viewer.Scope.ExcludeTags))
+			q = q.Where("NOT EXISTS (SELECT 1 FROM jsonb_array_elements_text("+alias+".tags) AS scope_tag(value) WHERE CAST(scope_tag.value AS BIGINT) IN (?))", bun.List(viewer.Scope.ExcludeTags))
 		} else {
-			q = q.Where("NOT EXISTS (SELECT 1 FROM json_each("+alias+".tags) AS scope_tag WHERE CAST(scope_tag.value AS INTEGER) IN (?))", bun.In(viewer.Scope.ExcludeTags))
+			q = q.Where("NOT EXISTS (SELECT 1 FROM json_each("+alias+".tags) AS scope_tag WHERE CAST(scope_tag.value AS INTEGER) IN (?))", bun.List(viewer.Scope.ExcludeTags))
 		}
 	}
 	if len(viewer.Scope.IncludeTags) > 0 {
 		if s.app.DB.Kind == db.Postgres {
-			q = q.Where("EXISTS (SELECT 1 FROM jsonb_array_elements_text("+alias+".tags) AS scope_tag(value) WHERE CAST(scope_tag.value AS BIGINT) IN (?))", bun.In(viewer.Scope.IncludeTags))
+			q = q.Where("EXISTS (SELECT 1 FROM jsonb_array_elements_text("+alias+".tags) AS scope_tag(value) WHERE CAST(scope_tag.value AS BIGINT) IN (?))", bun.List(viewer.Scope.IncludeTags))
 		} else {
-			q = q.Where("EXISTS (SELECT 1 FROM json_each("+alias+".tags) AS scope_tag WHERE CAST(scope_tag.value AS INTEGER) IN (?))", bun.In(viewer.Scope.IncludeTags))
+			q = q.Where("EXISTS (SELECT 1 FROM json_each("+alias+".tags) AS scope_tag WHERE CAST(scope_tag.value AS INTEGER) IN (?))", bun.List(viewer.Scope.IncludeTags))
 		}
 	}
 	return q
 }
 
-func (s *Server) chapterUpdateQuery(viewer *access.Principal, cutoff time.Time, cursor *updateCursor, f updateFilter, seen *model.UpdateSeen) *bun.SelectQuery {
+func (s *Server) chapterUpdateQuery(ctx context.Context, viewer *access.Principal, cutoff time.Time, cursor *updateCursor, f updateFilter, seen *model.UpdateSeen) *bun.SelectQuery {
 	q := s.app.DB.NewSelect().TableExpr("chapters AS c").
 		ColumnExpr("'chapter' AS kind, c.first_seen_at AS at, c.series_id, s.title AS series_title, c.id AS chapter_id, 0 AS work_key, c.id AS sort_id").
 		Join("JOIN series AS s ON s.id = c.series_id").
@@ -218,7 +218,7 @@ func (s *Server) chapterUpdateQuery(viewer *access.Principal, cutoff time.Time, 
 	} else {
 		q = q.Where("datetime(c.first_seen_at) > datetime(s.added_at, '+5 minutes')")
 	}
-	q = s.applyUpdateVisibility(q, viewer, "s")
+	q = s.applyUpdateVisibility(ctx, q, viewer, "s")
 	q = applyUpdateFilter(q, viewer, f)
 	switch f.Availability {
 	case "downloaded":
@@ -261,7 +261,7 @@ func followerID(p *access.Principal) int64 {
 	return p.UserID
 }
 
-func (s *Server) seriesUpdateQuery(viewer *access.Principal, cutoff time.Time, cursor *updateCursor, f updateFilter, seen *model.UpdateSeen) *bun.SelectQuery {
+func (s *Server) seriesUpdateQuery(ctx context.Context, viewer *access.Principal, cutoff time.Time, cursor *updateCursor, f updateFilter, seen *model.UpdateSeen) *bun.SelectQuery {
 	q := s.app.DB.NewSelect().TableExpr("series AS s").
 		ColumnExpr("'series' AS kind").
 		ColumnExpr(seriesUpdateAt + " AS at").
@@ -271,7 +271,7 @@ func (s *Server) seriesUpdateQuery(viewer *access.Principal, cutoff time.Time, c
 		ColumnExpr(seriesUpdateGroup + " AS work_key").
 		ColumnExpr("MIN(s.id) AS sort_id").
 		Join("LEFT JOIN works AS w ON w.id = s.work_id")
-	q = applyUpdateFilter(s.applyUpdateVisibility(q, viewer, "s"), viewer, f).
+	q = applyUpdateFilter(s.applyUpdateVisibility(ctx, q, viewer, "s"), viewer, f).
 		GroupExpr(seriesUpdateGroup).
 		GroupExpr("w.title").
 		GroupExpr("w.created_at").
@@ -289,7 +289,7 @@ func (s *Server) seriesUpdateQuery(viewer *access.Principal, cutoff time.Time, c
 }
 
 func (s *Server) countSeriesUpdates(ctx context.Context, viewer *access.Principal, cutoff time.Time, f updateFilter, seen *model.UpdateSeen) (int, error) {
-	grouped := s.seriesUpdateQuery(viewer, cutoff, nil, f, seen)
+	grouped := s.seriesUpdateQuery(ctx, viewer, cutoff, nil, f, seen)
 	n, err := s.app.DB.NewSelect().TableExpr("(?) AS grouped_updates", grouped).Count(ctx)
 	return int(n), err
 }
@@ -299,7 +299,7 @@ func (s *Server) countUpdates(ctx context.Context, viewer *access.Principal, f u
 	cutoff := time.Now().UTC().Add(-time.Duration(f.Days) * 24 * time.Hour)
 	total := 0
 	if f.Kind != "series" {
-		n, err := s.chapterUpdateQuery(viewer, cutoff, nil, f, seen).Count(ctx)
+		n, err := s.chapterUpdateQuery(ctx, viewer, cutoff, nil, f, seen).Count(ctx)
 		if err != nil {
 			return 0, err
 		}
@@ -335,8 +335,8 @@ func (s *Server) listUpdates(ctx context.Context, viewer *access.Principal, f up
 	total := 0
 	if kind != "series" {
 		var chapterRows []updateFeedRow
-		q := s.chapterUpdateQuery(viewer, cutoff, cursor, f, seen).OrderExpr("c.first_seen_at DESC, c.id DESC")
-		chapterTotal, err := s.chapterUpdateQuery(viewer, cutoff, nil, f, seen).Count(ctx)
+		q := s.chapterUpdateQuery(ctx, viewer, cutoff, cursor, f, seen).OrderExpr("c.first_seen_at DESC, c.id DESC")
+		chapterTotal, err := s.chapterUpdateQuery(ctx, viewer, cutoff, nil, f, seen).Count(ctx)
 		if err != nil {
 			return UpdatePage{}, err
 		}
@@ -352,7 +352,7 @@ func (s *Server) listUpdates(ctx context.Context, viewer *access.Principal, f up
 		if err != nil {
 			return UpdatePage{}, err
 		}
-		if err := s.seriesUpdateQuery(viewer, cutoff, cursor, f, seen).OrderExpr(seriesUpdateAt+" DESC, MIN(s.id) DESC").Limit(int64(queryLimit)).Scan(ctx, &seriesRows); err != nil {
+		if err := s.seriesUpdateQuery(ctx, viewer, cutoff, cursor, f, seen).OrderExpr(seriesUpdateAt+" DESC, MIN(s.id) DESC").Limit(int64(queryLimit)).Scan(ctx, &seriesRows); err != nil {
 			return UpdatePage{}, err
 		}
 		rows = append(rows, seriesRows...)
@@ -380,7 +380,7 @@ func (s *Server) listUpdates(ctx context.Context, viewer *access.Principal, f up
 	chapters := map[int64]model.Chapter{}
 	if len(chapterIDs) > 0 {
 		var found []model.Chapter
-		if err := s.app.DB.NewSelect().Model(&found).Where("id IN (?)", bun.In(chapterIDs)).Scan(ctx); err != nil {
+		if err := s.app.DB.NewSelect().Model(&found).Where("id IN (?)", bun.List(chapterIDs)).Scan(ctx); err != nil {
 			return UpdatePage{}, err
 		}
 		for _, chapter := range found {
@@ -390,7 +390,7 @@ func (s *Server) listUpdates(ctx context.Context, viewer *access.Principal, f up
 	seriesByID := map[int64]model.Series{}
 	if len(seriesIDs) > 0 {
 		var found []model.Series
-		if err := s.app.DB.NewSelect().Model(&found).Where("id IN (?)", bun.In(seriesIDs)).Scan(ctx); err != nil {
+		if err := s.app.DB.NewSelect().Model(&found).Where("id IN (?)", bun.List(seriesIDs)).Scan(ctx); err != nil {
 			return UpdatePage{}, err
 		}
 		for _, series := range found {
@@ -400,8 +400,8 @@ func (s *Server) listUpdates(ctx context.Context, viewer *access.Principal, f up
 	languages := map[int64][]string{}
 	if len(workIDs) > 0 {
 		var editions []model.Series
-		q := s.app.DB.NewSelect().Model(&editions).ModelTableExpr("series AS s").ColumnExpr("s.*").Where("s.work_id IN (?)", bun.In(workIDs))
-		q = s.applyUpdateVisibility(q, viewer, "s")
+		q := s.app.DB.NewSelect().Model(&editions).ModelTableExpr("series AS s").ColumnExpr("s.*").Where("s.work_id IN (?)", bun.List(workIDs))
+		q = s.applyUpdateVisibility(ctx, q, viewer, "s")
 		if err := q.Scan(ctx); err != nil {
 			return UpdatePage{}, err
 		}
@@ -422,7 +422,7 @@ func (s *Server) listUpdates(ctx context.Context, viewer *access.Principal, f up
 		}
 		var releaseRows []releaseRow
 		if err := s.app.DB.NewSelect().TableExpr("chapter_releases").ColumnExpr("DISTINCT chapter_id").
-			Where("chapter_id IN (?) AND removed = ?", bun.In(chapterIDs), false).Scan(ctx, &releaseRows); err != nil {
+			Where("chapter_id IN (?) AND removed = ?", bun.List(chapterIDs), false).Scan(ctx, &releaseRows); err != nil {
 			return UpdatePage{}, err
 		}
 		for _, row := range releaseRows {
@@ -431,7 +431,7 @@ func (s *Server) listUpdates(ctx context.Context, viewer *access.Principal, f up
 		if viewer != nil && viewer.UserID > 0 {
 			var states []model.ChapterReadState
 			if err := s.app.DB.NewSelect().Model(&states).Where("user_id = ?", viewer.UserID).
-				Where("chapter_id IN (?)", bun.In(chapterIDs)).Scan(ctx); err != nil {
+				Where("chapter_id IN (?)", bun.List(chapterIDs)).Scan(ctx); err != nil {
 				return UpdatePage{}, err
 			}
 			for _, state := range states {

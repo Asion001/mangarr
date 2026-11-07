@@ -524,8 +524,6 @@ func (s *Store) Get(ctx context.Context, key string, out any) error {
 	s.mu.RLock()
 	raw, ok := s.cache[key]
 	warmed := s.warmed
-	s.mu.RUnlock()
-	s.mu.RLock()
 	ov := s.overlays[key]
 	s.mu.RUnlock()
 	if !ok && warmed {
@@ -539,7 +537,7 @@ func (s *Store) Get(ctx context.Context, key string, out any) error {
 			s.mu.Lock()
 			s.cache[key] = json.RawMessage("null")
 			s.mu.Unlock()
-			return nil
+			return applyOverlay(ov, out)
 		}
 		if err != nil {
 			return err

@@ -109,6 +109,8 @@ export function useLiveUpdates(enabled: boolean) {
           /* ignore */
         }
       });
+      // the server dropped events while this page fell behind a burst
+      es.addEventListener("resync", () => void qc.invalidateQueries());
       for (const t of ["hello", "chapter.imported", "download.failed", "health.issue", "health.restored", "cleanup.done", "series.added", "processing.progress"]) {
         es.addEventListener(t, (ev) => {
           try {

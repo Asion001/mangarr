@@ -240,8 +240,17 @@ func TestSpotifyConnect(t *testing.T) {
 		AccessToken string
 		ExpiresAt   time.Time
 	}
+	// readers' pages ask for it from several places at once: one refresh
+	// serves them all (Spotify rotates refresh tokens, so a second refresh
+	// with the same one could sign the reader out)
+	codes := make([]int, 4)
+	var wg sync.WaitGroup
+	for i := range codes {
+		wg.Go(func() { codes[i] = ann.do("GET", "/api/v1/me/spotify/token", "", nil) })
+	}
+	wg.Wait()
 	if code := ann.do("GET", "/api/v1/me/spotify/token", "", &tok); code != 200 || tok.AccessToken != "access-2" || f.refreshes != 1 {
-		t.Fatalf("token: %d %+v (%d refreshes)", code, tok, f.refreshes)
+		t.Fatalf("token: %d %+v (%d refreshes, parallel %v)", code, tok, f.refreshes, codes)
 	}
 	ann.do("GET", "/api/v1/me/spotify/token", "", &tok)
 	if f.refreshes != 1 {

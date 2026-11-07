@@ -26,32 +26,42 @@ const (
 const ReadAheadDelay = 10 * time.Second
 
 // Debouncer runs a function once things settle, per key.
-type Debouncer struct {
+type Debouncer[K comparable] struct {
 	mu      sync.Mutex
 	delay   time.Duration
-	pending map[[2]int64]*time.Timer
+	pending map[K]*time.Timer
+}
+
+// NewDebouncer waits delay after the last call for a key.
+func NewDebouncer[K comparable](delay time.Duration) *Debouncer[K] {
+	return &Debouncer[K]{delay: delay, pending: map[K]*time.Timer{}}
 }
 
 // SetDelay changes the delay (tests).
-func (d *Debouncer) SetDelay(delay time.Duration) {
+func (d *Debouncer[K]) SetDelay(delay time.Duration) {
 	d.mu.Lock()
 	d.delay = delay
 	d.mu.Unlock()
 }
 
 // Do runs fn after the delay, restarting the wait on every call for key.
-func (d *Debouncer) Do(key [2]int64, fn func()) {
+func (d *Debouncer[K]) Do(key K, fn func()) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if t := d.pending[key]; t != nil {
 		t.Stop()
 	}
-	d.pending[key] = time.AfterFunc(d.delay, func() {
+	var t *time.Timer
+	t = time.AfterFunc(d.delay, func() {
 		d.mu.Lock()
-		delete(d.pending, key)
+		// a timer that fired while Do replaced it leaves the new one be
+		if d.pending[key] == t {
+			delete(d.pending, key)
+		}
 		d.mu.Unlock()
 		fn()
 	})
+	d.pending[key] = t
 }
 
 // wireReading sets up what reading apps see, the Komga-compatible API and
@@ -80,7 +90,7 @@ func (a *App) wireReading(ctx context.Context) error {
 
 	// every change reaches the other library servers
 	// reading drives downloads: the next chapters after a reader's position
-	a.ReadAhead = &Debouncer{delay: ReadAheadDelay, pending: map[[2]int64]*time.Timer{}}
+	a.ReadAhead = NewDebouncer[[2]int64](ReadAheadDelay)
 	a.Bus.Subscribe(func(e events.Event) {
 		p, ok := e.Payload.(reading.ProgressPayload)
 		if !ok || p.Deleted || e.SeriesID == 0 {

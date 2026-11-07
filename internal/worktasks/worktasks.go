@@ -136,46 +136,75 @@ func (l *Ledger) Claim(ctx context.Context, workerID int64, kinds []string, limi
 		return nil, err
 	}
 	now := time.Now().UTC()
-	var waiting []model.WorkerTask
-	err := l.db.NewSelect().Model(&waiting).
-		Where("state = ? AND not_before <= ?", model.TaskPending, now).
-		Where("kind IN (?)", bun.In(mine)).
-		Order("id").Limit(100).Scan(ctx)
-	if err != nil {
-		return nil, err
-	}
 	seen := map[string]pinState{} // the workers tasks are kept for
-	for _, t := range waiting {
-		pin := PinOf(&t)
-		switch {
-		case len(pin.Workers) > 0 && !l.pinAllows(ctx, pin, workerID, t.Kind, perWorker, seen):
-			continue // kept for other workers while they are around
-		case !pin.Has(workerID) && !free[t.Kind]:
-			continue
-		}
-		if !upscalesIfNeeded(&worker, &t) {
-			continue // pages that need upscaling, and it can't
-		}
-		until := now.Add(Lease)
-		// the compare-and-set: only one worker can move a row out of pending
-		res, err := l.db.NewUpdate().Model((*model.WorkerTask)(nil)).
-			Set("state = ?", model.TaskLeased).Set("worker_id = ?", workerID).
-			Set("lease_until = ?", until).Set("heartbeat_at = ?", now).Set("started_at = COALESCE(started_at, ?)", now).
-			Set("attempt = attempt + 1").Set("cancel = ?", false).
-			Where("id = ? AND state = ?", t.ID, model.TaskPending).Exec(ctx)
+	// tasks it may not take (kept for others, or needing an upscaler it
+	// lacks) can fill a page: look further, a page at a time
+	var after int64
+	for range claimPages {
+		var waiting []model.WorkerTask
+		err := l.db.NewSelect().Model(&waiting).
+			Where("state = ? AND not_before <= ?", model.TaskPending, now).
+			Where("kind IN (?)", bun.List(mine)).
+			Where("id > ?", after).
+			Order("id").Limit(claimPageSize).Scan(ctx)
 		if err != nil {
 			return nil, err
 		}
-		if n, _ := res.RowsAffected(); n != 1 {
-			continue // another worker was quicker
+		for _, t := range waiting {
+			after = t.ID
+			got, err := l.tryClaim(ctx, &worker, t, now, perWorker, free, seen)
+			if err != nil || got != nil {
+				return got, err
+			}
 		}
-		got := t
-		got.State, got.WorkerID, got.LeaseUntil, got.Attempt = model.TaskLeased, workerID, &until, t.Attempt+1
-		got.HeartbeatAt, got.Cancel = &now, false
-		l.changed(got.JobID)
-		return &got, nil
+		if len(waiting) < claimPageSize {
+			break
+		}
 	}
 	return nil, nil
+}
+
+// claimPageSize and claimPages bound how far one Claim looks.
+const (
+	claimPageSize = 100
+	claimPages    = 20
+)
+
+// tryClaim leases t to the worker when it may do it; nil when it may not,
+// or another worker was quicker.
+func (l *Ledger) tryClaim(ctx context.Context, worker *model.Worker, t model.WorkerTask, now time.Time, perWorker int, free map[string]bool, seen map[string]pinState) (*model.WorkerTask, error) {
+	workerID := worker.ID
+	pin := PinOf(&t)
+	switch {
+	case len(pin.Workers) > 0 && !l.pinAllows(ctx, pin, workerID, t.Kind, perWorker, seen):
+		return nil, nil // kept for other workers while they are around
+	case !pin.Has(workerID) && !free[t.Kind]:
+		return nil, nil
+	}
+	if !upscalesIfNeeded(worker, &t) {
+		return nil, nil // pages that need upscaling, and it can't
+	}
+	until := now.Add(Lease)
+	// the compare-and-set: only one worker can move a row out of pending
+	res, err := l.db.NewUpdate().Model((*model.WorkerTask)(nil)).
+		Set("state = ?", model.TaskLeased).Set("worker_id = ?", workerID).
+		Set("lease_until = ?", until).Set("heartbeat_at = ?", now).Set("started_at = COALESCE(started_at, ?)", now).
+		Set("attempt = attempt + 1").Set("cancel = ?", false).
+		Where("id = ? AND state = ?", t.ID, model.TaskPending).Exec(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if n, _ := res.RowsAffected(); n != 1 {
+		return nil, nil // another worker was quicker
+	}
+	got := t
+	got.State, got.WorkerID, got.LeaseUntil, got.Attempt = model.TaskLeased, workerID, &until, t.Attempt+1
+	got.HeartbeatAt, got.Cancel = &now, false
+	if got.StartedAt == nil {
+		got.StartedAt = &now
+	}
+	l.changed(got.JobID)
+	return &got, nil
 }
 
 // claimableKinds enforces the installation and per-worker limits, then
@@ -461,7 +490,7 @@ func (l *Ledger) HandBack(ctx context.Context, workerID int64, taskIDs []int64) 
 		Set("state = ?", model.TaskPending).Set("lease_until = NULL").Set("worker_id = NULL").
 		Where("worker_id = ? AND state = ?", workerID, model.TaskLeased)
 	if len(taskIDs) > 0 {
-		q = q.Where("id IN (?)", bun.In(taskIDs))
+		q = q.Where("id IN (?)", bun.List(taskIDs))
 	}
 	res, err := q.Exec(ctx)
 	if err != nil {
@@ -584,9 +613,9 @@ func (l *Ledger) OfJob(ctx context.Context, jobID int64) ([]model.WorkerTask, er
 func (l *Ledger) OpenJobs(ctx context.Context, kinds ...string) (map[int64]bool, error) {
 	var ids []int64
 	q := l.db.NewSelect().Model((*model.WorkerTask)(nil)).Column("job_id").
-		Where("state IN (?)", bun.In([]string{model.TaskPending, model.TaskLeased}))
+		Where("state IN (?)", bun.List([]string{model.TaskPending, model.TaskLeased}))
 	if len(kinds) > 0 {
-		q = q.Where("kind IN (?)", bun.In(kinds))
+		q = q.Where("kind IN (?)", bun.List(kinds))
 	}
 	err := q.Scan(ctx, &ids)
 	out := map[int64]bool{}
@@ -603,7 +632,7 @@ func (l *Ledger) Orphan(ctx context.Context, jobID int64, since time.Time) (*mod
 	var t model.WorkerTask
 	err := l.db.NewSelect().Model(&t).Where("job_id = ? AND kind = ?", jobID, model.TaskEncode).
 		WhereGroup(" AND ", func(q *bun.SelectQuery) *bun.SelectQuery {
-			return q.Where("state IN (?)", bun.In([]string{model.TaskPending, model.TaskLeased})).
+			return q.Where("state IN (?)", bun.List([]string{model.TaskPending, model.TaskLeased})).
 				WhereOr("state = ? AND finished_at > ?", model.TaskDone, since)
 		}).
 		OrderExpr("id DESC").Limit(1).Scan(ctx)
@@ -621,7 +650,7 @@ func (l *Ledger) Orphan(ctx context.Context, jobID int64, since time.Time) (*mod
 func (l *Ledger) Prune(ctx context.Context, keep time.Duration) (int, error) {
 	cutoff := time.Now().UTC().Add(-keep)
 	res, err := l.db.NewDelete().Model((*model.WorkerTask)(nil)).
-		Where("state IN (?) AND finished_at < ?", bun.In([]string{model.TaskDone, model.TaskFailed, model.TaskAbandoned}), cutoff).
+		Where("state IN (?) AND finished_at < ?", bun.List([]string{model.TaskDone, model.TaskFailed, model.TaskAbandoned}), cutoff).
 		Exec(ctx)
 	if err != nil {
 		return 0, err

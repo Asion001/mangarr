@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"sync"
 	"time"
 
 	"github.com/Asion001/mangarr/internal/downloads"
@@ -23,24 +22,16 @@ func (a *App) measureNewFiles(ctx context.Context) {
 		seriesID int64
 		path     string
 	}
-	var mu sync.Mutex
-	timers := map[string]*time.Timer{}
+	// written again: wait from now
+	settle := NewDebouncer[string](measureAfter)
 	work := make(chan target, 256)
 	a.Bus.Subscribe(func(e events.Event) {
 		path, ok := e.Payload.(string)
 		if !ok || path == "" || e.SeriesID == 0 {
 			return
 		}
-		mu.Lock()
-		defer mu.Unlock()
-		if t := timers[path]; t != nil {
-			t.Stop() // written again: wait from now
-		}
 		t := target{e.SeriesID, path}
-		timers[path] = time.AfterFunc(measureAfter, func() {
-			mu.Lock()
-			delete(timers, path)
-			mu.Unlock()
+		settle.Do(path, func() {
 			select {
 			case work <- t:
 			default: // far behind: those pages get measured when read

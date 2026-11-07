@@ -10,6 +10,7 @@ import (
 
 	"github.com/uptrace/bun"
 
+	"github.com/Asion001/mangarr/internal/fsutil"
 	"github.com/Asion001/mangarr/internal/library"
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/readstate"
@@ -164,7 +165,7 @@ WHERE f.series_id = ? AND NOT EXISTS (SELECT 1 FROM follows AS k WHERE k.user_id
 			if err := os.MkdirAll(filepath.Dir(m.to), 0o755); err != nil {
 				return undo(done[:i], err)
 			}
-			if err := moveFile(m.from, m.to); err != nil {
+			if err := fsutil.Move(m.from, m.to); err != nil {
 				return undo(done[:i], fmt.Errorf("move %s: %w", m.from, err))
 			}
 		}
@@ -176,24 +177,9 @@ WHERE f.series_id = ? AND NOT EXISTS (SELECT 1 FROM follows AS k WHERE k.user_id
 // undo puts files moved so far back when the merge fails.
 func undo(done []moved, err error) error {
 	for _, m := range done {
-		_ = moveFile(m.to, m.from)
+		_ = fsutil.Move(m.to, m.from)
 	}
 	return err
-}
-
-// moveFile renames, or copies and removes across file systems.
-func moveFile(from, to string) error {
-	if err := os.Rename(from, to); err == nil {
-		return nil
-	}
-	data, err := os.ReadFile(from)
-	if err != nil {
-		return err
-	}
-	if err := os.WriteFile(to, data, 0o644); err != nil {
-		return err
-	}
-	return os.Remove(from)
 }
 
 // freeName is rel, or rel with " (2)" and up before the extension when keep's
