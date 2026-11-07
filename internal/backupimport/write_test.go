@@ -79,29 +79,29 @@ func mihonExportFixture() (*Backup, []MihonSourcePreferences) {
 	epoch := time.UnixMilli(0).UTC()
 	readAt := time.UnixMilli(1700000000000).UTC()
 	return &Backup{
-			Format: FormatMihon, Sources: map[string]string{"0": "", "42": "Example Source"},
-			Categories: []string{"", "Reading"},
-			Entries: []BackupManga{
-				{
-					SourceID: "0", URL: "/series/first", Status: "unknown", Favorite: true,
-					Categories: []string{"", "Reading"},
-					Trackers: map[string]string{
-						TrackerAniList: "101", TrackerMAL: "102", TrackerKitsu: "103", TrackerMangaUpdates: "104",
-					},
-					Chapters: []BackupChapter{
-						{URL: "", Name: "", ReadAt: &epoch},
-						{URL: "/chapter/first", Name: "Chapter 1", Number: 1.5, Read: true, LastPageRead: 3, ReadAt: &readAt},
-					},
+		Format: FormatMihon, Sources: map[string]string{"0": "", "42": "Example Source"},
+		Categories: []string{"", "Reading"},
+		Entries: []BackupManga{
+			{
+				SourceID: "0", URL: "/series/first", Status: "unknown", Favorite: true,
+				Categories: []string{"", "Reading"},
+				Trackers: map[string]string{
+					TrackerAniList: "101", TrackerMAL: "102", TrackerKitsu: "103", TrackerMangaUpdates: "104",
 				},
-				{
-					SourceID: "42", SourceName: "Example Source", URL: "/series/second", Status: "unknown",
-					Trackers: map[string]string{TrackerMangaUpdates: "example-slug"},
+				Chapters: []BackupChapter{
+					{URL: "", Name: "", ReadAt: &epoch},
+					{URL: "/chapter/first", Name: "Chapter 1", Number: 1.5, Read: true, LastPageRead: 3, ReadAt: &readAt},
 				},
 			},
-		}, []MihonSourcePreferences{
-			{SourceID: "0", Strings: map[string]string{"": "", "Address": "https://library.example.test"}},
-			{SourceID: "42", Strings: map[string]string{}},
-		}
+			{
+				SourceID: "42", SourceName: "Example Source", URL: "/series/second", Status: "unknown",
+				Trackers: map[string]string{TrackerMangaUpdates: "example-slug"},
+			},
+		},
+	}, []MihonSourcePreferences{
+		{SourceID: "0", Strings: map[string]string{"": "", "Address": "https://library.example.test"}},
+		{SourceID: "42", Strings: map[string]string{}},
+	}
 }
 
 func TestMarshalMihonRequiredFields(t *testing.T) {
