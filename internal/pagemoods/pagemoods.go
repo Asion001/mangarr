@@ -43,6 +43,10 @@ type Service struct {
 	mu     sync.Mutex
 	scorer moodscore.Scorer
 	busy   sync.Mutex
+	// placing makes one placement at a time: two workers finishing chapters
+	// together would otherwise each write the cues they saw, and the one
+	// that saw fewer scored chapters could win
+	placing sync.Mutex
 }
 
 // New returns the service for a data folder.
@@ -418,6 +422,8 @@ func cuePage(ch moodscore.Change) int {
 // from the mood the one before ended on, a mood that leads for a few pages
 // takes over there (except where an admin said not here).
 func (s *Service) Place(ctx context.Context, seriesID int64) error {
+	s.placing.Lock()
+	defer s.placing.Unlock()
 	plan, err := s.plan(ctx, seriesID)
 	if err != nil {
 		return err
