@@ -435,6 +435,8 @@ func (h *opdsHandlers) download(w http.ResponseWriter, r *http.Request, format s
 		if si, err := h.s.deps.Reading.Series(r.Context(), p.User.UserID, b.Chapter.SeriesID); err == nil {
 			title = si.Series.Title + " - " + title
 			author = strings.Join(si.Series.Metadata.Authors, ", ")
+			// CrossPoint cuts a book's Home tile from its first page.
+			laid = append([]*image.Gray{h.coverPage(r, si, b, len(pages), screen)}, laid...)
 		}
 		err = eink.WriteXTCH(&buf, title, author, laid)
 	default:
@@ -537,4 +539,29 @@ func writeEPUB(buf *bytes.Buffer, title string, chapterID int64, pages []archive
 		return err
 	}
 	return zw.Close()
+}
+
+// coverPage is a chapter's cover page for an e-ink reader: the title's cover,
+// its name and the chapter number (see eink.CoverPage).
+func (h *opdsHandlers) coverPage(r *http.Request, si *reading.SeriesInfo, b *reading.BookInfo, pages int, screen eink.Screen) *image.Gray {
+	c := eink.CoverInfo{Title: si.Series.Title, Chapter: b.Chapter.NumberKey}
+	if t := strings.TrimSpace(b.Chapter.Title); t != "" && t != "Chapter "+b.Chapter.NumberKey {
+		c.Subtitle = t
+	}
+	var foot []string
+	if v := strings.TrimSpace(b.Chapter.Volume); v != "" {
+		foot = append(foot, "Vol. "+v)
+	}
+	if pages == 1 {
+		foot = append(foot, "1 page")
+	} else {
+		foot = append(foot, strconv.Itoa(pages)+" pages")
+	}
+	c.Footer = strings.Join(foot, " · ")
+	if data, _, err := h.s.deps.Reading.Cover(r.Context(), &si.Series); err == nil {
+		if img, err := reading.Decode(data); err == nil {
+			c.Art = img
+		}
+	}
+	return eink.CoverPage(c, screen)
 }

@@ -107,3 +107,82 @@ func TestWriteXTCH(t *testing.T) {
 		t.Fatalf("file size %d", len(d))
 	}
 }
+
+func TestTrim(t *testing.T) {
+	// A drawing in the middle of a wide white margin is cut out, with a thin border.
+	g := solid(1000, 1500, 0xff)
+	for y := 200; y < 1300; y++ {
+		for x := 150; x < 850; x++ {
+			g.SetGray(x, y, color.Gray{0x30})
+		}
+	}
+	got := Trim(g)
+	if r := got.Rect; r.Dx() < 700 || r.Dx() > 740 || r.Dy() < 1100 || r.Dy() > 1150 {
+		t.Fatalf("trimmed to %v", r)
+	}
+	// Specks of dust don't count as content.
+	g.SetGray(5, 5, color.Gray{0})
+	if r := Trim(g).Rect; r.Dx() > 740 {
+		t.Fatalf("a speck kept the margin: %v", r)
+	}
+	// A page that is mostly empty stays whole.
+	small := solid(1000, 1500, 0xff)
+	for y := 700; y < 800; y++ {
+		for x := 450; x < 550; x++ {
+			small.SetGray(x, y, color.Gray{0})
+		}
+	}
+	if r := Trim(small).Rect; r.Dx() != 1000 || r.Dy() != 1500 {
+		t.Fatalf("mostly empty page trimmed: %v", r)
+	}
+	// A blank page too.
+	if r := Trim(solid(100, 100, 0xff)).Rect; r.Dx() != 100 {
+		t.Fatalf("blank page trimmed: %v", r)
+	}
+}
+
+func TestTone(t *testing.T) {
+	// A washed-out scan (ink at 0x50, paper at 0xd0) gets black ink and white paper.
+	g := solid(100, 100, 0xd0)
+	for y := 0; y < 50; y++ {
+		for x := 0; x < 100; x++ {
+			g.SetGray(x, y, color.Gray{0x50})
+		}
+	}
+	out := Tone(g)
+	if ink, paper := out.GrayAt(10, 10).Y, out.GrayAt(10, 90).Y; ink > 0x20 || paper < 0xf0 {
+		t.Fatalf("ink %#x paper %#x", ink, paper)
+	}
+	// Black and white stay as they are.
+	bw := solid(10, 10, 0xff)
+	bw.SetGray(0, 0, color.Gray{0})
+	if o := Tone(bw); o.GrayAt(0, 0).Y != 0 || o.GrayAt(5, 5).Y != 0xff {
+		t.Fatal("black or white moved")
+	}
+}
+
+func TestCoverPage(t *testing.T) {
+	art := solid(300, 450, 0x40)
+	c := CoverPage(CoverInfo{Art: art, Title: "A rather long title that has to wrap onto more lines than fit", Chapter: "112.5", Subtitle: "The chapter's own name", Footer: "Vol. 12 · 22 pages"}, X4)
+	if c.Rect.Dx() != 480 || c.Rect.Dy() != 800 {
+		t.Fatalf("size %v", c.Rect)
+	}
+	// The art sits in the frame at the top, the margin around it is white.
+	if c.GrayAt(240, 200).Y > 0x80 || c.GrayAt(5, 5).Y != 0xff {
+		t.Fatalf("art %#x margin %#x", c.GrayAt(240, 200).Y, c.GrayAt(5, 5).Y)
+	}
+	// The black chapter badge sits on the left under the art.
+	dark := 0
+	for y := 540; y < 740; y++ {
+		if c.GrayAt(40, y).Y < 0x20 {
+			dark++
+		}
+	}
+	if dark < 60 {
+		t.Fatalf("no chapter badge (%d dark rows)", dark)
+	}
+	// Without art the frame is plain grey, and other screens scale.
+	if p := CoverPage(CoverInfo{Title: "T", Chapter: "1"}, Screen{W: 528, H: 792}); p.Rect.Dx() != 528 || p.GrayAt(264, 200).Y == 0xff {
+		t.Fatal("no-art cover")
+	}
+}

@@ -46,17 +46,26 @@ const tallRatio = 1.3
 // line of text cut at a strip edge shows whole on one of them.
 const overlap = 32
 
-// Layout turns one page into screen-sized grayscale pages: spreads are
-// turned sideways, ordinary pages are shrunk to fit and centred on white,
-// and tall webtoon pages are fitted to the width and cut into strips.
+// Layout turns one page into screen-sized grayscale pages: white margins
+// are trimmed, spreads are turned sideways, ordinary pages are shrunk to fit
+// and centred on white, and tall webtoon pages are fitted to the width and
+// cut into strips. Each page's levels are then fitted to e-ink (see Tone).
 func Layout(img image.Image, s Screen) []*image.Gray {
-	b := img.Bounds()
-	w, h := b.Dx(), b.Dy()
-	if w <= 0 || h <= 0 {
+	pages := layout(img, s)
+	for i, p := range pages {
+		pages[i] = Tone(p)
+	}
+	return pages
+}
+
+func layout(img image.Image, s Screen) []*image.Gray {
+	if b := img.Bounds(); b.Dx() <= 0 || b.Dy() <= 0 {
 		return nil
 	}
 	// Flatten onto white first, so transparent pixels don't turn black.
-	var src image.Image = flatten(img)
+	var src image.Image = Trim(flatten(img))
+	b := src.Bounds()
+	w, h := b.Dx(), b.Dy()
 	if w > h && s.H > s.W {
 		src, w, h = rotate(src.(*image.Gray)), h, w
 	}

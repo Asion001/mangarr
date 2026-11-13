@@ -227,7 +227,8 @@ func TestKOReaderFeedsAndSync(t *testing.T) {
 			if !strings.Contains(string(opf), `href="images/0001.jpg" media-type="image/jpeg"`) || !strings.Contains(string(opf), `<itemref idref="p1"/>`) {
 				t.Fatalf("EPUB package: %s", opf)
 			}
-			// XTCH: pages pre-rendered for CrossPoint's 480x800 screen, or another size.
+			// XTCH: a cover page, then the pages pre-rendered for CrossPoint's
+			// 480x800 screen, or another size.
 			for _, c := range []struct {
 				query string
 				w, h  uint16
@@ -238,7 +239,7 @@ func TestKOReaderFeedsAndSync(t *testing.T) {
 					t.Fatalf("XTCH acquisition %q: %d %.64q", c.query, xtch.Code, d)
 				}
 				entry := d[binary.LittleEndian.Uint64(d[0x18:]):]
-				if binary.LittleEndian.Uint16(d[6:]) != 1 || binary.LittleEndian.Uint16(entry[12:]) != c.w || binary.LittleEndian.Uint16(entry[14:]) != c.h {
+				if binary.LittleEndian.Uint16(d[6:]) != 2 || binary.LittleEndian.Uint16(entry[12:]) != c.w || binary.LittleEndian.Uint16(entry[14:]) != c.h {
 					t.Fatalf("XTCH %q page table: % x", c.query, entry[:16])
 				}
 			}
