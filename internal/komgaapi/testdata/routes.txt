@@ -70,5 +70,6 @@ POST /api/v1/books/list
 POST /api/v1/series/list
 POST /api/v1/series/{id}/read-progress
 POST /api/v2/users/me/api-keys
+POST /crosspoint/v1/progress
 PUT /api/v1/series/{id}/read-progress/tachiyomi
 PUT /api/v2/series/{id}/read-progress/tachiyomi

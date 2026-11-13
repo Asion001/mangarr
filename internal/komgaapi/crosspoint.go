@@ -1,7 +1,9 @@
 package komgaapi
 
 import (
+	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"sort"
 	"strconv"
@@ -41,6 +43,7 @@ func (s *Service) crosspointRoutes(r chi.Router) {
 	h := &crosspointHandlers{s}
 	r.Get("/crosspoint/v1/chapters", h.list)
 	r.Get("/crosspoint/v1/chapters/{id}/xtch", (&opdsHandlers{s}).chapterXTCH)
+	r.Post("/crosspoint/v1/progress", h.progress)
 }
 
 // webtoon reports whether a title reads as one long strip, which reads badly
@@ -204,4 +207,79 @@ func crosspointRow(si reading.SeriesInfo, b reading.BookInfo) crosspointItem {
 	}
 	desc += si.Series.Metadata.Description
 	return crosspointItem{ID: b.Chapter.ID, Title: name, Subtitle: strings.Join(parts, " · "), Description: strings.TrimSpace(desc)}
+}
+
+// progress is POST /crosspoint/v1/progress {chapter, percent, end_percent}:
+// the plugin's reader.exit and sleep.enter events, with the chapter id from
+// the book's sidecar. Percents are of the whole XTCH (0-100, sent as numbers
+// or strings); end_percent 100 means the last page was shown, which marks
+// the chapter read. A finished chapter is not moved back by a later event,
+// so a re-read doesn't mark it unread.
+func (h *crosspointHandlers) progress(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Chapter    json.Number `json:"chapter"`
+		Percent    json.Number `json:"percent"`
+		EndPercent json.Number `json:"end_percent"`
+	}
+	dec := json.NewDecoder(r.Body)
+	dec.UseNumber()
+	if err := dec.Decode(&body); err != nil {
+		writeError(w, r, http.StatusBadRequest, "body is {chapter, percent, end_percent}")
+		return
+	}
+	id, err := body.Chapter.Int64()
+	if err != nil || id <= 0 {
+		writeError(w, r, http.StatusBadRequest, "chapter is the chapter id")
+		return
+	}
+	pct := func(n json.Number) float64 {
+		v, err := n.Float64()
+		if err != nil || math.IsNaN(v) {
+			return -1
+		}
+		return math.Max(0, math.Min(100, v))
+	}
+	end := pct(body.EndPercent)
+	if end < 0 {
+		end = pct(body.Percent)
+	}
+	if end < 0 {
+		writeError(w, r, http.StatusBadRequest, "percent or end_percent is required")
+		return
+	}
+	rid, ok := h.s.userID(w, r)
+	if !ok {
+		return
+	}
+	b, err := h.s.deps.Reading.Book(r.Context(), rid, id)
+	if err != nil {
+		notFoundOr500(w, r, err)
+		return
+	}
+	if b.State != nil && b.State.Completed {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	ch, pages, err := h.s.deps.Reading.ChapterPages(r.Context(), id)
+	if err != nil {
+		notFoundOr500(w, r, err)
+		return
+	}
+	c := reading.Change{ChapterID: ch.ID, SeriesID: ch.SeriesID}
+	if end >= 100 {
+		c.Completed, c.Page = true, pages
+	} else {
+		// The XTCH's pages don't match the chapter's one to one (a cover
+		// page first, spreads and strips), so the share read is what carries over.
+		c.Page = int(end / 100 * float64(pages))
+		if c.Page <= 0 || (b.State != nil && c.Page <= b.State.Page) {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+	}
+	if _, err := h.s.deps.Reading.Record(r.Context(), rid, []reading.Change{c}, by(r)); err != nil {
+		writeError(w, r, http.StatusInternalServerError, err.Error())
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }

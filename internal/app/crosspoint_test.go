@@ -162,6 +162,35 @@ func TestCrossPointCatalog(t *testing.T) {
 			if rec.Code != 200 || !bytes.HasPrefix(rec.Body.Bytes(), []byte("XTCH")) {
 				t.Fatalf("xtch: %d %q", rec.Code, rec.Body.String()[:min(rec.Body.Len(), 40)])
 			}
+			// The device's reader.exit event: the last page shown marks it read.
+			post := func(body string) {
+				t.Helper()
+				if rec := call(http.MethodPost, "/crosspoint/v1/progress", body); rec.Code != http.StatusNoContent {
+					t.Fatalf("progress %s: %d %s", body, rec.Code, rec.Body.String())
+				}
+			}
+			post(fmt.Sprintf(`{"chapter":%d,"percent":"40","end_percent":"50"}`, manga[1].ID))
+			if got := rows("list=continue"); got[0].ID != manga[1].ID {
+				t.Fatalf("half read moved on: %+v", got)
+			}
+			post(fmt.Sprintf(`{"chapter":"%d","percent":"95","end_percent":"100"}`, manga[1].ID))
+			if got := rows("list=continue"); len(got) != 1 || got[0].ID != manga[2].ID || got[0].Subtitle != "2 of 3 read · 1 new · Ongoing" {
+				t.Fatalf("after finishing: %+v", got)
+			}
+			// Opening it again later doesn't mark it unread.
+			post(fmt.Sprintf(`{"chapter":%d,"percent":0,"end_percent":10}`, manga[1].ID))
+			if got := rows("list=continue"); got[0].ID != manga[2].ID {
+				t.Fatalf("re-read moved back: %+v", got)
+			}
+			for _, bad := range []string{`{}`, `{"chapter":"x","end_percent":1}`, `{"chapter":1}`} {
+				if rec := call(http.MethodPost, "/crosspoint/v1/progress", bad); rec.Code != http.StatusBadRequest {
+					t.Fatalf("%s: %d", bad, rec.Code)
+				}
+			}
+			if rec := call(http.MethodPost, "/crosspoint/v1/progress", `{"chapter":999999,"end_percent":100}`); rec.Code != http.StatusNotFound {
+				t.Fatalf("unknown chapter: %d", rec.Code)
+			}
+
 			unauth := httptest.NewRecorder()
 			e.App.Komga.Handler().ServeHTTP(unauth, httptest.NewRequest(http.MethodGet, "/crosspoint/v1/chapters", nil))
 			if unauth.Code != http.StatusUnauthorized {
