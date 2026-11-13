@@ -1,0 +1,75 @@
+{
+  "title": "Mangarr",
+  "description": "Read your Mangarr library, with pages ready for e-ink.",
+  "version": "1.0.0",
+  "config": {
+    "file": "config.json"
+  },
+  "browse": {
+    "format": "json",
+    "url": "{cfg.server}/crosspoint/v1/chapters?list=continue&page={page}&limit={limit}&webtoons={cfg.webtoons}",
+    "headers": {
+      "X-API-Key": "{cfg.key}"
+    },
+    "items": "items",
+    "fields": {
+      "title": "title",
+      "author": "subtitle",
+      "id": "id",
+      "description": "description"
+    },
+    "page_size": 8,
+    "lists": [
+      {
+        "title": "Continue reading"
+      },
+      {
+        "title": "Recently added",
+        "url": "{cfg.server}/crosspoint/v1/chapters?list=recent&page={page}&limit={limit}&webtoons={cfg.webtoons}"
+      },
+      {
+        "title": "Library A to Z",
+        "url": "{cfg.server}/crosspoint/v1/chapters?list=library&page={page}&limit={limit}&webtoons={cfg.webtoons}"
+      }
+    ]
+  },
+  "download": {
+    "url": "{cfg.server}/crosspoint/v1/chapters/{id}/xtch?screen={cfg.screen}",
+    "headers": {
+      "X-API-Key": "{cfg.key}"
+    },
+    "dest_dir": "/Manga",
+    "filename": "{title}.xtch",
+    "sidecar": {
+      "path": "{dest}.meta.json",
+      "body": "{\"mangarr_chapter\":{id}}"
+    }
+  },
+  "events": {
+    "reader.exit": {
+      "require_meta": "mangarr_chapter",
+      "connect": true,
+      "request": {
+        "method": "POST",
+        "url": "{cfg.server}/crosspoint/v1/progress",
+        "headers": {
+          "X-API-Key": "{cfg.key}",
+          "Content-Type": "application/json"
+        },
+        "body": "{\"chapter\":{meta.mangarr_chapter},\"percent\":\"{event.percent}\",\"end_percent\":\"{event.end_percent}\"}"
+      }
+    },
+    "sleep.enter": {
+      "require_meta": "mangarr_chapter",
+      "request": {
+        "method": "POST",
+        "url": "{cfg.server}/crosspoint/v1/progress",
+        "headers": {
+          "X-API-Key": "{cfg.key}",
+          "Content-Type": "application/json"
+        },
+        "body": "{\"chapter\":{meta.mangarr_chapter},\"percent\":\"{event.percent}\",\"end_percent\":\"{event.end_percent}\"}"
+      }
+    }
+  }
+}

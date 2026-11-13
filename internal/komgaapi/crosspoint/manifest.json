@@ -1,0 +1,14 @@
+{
+  "name": "mangarr",
+  "title": "Mangarr",
+  "mount": "settings",
+  "description": "Read your Mangarr library, with pages ready for e-ink.",
+  "author": "Mangarr",
+  "version": "1.0.0",
+  "files": [
+    "manifest.json",
+    "device.json",
+    "plugin.js",
+    "README.md"
+  ]
+}

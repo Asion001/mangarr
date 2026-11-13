@@ -191,6 +191,71 @@ func TestCrossPointCatalog(t *testing.T) {
 				t.Fatalf("unknown chapter: %d", rec.Code)
 			}
 
+			// The plugin folder is public, and its catalog URLs work as the
+			// device fills them in (an unset screen arrives as "{cfg.screen}").
+			zrec := httptest.NewRecorder()
+			e.App.Komga.Handler().ServeHTTP(zrec, httptest.NewRequest(http.MethodGet, "/crosspoint/plugin.zip", nil))
+			if zrec.Code != 200 {
+				t.Fatalf("plugin zip: %d", zrec.Code)
+			}
+			zr, err := zip.NewReader(bytes.NewReader(zrec.Body.Bytes()), int64(zrec.Body.Len()))
+			if err != nil {
+				t.Fatal(err)
+			}
+			files := map[string][]byte{}
+			for _, f := range zr.File {
+				rc, _ := f.Open()
+				var b bytes.Buffer
+				_, _ = b.ReadFrom(rc)
+				_ = rc.Close()
+				files[f.Name] = b.Bytes()
+			}
+			for _, name := range []string{"mangarr/manifest.json", "mangarr/device.json", "mangarr/plugin.js", "mangarr/README.md"} {
+				if len(files[name]) == 0 {
+					t.Fatalf("plugin zip lacks %s: %v", name, zr.File)
+				}
+			}
+			var manifest struct {
+				Browse struct {
+					URL   string `json:"url"`
+					Lists []struct {
+						URL string `json:"url"`
+					} `json:"lists"`
+				} `json:"browse"`
+				Download struct {
+					URL string `json:"url"`
+				} `json:"download"`
+				Events map[string]struct {
+					Request struct {
+						URL  string `json:"url"`
+						Body string `json:"body"`
+					} `json:"request"`
+				} `json:"events"`
+			}
+			if err := json.Unmarshal(files["mangarr/device.json"], &manifest); err != nil {
+				t.Fatal(err)
+			}
+			fillIn := strings.NewReplacer("{cfg.server}", "", "{page}", "1", "{limit}", "8", "{cfg.webtoons}", "0", "{id}", fmt.Sprint(manga[2].ID), "{meta.mangarr_chapter}", fmt.Sprint(manga[2].ID), "{event.percent}", "10", "{event.end_percent}", "20")
+			urls := []string{manifest.Browse.URL}
+			for _, l := range manifest.Browse.Lists {
+				if l.URL != "" {
+					urls = append(urls, l.URL)
+				}
+			}
+			for _, u := range urls {
+				if got := call(http.MethodGet, fillIn.Replace(u), ""); got.Code != 200 || !strings.Contains(got.Body.String(), `"items"`) {
+					t.Fatalf("plugin list %s: %d %s", u, got.Code, got.Body.String())
+				}
+			}
+			if got := call(http.MethodGet, fillIn.Replace(manifest.Download.URL), ""); got.Code != 200 || !bytes.HasPrefix(got.Body.Bytes(), []byte("XTCH")) {
+				t.Fatalf("plugin download %s: %d", manifest.Download.URL, got.Code)
+			}
+			for name, ev := range manifest.Events {
+				if got := call(http.MethodPost, fillIn.Replace(ev.Request.URL), fillIn.Replace(ev.Request.Body)); got.Code != http.StatusNoContent {
+					t.Fatalf("plugin event %s: %d %s", name, got.Code, got.Body.String())
+				}
+			}
+
 			unauth := httptest.NewRecorder()
 			e.App.Komga.Handler().ServeHTTP(unauth, httptest.NewRequest(http.MethodGet, "/crosspoint/v1/chapters", nil))
 			if unauth.Code != http.StatusUnauthorized {

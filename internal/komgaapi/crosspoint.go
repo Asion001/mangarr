@@ -1,6 +1,9 @@
 package komgaapi
 
 import (
+	"archive/zip"
+	"bytes"
+	"embed"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -20,6 +23,46 @@ import (
 // chapter the reader should open next in its title.
 
 type crosspointHandlers struct{ s *Service }
+
+// crosspointPlugin is the plugin folder a reader copies to its SD card.
+//
+//go:embed crosspoint
+var crosspointPlugin embed.FS
+
+// crosspointPluginZip is GET /crosspoint/plugin.zip: the plugin as a
+// "mangarr" folder, to unzip into /plugins on the reader's SD card. It holds
+// no address or key (those are entered on the reader), so it is public.
+func crosspointPluginZip(w http.ResponseWriter, r *http.Request) {
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	entries, err := crosspointPlugin.ReadDir("crosspoint")
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, err.Error())
+		return
+	}
+	for _, e := range entries {
+		data, err := crosspointPlugin.ReadFile("crosspoint/" + e.Name())
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, err.Error())
+			return
+		}
+		f, err := zw.Create("mangarr/" + e.Name())
+		if err == nil {
+			_, err = f.Write(data)
+		}
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, err.Error())
+			return
+		}
+	}
+	if err := zw.Close(); err != nil {
+		writeError(w, r, http.StatusInternalServerError, err.Error())
+		return
+	}
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", `attachment; filename="mangarr-crosspoint-plugin.zip"`)
+	_, _ = w.Write(buf.Bytes())
+}
 
 // crosspointItem is one catalog row.
 type crosspointItem struct {

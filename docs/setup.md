@@ -238,6 +238,24 @@ KOReader's page number and percentage as chapter read progress. Other files
 that were not downloaded through this OPDS catalog have no automatic
 chapter mapping.
 
+**CrossPoint Reader (2.0 and later).** CrossPoint's SD-card plugin reads
+straight from mangarr. Download `http://<mangarr-host>:25600/crosspoint/plugin.zip`,
+unzip it into `/plugins` on the reader's SD card (you get `/plugins/mangarr`),
+and turn on **Settings → Connectivity → Plugins**. Then start File Transfer on
+the reader, open its web page, go to **Plugins → Mangarr** and enter the
+address (`http://<mangarr-host>:25600`), a reading-app device key and the
+screen size, then **Save** and **Test**.
+
+On the reader, **Home → Plugins → Mangarr** has *Continue reading*,
+*Recently added* and *Library A to Z*. Each row is the chapter to read next in
+its title, with where you are under it ("45 of 120 read · 3 new · Ongoing").
+**Fetch** downloads it to `/Manga` as XTCH: pages pre-rendered for the screen
+with white margins trimmed, levels fitted to e-ink and spreads turned
+sideways, plus a cover page first that becomes the chapter's tile on Home.
+Leaving the chapter or putting the reader to sleep sends progress back;
+reaching the last page marks the chapter read. Titles that read as webtoons
+(vertical or webtoon direction) are left out unless **Show webtoons** is on.
+
 ## 6. Accounts: reading together
 
 Everyone who reads here gets an account, with their own progress, their own

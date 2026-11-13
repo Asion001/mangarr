@@ -344,6 +344,9 @@ func (h *opdsHandlers) chapterXTCH(w http.ResponseWriter, r *http.Request) { h.d
 // ok is false for full-size pages.
 func deviceScreen(r *http.Request, format string) (eink.Screen, bool, error) {
 	q := r.URL.Query().Get("screen")
+	if strings.HasPrefix(q, "{") {
+		q = "" // a CrossPoint plugin sends an unset {cfg.screen} as it is
+	}
 	if q == "" && format != "xtch" && !strings.HasPrefix(r.UserAgent(), "CrossPoint") {
 		return eink.Screen{}, false, nil
 	}

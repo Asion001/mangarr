@@ -31,6 +31,8 @@ func (s *Service) router() http.Handler {
 	r.Get("/users/auth", k.auth)
 	r.Put("/syncs/progress", k.putProgress)
 	r.Get("/syncs/progress/{document}", k.getProgress)
+	// public: the CrossPoint plugin folder holds no address or key
+	r.Get("/crosspoint/plugin.zip", crosspointPluginZip)
 
 	r.Group(func(r chi.Router) {
 		r.Use(s.requireAuth)
