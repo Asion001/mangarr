@@ -47,6 +47,8 @@ GET /api/v2/users/me
 GET /api/v2/users/me/api-keys
 GET /book/{id}
 GET /books/{id}
+GET /crosspoint/v1/chapters
+GET /crosspoint/v1/chapters/{id}/xtch
 GET /opds
 GET /opds/chapters/{id}
 GET /opds/chapters/{id}/epub

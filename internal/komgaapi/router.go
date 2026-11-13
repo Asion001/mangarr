@@ -63,6 +63,8 @@ func (s *Service) routes(r chi.Router) {
 	r.Post("/api/logout", a.logout)
 	r.Get("/api/v1/client-settings/user/list", func(w http.ResponseWriter, r *http.Request) { writeJSON(w, http.StatusOK, map[string]any{}) })
 
+	s.crosspointRoutes(r)
+
 	l := &libraryHandlers{s}
 	r.Get("/api/v1/libraries", l.list)
 	r.Get("/api/v1/libraries/{id}", l.get)
