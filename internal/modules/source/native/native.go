@@ -332,7 +332,11 @@ func (m *Module) PageRequest(ctx context.Context, p source.Page) (source.PageReq
 	if _, decode := splitDecode(p.URL); decode != "" {
 		return source.PageRequest{}, source.ErrUnsupported // only the site here can decode it
 	}
-	headers := map[string]string{"User-Agent": sourcekit.UserAgent}
+	ua := sourcekit.UserAgent
+	if s, err := m.site(p.SourceID); err == nil {
+		ua = sourcekit.UserAgentOf(s)
+	}
+	headers := map[string]string{"User-Agent": ua}
 	for k, v := range m.headersFor(p) {
 		headers[k] = v
 	}
@@ -390,7 +394,7 @@ func fetch(ctx context.Context, s sourcekit.Site, url string, headers map[string
 	if err != nil {
 		return nil, "", err
 	}
-	req.Header.Set("User-Agent", sourcekit.UserAgent)
+	req.Header.Set("User-Agent", sourcekit.UserAgentOf(s))
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}

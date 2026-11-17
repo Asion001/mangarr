@@ -197,6 +197,23 @@ type Polite interface {
 	Politeness() Politeness
 }
 
+// Agent is implemented by sites that turn a browser user agent away and
+// want one that names the program (MangaDex sends those to a bot check).
+type Agent interface {
+	UserAgent() string
+}
+
+// AppUserAgent names mangarr, for sites that ask to be told who is calling.
+const AppUserAgent = "mangarr (https://github.com/Asion001/mangarr)"
+
+// UserAgentOf is the user agent to send a site.
+func UserAgentOf(s Site) string {
+	if a, ok := s.(Agent); ok {
+		return a.UserAgent()
+	}
+	return UserAgent
+}
+
 // ErrUnauthorized means the site turned an account's sign-in token away.
 var ErrUnauthorized = errors.New("the site didn't accept the sign-in token")
 

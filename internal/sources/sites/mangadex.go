@@ -77,6 +77,19 @@ func (m *mangadex) Info() sourcekit.Info {
 		SupportsBrowse: true, IconURL: m.site + "/favicon.ico"}
 }
 
+// UserAgent: MangaDex sends a browser's user agent to a bot check (an HTML
+// page where the API's JSON should be) and asks callers to say who they are.
+func (m *mangadex) UserAgent() string { return sourcekit.AppUserAgent }
+
+// json asks the API, as mangarr.
+func (m *mangadex) json(ctx context.Context, r sourcekit.Request, out any) error {
+	if r.Headers == nil {
+		r.Headers = map[string]string{}
+	}
+	r.Headers["User-Agent"] = sourcekit.AppUserAgent
+	return m.c.JSON(ctx, r, out)
+}
+
 // Politeness: MangaDex asks for at most 5 requests a second across its API.
 func (m *mangadex) Politeness() sourcekit.Politeness {
 	return sourcekit.Politeness{RequestsPerMinute: 240, MaxConcurrent: 3}
@@ -214,7 +227,7 @@ func (m *mangadex) listQuery(page int) url.Values {
 
 func (m *mangadex) list(ctx context.Context, q url.Values) (sourcekit.Results, error) {
 	var out mdList
-	if err := m.c.JSON(ctx, sourcekit.Request{URL: m.api + "/manga", Query: q}, &out); err != nil {
+	if err := m.json(ctx, sourcekit.Request{URL: m.api + "/manga", Query: q}, &out); err != nil {
 		return sourcekit.Results{}, err
 	}
 	res := sourcekit.Results{Mangas: make([]sourcekit.Manga, 0, len(out.Data))}
@@ -256,7 +269,7 @@ func (m *mangadex) Details(ctx context.Context, ref sourcekit.Ref) (sourcekit.De
 	q.Add("includes[]", "cover_art")
 	q.Add("includes[]", "author")
 	q.Add("includes[]", "artist")
-	if err := m.c.JSON(ctx, sourcekit.Request{URL: m.api + "/manga/" + id, Query: q}, &out); err != nil {
+	if err := m.json(ctx, sourcekit.Request{URL: m.api + "/manga/" + id, Query: q}, &out); err != nil {
 		return sourcekit.Details{}, notFound(err)
 	}
 	x := out.Data
@@ -290,7 +303,7 @@ func (m *mangadex) rating(ctx context.Context, id string) *sourcekit.Rating {
 			} `json:"rating"`
 		} `json:"statistics"`
 	}
-	if err := m.c.JSON(ctx, sourcekit.Request{URL: m.api + "/statistics/manga/" + id}, &out); err != nil {
+	if err := m.json(ctx, sourcekit.Request{URL: m.api + "/statistics/manga/" + id}, &out); err != nil {
 		return nil
 	}
 	st := out.Statistics[id].Rating
@@ -337,7 +350,7 @@ func (m *mangadex) Chapters(ctx context.Context, ref sourcekit.Ref) ([]sourcekit
 			q.Add("contentRating[]", r)
 		}
 		var page mdChapters
-		if err := m.c.JSON(ctx, sourcekit.Request{URL: m.api + "/manga/" + id + "/feed", Query: q}, &page); err != nil {
+		if err := m.json(ctx, sourcekit.Request{URL: m.api + "/manga/" + id + "/feed", Query: q}, &page); err != nil {
 			return nil, notFound(err)
 		}
 		for _, c := range page.Data {
@@ -401,7 +414,7 @@ func (m *mangadex) Pages(ctx context.Context, ch sourcekit.PageRef) ([]sourcekit
 			Data []string `json:"data"`
 		} `json:"chapter"`
 	}
-	if err := m.c.JSON(ctx, sourcekit.Request{URL: m.api + "/at-home/server/" + id}, &out); err != nil {
+	if err := m.json(ctx, sourcekit.Request{URL: m.api + "/at-home/server/" + id}, &out); err != nil {
 		return nil, notFound(err)
 	}
 	pages := make([]sourcekit.PageImage, 0, len(out.Chapter.Data))
@@ -409,7 +422,7 @@ func (m *mangadex) Pages(ctx context.Context, ch sourcekit.PageRef) ([]sourcekit
 		pages = append(pages, sourcekit.PageImage{
 			Index:   i,
 			URL:     fmt.Sprintf("%s/data/%s/%s", strings.TrimRight(out.BaseURL, "/"), out.Chapter.Hash, name),
-			Headers: map[string]string{"Referer": m.site + "/"},
+			Headers: map[string]string{"Referer": m.site + "/", "User-Agent": sourcekit.AppUserAgent},
 		})
 	}
 	return pages, nil

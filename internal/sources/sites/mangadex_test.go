@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/Asion001/mangarr/internal/sources/sourcekit"
@@ -50,7 +51,15 @@ func fakeMangaDex(t *testing.T) *httptest.Server {
 	mux.HandleFunc("/at-home/server/ch-2", func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"baseUrl":"https://cdn.example.org","chapter":{"hash":"abc","data":["1.png","2.png","3.png"]}}`))
 	})
-	srv := httptest.NewServer(mux)
+	// like the real API, a browser's user agent gets a bot check's HTML
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.UserAgent(), "Mozilla/") {
+			w.Header().Set("Content-Type", "text/html")
+			_, _ = w.Write([]byte("<!doctype html><html><body>checking your browser</body></html>"))
+			return
+		}
+		mux.ServeHTTP(w, r)
+	}))
 	t.Cleanup(srv.Close)
 	return srv
 }
@@ -104,7 +113,7 @@ func TestMangaDex(t *testing.T) {
 	if err != nil || len(pages) != 3 {
 		t.Fatalf("pages: %v %+v", err, pages)
 	}
-	if pages[0].URL != "https://cdn.example.org/data/abc/1.png" || pages[0].Headers["Referer"] == "" {
+	if pages[0].URL != "https://cdn.example.org/data/abc/1.png" || pages[0].Headers["Referer"] == "" || pages[0].Headers["User-Agent"] != sourcekit.AppUserAgent {
 		t.Fatalf("page %+v", pages[0])
 	}
 }
