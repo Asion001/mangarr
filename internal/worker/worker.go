@@ -345,7 +345,20 @@ func (w *Worker) hello(ctx context.Context) error {
 		err := w.call(ctx, http.MethodPost, "/api/v1/worker/hello", body, &out)
 		if err == nil {
 			if len(out.Roles) == 0 {
-				return fmt.Errorf("this worker has no roles it may do here (it asked for %v)", w.cfg.Roles)
+				// System → Workers lets it do none of what it offers: wait
+				// for that to change instead of exiting, which only makes a
+				// container restart over and over
+				if w.status.State() != StateIdle {
+					w.log.Warn("this worker may do none of what it offers here; give it one of these roles in System → Workers, or change MANGARR_WORKER_ROLES; asking again now and then",
+						"offers", roles, "asked", w.cfg.Roles)
+				}
+				w.status.Set(StateIdle, nil)
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				case <-time.After(offPoll):
+				}
+				continue
 			}
 			w.welcome = out
 			w.concurrent.Store(int64(out.Concurrent))

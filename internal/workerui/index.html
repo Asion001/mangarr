@@ -27,7 +27,7 @@
   .pill::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
   .pill.ready::before { background: var(--ok); } .pill.waiting::before, .pill.starting::before, .pill.updating::before { background: var(--warn); }
   .pill.failed::before { background: var(--bad); }
-  .pill.off::before { background: var(--muted); }
+  .pill.off::before, .pill.idle::before { background: var(--muted); }
   button { font: inherit; border: 1px solid var(--line); background: var(--panel); color: var(--text); border-radius: 8px; padding: 6px 14px; cursor: pointer; }
   button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
   button:disabled { opacity: .5; cursor: default; }
@@ -148,7 +148,7 @@ const el = (tag, attrs = {}, ...kids) => {
   for (const k of kids) e.append(k);
   return e;
 };
-const stateText = { starting: "Connecting", waiting: "Waiting for the server", ready: "Working", off: "Switched off on the server", updating: "Updating", stopped: "Stopped", failed: "Stopped with an error" };
+const stateText = { starting: "Connecting", waiting: "Waiting for the server", ready: "Working", off: "Switched off on the server", idle: "No allowed roles on the server", updating: "Updating", stopped: "Stopped", failed: "Stopped with an error" };
 
 async function call(path, body) {
   const r = await fetch(path, { method: "POST", headers: { "X-Mangarr-Worker": "1", "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : "{}" });

@@ -12,6 +12,7 @@ const (
 	StateWaiting  = "waiting"  // the server doesn't answer yet
 	StateReady    = "ready"    // asking for work
 	StateOff      = "off"      // switched off in System → Workers: waits to be switched on
+	StateIdle     = "idle"     // allowed none of the roles it offers: waits for that to change
 	StateStopped  = "stopped"
 	StateFailed   = "failed" // gave up (a refused key, say)
 	// StateUpdating takes no new work: it finishes what it holds and then
