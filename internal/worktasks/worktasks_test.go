@@ -483,7 +483,7 @@ func TestUpscaledEncodeNeedsAnUpscaler(t *testing.T) {
 			gpu:   {worktasks.InfoProcess: true, "models": []any{map[string]any{"name": "realesrgan-x4plus-anime"}}},
 		}
 		for id, info := range infos {
-			if _, err := d.NewUpdate().Model((*model.Worker)(nil)).Set("roles = ?", []string{model.RoleEncode}).
+			if _, err := d.NewUpdate().Model((*model.Worker)(nil)).Set("roles = ?", []string{model.RoleEncode, model.RoleUpscale}).
 				Set("info = ?", info).Set("last_seen_at = ?", now).Where("id = ?", id).Exec(ctx); err != nil {
 				t.Fatal(err)
 			}
@@ -543,6 +543,39 @@ func TestClaimLooksPastTasksItCantTake(t *testing.T) {
 		task, err := l.Claim(ctx, plain, []string{model.TaskEncode}, 0, 1)
 		if err != nil || task == nil || task.ID != want.ID {
 			t.Fatalf("the plain task behind 150 upscaled ones: got %v, %v", task, err)
+		}
+	})
+}
+
+// A worker with an upscaler that the admin hasn't given the upscale role
+// only re-encodes: upscaled pages wait for one that may upscale.
+func TestUpscaledEncodeNeedsTheUpscaleRole(t *testing.T) {
+	each(t, func(t *testing.T, d *db.DB) {
+		ctx := context.Background()
+		l := ledger(d)
+		job := seedJob(t, d)
+		w := seedWorker(t, d, "slow box")
+		info := map[string]any{worktasks.InfoProcess: true, "models": []any{map[string]any{"name": "realesr-animevideov3"}}}
+		if _, err := d.NewUpdate().Model((*model.Worker)(nil)).Set("roles = ?", []string{model.RoleDownload, model.RoleEncode}).
+			Set("info = ?", info).Set("last_seen_at = ?", time.Now().UTC()).Where("id = ?", w).Exec(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if ok, err := l.CanTake(ctx, &model.WorkerTask{Kind: model.TaskEncode, Spec: map[string]any{worktasks.SpecNeedsUpscale: true}}); err != nil || ok {
+			t.Fatalf("CanTake without anyone allowed to upscale = %v, %v", ok, err)
+		}
+		upscaled := &model.WorkerTask{JobID: job, Kind: model.TaskEncode, Spec: map[string]any{worktasks.SpecNeedsUpscale: true}}
+		if err := l.Add(ctx, upscaled); err != nil {
+			t.Fatal(err)
+		}
+		if task, err := l.Claim(ctx, w, []string{model.TaskEncode}, 0, 1); err != nil || task != nil {
+			t.Fatalf("the worker without the upscale role got %v, %v", task, err)
+		}
+		plain := &model.WorkerTask{JobID: job, Kind: model.TaskEncode, Spec: map[string]any{worktasks.SpecNeedsUpscale: false}}
+		if err := l.Add(ctx, plain); err != nil {
+			t.Fatal(err)
+		}
+		if task, err := l.Claim(ctx, w, []string{model.TaskEncode}, 0, 1); err != nil || task == nil || task.ID != plain.ID {
+			t.Fatalf("it should still get the plain task, got %v, %v", task, err)
 		}
 	})
 }

@@ -314,7 +314,7 @@ const InfoMoods = "moods"
 const SpecNeedsUpscale = "needsUpscale"
 
 // upscalesIfNeeded reports whether a worker can do a task's upscaling, when
-// the task has any.
+// the task has any: it holds the upscale role and has a model to do it with.
 func upscalesIfNeeded(w *model.Worker, t *model.WorkerTask) bool {
 	if t.Kind != model.TaskEncode {
 		return true
@@ -329,8 +329,9 @@ func upscalesIfNeeded(w *model.Worker, t *model.WorkerTask) bool {
 	if !need {
 		return true
 	}
-	models, _ := w.Info["models"].([]any)
-	return len(models) > 0
+	// the upscale role is the admin's say: a worker that has an engine but
+	// isn't allowed to upscale only gets pages that don't need it
+	return takes(w, model.TaskUpscale)
 }
 
 // InfoProcess is what a worker puts in its hello to say it can do the
