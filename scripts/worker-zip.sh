@@ -24,6 +24,7 @@ LIBAVIF_VERSION=1.4.2
 LIBWEBP_VERSION=1.6.0
 LIBJXL_VERSION=0.11.1
 ONNXRUNTIME_VERSION=1.23.2
+ONNXRUNTIME_SHA256=25fe172f7fcdf34f2b5b02c8b997f6b88abc282956849d4af4335af23d0c4e4a
 case $goos in
   windows) plat=windows cugan=windows esr=windows avif=windows webp=windows-x64 ort=win-x64 exe=.exe ;;
   darwin) plat=macos cugan=macos esr=macos avif=macOS webp=mac-arm64 ort=osx-arm64 exe= ;;
@@ -81,19 +82,21 @@ if [ "$goos" = linux ]; then # libjxl publishes a static cjxl for Linux only
 fi
 chmod +x "$dir"/encoders/* 2>/dev/null || true
 
-# ONNX Runtime's shared library alone (not its headers or debug symbols)
-ortbase=https://github.com/microsoft/onnxruntime/releases/download/v$ONNXRUNTIME_VERSION/onnxruntime-$ort-$ONNXRUNTIME_VERSION
-if [ "$goos" = windows ]; then
-  curl -fsSL -o "$work/o.zip" "$ortbase.zip"
-  unzip -q -j -o "$work/o.zip" "*/lib/onnxruntime.dll" "*/LICENSE" -d "$work/o"
-  cp "$work/o/onnxruntime.dll" "$dir/onnxruntime/"
-  cp "$work/o/LICENSE" "$dir/onnxruntime/LICENSE.txt"
+# ONNX Runtime's shared library alone, from Microsoft's official NuGet
+# package (the GitHub release archives stopped being downloadable)
+curl -fsSL -o "$work/ort.nupkg" "https://www.nuget.org/api/v2/package/Microsoft.ML.OnnxRuntime/$ONNXRUNTIME_VERSION"
+if command -v sha256sum >/dev/null 2>&1; then
+  echo "$ONNXRUNTIME_SHA256  $work/ort.nupkg" | sha256sum -c -
 else
-  curl -fsSL "$ortbase.tgz" | tar -xz -C "$work"
-  lib=libonnxruntime.so; [ "$goos" = darwin ] && lib=libonnxruntime.dylib
-  cp -L "$work/onnxruntime-$ort-$ONNXRUNTIME_VERSION/lib/$lib" "$dir/onnxruntime/$lib"
-  cp "$work/onnxruntime-$ort-$ONNXRUNTIME_VERSION/LICENSE" "$dir/onnxruntime/LICENSE.txt"
+  echo "$ONNXRUNTIME_SHA256  $work/ort.nupkg" | shasum -a 256 -c -
 fi
+case $goos in
+  windows) lib=onnxruntime.dll ;;
+  darwin) lib=libonnxruntime.dylib ;;
+  *) lib=libonnxruntime.so ;;
+esac
+unzip -q -j -o "$work/ort.nupkg" "runtimes/$ort/native/$lib" -d "$dir/onnxruntime"
+unzip -q -p "$work/ort.nupkg" LICENSE > "$dir/onnxruntime/LICENSE.txt"
 
 cat > "$dir/README.txt" <<'EOF'
 mangarr worker

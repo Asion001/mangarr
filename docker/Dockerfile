@@ -69,12 +69,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # ---- ONNX Runtime (page moods) ---------------------------------------------------
 FROM debian:trixie-slim AS onnx
 ARG TARGETARCH
+# Microsoft's official NuGet package carries the same shared libraries as the
+# GitHub release archives (which stopped being downloadable), checked by hash.
 ARG ONNXRUNTIME_VERSION=1.23.2
-RUN set -eux; apt-get update && apt-get install -y --no-install-recommends ca-certificates curl; \
-    case "$TARGETARCH" in amd64) arch=x64 ;; arm64) arch=aarch64 ;; *) echo "no ONNX Runtime for $TARGETARCH"; exit 1 ;; esac; \
-    curl -fsSL "https://github.com/microsoft/onnxruntime/releases/download/v${ONNXRUNTIME_VERSION}/onnxruntime-linux-${arch}-${ONNXRUNTIME_VERSION}.tgz" | tar -xz -C /tmp; \
-    mkdir -p /out; cp -L /tmp/onnxruntime-*/lib/libonnxruntime.so /out/; \
-    cp /tmp/onnxruntime-*/LICENSE /out/ONNXRUNTIME-LICENSE
+ARG ONNXRUNTIME_SHA256=25fe172f7fcdf34f2b5b02c8b997f6b88abc282956849d4af4335af23d0c4e4a
+RUN set -eux; apt-get update && apt-get install -y --no-install-recommends ca-certificates curl unzip; \
+    case "$TARGETARCH" in amd64) rid=linux-x64 ;; arm64) rid=linux-arm64 ;; *) echo "no ONNX Runtime for $TARGETARCH"; exit 1 ;; esac; \
+    curl -fsSL -o /tmp/ort.nupkg "https://www.nuget.org/api/v2/package/Microsoft.ML.OnnxRuntime/${ONNXRUNTIME_VERSION}"; \
+    echo "${ONNXRUNTIME_SHA256}  /tmp/ort.nupkg" | sha256sum -c -; \
+    mkdir -p /out; unzip -q -j -o /tmp/ort.nupkg "runtimes/${rid}/native/libonnxruntime.so" -d /out; \
+    unzip -q -p /tmp/ort.nupkg LICENSE > /out/ONNXRUNTIME-LICENSE
 
 # ---- ncnn upscalers (x86_64 binaries) -------------------------------------------
 FROM debian:trixie-slim AS tools
