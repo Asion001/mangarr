@@ -44,6 +44,24 @@ func (a *App) wireProcess(ctx context.Context) error {
 	// comes back
 	a.Downloads.Processor = &processing.Switch{Local: a.Processing, UseRemote: a.processesOnWorkers,
 		Remote: &processing.Remote{Tasks: a.Tasks, Guard: a.Processing.Guard, Route: a.routeChapter}}
+	// a worker that packages a chapter itself (library on object storage)
+	// may also process it, unless that needs an upscaler or encoding is
+	// paused: those pages take the usual way
+	a.Downloads.DirectProcess = func(ctx context.Context, cfg model.ProfileConfig, pages []downloads.PageFile) bool {
+		if cfg.Upscale.Enabled {
+			for _, p := range pages {
+				if upscaling.NeedsUpscale(p, cfg.Upscale.MinWidth) {
+					return false
+				}
+			}
+		}
+		if cfg.Encode.Format != "" && cfg.Encode.Format != "keep" {
+			if blocked, _ := a.Processing.Guard.Blocked(); blocked {
+				return false
+			}
+		}
+		return true
+	}
 	if a.Cfg.Processing == config.ProcessingWorkers {
 		a.Log.Info("processing runs on workers (MANGARR_PROCESSING=workers)")
 	}
@@ -184,6 +202,24 @@ var ImportedProcessDelay = 2 * time.Second
 // rather than in this process: MANGARR_PROCESSING=workers, or this
 // server's own work switched off in System → Workers.
 func (a *App) processesOnWorkers(ctx context.Context) bool {
+	// a worker that packages a chapter itself (library on object storage)
+	// may also process it, unless that needs an upscaler or encoding is
+	// paused: those pages take the usual way
+	a.Downloads.DirectProcess = func(ctx context.Context, cfg model.ProfileConfig, pages []downloads.PageFile) bool {
+		if cfg.Upscale.Enabled {
+			for _, p := range pages {
+				if upscaling.NeedsUpscale(p, cfg.Upscale.MinWidth) {
+					return false
+				}
+			}
+		}
+		if cfg.Encode.Format != "" && cfg.Encode.Format != "keep" {
+			if blocked, _ := a.Processing.Guard.Blocked(); blocked {
+				return false
+			}
+		}
+		return true
+	}
 	if a.Cfg.Processing == config.ProcessingWorkers {
 		return true
 	}

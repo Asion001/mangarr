@@ -38,6 +38,10 @@ type Manager struct {
 	dataDir  string
 
 	Processor Processor
+	// DirectProcess (optional) says whether a worker that packages a
+	// chapter itself may also process its pages with cfg; without it, or
+	// when it says no, processing pages go through the server.
+	DirectProcess func(ctx context.Context, cfg model.ProfileConfig, pages []PageFile) bool
 	// Live has the progress of running jobs.
 	Live *Live
 	// Gov (optional) paces chapters per catalog and defers throttled catalogs.

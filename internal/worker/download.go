@@ -8,6 +8,7 @@ import (
 	"io"
 	"math/rand/v2"
 	"net/http"
+	"os"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -90,8 +91,21 @@ func (w *Worker) download(ctx context.Context, t Task) (result, error) {
 		conc = min(conc, pace.maxConcurrent)
 	}
 	w.status.stage(t.ID, "downloading", 0, len(pages))
+	parent := ctx
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+	// a direct download keeps the pages here until the server says what
+	// to do with them (see finishDirect)
+	var keepDir string
+	var kept []keptPage
+	if direct(t) {
+		dir, err := os.MkdirTemp("", "mangarr-direct-*")
+		if err != nil {
+			return result{}, err
+		}
+		defer os.RemoveAll(dir)
+		keepDir = dir
+	}
 
 	var (
 		bytesIn  atomic.Int64
@@ -195,7 +209,15 @@ func (w *Worker) download(ctx context.Context, t Task) (result, error) {
 	// one uploader: the server writes pages into the chapter's folder, and
 	// the order they arrive in doesn't matter
 	for page := range queue {
-		err := w.upload(ctx, t.ID, page.spec.Index+1, page.data)
+		var err error
+		if keepDir != "" {
+			var k keptPage
+			if k, err = keepPage(keepDir, page.spec.Index, page.data); err == nil {
+				kept = append(kept, k)
+			}
+		} else {
+			err = w.upload(ctx, t.ID, page.spec.Index+1, page.data)
+		}
 		budget.give(len(page.data))
 		if err != nil {
 			if gone(err) {
@@ -205,7 +227,9 @@ func (w *Worker) download(ctx context.Context, t Task) (result, error) {
 			}
 			break
 		}
-		bytesOut.Add(int64(len(page.data)))
+		if keepDir == "" {
+			bytesOut.Add(int64(len(page.data)))
+		}
 		w.status.stage(t.ID, "", int(done.Add(1)), -1)
 	}
 	cancel()
@@ -221,6 +245,9 @@ func (w *Worker) download(ctx context.Context, t Task) (result, error) {
 	}
 	if res.Pages != len(pages) {
 		return res, fmt.Errorf("uploaded %d of %d pages", res.Pages, len(pages))
+	}
+	if keepDir != "" {
+		return w.finishDirect(parent, t, keepDir, kept, res)
 	}
 	return res, nil
 }

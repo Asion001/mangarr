@@ -397,3 +397,22 @@ func DownloadURL(path string, ttl time.Duration, download string) (url string, o
 	}
 	return s.SignedURL(path, ttl, download), true
 }
+
+// UploadURL is a signed link another machine can PUT a file to, so it lands
+// at path on object storage without passing through the server; ok is
+// false when path is on the local disk.
+func UploadURL(path string, ttl time.Duration) (url string, ok bool) {
+	s, isS3 := For(path).(*S3)
+	if !isS3 {
+		return "", false
+	}
+	return s.SignedPutURL(path, ttl), true
+}
+
+// Forget drops what is remembered about path, for a file another machine
+// changed (see UploadURL).
+func Forget(path string) {
+	if s, ok := For(path).(*S3); ok {
+		s.forget(Key(path))
+	}
+}

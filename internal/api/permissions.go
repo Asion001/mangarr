@@ -214,15 +214,17 @@ var operationPermissions = map[string][]string{
 	"commands-get":             {access.LibraryEdit},
 
 	// the worker protocol: a worker key and nothing else
-	"worker-hello":     {permWorker},
-	"worker-lease":     {permWorker},
-	"worker-page":      {permWorker},
-	"worker-input":     {permWorker},
-	"worker-output":    {permWorker},
-	"worker-heartbeat": {permWorker},
-	"worker-complete":  {permWorker},
-	"worker-fail":      {permWorker},
-	"worker-bye":       {permWorker},
+	"worker-hello":           {permWorker},
+	"worker-lease":           {permWorker},
+	"worker-page":            {permWorker},
+	"worker-input":           {permWorker},
+	"worker-output":          {permWorker},
+	"worker-heartbeat":       {permWorker},
+	"worker-complete":        {permWorker},
+	"worker-direct-pages":    {permWorker},
+	"worker-direct-packaged": {permWorker},
+	"worker-fail":            {permWorker},
+	"worker-bye":             {permWorker},
 }
 
 // permissionsFor returns what an operation needs (admin when unlisted).

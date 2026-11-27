@@ -343,6 +343,8 @@ users-update PUT /api/v1/users/{id} -> admin
 wanted-missing GET /api/v1/wanted/missing -> library.edit
 worker-bye POST /api/v1/worker/bye -> worker
 worker-complete POST /api/v1/worker/tasks/{id}/complete -> worker
+worker-direct-packaged POST /api/v1/worker/tasks/{id}/packaged -> worker
+worker-direct-pages POST /api/v1/worker/tasks/{id}/pages -> worker
 worker-fail POST /api/v1/worker/tasks/{id}/fail -> worker
 worker-heartbeat POST /api/v1/worker/tasks/{id}/heartbeat -> worker
 worker-hello POST /api/v1/worker/hello -> worker

@@ -2340,6 +2340,128 @@
         ],
         "type": "object"
       },
+      "ComicInfo": {
+        "additionalProperties": false,
+        "properties": {
+          "AgeRating": {
+            "type": "string"
+          },
+          "CommunityRating": {
+            "type": "string"
+          },
+          "Count": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "Day": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "Format": {
+            "type": "string"
+          },
+          "Genre": {
+            "type": "string"
+          },
+          "LanguageISO": {
+            "type": "string"
+          },
+          "Manga": {
+            "type": "string"
+          },
+          "Month": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "Notes": {
+            "type": "string"
+          },
+          "Number": {
+            "type": "string"
+          },
+          "PageCount": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "Penciller": {
+            "type": "string"
+          },
+          "Publisher": {
+            "type": "string"
+          },
+          "Series": {
+            "type": "string"
+          },
+          "SeriesGroup": {
+            "type": "string"
+          },
+          "Summary": {
+            "type": "string"
+          },
+          "Tags": {
+            "type": "string"
+          },
+          "Title": {
+            "type": "string"
+          },
+          "Translator": {
+            "type": "string"
+          },
+          "Volume": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "Web": {
+            "type": "string"
+          },
+          "Writer": {
+            "type": "string"
+          },
+          "XMLNSXsd": {
+            "type": "string"
+          },
+          "XMLNSXsi": {
+            "type": "string"
+          },
+          "XMLName": {
+            "$ref": "#/components/schemas/Name"
+          },
+          "Year": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "XMLName",
+          "XMLNSXsi",
+          "XMLNSXsd",
+          "Title",
+          "Series",
+          "Number",
+          "Count",
+          "Volume",
+          "Summary",
+          "Notes",
+          "Year",
+          "Month",
+          "Day",
+          "Writer",
+          "Penciller",
+          "Translator",
+          "Publisher",
+          "Genre",
+          "Tags",
+          "Web",
+          "PageCount",
+          "LanguageISO",
+          "Format",
+          "Manga",
+          "SeriesGroup",
+          "AgeRating",
+          "CommunityRating"
+        ],
+        "type": "object"
+      },
       "Command": {
         "additionalProperties": false,
         "properties": {
@@ -2871,6 +2993,100 @@
           "lastSeen",
           "events",
           "kept"
+        ],
+        "type": "object"
+      },
+      "DirectOutPage": {
+        "additionalProperties": false,
+        "properties": {
+          "format": {
+            "type": "string"
+          },
+          "height": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "width": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "format",
+          "width",
+          "height"
+        ],
+        "type": "object"
+      },
+      "DirectPage": {
+        "additionalProperties": false,
+        "properties": {
+          "format": {
+            "type": "string"
+          },
+          "height": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "index": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "size": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "width": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "index",
+          "format",
+          "width",
+          "height",
+          "size"
+        ],
+        "type": "object"
+      },
+      "DirectPlan": {
+        "additionalProperties": false,
+        "properties": {
+          "comicInfo": {
+            "$ref": "#/components/schemas/ComicInfo"
+          },
+          "keep": {
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "mode": {
+            "enum": [
+              "package",
+              "upload",
+              "stop"
+            ],
+            "type": "string"
+          },
+          "process": {
+            "$ref": "#/components/schemas/ProfileConfig"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "uploadUrl": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "mode"
         ],
         "type": "object"
       },
@@ -7626,6 +7842,22 @@
           "available",
           "connected",
           "premium"
+        ],
+        "type": "object"
+      },
+      "Name": {
+        "additionalProperties": false,
+        "properties": {
+          "Local": {
+            "type": "string"
+          },
+          "Space": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "Space",
+          "Local"
         ],
         "type": "object"
       },
@@ -15872,6 +16104,106 @@
           "pages",
           "bytesIn",
           "bytesOut"
+        ],
+        "type": "object"
+      },
+      "Worker-direct-packagedRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "bytesIn": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "changed": {
+            "type": "boolean"
+          },
+          "encoded": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "encoder": {
+            "type": "string"
+          },
+          "pages": {
+            "items": {
+              "$ref": "#/components/schemas/DirectOutPage"
+            },
+            "maxItems": 10000,
+            "type": "array"
+          },
+          "processed": {
+            "type": "boolean"
+          },
+          "processedPages": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "seconds": {
+            "format": "double",
+            "type": "number"
+          },
+          "sha256": {
+            "type": "string"
+          },
+          "shrunk": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "size": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "sizeBefore": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "sourcePages": {
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "maxItems": 10000,
+            "type": "array"
+          },
+          "split": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "bytesIn",
+          "size",
+          "sha256",
+          "pages",
+          "sizeBefore",
+          "processed"
+        ],
+        "type": "object"
+      },
+      "Worker-direct-pagesRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "canProcess": {
+            "type": "boolean"
+          },
+          "pages": {
+            "items": {
+              "$ref": "#/components/schemas/DirectPage"
+            },
+            "maxItems": 10000,
+            "type": "array"
+          },
+          "requests": {
+            "items": {
+              "$ref": "#/components/schemas/SiteRequest"
+            },
+            "maxItems": 5000,
+            "type": "array"
+          }
+        },
+        "required": [
+          "pages",
+          "canProcess"
         ],
         "type": "object"
       },
@@ -31845,6 +32177,104 @@
           }
         },
         "summary": "Upload what a processing task produced",
+        "tags": [
+          "Workers"
+        ]
+      }
+    },
+    "/api/v1/worker/tasks/{id}/packaged": {
+      "post": {
+        "operationId": "worker-direct-packaged",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Worker-direct-packagedRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Say a download task's archive is uploaded; the chapter is imported before this answers",
+        "tags": [
+          "Workers"
+        ]
+      }
+    },
+    "/api/v1/worker/tasks/{id}/pages": {
+      "post": {
+        "description": "For a download task marked direct (the library is on object storage): the worker keeps the pages, sends only their sizes, and is told to package them itself (with a signed upload link), to upload them here as before, or to stop.",
+        "operationId": "worker-direct-pages",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Worker-direct-pagesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectPlan"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Describe a download task's fetched pages and learn what to do with them",
         "tags": [
           "Workers"
         ]

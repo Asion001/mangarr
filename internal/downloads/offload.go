@@ -87,6 +87,9 @@ func (m *Manager) offload(ctx context.Context, job model.DownloadJob) (bool, err
 		"chapter":  jc.chapter.NumberKey,
 		"rate":     m.workerBudget(jc, dl.MaxPerSource),
 	}
+	if DirectOK() {
+		spec[SpecDirect] = true // a worker that can packages the chapter itself
+	}
 	task := &model.WorkerTask{JobID: job.ID, Kind: model.TaskDownload, Spec: spec, PagesTotal: len(specs)}
 	if err := m.Tasks.Add(ctx, task); err != nil {
 		m.requeue(ctx, &job)

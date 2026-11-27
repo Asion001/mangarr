@@ -934,7 +934,17 @@ With the library in a bucket:
   `MANGARR_S3_REDIRECT_DOWNLOADS=false` to keep downloads going through the
   server. Single pages still go through the server, which resizes, converts
   and caches them.
-- **Workers** fetch and upload everything over HTTP. Turn off
+- **Workers that download** build the chapter's archive themselves and
+  upload it straight to the bucket with a signed link, so the pages never
+  pass through the server. The server still decides everything (which pages
+  to keep, the ComicInfo, the file name) and moves the upload into place
+  with a copy inside the bucket. A worker with the encode role also does the
+  chapter's processing then; pages that need upscaling, or a worker without
+  the encode role, send the pages to the server as before. Uploads that
+  never got moved into place are deleted from `<root folder>/.mangarr-staging`
+  after a day. Workers must reach the bucket at the address in
+  `MANGARR_S3_PUBLIC_ENDPOINT` (or `MANGARR_S3_ENDPOINT`).
+- Other worker tasks fetch and upload over HTTP. Turn off
   `MANGARR_WORKER_SHARED_STORAGE` on workers that used to share the server's
   folders.
 - **Komga or Kavita reading the same folders** need a file system; point them

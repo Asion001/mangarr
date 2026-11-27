@@ -239,9 +239,10 @@ func (c *s3Client) signingKey(day string) []byte {
 	return hmacSHA256(k, "aws4_request")
 }
 
-// presign returns a link to GET key that works without credentials until
-// it expires; extra holds response-* overrides (e.g. the download name).
-func (c *s3Client) presign(key string, ttl time.Duration, extra url.Values, now time.Time) string {
+// presign returns a link to GET (or PUT) key that works without
+// credentials until it expires; extra holds response-* overrides (e.g. the
+// download name).
+func (c *s3Client) presign(method, key string, ttl time.Duration, extra url.Values, now time.Time) string {
 	now = now.UTC()
 	amzDate := now.Format("20060102T150405Z")
 	day := now.Format("20060102")
@@ -256,7 +257,7 @@ func (c *s3Client) presign(key string, ttl time.Duration, extra url.Values, now 
 	q.Set("X-Amz-Expires", strconv.Itoa(int(ttl/time.Second)))
 	q.Set("X-Amz-SignedHeaders", "host")
 	u := c.urlAt(c.public, c.prefix+key, q)
-	canonical := strings.Join([]string{http.MethodGet, u.EscapedPath(), u.RawQuery, "host:" + u.Host + "\n", "host", unsignedPayload}, "\n")
+	canonical := strings.Join([]string{method, u.EscapedPath(), u.RawQuery, "host:" + u.Host + "\n", "host", unsignedPayload}, "\n")
 	sum := sha256.Sum256([]byte(canonical))
 	toSign := "AWS4-HMAC-SHA256\n" + amzDate + "\n" + scope + "\n" + hex.EncodeToString(sum[:])
 	u.RawQuery += "&X-Amz-Signature=" + hex.EncodeToString(hmacSHA256(c.signingKey(day), toSign))

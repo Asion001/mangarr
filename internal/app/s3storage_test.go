@@ -28,10 +28,10 @@ import (
 	"github.com/Asion001/mangarr/internal/testutil/fakesource"
 )
 
-// TestLibraryOnObjectStorage runs downloads, an upgrade (which recycles the
-// old file), reading and a folder rename with the library in a bucket: no
-// library file may land on the local disk.
-func TestLibraryOnObjectStorage(t *testing.T) {
+// newS3TestApp starts an app whose library is on a fake bucket, with one
+// root folder that never exists on the disk.
+func newS3TestApp(t *testing.T) (*testEnv, *libfstest.Server) {
+	t.Helper()
 	dsn := dbtest.DSNs(t)["sqlite"]
 	srv := libfstest.NewServer(t)
 	t.Cleanup(func() { libfs.Use(nil) })
@@ -64,6 +64,15 @@ func TestLibraryOnObjectStorage(t *testing.T) {
 		t.Fatal(err)
 	}
 	e := &testEnv{App: a, Ctx: ctx, Root: root, RFID: rf.ID}
+	return e, srv
+}
+
+// TestLibraryOnObjectStorage runs downloads, an upgrade (which recycles the
+// old file), reading and a folder rename with the library in a bucket: no
+// library file may land on the local disk.
+func TestLibraryOnObjectStorage(t *testing.T) {
+	e, srv := newS3TestApp(t)
+	a, ctx, root, rf, dir := e.App, e.Ctx, e.Root, &model.RootFolder{ID: e.RFID}, filepath.Dir(e.Root)
 
 	sc := fakesource.NewScenario("s3-storage")
 	sc.Sources = []source.SourceInfo{{ID: "A", Name: "Source A", Lang: "en"}}

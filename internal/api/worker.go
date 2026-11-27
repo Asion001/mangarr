@@ -413,6 +413,72 @@ func (s *Server) registerWorkerProtocol() {
 			return &struct{}{}, nil
 		})
 
+	huma.Register(s.api, huma.Operation{OperationID: "worker-direct-pages", Method: http.MethodPost, Path: "/api/v1/worker/tasks/{id}/pages", Tags: tags,
+		Summary: "Describe a download task's fetched pages and learn what to do with them",
+		Description: "For a download task marked direct (the library is on object storage): the worker keeps the pages, " +
+			"sends only their sizes, and is told to package them itself (with a signed upload link), to upload them here as before, or to stop."},
+		func(ctx context.Context, in *struct {
+			ID   int64 `path:"id"`
+			Body struct {
+				Pages []downloads.DirectPage `json:"pages" maxItems:"10000"`
+				// CanProcess: this worker may process pages (it has the encode role).
+				CanProcess bool `json:"canProcess"`
+				// Requests: the page requests since the last heartbeat.
+				Requests []downloads.SiteRequest `json:"requests,omitempty" maxItems:"5000"`
+			}
+		}) (*struct{ Body downloads.DirectPlan }, error) {
+			w, err := s.worker(ctx)
+			if err != nil {
+				return nil, err
+			}
+			task, err := s.app.Tasks.Held(ctx, in.ID, w.ID)
+			if err != nil {
+				return nil, huma.Error409Conflict("this task is not yours any more")
+			}
+			if task.Kind != model.TaskDownload {
+				return nil, huma.Error422UnprocessableEntity("only a download task has pages to describe")
+			}
+			s.app.Downloads.TaskRequests(ctx, *task, in.Body.Requests)
+			canProcess := in.Body.CanProcess && w.HasRole(model.RoleEncode)
+			plan, err := s.app.Downloads.PlanDirect(context.WithoutCancel(ctx), *task, in.Body.Pages, canProcess)
+			if err != nil {
+				return nil, toHTTPError(err)
+			}
+			if plan.Mode == downloads.DirectStop {
+				_ = s.app.Tasks.Fail(ctx, in.ID, w.ID, plan.Reason, worktasks.Progress{PagesDone: len(in.Body.Pages), PagesTotal: task.PagesTotal})
+			}
+			return &struct{ Body downloads.DirectPlan }{plan}, nil
+		})
+
+	huma.Register(s.api, huma.Operation{OperationID: "worker-direct-packaged", Method: http.MethodPost, Path: "/api/v1/worker/tasks/{id}/packaged", Tags: tags,
+		Summary: "Say a download task's archive is uploaded; the chapter is imported before this answers", DefaultStatus: http.StatusNoContent},
+		func(ctx context.Context, in *struct {
+			ID   int64 `path:"id"`
+			Body struct {
+				downloads.DirectResult
+				BytesIn int64 `json:"bytesIn"`
+			}
+		}) (*struct{}, error) {
+			w, err := s.worker(ctx)
+			if err != nil {
+				return nil, err
+			}
+			task, err := s.app.Tasks.Held(ctx, in.ID, w.ID)
+			if err != nil {
+				return nil, huma.Error409Conflict("this task is not yours any more")
+			}
+			p := worktasks.Progress{PagesDone: len(in.Body.Pages), PagesTotal: task.PagesTotal, BytesIn: in.Body.BytesIn, BytesOut: in.Body.Size}
+			if err := s.app.Downloads.FinishDirect(context.WithoutCancel(ctx), *task, in.Body.DirectResult); err != nil {
+				// the job is failed (or retried) already; the task ends with it
+				_ = s.app.Tasks.Fail(ctx, in.ID, w.ID, err.Error(), p)
+				return nil, huma.Error422UnprocessableEntity("the chapter could not be imported: " + err.Error())
+			}
+			if err := s.app.Tasks.Finish(ctx, in.ID, w.ID, p); err != nil {
+				return nil, workerConflict(err)
+			}
+			return &struct{}{}, nil
+		})
+
 	huma.Register(s.api, huma.Operation{OperationID: "worker-fail", Method: http.MethodPost, Path: "/api/v1/worker/tasks/{id}/fail", Tags: tags,
 		Summary: "Say a task could not be done", DefaultStatus: http.StatusNoContent},
 		func(ctx context.Context, in *struct {

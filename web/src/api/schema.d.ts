@@ -4867,6 +4867,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/worker/tasks/{id}/packaged": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Say a download task's archive is uploaded; the chapter is imported before this answers */
+        post: operations["worker-direct-packaged"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/worker/tasks/{id}/pages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Describe a download task's fetched pages and learn what to do with them
+         * @description For a download task marked direct (the library is on object storage): the worker keeps the pages, sends only their sizes, and is told to package them itself (with a signed upload link), to upload them here as before, or to stop.
+         */
+        post: operations["worker-direct-pages"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/worker/tasks/{id}/pages/{n}": {
         parameters: {
             query?: never;
@@ -5646,6 +5683,41 @@ export interface components {
              */
             jobs: number;
         };
+        ComicInfo: {
+            AgeRating: string;
+            CommunityRating: string;
+            /** Format: int64 */
+            Count: number;
+            /** Format: int64 */
+            Day: number;
+            Format: string;
+            Genre: string;
+            LanguageISO: string;
+            Manga: string;
+            /** Format: int64 */
+            Month: number;
+            Notes: string;
+            Number: string;
+            /** Format: int64 */
+            PageCount: number;
+            Penciller: string;
+            Publisher: string;
+            Series: string;
+            SeriesGroup: string;
+            Summary: string;
+            Tags: string;
+            Title: string;
+            Translator: string;
+            /** Format: int64 */
+            Volume: number;
+            Web: string;
+            Writer: string;
+            XMLNSXsd: string;
+            XMLNSXsi: string;
+            XMLName: components["schemas"]["Name"];
+            /** Format: int64 */
+            Year: number;
+        };
         Command: {
             body: {
                 [key: string]: unknown;
@@ -5818,6 +5890,34 @@ export interface components {
             /** Format: date-time */
             lastSeen: string;
             origin: string;
+        };
+        DirectOutPage: {
+            format: string;
+            /** Format: int64 */
+            height: number;
+            name: string;
+            /** Format: int64 */
+            width: number;
+        };
+        DirectPage: {
+            format: string;
+            /** Format: int64 */
+            height: number;
+            /** Format: int64 */
+            index: number;
+            /** Format: int64 */
+            size: number;
+            /** Format: int64 */
+            width: number;
+        };
+        DirectPlan: {
+            comicInfo?: components["schemas"]["ComicInfo"];
+            keep?: number[];
+            /** @enum {string} */
+            mode: "package" | "upload" | "stop";
+            process?: components["schemas"]["ProfileConfig"];
+            reason?: string;
+            uploadUrl?: string;
         };
         DiscordBot: {
             announceChannel: string;
@@ -7238,6 +7338,10 @@ export interface components {
             connectedAt?: string;
             displayName?: string;
             premium: boolean;
+        };
+        Name: {
+            Local: string;
+            Space: string;
         };
         NamingPreview: {
             chapter: string;
@@ -9700,6 +9804,35 @@ export interface components {
             }[];
             /** Format: int64 */
             pages: number;
+            requests?: components["schemas"]["SiteRequest"][];
+        };
+        "Worker-direct-packagedRequest": {
+            /** Format: int64 */
+            bytesIn: number;
+            changed?: boolean;
+            /** Format: int64 */
+            encoded?: number;
+            encoder?: string;
+            pages: components["schemas"]["DirectOutPage"][];
+            processed: boolean;
+            /** Format: int64 */
+            processedPages?: number;
+            /** Format: double */
+            seconds?: number;
+            sha256: string;
+            /** Format: int64 */
+            shrunk?: number;
+            /** Format: int64 */
+            size: number;
+            /** Format: int64 */
+            sizeBefore: number;
+            sourcePages?: number[];
+            /** Format: int64 */
+            split?: number;
+        };
+        "Worker-direct-pagesRequest": {
+            canProcess: boolean;
+            pages: components["schemas"]["DirectPage"][];
             requests?: components["schemas"]["SiteRequest"][];
         };
         "Worker-failRequest": {
@@ -21060,6 +21193,74 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "worker-direct-packaged": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Worker-direct-packagedRequest"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "worker-direct-pages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Worker-direct-pagesRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DirectPlan"];
+                };
             };
             /** @description Error */
             default: {

@@ -509,6 +509,11 @@ func (w *Worker) do(ctx context.Context, t Task) {
 			withRequests(map[string]any{"reason": err.Error(), "pages": res.Pages}, res.Requests), nil)
 		return
 	}
+	if res.Reported {
+		// a direct download told the server itself (finishDirect)
+		w.log.Info("task done", "task", t.ID, "kind", t.Kind, "pages", res.Pages, "seconds", fmt.Sprintf("%.1f", time.Since(started).Seconds()))
+		return
+	}
 	done := withRequests(map[string]any{"pages": res.Pages, "bytesIn": res.BytesIn, "bytesOut": res.BytesOut, "gpu": res.GPU}, res.Requests)
 	if res.Moods != nil {
 		done["moods"] = res.Moods
@@ -540,6 +545,8 @@ type result struct {
 	Requests []siteRequest
 	// Moods are a moods task's page scores.
 	Moods []moodscore.Scores
+	// Reported: the task already told the server how it ended.
+	Reported bool
 }
 
 // bye hands back whatever this worker still holds, so a restart doesn't

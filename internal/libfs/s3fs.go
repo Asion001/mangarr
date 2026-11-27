@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/fs"
 	"mime"
+	"net/http"
 	"net/url"
 	"os"
 	"path"
@@ -373,7 +374,14 @@ func (s *S3) SignedURL(name string, ttl time.Duration, download string) string {
 	if download != "" {
 		extra.Set("response-content-disposition", mime.FormatMediaType("attachment", map[string]string{"filename": download}))
 	}
-	return s.c.presign(Key(name), ttl, extra, time.Now())
+	return s.c.presign(http.MethodGet, Key(name), ttl, extra, time.Now())
+}
+
+// SignedPutURL is a link that uploads name (one PUT of the whole file)
+// without credentials for ttl.
+func (s *S3) SignedPutURL(name string, ttl time.Duration) string {
+	s.forget(Key(name))
+	return s.c.presign(http.MethodPut, Key(name), ttl, nil, time.Now())
 }
 
 // Copy copies a file within the bucket.

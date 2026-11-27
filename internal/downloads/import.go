@@ -3,6 +3,7 @@ package downloads
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strconv"
 	"time"
@@ -22,6 +23,21 @@ import (
 // importChapter writes the processed pages to the library, commits file/job
 // state and history, then publishes events. Its caller handles any failure.
 func (m *Manager) importChapter(ctx context.Context, jc *jobCtx, proc ProcessResult, params string, sizeBefore int64) error {
+	return m.importWith(ctx, jc, proc, params, sizeBefore, func(target string, comicInfo []byte, mode os.FileMode) (cbz.Result, error) {
+		cbzPages := make([]cbz.Page, len(proc.Pages))
+		for i, p := range proc.Pages {
+			cbzPages[i] = cbz.Page{Name: p.Name, Path: p.Path}
+		}
+		return cbz.Write(target, cbzPages, comicInfo, mode, time.Now())
+	})
+}
+
+// writeArchive puts a chapter's CBZ at target: built here from the pages,
+// or a finished archive a worker uploaded, moved into place.
+type writeArchive func(target string, comicInfo []byte, mode os.FileMode) (cbz.Result, error)
+
+// importWith is importChapter with the archive written by write.
+func (m *Manager) importWith(ctx context.Context, jc *jobCtx, proc ProcessResult, params string, sizeBefore int64, write writeArchive) error {
 	defer library.RLockSeries(jc.series.ID)() // a move/rename waits for the import
 	// the series may have moved while pages were downloading
 	var loc model.Series
@@ -77,15 +93,13 @@ func (m *Manager) importChapter(ctx context.Context, jc *jobCtx, proc ProcessRes
 		return err
 	}
 	fmode, _ := m.lib.Modes(ctx)
-	cbzPages := make([]cbz.Page, len(pages))
 	widthSum := 0
 	formats := map[string]int{}
-	for i, p := range pages {
-		cbzPages[i] = cbz.Page{Name: p.Name, Path: p.Path}
+	for _, p := range pages {
 		widthSum += p.Width
 		formats[p.Format]++
 	}
-	res, err := cbz.Write(target, cbzPages, xmlData, fmode, time.Now())
+	res, err := write(target, xmlData, fmode)
 	if err != nil {
 		return infraError{fmt.Errorf("write %s: %w", target, err)}
 	}
