@@ -401,7 +401,8 @@ func (s *Server) registerRead() {
 				return nil, err
 			}
 			name := filepath.Base(b.Path)
-			if link, ok := libfs.DownloadURL(b.Path, downloadLinkTTL, name); ok && libfs.Exists(b.Path) {
+			rs, _ := s.app.Settings.Reading(ctx)
+			if link, ok := libfs.DownloadURL(b.Path, downloadLinkTTL, name); ok && rs.DirectFromStorage && libfs.Exists(b.Path) {
 				// straight from the bucket, without passing through here
 				return &huma.StreamResponse{Body: func(hctx huma.Context) {
 					hctx.SetHeader("Location", link)

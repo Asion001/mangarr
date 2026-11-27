@@ -132,13 +132,32 @@ func TestLibraryOnObjectStorage(t *testing.T) {
 	if resp.StatusCode != http.StatusFound || !strings.HasPrefix(loc, srv.URL+"/") || !strings.Contains(loc, "X-Amz-Signature=") {
 		t.Fatalf("download: %d %q", resp.StatusCode, loc)
 	}
+	// switched off, the same download goes through the server
+	rs, _ := a.Settings.Reading(ctx)
+	rs.DirectFromStorage = false
+	if err := a.Settings.Set(ctx, settings.KeyReading, rs); err != nil {
+		t.Fatal(err)
+	}
+	req2, _ := http.NewRequest(http.MethodGet, req.URL.String(), nil)
+	req2.Header.Set("X-Api-Key", general.APIKey)
+	through, err := noFollow.Do(req2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	throughBody, _ := io.ReadAll(through.Body)
+	through.Body.Close()
+	if through.StatusCode != http.StatusOK || through.Header.Get("Location") != "" {
+		t.Fatalf("with direct downloads off: %d %q", through.StatusCode, through.Header.Get("Location"))
+	}
+	rs.DirectFromStorage = true
+	_ = a.Settings.Set(ctx, settings.KeyReading, rs)
 	got, err := http.Get(loc)
 	if err != nil {
 		t.Fatal(err)
 	}
 	body, _ := io.ReadAll(got.Body)
 	got.Body.Close()
-	if want, _ := libfs.ReadFile(path1); string(body) != string(want) {
+	if want, _ := libfs.ReadFile(path1); string(body) != string(want) || string(throughBody) != string(want) {
 		t.Fatalf("the link served %d bytes, want %d", len(body), len(want))
 	}
 

@@ -7901,6 +7901,7 @@ export interface components {
         };
         Reading: {
             cdnImages: boolean;
+            directFromStorage: boolean;
             downloadOnOpen: boolean;
             enabled: boolean;
             publicUrl: string;

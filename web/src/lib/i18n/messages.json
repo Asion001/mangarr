@@ -12798,5 +12798,13 @@
   "Credits for every sound": {
     "ru": "Авторы всех звуков",
     "uk": "Автори всіх звуків"
+  },
+  "Send downloads straight from the S3 bucket": {
+    "ru": "Отдавать загрузки прямо из бакета S3",
+    "uk": "Віддавати завантаження прямо з бакета S3"
+  },
+  "Only when the library is kept in an S3 bucket: apps download whole chapters from the bucket with a link that works for 15 minutes, so they don't pass through the server. Off: everything goes through the server, as with a library on disk.": {
+    "ru": "Только если библиотека хранится в бакете S3: приложения скачивают главы целиком прямо из бакета по ссылке, которая действует 15 минут, и они не проходят через сервер. Выключено: всё идёт через сервер, как с библиотекой на диске.",
+    "uk": "Лише якщо бібліотека зберігається в бакеті S3: застосунки завантажують розділи цілком прямо з бакета за посиланням, що діє 15 хвилин, і вони не проходять через сервер. Вимкнено: усе йде через сервер, як із бібліотекою на диску."
   }
 }

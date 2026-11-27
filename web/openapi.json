@@ -9649,6 +9649,9 @@
           "cdnImages": {
             "type": "boolean"
           },
+          "directFromStorage": {
+            "type": "boolean"
+          },
           "downloadOnOpen": {
             "type": "boolean"
           },
@@ -9671,6 +9674,7 @@
           "downloadOnOpen",
           "resizePages",
           "cdnImages",
+          "directFromStorage",
           "readAhead"
         ],
         "type": "object"

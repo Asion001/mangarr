@@ -37,9 +37,6 @@ type S3Config struct {
 	// PublicEndpoint is the service's URL as readers' devices reach it, for
 	// the signed links downloads are redirected to (Endpoint when empty).
 	PublicEndpoint string
-	// NoRedirect keeps whole-chapter downloads going through the server
-	// instead of sending readers to a signed link.
-	NoRedirect bool
 }
 
 // s3Client speaks the small part of the S3 API the library needs, signed

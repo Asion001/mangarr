@@ -85,6 +85,10 @@ export function ReadingAppsPage() {
                   <p className="mt-1 text-xs text-muted">{t("Covers and downloaded pages get signed links that a CDN in front of mangarr may keep and serve. Anyone holding such a link can open that image without logging in; links stop working after about two months, or at once when reset.")}</p>
                   {r.cdnImages && <Button size="sm" className="mt-2" onClick={resetLinks}>{t("Reset image links")}</Button>}
                 </div>
+                <div>
+                  <Switch env={lock("directFromStorage")} checked={r.directFromStorage} onChange={(v) => patch({ directFromStorage: v })} label={t("Send downloads straight from the S3 bucket")} />
+                  <p className="mt-1 text-xs text-muted">{t("Only when the library is kept in an S3 bucket: apps download whole chapters from the bucket with a link that works for 15 minutes, so they don't pass through the server. Off: everything goes through the server, as with a library on disk.")}</p>
+                </div>
                 <p className="-mt-2 text-xs text-muted">{t("Chapters that aren't downloaded are streamed from the source meanwhile.")}</p>
                 <Switch
                   env={lock("readAhead.enabled")}

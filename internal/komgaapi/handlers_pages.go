@@ -157,7 +157,8 @@ func (h *pageHandlers) file(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	name := filepath.Base(b.Path)
-	if link, ok := libfs.DownloadURL(b.Path, 15*time.Minute, name); ok && libfs.Exists(b.Path) {
+	rs, _ := h.s.deps.Settings.Reading(r.Context())
+	if link, ok := libfs.DownloadURL(b.Path, 15*time.Minute, name); ok && rs.DirectFromStorage && libfs.Exists(b.Path) {
 		// straight from the bucket, without passing through the server
 		w.Header().Set("Cache-Control", "private, no-store")
 		http.Redirect(w, r, link, http.StatusFound)

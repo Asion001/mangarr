@@ -930,9 +930,9 @@ With the library in a bucket:
   reader's *Download*) are sent straight to the bucket with a signed link
   that works for 15 minutes, so they don't pass through the server. Reading
   devices must reach the bucket: set `MANGARR_S3_PUBLIC_ENDPOINT` when they
-  reach it at another address than the server does, or
-  `MANGARR_S3_REDIRECT_DOWNLOADS=false` to keep downloads going through the
-  server. Single pages still go through the server, which resizes, converts
+  reach it at another address than the server does, or turn off *Send
+  downloads straight from the S3 bucket* (Settings → Reading apps) to keep
+  downloads going through the server. Single pages still go through the server, which resizes, converts
   and caches them.
 - **Workers that download** build the chapter's archive themselves and
   upload it straight to the bucket with a signed link, so the pages never

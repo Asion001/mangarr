@@ -225,8 +225,11 @@ type Reading struct {
 	ResizePages bool `json:"resizePages" desc:"Serve phones and tablets a copy of the page at their screen size instead of the full scan."`
 	// CDNImages gives covers and downloaded pages signed links that a CDN in
 	// front of mangarr may cache.
-	CDNImages bool      `json:"cdnImages" desc:"Give covers and downloaded pages signed links that a CDN in front of mangarr may cache. Anyone holding such a link can open that image without logging in."`
-	ReadAhead ReadAhead `json:"readAhead"`
+	CDNImages bool `json:"cdnImages" desc:"Give covers and downloaded pages signed links that a CDN in front of mangarr may cache. Anyone holding such a link can open that image without logging in."`
+	// DirectFromStorage sends whole-chapter downloads straight to the
+	// bucket when the library is on object storage.
+	DirectFromStorage bool      `json:"directFromStorage" desc:"With the library in an S3 bucket, send whole-chapter downloads straight from the bucket with a short-lived signed link instead of through the server."`
+	ReadAhead         ReadAhead `json:"readAhead"`
 }
 
 // ReadAhead downloads the chapters after the one being read.
@@ -414,7 +417,7 @@ func DefaultCleanup() Cleanup {
 func DefaultReadSync() ReadSync { return ReadSync{IntervalMinutes: 30} }
 
 func DefaultReading() Reading {
-	return Reading{DownloadOnOpen: true, ResizePages: true, ReadAhead: ReadAhead{Enabled: true, Chapters: 3}}
+	return Reading{DownloadOnOpen: true, ResizePages: true, DirectFromStorage: true, ReadAhead: ReadAhead{Enabled: true, Chapters: 3}}
 }
 
 // Store caches settings documents in memory.

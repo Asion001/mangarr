@@ -389,10 +389,10 @@ func Lstat(name string) (fs.FileInfo, error) {
 
 // DownloadURL is a signed link to download path straight from object
 // storage, so a whole chapter doesn't pass through the server; ok is false
-// for a local file or with redirects turned off.
+// for a local file.
 func DownloadURL(path string, ttl time.Duration, download string) (url string, ok bool) {
 	s, isS3 := For(path).(*S3)
-	if !isS3 || s.c.cfg.NoRedirect {
+	if !isS3 {
 		return "", false
 	}
 	return s.SignedURL(path, ttl, download), true
