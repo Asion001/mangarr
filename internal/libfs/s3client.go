@@ -34,6 +34,12 @@ type S3Config struct {
 	PathStyle bool
 	// TempDir holds files being uploaded (os.TempDir when empty).
 	TempDir string
+	// PublicEndpoint is the service's URL as readers' devices reach it, for
+	// the signed links downloads are redirected to (Endpoint when empty).
+	PublicEndpoint string
+	// NoRedirect keeps whole-chapter downloads going through the server
+	// instead of sending readers to a signed link.
+	NoRedirect bool
 }
 
 // s3Client speaks the small part of the S3 API the library needs, signed
@@ -41,6 +47,7 @@ type S3Config struct {
 type s3Client struct {
 	cfg    S3Config
 	base   *url.URL
+	public *url.URL
 	http   *http.Client
 	prefix string
 }
@@ -91,11 +98,21 @@ func newS3Client(cfg S3Config) (*s3Client, error) {
 	if u.Host == "" {
 		return nil, fmt.Errorf("s3 endpoint %q has no host", cfg.Endpoint)
 	}
+	public := u
+	if cfg.PublicEndpoint != "" {
+		pe := cfg.PublicEndpoint
+		if !strings.Contains(pe, "://") {
+			pe = "https://" + pe
+		}
+		if public, err = url.Parse(strings.TrimRight(pe, "/")); err != nil || public.Host == "" {
+			return nil, fmt.Errorf("s3 public endpoint %q is not a URL", cfg.PublicEndpoint)
+		}
+	}
 	prefix := strings.Trim(cfg.Prefix, "/")
 	if prefix != "" {
 		prefix += "/"
 	}
-	return &s3Client{cfg: cfg, base: u, prefix: prefix, http: &http.Client{
+	return &s3Client{cfg: cfg, base: u, public: public, prefix: prefix, http: &http.Client{
 		Transport: &http.Transport{
 			Proxy:               http.ProxyFromEnvironment,
 			MaxIdleConnsPerHost: 32,
@@ -111,7 +128,11 @@ func newS3Client(cfg S3Config) (*s3Client, error) {
 // objectURL builds the address of key (empty: the bucket) and the path
 // that is signed.
 func (c *s3Client) objectURL(key string, query url.Values) *url.URL {
-	u := *c.base
+	return c.urlAt(c.base, key, query)
+}
+
+func (c *s3Client) urlAt(base *url.URL, key string, query url.Values) *url.URL {
+	u := *base
 	var segs []string
 	if c.cfg.PathStyle {
 		segs = append(segs, c.cfg.Bucket)
@@ -207,12 +228,39 @@ func (c *s3Client) sign(req *http.Request, payloadHash string, now time.Time) {
 	scope := day + "/" + c.cfg.Region + "/s3/aws4_request"
 	sum := sha256.Sum256([]byte(canonical))
 	toSign := "AWS4-HMAC-SHA256\n" + amzDate + "\n" + scope + "\n" + hex.EncodeToString(sum[:])
+	sig := hex.EncodeToString(hmacSHA256(c.signingKey(day), toSign))
+	req.Header.Set("Authorization", "AWS4-HMAC-SHA256 Credential="+c.cfg.AccessKey+"/"+scope+", SignedHeaders="+signed+", Signature="+sig)
+}
+
+func (c *s3Client) signingKey(day string) []byte {
 	k := hmacSHA256([]byte("AWS4"+c.cfg.SecretKey), day)
 	k = hmacSHA256(k, c.cfg.Region)
 	k = hmacSHA256(k, "s3")
-	k = hmacSHA256(k, "aws4_request")
-	sig := hex.EncodeToString(hmacSHA256(k, toSign))
-	req.Header.Set("Authorization", "AWS4-HMAC-SHA256 Credential="+c.cfg.AccessKey+"/"+scope+", SignedHeaders="+signed+", Signature="+sig)
+	return hmacSHA256(k, "aws4_request")
+}
+
+// presign returns a link to GET key that works without credentials until
+// it expires; extra holds response-* overrides (e.g. the download name).
+func (c *s3Client) presign(key string, ttl time.Duration, extra url.Values, now time.Time) string {
+	now = now.UTC()
+	amzDate := now.Format("20060102T150405Z")
+	day := now.Format("20060102")
+	scope := day + "/" + c.cfg.Region + "/s3/aws4_request"
+	q := url.Values{}
+	for k, v := range extra {
+		q[k] = v
+	}
+	q.Set("X-Amz-Algorithm", "AWS4-HMAC-SHA256")
+	q.Set("X-Amz-Credential", c.cfg.AccessKey+"/"+scope)
+	q.Set("X-Amz-Date", amzDate)
+	q.Set("X-Amz-Expires", strconv.Itoa(int(ttl/time.Second)))
+	q.Set("X-Amz-SignedHeaders", "host")
+	u := c.urlAt(c.public, c.prefix+key, q)
+	canonical := strings.Join([]string{http.MethodGet, u.EscapedPath(), u.RawQuery, "host:" + u.Host + "\n", "host", unsignedPayload}, "\n")
+	sum := sha256.Sum256([]byte(canonical))
+	toSign := "AWS4-HMAC-SHA256\n" + amzDate + "\n" + scope + "\n" + hex.EncodeToString(sum[:])
+	u.RawQuery += "&X-Amz-Signature=" + hex.EncodeToString(hmacSHA256(c.signingKey(day), toSign))
+	return u.String()
 }
 
 // do sends one request, retrying throttling and server errors a few times

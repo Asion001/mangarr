@@ -2,14 +2,18 @@ package app_test
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log/slog"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	apiserver "github.com/Asion001/mangarr/internal/api"
 	"github.com/Asion001/mangarr/internal/app"
 	"github.com/Asion001/mangarr/internal/cbz"
 	"github.com/Asion001/mangarr/internal/config"
@@ -101,6 +105,32 @@ func TestLibraryOnObjectStorage(t *testing.T) {
 	rc.Close()
 	if int64(len(data)) != size || string(data) != string(pages[1].Data) {
 		t.Fatalf("page 2 read by range: %d bytes of %d", len(data), size)
+	}
+
+	// a whole-chapter download is sent to a signed link on the bucket
+	api := httptest.NewServer(apiserver.New(a))
+	defer api.Close()
+	general, _ := a.Settings.General(ctx)
+	req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/api/v1/read/chapters/%d/file", api.URL, files["1"].ChapterID), nil)
+	req.Header.Set("X-Api-Key", general.APIKey)
+	noFollow := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	resp, err := noFollow.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	loc := resp.Header.Get("Location")
+	if resp.StatusCode != http.StatusFound || !strings.HasPrefix(loc, srv.URL+"/") || !strings.Contains(loc, "X-Amz-Signature=") {
+		t.Fatalf("download: %d %q", resp.StatusCode, loc)
+	}
+	got, err := http.Get(loc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(got.Body)
+	got.Body.Close()
+	if want, _ := libfs.ReadFile(path1); string(body) != string(want) {
+		t.Fatalf("the link served %d bytes, want %d", len(body), len(want))
 	}
 
 	// an upgrade puts the old file in the recycle bin, also in the bucket

@@ -21,6 +21,7 @@ import (
 
 	"github.com/Asion001/mangarr/internal/access"
 	"github.com/Asion001/mangarr/internal/imagedeliver"
+	"github.com/Asion001/mangarr/internal/libfs"
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/reading"
 )
@@ -399,11 +400,19 @@ func (s *Server) registerRead() {
 			if err != nil {
 				return nil, err
 			}
+			name := filepath.Base(b.Path)
+			if link, ok := libfs.DownloadURL(b.Path, downloadLinkTTL, name); ok && libfs.Exists(b.Path) {
+				// straight from the bucket, without passing through here
+				return &huma.StreamResponse{Body: func(hctx huma.Context) {
+					hctx.SetHeader("Location", link)
+					hctx.SetHeader("Cache-Control", "private, no-store")
+					hctx.SetStatus(http.StatusFound)
+				}}, nil
+			}
 			f, st, err := s.app.Reading.File(b)
 			if err != nil {
 				return nil, huma.Error404NotFound("this chapter isn't downloaded")
 			}
-			name := filepath.Base(b.Path)
 			return &huma.StreamResponse{Body: func(hctx huma.Context) {
 				defer f.Close()
 				hctx.SetHeader("Content-Type", "application/zip")
@@ -610,3 +619,7 @@ func reportedAt(at *time.Time, now time.Time) (time.Time, error) {
 	}
 	return at.UTC(), nil
 }
+
+// downloadLinkTTL is how long a signed download link works: long enough to
+// start a slow download, short enough that a leaked link soon dies.
+const downloadLinkTTL = 15 * time.Minute

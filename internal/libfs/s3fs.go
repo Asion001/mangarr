@@ -5,6 +5,8 @@ import (
 	"errors"
 	"io"
 	"io/fs"
+	"mime"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -362,6 +364,16 @@ func (s *S3) Rename(from, to string) error {
 		return &os.LinkError{Op: "rename", Old: from, New: to, Err: err}
 	}
 	return nil
+}
+
+// SignedURL is a link that downloads name without credentials for ttl,
+// saved as download (when not empty).
+func (s *S3) SignedURL(name string, ttl time.Duration, download string) string {
+	extra := url.Values{}
+	if download != "" {
+		extra.Set("response-content-disposition", mime.FormatMediaType("attachment", map[string]string{"filename": download}))
+	}
+	return s.c.presign(Key(name), ttl, extra, time.Now())
 }
 
 // Copy copies a file within the bucket.

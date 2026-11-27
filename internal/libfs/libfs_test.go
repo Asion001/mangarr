@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Asion001/mangarr/internal/libfs"
 	"github.com/Asion001/mangarr/internal/libfs/libfstest"
@@ -57,6 +58,37 @@ func TestS3Real(t *testing.T) {
 	libfs.Use(s3)
 	t.Cleanup(func() { libfs.Use(nil) })
 	suite(t, s3)
+
+	// a signed link works without credentials, until it expires
+	root := filepath.Join(t.TempDir(), "signed")
+	libfs.Mount(root)
+	name := filepath.Join(root, "Title (2020)", "Ch. 1 [ä] #1.cbz")
+	if err := libfs.WriteFile(name, []byte("cbz bytes"), 0o664); err != nil {
+		t.Fatal(err)
+	}
+	link, ok := libfs.DownloadURL(name, time.Minute, "Ch. 1 [ä] #1.cbz")
+	if !ok {
+		t.Fatal("no signed link")
+	}
+	resp, err := http.Get(link)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != 200 || string(body) != "cbz bytes" {
+		t.Fatalf("signed link: %d %q", resp.StatusCode, body)
+	}
+	if cd := resp.Header.Get("Content-Disposition"); !strings.Contains(cd, "attachment") {
+		t.Logf("the service ignored the download name (%q)", cd)
+	}
+	bad := strings.Replace(link, "X-Amz-Signature=", "X-Amz-Signature=0", 1)
+	if resp, err := http.Get(bad); err == nil {
+		resp.Body.Close()
+		if resp.StatusCode == 200 {
+			t.Fatal("a tampered link worked")
+		}
+	}
 }
 
 func TestLocal(t *testing.T) {

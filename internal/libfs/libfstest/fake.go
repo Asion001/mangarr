@@ -84,7 +84,7 @@ func Use(t testing.TB, dirs ...string) (*Server, *libfs.S3) {
 }
 
 func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
-	if !strings.HasPrefix(r.Header.Get("Authorization"), "AWS4-HMAC-SHA256 ") {
+	if !strings.HasPrefix(r.Header.Get("Authorization"), "AWS4-HMAC-SHA256 ") && r.URL.Query().Get("X-Amz-Signature") == "" {
 		http.Error(w, "<Error><Code>AccessDenied</Code></Error>", http.StatusForbidden)
 		return
 	}

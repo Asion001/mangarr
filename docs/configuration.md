@@ -32,6 +32,8 @@ Lists are comma-separated (`a,b,c`) or JSON; key/value settings use `key=value,k
 | `MANGARR_S3_PREFIX` | `` | Key prefix, to share a bucket. A file at /data/manga/Title/x.cbz is kept as &lt;prefix&gt;/data/manga/Title/x.cbz. |
 | `MANGARR_S3_ACCESS_KEY_ID` | `` | Access key (AWS_ACCESS_KEY_ID is used when unset). |
 | `MANGARR_S3_SECRET_ACCESS_KEY` | `` | Secret key (AWS_SECRET_ACCESS_KEY is used when unset). |
+| `MANGARR_S3_PUBLIC_ENDPOINT` | `` | The S3 service URL as reading devices reach it, for the signed links whole-chapter downloads are sent to (MANGARR_S3_ENDPOINT when empty). |
+| `MANGARR_S3_REDIRECT_DOWNLOADS` | `true` | Send whole-chapter downloads (reading apps' offline downloads) straight to the bucket with a short-lived signed link instead of through the server; false keeps them going through the server. |
 | `MANGARR_S3_PATH_STYLE` | `true` | Address the bucket as &lt;endpoint&gt;/&lt;bucket&gt; (most self-hosted services) instead of &lt;bucket&gt;.&lt;endpoint&gt;. |
 | `MANGARR_ROOT_FOLDERS` | `` | Root folders to create and lock, comma-separated; append \|lang to set a language (/data/manga/ja\|ja), or \|* for the automatic folder that gets a subfolder per language (/data/manga\|*). |
 

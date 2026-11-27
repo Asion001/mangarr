@@ -19,6 +19,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 )
 
 // File is an open library file. Reads may be sequential (Read, Seek) or at
@@ -384,4 +385,15 @@ func Lstat(name string) (fs.FileInfo, error) {
 		return b.Stat(name)
 	}
 	return os.Lstat(name)
+}
+
+// DownloadURL is a signed link to download path straight from object
+// storage, so a whole chapter doesn't pass through the server; ok is false
+// for a local file or with redirects turned off.
+func DownloadURL(path string, ttl time.Duration, download string) (url string, ok bool) {
+	s, isS3 := For(path).(*S3)
+	if !isS3 || s.c.cfg.NoRedirect {
+		return "", false
+	}
+	return s.SignedURL(path, ttl, download), true
 }

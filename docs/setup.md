@@ -926,6 +926,14 @@ To move an existing library over:
 
 With the library in a bucket:
 
+- **Whole-chapter downloads** (a reading app's offline download, the web
+  reader's *Download*) are sent straight to the bucket with a signed link
+  that works for 15 minutes, so they don't pass through the server. Reading
+  devices must reach the bucket: set `MANGARR_S3_PUBLIC_ENDPOINT` when they
+  reach it at another address than the server does, or
+  `MANGARR_S3_REDIRECT_DOWNLOADS=false` to keep downloads going through the
+  server. Single pages still go through the server, which resizes, converts
+  and caches them.
 - **Workers** fetch and upload everything over HTTP. Turn off
   `MANGARR_WORKER_SHARED_STORAGE` on workers that used to share the server's
   folders.

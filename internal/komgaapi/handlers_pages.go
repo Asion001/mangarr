@@ -8,10 +8,12 @@ import (
 	"net/http"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
 	"github.com/Asion001/mangarr/internal/access"
+	"github.com/Asion001/mangarr/internal/libfs"
 	"github.com/Asion001/mangarr/internal/reading"
 )
 
@@ -154,13 +156,19 @@ func (h *pageHandlers) file(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	name := filepath.Base(b.Path)
+	if link, ok := libfs.DownloadURL(b.Path, 15*time.Minute, name); ok && libfs.Exists(b.Path) {
+		// straight from the bucket, without passing through the server
+		w.Header().Set("Cache-Control", "private, no-store")
+		http.Redirect(w, r, link, http.StatusFound)
+		return
+	}
 	f, st, err := h.s.deps.Reading.File(b)
 	if err != nil {
 		writeError(w, r, http.StatusNotFound, "this chapter isn't downloaded")
 		return
 	}
 	defer f.Close()
-	name := filepath.Base(b.Path)
 	w.Header().Set("Content-Type", "application/zip")
 	w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": name}))
 	w.Header().Set("Cache-Control", "private, max-age=0")

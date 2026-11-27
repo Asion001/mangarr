@@ -90,6 +90,8 @@ var Vars = []VarDoc{
 	{"MANGARR_S3_PREFIX", "", "Key prefix, to share a bucket. A file at /data/manga/Title/x.cbz is kept as <prefix>/data/manga/Title/x.cbz."},
 	{"MANGARR_S3_ACCESS_KEY_ID", "", "Access key (AWS_ACCESS_KEY_ID is used when unset)."},
 	{"MANGARR_S3_SECRET_ACCESS_KEY", "", "Secret key (AWS_SECRET_ACCESS_KEY is used when unset)."},
+	{"MANGARR_S3_PUBLIC_ENDPOINT", "", "The S3 service URL as reading devices reach it, for the signed links whole-chapter downloads are sent to (MANGARR_S3_ENDPOINT when empty)."},
+	{"MANGARR_S3_REDIRECT_DOWNLOADS", "true", "Send whole-chapter downloads (reading apps' offline downloads) straight to the bucket with a short-lived signed link instead of through the server; false keeps them going through the server."},
 	{"MANGARR_S3_PATH_STYLE", "true", "Address the bucket as <endpoint>/<bucket> (most self-hosted services) instead of <bucket>.<endpoint>."},
 }
 
@@ -193,6 +195,10 @@ func StorageFromEnv(dataDir string) (*libfs.S3Config, error) {
 	if err != nil {
 		return nil, err
 	}
+	redirect, err := envBool("MANGARR_S3_REDIRECT_DOWNLOADS", true)
+	if err != nil {
+		return nil, err
+	}
 	cfg := &libfs.S3Config{
 		Endpoint:  env("MANGARR_S3_ENDPOINT", ""),
 		Bucket:    env("MANGARR_S3_BUCKET", ""),
@@ -202,6 +208,9 @@ func StorageFromEnv(dataDir string) (*libfs.S3Config, error) {
 		SecretKey: env("MANGARR_S3_SECRET_ACCESS_KEY", os.Getenv("AWS_SECRET_ACCESS_KEY")),
 		PathStyle: pathStyle,
 		TempDir:   filepath.Join(dataDir, "tmp", "uploads"),
+
+		PublicEndpoint: env("MANGARR_S3_PUBLIC_ENDPOINT", ""),
+		NoRedirect:     !redirect,
 	}
 	switch {
 	case cfg.Bucket == "":
