@@ -21,6 +21,7 @@ import (
 	"github.com/Asion001/mangarr/internal/events"
 	"github.com/Asion001/mangarr/internal/fsutil"
 	"github.com/Asion001/mangarr/internal/history"
+	"github.com/Asion001/mangarr/internal/libfs"
 	"github.com/Asion001/mangarr/internal/library"
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/naming"
@@ -65,7 +66,7 @@ func under(p, dir string) bool {
 }
 
 func emptyOrMissing(dir string) bool {
-	entries, err := os.ReadDir(dir)
+	entries, err := libfs.ReadDir(dir)
 	return err != nil || len(entries) == 0
 }
 
@@ -119,17 +120,17 @@ func (s *Service) Move(ctx context.Context, req MoveRequest) error {
 		if !emptyOrMissing(newDir) {
 			return fmt.Errorf("%w: %s", ErrExists, newDir)
 		}
-		if _, err := os.Stat(oldDir); err == nil {
-			_ = os.Remove(newDir) // empty
+		if _, err := libfs.Stat(oldDir); err == nil {
+			_ = libfs.Remove(newDir) // empty
 			_, dmode := s.lib.Modes(ctx)
-			if err := os.MkdirAll(filepath.Dir(newDir), dmode); err != nil {
+			if err := libfs.MkdirAll(filepath.Dir(newDir), dmode); err != nil {
 				return err
 			}
 			if err := rename(oldDir, newDir); err != nil {
 				// another file system: copy, verify, then delete
 				s.log.Info("copying series to another file system", "from", oldDir, "to", newDir)
 				if err := s.copyVerified(ctx, ser.ID, oldDir, newDir); err != nil {
-					_ = os.RemoveAll(newDir)
+					_ = libfs.RemoveAll(newDir)
 					return err
 				}
 				copied = true
@@ -146,15 +147,15 @@ func (s *Service) Move(ctx context.Context, req MoveRequest) error {
 	})
 	if err != nil {
 		if copied {
-			_ = os.RemoveAll(newDir) // the old copy is still complete
+			_ = libfs.RemoveAll(newDir) // the old copy is still complete
 		}
 		return err
 	}
 	if copied {
-		if err := os.RemoveAll(oldDir); err != nil {
+		if err := libfs.RemoveAll(oldDir); err != nil {
 			s.log.Warn("remove old series folder after copy", "dir", oldDir, "err", err)
 		}
-		_ = os.Remove(filepath.Join(newDir, MarkerName))
+		_ = libfs.Remove(filepath.Join(newDir, MarkerName))
 	}
 	s.log.Info("series moved", "series", ser.Title, "from", oldDir, "to", newDir, "files", req.MoveFiles)
 	s.bus.Changed("series", "updated", ser.ID)
@@ -169,7 +170,7 @@ func (s *Service) copyVerified(ctx context.Context, seriesID int64, oldDir, newD
 	if err := fsutil.CopyTree(oldDir, newDir); err != nil {
 		return err
 	}
-	if err := os.WriteFile(filepath.Join(newDir, MarkerName), []byte(oldDir), 0o664); err != nil {
+	if err := libfs.WriteFile(filepath.Join(newDir, MarkerName), []byte(oldDir), 0o664); err != nil {
 		return err
 	}
 	var files []model.ChapterFile
@@ -177,8 +178,8 @@ func (s *Service) copyVerified(ctx context.Context, seriesID int64, oldDir, newD
 		return err
 	}
 	for _, f := range files {
-		src, errA := os.Stat(filepath.Join(oldDir, f.RelativePath))
-		dst, errB := os.Stat(filepath.Join(newDir, f.RelativePath))
+		src, errA := libfs.Stat(filepath.Join(oldDir, f.RelativePath))
+		dst, errB := libfs.Stat(filepath.Join(newDir, f.RelativePath))
 		if errA != nil {
 			continue // missing before the move; the disk scan will notice
 		}
@@ -202,16 +203,16 @@ func (s *Service) ResumeMoves(ctx context.Context) error {
 		markers, _ := filepath.Glob(filepath.Join(rf.Path, "*", MarkerName))
 		for _, m := range markers {
 			dir := filepath.Dir(m)
-			src, _ := os.ReadFile(m)
+			src, _ := libfs.ReadFile(m)
 			n, _ := s.db.NewSelect().Model((*model.Series)(nil)).Where("root_folder_id = ? AND path = ?", rf.ID, filepath.Base(dir)).Count(ctx)
 			if n > 0 {
 				if old := filepath.Clean(strings.TrimSpace(string(src))); old != "." && old != dir && inAnyRoot(old, roots) {
-					_ = os.RemoveAll(old)
+					_ = libfs.RemoveAll(old)
 				}
-				_ = os.Remove(m)
+				_ = libfs.Remove(m)
 				s.log.Info("finished an interrupted series move", "dir", dir)
 			} else {
-				_ = os.RemoveAll(dir)
+				_ = libfs.RemoveAll(dir)
 				s.log.Warn("removed the partial copy of an interrupted series move", "dir", dir)
 			}
 		}
@@ -324,17 +325,17 @@ func (s *Service) Rename(ctx context.Context, seriesID int64, folders bool) (int
 		unlock := library.LockSeries(seriesID)
 		for _, f := range plan.Files {
 			from, to := filepath.Join(dir, f.From), filepath.Join(dir, f.To)
-			if _, err := os.Stat(to); err == nil {
+			if _, err := libfs.Stat(to); err == nil {
 				s.log.Warn("rename target exists, skipping", "file", to)
 				continue
 			}
-			if err := os.Rename(from, to); err != nil {
+			if err := libfs.Rename(from, to); err != nil {
 				unlock()
 				return n, fmt.Errorf("rename %s: %w", f.From, err)
 			}
 			if _, err := s.db.NewUpdate().Model((*model.ChapterFile)(nil)).Set("relative_path = ?", f.To).
 				Where("series_id = ? AND chapter_id = ?", seriesID, f.ChapterID).Exec(ctx); err != nil {
-				_ = os.Rename(to, from)
+				_ = libfs.Rename(to, from)
 				unlock()
 				return n, err
 			}

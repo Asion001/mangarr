@@ -13,6 +13,7 @@ import (
 	"github.com/uptrace/bun"
 
 	"github.com/Asion001/mangarr/internal/fsutil"
+	"github.com/Asion001/mangarr/internal/libfs"
 	"github.com/Asion001/mangarr/internal/library"
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/settings"
@@ -196,6 +197,7 @@ func (s *Server) registerSettings() {
 			if !filepath.IsAbs(p) {
 				return nil, huma.Error400BadRequest("path must be absolute")
 			}
+			libfs.Mount(p) // with the library on object storage, so is a new root folder
 			if err := fsutil.Writable(p); err != nil {
 				return nil, huma.Error400BadRequest("folder is not writable: " + err.Error())
 			}

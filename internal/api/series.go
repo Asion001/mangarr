@@ -5,13 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/Asion001/mangarr/internal/access"
+	"github.com/Asion001/mangarr/internal/libfs"
 	"github.com/Asion001/mangarr/internal/metadataagg"
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/naming"
@@ -274,7 +274,7 @@ func (s *Server) registerSeries() {
 			}
 			if in.Size == "full" {
 				if p := s.app.Library.CoverPath(ctx, ser); p != "" {
-					if data, err := os.ReadFile(p); err == nil {
+					if data, err := libfs.ReadFile(p); err == nil {
 						return imageReply(ctx, data, "", coverCache(in.V)), nil
 					}
 				}

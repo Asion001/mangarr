@@ -11,7 +11,6 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strconv"
 	"time"
@@ -22,6 +21,7 @@ import (
 	"github.com/Asion001/mangarr/internal/db"
 	"github.com/Asion001/mangarr/internal/diskcache"
 	"github.com/Asion001/mangarr/internal/events"
+	"github.com/Asion001/mangarr/internal/libfs"
 	"github.com/Asion001/mangarr/internal/library"
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/modules"
@@ -524,10 +524,10 @@ var coverClient = netguard.Client(time.Minute)
 // else the metadata cover or the first source's thumbnail (cached).
 func (s *Service) Cover(ctx context.Context, ser *model.Series) ([]byte, string, error) {
 	if p := s.Library.CoverPath(ctx, ser); p != "" {
-		if st, err := os.Stat(p); err == nil {
+		if st, err := libfs.Stat(p); err == nil {
 			key := "file|" + p + "|" + strconv.FormatInt(st.ModTime().UnixNano(), 10) + "|" + strconv.FormatInt(st.Size(), 10)
 			data, ct, _, err := s.ImageCache.Get(ctx, "covers", key, 365*24*time.Hour, func(ctx context.Context) (io.ReadCloser, string, error) {
-				f, err := os.Open(p)
+				f, err := libfs.Open(p)
 				return f, "", err
 			})
 			if err == nil {

@@ -3,7 +3,6 @@ package series
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -11,6 +10,7 @@ import (
 	"github.com/uptrace/bun"
 
 	"github.com/Asion001/mangarr/internal/fsutil"
+	"github.com/Asion001/mangarr/internal/libfs"
 	"github.com/Asion001/mangarr/internal/library"
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/readstate"
@@ -158,11 +158,11 @@ WHERE f.series_id = ? AND NOT EXISTS (SELECT 1 FROM follows AS k WHERE k.user_id
 		if len(done) == 0 {
 			return nil
 		}
-		if err := os.MkdirAll(keepDir, 0o755); err != nil {
+		if err := libfs.MkdirAll(keepDir, 0o755); err != nil {
 			return err
 		}
 		for i, m := range done {
-			if err := os.MkdirAll(filepath.Dir(m.to), 0o755); err != nil {
+			if err := libfs.MkdirAll(filepath.Dir(m.to), 0o755); err != nil {
 				return undo(done[:i], err)
 			}
 			if err := fsutil.Move(m.from, m.to); err != nil {
@@ -187,7 +187,7 @@ func undo(done []moved, err error) error {
 func freeName(dir, rel string, taken []moved) string {
 	used := func(name string) bool {
 		full := filepath.Join(dir, name)
-		if _, err := os.Stat(full); err == nil {
+		if _, err := libfs.Stat(full); err == nil {
 			return true
 		}
 		for _, m := range taken {

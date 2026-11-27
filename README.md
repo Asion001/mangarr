@@ -232,6 +232,7 @@ it, and a status page in the browser to set it up and watch its progress
 | `MANGARR_LOG_LEVEL` | `info` | debug, info, warn, error |
 | `MANGARR_URL_BASE` | | serve under a sub path, e.g. `/mangarr` |
 | `MANGARR_AUTH_DISABLED` | `false` | disable login (only behind an auth proxy) |
+| `MANGARR_STORAGE` | `local` | `s3` keeps the library in an S3-compatible bucket (`MANGARR_S3_*`, see `docs/setup.md`, "The library on S3-compatible object storage") |
 
 Everything else is configured in the UI, or pinned with environment
 variables: every settings field (`MANGARR_DOWNLOADS_MAX_CONCURRENT=2`), the API

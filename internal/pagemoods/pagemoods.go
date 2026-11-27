@@ -20,6 +20,7 @@ import (
 
 	"github.com/uptrace/bun"
 
+	"github.com/Asion001/mangarr/internal/libfs"
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/moodscore"
 	"github.com/Asion001/mangarr/internal/settings"
@@ -302,6 +303,12 @@ func (s *Service) enqueue(ctx context.Context, c Chapter, prompts []moodscore.Pr
 		return false, nil
 	}
 	spec := map[string]any{"chapterId": c.ID, "seriesId": c.SeriesID, "fileKey": FileKey(&c.File), "promptsKey": key, "prompts": prompts, "input": path}
+	if !libfs.IsLocal(path) {
+		// no worker shares object storage, so none is told a path to read:
+		// they all fetch the chapter from the server
+		spec["storedInput"] = path
+		delete(spec, "input")
+	}
 	return true, s.Tasks.Add(ctx, &model.WorkerTask{Kind: model.TaskMoods, Spec: spec, PagesTotal: c.File.PageCount})
 }
 

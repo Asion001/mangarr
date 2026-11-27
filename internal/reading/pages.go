@@ -28,6 +28,7 @@ import (
 	"github.com/Asion001/mangarr/internal/apitiming"
 	"github.com/Asion001/mangarr/internal/cbz"
 	"github.com/Asion001/mangarr/internal/imagecheck"
+	"github.com/Asion001/mangarr/internal/libfs"
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/modules"
 	"github.com/Asion001/mangarr/internal/modules/source"
@@ -211,7 +212,7 @@ func (s *Service) PageReader(ctx context.Context, b *BookInfo, n int) (*PageCont
 				return nil, err
 			}
 			out := &PageContent{Body: rc, Size: size, ContentType: mediaType(e.Name), ETag: fileETag(b, n)}
-			if st, err := os.Stat(b.Path); err == nil {
+			if st, err := libfs.Stat(b.Path); err == nil {
 				out.ModTime = st.ModTime()
 			}
 			return out, nil
@@ -221,7 +222,7 @@ func (s *Service) PageReader(ctx context.Context, b *BookInfo, n int) (*PageCont
 	// for it a second time
 	if s.Staged != nil {
 		if path := s.Staged(ctx, b.Chapter.ID, n); path != "" {
-			if f, err := os.Open(path); err == nil {
+			if f, err := libfs.Open(path); err == nil {
 				if st, err := f.Stat(); err == nil {
 					return &PageContent{Body: f, Size: st.Size(), ContentType: mediaType(path),
 						ETag: fmt.Sprintf("%q", fmt.Sprintf("d%d-%d-%d", b.Chapter.ID, st.ModTime().UnixNano(), n)), ModTime: st.ModTime()}, nil
@@ -259,7 +260,7 @@ func fileETag(b *BookInfo, n int) string {
 	if b.File != nil {
 		return fmt.Sprintf("%q", fmt.Sprintf("f%d-%d-%d", b.File.ID, b.File.ImportedAt.Unix(), n))
 	}
-	st, err := os.Stat(b.Path)
+	st, err := libfs.Stat(b.Path)
 	if err != nil {
 		return ""
 	}
@@ -421,11 +422,11 @@ func (s *Service) downloadOnOpen(ctx context.Context, b *BookInfo) {
 }
 
 // File is a downloaded book's CBZ (ErrNotFound when not downloaded).
-func (s *Service) File(b *BookInfo) (*os.File, os.FileInfo, error) {
+func (s *Service) File(b *BookInfo) (libfs.File, os.FileInfo, error) {
 	if b.Path == "" {
 		return nil, nil, ErrNotFound
 	}
-	f, err := os.Open(b.Path)
+	f, err := libfs.Open(b.Path)
 	if err != nil {
 		return nil, nil, ErrNotFound
 	}
@@ -486,15 +487,15 @@ func decodeJXL(data []byte) (image.Image, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer os.RemoveAll(dir)
+	defer libfs.RemoveAll(dir)
 	in, out := filepath.Join(dir, "in.jxl"), filepath.Join(dir, "out.png")
-	if err := os.WriteFile(in, data, 0o600); err != nil {
+	if err := libfs.WriteFile(in, data, 0o600); err != nil {
 		return nil, err
 	}
 	if msg, err := exec.Command(bin, in, out).CombinedOutput(); err != nil {
 		return nil, fmt.Errorf("djxl: %v: %s", err, strings.TrimSpace(string(msg)))
 	}
-	f, err := os.Open(out)
+	f, err := libfs.Open(out)
 	if err != nil {
 		return nil, err
 	}

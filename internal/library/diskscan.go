@@ -10,6 +10,7 @@ import (
 	"github.com/uptrace/bun"
 
 	"github.com/Asion001/mangarr/internal/history"
+	"github.com/Asion001/mangarr/internal/libfs"
 	"github.com/Asion001/mangarr/internal/model"
 )
 
@@ -43,7 +44,7 @@ func (l *Library) DiskScan(ctx context.Context, seriesID int64) (ScanResult, err
 		if err != nil {
 			continue
 		}
-		if _, err := os.Stat(rf.Path); err != nil {
+		if _, err := libfs.Stat(rf.Path); err != nil {
 			l.log.Warn("disk scan: root folder not accessible, skipping", "root", rf.Path, "err", err)
 			continue
 		}
@@ -54,7 +55,7 @@ func (l *Library) DiskScan(ctx context.Context, seriesID int64) (ScanResult, err
 		}
 		for _, f := range files {
 			res.Checked++
-			if _, err := os.Stat(filepath.Join(dir, f.RelativePath)); !errors.Is(err, os.ErrNotExist) {
+			if _, err := libfs.Stat(filepath.Join(dir, f.RelativePath)); !errors.Is(err, os.ErrNotExist) {
 				continue
 			}
 			res.Missing++

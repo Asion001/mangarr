@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"net/http"
@@ -56,6 +57,8 @@ func main() {
 			os.Exit(healthcheck())
 		case "bench":
 			os.Exit(bench(os.Args[2:]))
+		case "storage":
+			os.Exit(storage(os.Args[2:]))
 		case "env":
 			if len(os.Args) > 2 && os.Args[2] == "--markdown" {
 				envcfg.WriteMarkdown(os.Stdout)
@@ -284,6 +287,42 @@ func bench(args []string) int {
 	}
 	if err := enc.Bench(context.Background(), args[1], formats, maxPages, os.Stdout); err != nil {
 		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+	return 0
+}
+
+// storage runs `mangarr storage migrate`: it copies the library from the
+// local disk to the object storage set with MANGARR_STORAGE=s3.
+func storage(args []string) int {
+	if len(args) == 0 || args[0] != "migrate" {
+		fmt.Fprintln(os.Stderr, "usage: mangarr storage migrate [--dry-run] [--workers N] [--from LIBRARY_PATH=LOCAL_PATH]...")
+		return 2
+	}
+	fl := flag.NewFlagSet("storage migrate", flag.ContinueOnError)
+	dry := fl.Bool("dry-run", false, "list what would be copied without copying")
+	workers := fl.Int("workers", 4, "files uploaded at once")
+	from := map[string]string{}
+	fl.Func("from", "read a library folder from elsewhere on this machine: LIBRARY_PATH=LOCAL_PATH (repeatable)", func(v string) error {
+		k, val, ok := strings.Cut(v, "=")
+		if !ok || k == "" || val == "" {
+			return errors.New("want LIBRARY_PATH=LOCAL_PATH")
+		}
+		from[k] = val
+		return nil
+	})
+	if err := fl.Parse(args[1:]); err != nil {
+		return 2
+	}
+	cfg, err := config.Load()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	if err := app.MigrateStorage(ctx, cfg, app.MigrateOptions{DryRun: *dry, Workers: *workers, From: from}, os.Stdout); err != nil {
+		fmt.Fprintln(os.Stderr, "storage migrate:", err)
 		return 1
 	}
 	return 0

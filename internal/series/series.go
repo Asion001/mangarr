@@ -17,6 +17,7 @@ import (
 	"github.com/Asion001/mangarr/internal/db"
 	"github.com/Asion001/mangarr/internal/events"
 	"github.com/Asion001/mangarr/internal/jobs"
+	"github.com/Asion001/mangarr/internal/libfs"
 	"github.com/Asion001/mangarr/internal/library"
 	"github.com/Asion001/mangarr/internal/metadataagg"
 	"github.com/Asion001/mangarr/internal/model"
@@ -585,7 +586,7 @@ func (s *Service) Delete(ctx context.Context, id int64, deleteFiles bool) error 
 	defer library.LockSeries(id)()
 	dir, _ := s.lib.SeriesDir(ctx, ser)
 	if deleteFiles && dir != "" {
-		if _, err := os.Stat(dir); err == nil {
+		if _, err := libfs.Stat(dir); err == nil {
 			if _, err := s.lib.Recycle(ctx, dir, "", false, library.RecycleInfo{Series: ser, Reason: "series_deleted"}); err != nil {
 				return err
 			}

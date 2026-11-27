@@ -19,6 +19,7 @@ import (
 	"github.com/Asion001/mangarr/internal/comicinfo"
 	"github.com/Asion001/mangarr/internal/db"
 	"github.com/Asion001/mangarr/internal/fsutil"
+	"github.com/Asion001/mangarr/internal/libfs"
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/naming"
 	"github.com/Asion001/mangarr/internal/netguard"
@@ -45,7 +46,26 @@ func (l *Library) RootFolder(ctx context.Context, id int64) (*model.RootFolder, 
 	if err := l.db.NewSelect().Model(&rf).Where("id = ?", id).Scan(ctx); err != nil {
 		return nil, fmt.Errorf("root folder %d: %w", id, err)
 	}
+	libfs.Mount(rf.Path)
 	return &rf, nil
+}
+
+// MountAll puts the root folders and the recycle bin on the object storage
+// when the library is kept there (see libfs); otherwise it does nothing.
+// Folders added later are mounted when they are first used.
+func (l *Library) MountAll(ctx context.Context) error {
+	if libfs.Remote() == nil {
+		return nil
+	}
+	var roots []model.RootFolder
+	if err := l.db.NewSelect().Model(&roots).Scan(ctx); err != nil {
+		return err
+	}
+	for _, rf := range roots {
+		libfs.Mount(rf.Path)
+	}
+	l.RecycleDir(ctx)
+	return nil
 }
 
 // SeriesDir returns the absolute folder of a series.
@@ -103,7 +123,7 @@ func (l *Library) EnsureSeriesDir(ctx context.Context, s *model.Series) (string,
 		return "", err
 	}
 	_, dmode := l.Modes(ctx)
-	if err := os.MkdirAll(dir, dmode); err != nil {
+	if err := libfs.MkdirAll(dir, dmode); err != nil {
 		return "", err
 	}
 	return dir, nil
@@ -140,7 +160,7 @@ func (l *Library) WriteSidecars(ctx context.Context, s *model.Series, fallbackCo
 	}
 	if mm.WriteCover {
 		coverPath := filepath.Join(dir, "cover.jpg")
-		if _, err := os.Stat(coverPath); errors.Is(err, os.ErrNotExist) {
+		if _, err := libfs.Stat(coverPath); errors.Is(err, os.ErrNotExist) {
 			if err := l.downloadCover(ctx, s, coverPath, fmode, fallbackCover); err != nil {
 				l.log.Warn("write cover", "series", s.Title, "err", err)
 			}
@@ -207,18 +227,14 @@ func (l *Library) CoverPath(ctx context.Context, s *model.Series) string {
 		return ""
 	}
 	p := filepath.Join(dir, "cover.jpg")
-	if _, err := os.Stat(p); err == nil {
+	if _, err := libfs.Stat(p); err == nil {
 		return p
 	}
 	return ""
 }
 
 func writeAtomic(dst string, data []byte, mode os.FileMode) error {
-	tmp := dst + ".partial"
-	if err := os.WriteFile(tmp, data, mode); err != nil {
-		return err
-	}
-	return os.Rename(tmp, dst)
+	return libfs.WriteFile(dst, data, mode)
 }
 
 // ---- recycle bin -----------------------------------------------------------------
@@ -226,24 +242,15 @@ func writeAtomic(dst string, data []byte, mode os.FileMode) error {
 // RecycleDir returns the recycle bin path.
 func (l *Library) RecycleDir(ctx context.Context) string {
 	mm, _ := l.settings.MediaManagement(ctx)
-	if mm.RecycleBinPath != "" {
-		return mm.RecycleBinPath
+	dir := mm.RecycleBinPath
+	if dir == "" {
+		dir = filepath.Join(l.dataDir, "recycle")
 	}
-	return filepath.Join(l.dataDir, "recycle")
+	libfs.Mount(dir)
+	return dir
 }
 
-func removeEmptyDirs(root string) {
-	var dirs []string
-	_ = filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {
-		if err == nil && d.IsDir() && p != root {
-			dirs = append(dirs, p)
-		}
-		return nil
-	})
-	for i := len(dirs) - 1; i >= 0; i-- {
-		_ = os.Remove(dirs[i]) // only succeeds when empty
-	}
-}
+func removeEmptyDirs(root string) { libfs.RemoveEmptyDirs(root) }
 
 // seriesLocks serialize changes to a series folder: imports, sidecars and
 // cleanup take a read lock; moves and renames take the write lock.
@@ -276,7 +283,7 @@ func (l *Library) CopyCover(ctx context.Context, from, to *model.Series) (bool, 
 	if src == "" {
 		return false, nil
 	}
-	data, err := os.ReadFile(src)
+	data, err := libfs.ReadFile(src)
 	if err != nil {
 		return false, err
 	}
@@ -284,11 +291,11 @@ func (l *Library) CopyCover(ctx context.Context, from, to *model.Series) (bool, 
 	if err != nil {
 		return false, err
 	}
-	if _, err := os.Stat(dir); err != nil {
+	if _, err := libfs.Stat(dir); err != nil {
 		return false, nil // no folder yet: its first sidecars bring the cover
 	}
 	dst := filepath.Join(dir, "cover.jpg")
-	if cur, err := os.ReadFile(dst); err == nil && bytes.Equal(cur, data) {
+	if cur, err := libfs.ReadFile(dst); err == nil && bytes.Equal(cur, data) {
 		return false, nil
 	}
 	fmode, _ := l.Modes(ctx)

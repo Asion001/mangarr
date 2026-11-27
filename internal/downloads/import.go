@@ -3,7 +3,6 @@ package downloads
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strconv"
 	"time"
@@ -15,6 +14,7 @@ import (
 	"github.com/Asion001/mangarr/internal/events"
 	"github.com/Asion001/mangarr/internal/fsutil"
 	"github.com/Asion001/mangarr/internal/history"
+	"github.com/Asion001/mangarr/internal/libfs"
 	"github.com/Asion001/mangarr/internal/library"
 	"github.com/Asion001/mangarr/internal/model"
 )
@@ -61,7 +61,7 @@ func (m *Manager) importChapter(ctx context.Context, jc *jobCtx, proc ProcessRes
 	// re-encoding to save space may skip the recycle bin (the whole point is
 	// to free the space); everything else keeps the replaced file around
 	recycle := !(jc.job.Kind == model.JobKindReprocess && proc.Encoded > 0 && !jc.profile.Config.Encode.RecycleOriginals)
-	if _, err := os.Stat(target); err == nil && recycle {
+	if _, err := libfs.Stat(target); err == nil && recycle {
 		reason := "upgraded"
 		if jc.job.Kind == model.JobKindReprocess {
 			reason = "reprocessed"

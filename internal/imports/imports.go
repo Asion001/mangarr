@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -24,6 +23,7 @@ import (
 	"github.com/Asion001/mangarr/internal/catalogs"
 	"github.com/Asion001/mangarr/internal/db"
 	"github.com/Asion001/mangarr/internal/events"
+	"github.com/Asion001/mangarr/internal/libfs"
 	"github.com/Asion001/mangarr/internal/metadataagg"
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/modules"
@@ -134,9 +134,9 @@ func (s *Service) create(ctx context.Context, fileName string, b *backupimport.B
 		return nil, err
 	}
 	if s.Dir != "" && data != nil {
-		if err := os.MkdirAll(s.Dir, 0o750); err == nil {
+		if err := libfs.MkdirAll(s.Dir, 0o750); err == nil {
 			name := fmt.Sprintf("%d-%s", imp.ID, unsafeName.ReplaceAllString(imp.FileName, "_"))
-			if err := os.WriteFile(filepath.Join(s.Dir, name), data, 0o640); err != nil {
+			if err := libfs.WriteFile(filepath.Join(s.Dir, name), data, 0o640); err != nil {
 				s.Log.Warn("keep uploaded backup", "err", err)
 			}
 		}
@@ -551,7 +551,7 @@ func (s *Service) Delete(ctx context.Context, id int64) error {
 	}
 	if s.Dir != "" {
 		name := fmt.Sprintf("%d-%s", imp.ID, unsafeName.ReplaceAllString(imp.FileName, "_"))
-		_ = os.Remove(filepath.Join(s.Dir, name))
+		_ = libfs.Remove(filepath.Join(s.Dir, name))
 	}
 	s.Bus.Changed("import", "deleted", id)
 	return nil

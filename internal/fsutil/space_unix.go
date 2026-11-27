@@ -6,10 +6,15 @@ import (
 	"fmt"
 
 	"golang.org/x/sys/unix"
+
+	"github.com/Asion001/mangarr/internal/libfs"
 )
 
 // FreeSpace returns available bytes on the filesystem holding path.
 func FreeSpace(path string) (uint64, error) {
+	if !libfs.IsLocal(path) {
+		return 0, ErrNoDisk
+	}
 	var st unix.Statfs_t
 	if err := unix.Statfs(path, &st); err != nil {
 		return 0, err
@@ -20,6 +25,9 @@ func FreeSpace(path string) (uint64, error) {
 // Usage returns the size of the filesystem holding path, its available
 // bytes, and an id that is the same for paths on one filesystem.
 func Usage(path string) (total, free uint64, device string, err error) {
+	if !libfs.IsLocal(path) {
+		return 0, 0, "", ErrNoDisk
+	}
 	var st unix.Statfs_t
 	if err = unix.Statfs(path, &st); err != nil {
 		return 0, 0, "", err

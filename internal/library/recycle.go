@@ -16,6 +16,7 @@ import (
 	"github.com/Asion001/mangarr/internal/cbz"
 	"github.com/Asion001/mangarr/internal/chapternum"
 	"github.com/Asion001/mangarr/internal/fsutil"
+	"github.com/Asion001/mangarr/internal/libfs"
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/uptrace/bun"
 )
@@ -57,7 +58,7 @@ func (l *Library) recycle(ctx context.Context, path, seriesFolder string, keepOr
 	if meta.Profile != nil {
 		r.ProfileName = meta.Profile.Name
 	}
-	st, err := os.Lstat(path)
+	st, err := libfs.Lstat(path)
 	if err != nil {
 		return "", err
 	}
@@ -97,7 +98,7 @@ func (l *Library) recycle(ctx context.Context, path, seriesFolder string, keepOr
 	if err != nil {
 		return "", err
 	}
-	if _, err := os.Lstat(dst); !errors.Is(err, os.ErrNotExist) {
+	if _, err := libfs.Lstat(dst); !errors.Is(err, os.ErrNotExist) {
 		return "", errors.New("recycle destination already exists")
 	}
 	if keepOriginal {
@@ -110,7 +111,7 @@ func (l *Library) recycle(ctx context.Context, path, seriesFolder string, keepOr
 	}
 	if _, err = l.db.NewInsert().Model(&r).Exec(ctx); err != nil {
 		if keepOriginal {
-			_ = os.Remove(dst)
+			_ = libfs.Remove(dst)
 		} else if undo := fsutil.Move(dst, path); undo != nil {
 			return "", errors.Join(err, undo)
 		}
@@ -131,7 +132,7 @@ func safeRecyclePath(root, rel string) (string, error) {
 	path := root
 	for _, part := range strings.Split(filepath.Clean(rel), string(filepath.Separator)) {
 		path = filepath.Join(path, part)
-		st, err := os.Lstat(path)
+		st, err := libfs.Lstat(path)
 		if err != nil && !errors.Is(err, os.ErrNotExist) {
 			return "", err
 		}
@@ -144,7 +145,7 @@ func safeRecyclePath(root, rel string) (string, error) {
 
 func inspectRecycled(path string, r *model.RecycledFile) error {
 	if r.Kind == "folder" {
-		return filepath.WalkDir(path, func(p string, d os.DirEntry, err error) error {
+		return libfs.WalkDir(path, func(p string, d os.DirEntry, err error) error {
 			if err != nil {
 				return err
 			}
@@ -161,7 +162,7 @@ func inspectRecycled(path string, r *model.RecycledFile) error {
 			return nil
 		})
 	}
-	f, err := os.Open(path)
+	f, err := libfs.Open(path)
 	if err != nil {
 		return err
 	}
@@ -192,7 +193,7 @@ func (l *Library) WithRecycled(ctx context.Context, id int64, fn func(*model.Rec
 	if err != nil {
 		return err
 	}
-	if _, err := os.Stat(path); err != nil {
+	if _, err := libfs.Stat(path); err != nil {
 		return err
 	}
 	return fn(&r, path)
@@ -231,7 +232,7 @@ func (l *Library) deleteRecycled(ctx context.Context, r *model.RecycledFile) err
 	if err != nil {
 		return err
 	}
-	if err := os.RemoveAll(path); err != nil {
+	if err := libfs.RemoveAll(path); err != nil {
 		return err
 	}
 	_, err = l.db.NewDelete().Model(r).WherePK().Exec(ctx)
@@ -284,7 +285,7 @@ func (l *Library) RescanRecycleBin(ctx context.Context) (int, error) {
 	l.recycleMu.Lock()
 	defer l.recycleMu.Unlock()
 	root := l.RecycleDir(ctx)
-	if _, err := os.Stat(root); errors.Is(err, os.ErrNotExist) {
+	if _, err := libfs.Stat(root); errors.Is(err, os.ErrNotExist) {
 		return 0, nil
 	} else if err != nil {
 		return 0, err
@@ -299,7 +300,7 @@ func (l *Library) RescanRecycleBin(ctx context.Context) (int, error) {
 		if err != nil {
 			return 0, err
 		}
-		if _, err := os.Stat(p); errors.Is(err, os.ErrNotExist) {
+		if _, err := libfs.Stat(p); errors.Is(err, os.ErrNotExist) {
 			if _, err := l.db.NewDelete().Model(&r).WherePK().Exec(ctx); err != nil {
 				return 0, err
 			}
@@ -310,7 +311,7 @@ func (l *Library) RescanRecycleBin(ctx context.Context) (int, error) {
 		}
 	}
 	n := 0
-	err := filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {
+	err := libfs.WalkDir(root, func(p string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}

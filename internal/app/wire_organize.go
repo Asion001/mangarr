@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"time"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/Asion001/mangarr/internal/fsutil"
 	"github.com/Asion001/mangarr/internal/history"
 	"github.com/Asion001/mangarr/internal/jobs"
+	"github.com/Asion001/mangarr/internal/libfs"
 	"github.com/Asion001/mangarr/internal/library"
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/organize"
@@ -148,9 +148,10 @@ func (a *App) moveRootFolder(ctx context.Context, r *jobs.Run, rootID int64, new
 	if err := a.DB.NewSelect().Model(&series).Where("root_folder_id = ? AND preview = ?", rootID, false).Scan(ctx); err != nil {
 		return err
 	}
+	libfs.Mount(newPath)
 	if moveFiles {
 		_, dmode := a.Library.Modes(ctx)
-		if err := os.MkdirAll(newPath, dmode); err != nil {
+		if err := libfs.MkdirAll(newPath, dmode); err != nil {
 			return err
 		}
 		type done struct{ from, to string }
@@ -163,10 +164,10 @@ func (a *App) moveRootFolder(ctx context.Context, r *jobs.Run, rootID int64, new
 		for i, s := range series {
 			a.snapshotProgress(ctx, s.ID)
 			from, to := filepath.Join(rf.Path, s.Path), filepath.Join(newPath, s.Path)
-			if _, err := os.Stat(from); err != nil {
+			if _, err := libfs.Stat(from); err != nil {
 				continue
 			}
-			if _, err := os.Stat(to); err == nil {
+			if _, err := libfs.Stat(to); err == nil {
 				rollback()
 				return fmt.Errorf("%s already exists", to)
 			}
@@ -180,7 +181,7 @@ func (a *App) moveRootFolder(ctx context.Context, r *jobs.Run, rootID int64, new
 			moved = append(moved, done{from, to})
 			r.Progress("moved %d/%d series", i+1, len(series))
 		}
-	} else if st, err := os.Stat(newPath); err != nil || !st.IsDir() {
+	} else if st, err := libfs.Stat(newPath); err != nil || !st.IsDir() {
 		return fmt.Errorf("%s doesn't exist (move the files first, or let mangarr move them)", newPath)
 	}
 	err = a.DB.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {

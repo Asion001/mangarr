@@ -6,11 +6,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/Asion001/mangarr/internal/libfs"
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/settings"
 )
@@ -54,7 +54,7 @@ func (l *Library) FolderForLanguage(ctx context.Context, lang string) (*model.Ro
 		return l.findLanguageFolder(ctx, lang)
 	}
 	_, dmode := l.Modes(ctx)
-	if err := os.MkdirAll(path, dmode); err != nil {
+	if err := libfs.MkdirAll(path, dmode); err != nil {
 		return nil, fmt.Errorf("create the %s folder: %w", lang, err)
 	}
 	// a folder already registered at that path just gets the language

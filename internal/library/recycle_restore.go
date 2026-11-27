@@ -12,6 +12,7 @@ import (
 	"github.com/Asion001/mangarr/internal/fsutil"
 	"github.com/Asion001/mangarr/internal/history"
 	"github.com/Asion001/mangarr/internal/imagecheck"
+	"github.com/Asion001/mangarr/internal/libfs"
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/readstate"
 	"github.com/uptrace/bun"
@@ -96,7 +97,7 @@ func (l *Library) RestoreRecycled(ctx context.Context, id int64) (int64, error) 
 		}
 	}
 	backup := ""
-	if _, err := os.Stat(target); err == nil {
+	if _, err := libfs.Stat(target); err == nil {
 		backup, err = l.recycle(ctx, target, series.Path, true, RecycleInfo{Series: &series, File: &old, Reason: "restored_over"})
 		if err != nil {
 			return 0, err
@@ -105,11 +106,11 @@ func (l *Library) RestoreRecycled(ctx context.Context, id int64) (int64, error) 
 		return 0, err
 	}
 	tmp := target + ".restore-partial"
-	defer os.Remove(tmp)
+	defer libfs.Remove(tmp)
 	if err := fsutil.LinkOrCopy(source, tmp); err != nil {
 		return 0, err
 	}
-	if err := os.Rename(tmp, target); err != nil {
+	if err := libfs.Rename(tmp, target); err != nil {
 		return 0, err
 	}
 	err = l.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
@@ -137,9 +138,9 @@ func (l *Library) RestoreRecycled(ctx context.Context, id int64) (int64, error) 
 			undo := fsutil.LinkOrCopy(backup, target)
 			return 0, errors.Join(err, undo)
 		}
-		return 0, errors.Join(err, os.Remove(target))
+		return 0, errors.Join(err, libfs.Remove(target))
 	}
-	if err := os.Remove(source); err != nil {
+	if err := libfs.Remove(source); err != nil {
 		return series.ID, err
 	}
 	return series.ID, nil
@@ -247,11 +248,11 @@ func (l *Library) restoreFolder(ctx context.Context, r *model.RecycledFile, sour
 	if err != nil {
 		return 0, err
 	}
-	if _, err := os.Lstat(dir); !errors.Is(err, os.ErrNotExist) {
+	if _, err := libfs.Lstat(dir); !errors.Is(err, os.ErrNotExist) {
 		return 0, fmt.Errorf("%w: series folder already exists", ErrRecycleConflict)
 	}
 	if err := fsutil.CopyTree(source, dir); err != nil {
-		_ = os.RemoveAll(dir)
+		_ = libfs.RemoveAll(dir)
 		return 0, err
 	}
 	err = l.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
@@ -311,9 +312,9 @@ func (l *Library) restoreFolder(ctx context.Context, r *model.RecycledFile, sour
 		return err
 	})
 	if err != nil {
-		return 0, errors.Join(err, os.RemoveAll(dir))
+		return 0, errors.Join(err, libfs.RemoveAll(dir))
 	}
-	if err := os.RemoveAll(source); err != nil {
+	if err := libfs.RemoveAll(source); err != nil {
 		return series.ID, err
 	}
 	return series.ID, nil

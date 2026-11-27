@@ -45,9 +45,17 @@ jobs:
         run: go vet ./...
       - name: import lint (vendor clients only inside modules)
         run: ./scripts/import-lint.sh
+      - name: S3-compatible test service
+        # SeaweedFS checks request signatures, which the in-memory fake the
+        # other tests use does not
+        run: |
+          echo '{"identities":[{"name":"ci","credentials":[{"accessKey":"testkey","secretKey":"testsecret"}],"actions":["Admin","Read","Write","List","Tagging"]}]}' > "$RUNNER_TEMP/s3.json"
+          docker run -d --name s3 -p 8333:8333 -v "$RUNNER_TEMP/s3.json:/etc/s3.json" chrislusf/seaweedfs:4.55 server -s3 -s3.config=/etc/s3.json -dir=/data
+          for i in $(seq 1 60); do curl -s -o /dev/null http://localhost:8333/ && break; sleep 1; done
       - name: test (SQLite + Postgres)
         env:
           MANGARR_TEST_POSTGRES: postgres://postgres:pg@localhost:5432/postgres?sslmode=disable
+          MANGARR_TEST_S3: http://testkey:testsecret@localhost:8333/mangarr-test
         # internal/app runs close to go test's 10 minute default under -race
         run: go test -race -count=1 -timeout 20m ./...
 

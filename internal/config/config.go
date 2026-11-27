@@ -3,6 +3,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"net/netip"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/Asion001/mangarr/internal/clientip"
+	"github.com/Asion001/mangarr/internal/libfs"
 )
 
 type Config struct {
@@ -53,6 +55,9 @@ type Config struct {
 	// FrameAncestors may show the UI in a frame (CSP frame-ancestors;
 	// "" = this site only).
 	FrameAncestors string
+	// Storage is the object storage that holds the library; nil keeps it on
+	// the local disk.
+	Storage *libfs.S3Config
 	// Env is the MANGARR_* environment used to pin settings, root folders and
 	// modules (see internal/envcfg). Nil in tests unless set explicitly.
 	Env map[string]string
@@ -78,6 +83,14 @@ var Vars = []VarDoc{
 	{"MANGARR_TRUSTED_PROXIES", "private", "Reverse proxies whose X-Forwarded-For/-Proto/-Host headers are believed: addresses or CIDR ranges, comma-separated; private = loopback and private networks; none = no proxy."},
 	{"MANGARR_FRAME_ANCESTORS", "'self'", "Sites that may show the UI in a frame (e.g. a dashboard): origins separated by spaces, or * for any (Content-Security-Policy frame-ancestors)."},
 	{"MANGARR_KOMGA_LISTEN", ":25600", "Listen address of the Komga-compatible API for reading apps (when enabled in Settings → Reading apps)."},
+	{"MANGARR_STORAGE", "local", "Where the library (root folders and recycle bin) is kept: local (the disk) or s3 (an S3-compatible bucket, set with the MANGARR_S3_* variables). The database, caches and download staging stay in the data dir either way. Copy an existing library over with `mangarr storage migrate`."},
+	{"MANGARR_S3_ENDPOINT", "", "S3 service URL, e.g. https://s3.example.com (empty: AWS in MANGARR_S3_REGION)."},
+	{"MANGARR_S3_BUCKET", "", "Bucket that holds the library."},
+	{"MANGARR_S3_REGION", "us-east-1", "Region the requests are signed for (some services want auto)."},
+	{"MANGARR_S3_PREFIX", "", "Key prefix, to share a bucket. A file at /data/manga/Title/x.cbz is kept as <prefix>/data/manga/Title/x.cbz."},
+	{"MANGARR_S3_ACCESS_KEY_ID", "", "Access key (AWS_ACCESS_KEY_ID is used when unset)."},
+	{"MANGARR_S3_SECRET_ACCESS_KEY", "", "Secret key (AWS_SECRET_ACCESS_KEY is used when unset)."},
+	{"MANGARR_S3_PATH_STYLE", "true", "Address the bucket as <endpoint>/<bucket> (most self-hosted services) instead of <bucket>.<endpoint>."},
 }
 
 // Modes.
@@ -160,7 +173,43 @@ func Load() (*Config, error) {
 	if c.URLBase != "" && !strings.HasPrefix(c.URLBase, "/") {
 		c.URLBase = "/" + c.URLBase
 	}
+	if c.Storage, err = StorageFromEnv(c.DataDir); err != nil {
+		return nil, err
+	}
 	return c, nil
+}
+
+// StorageFromEnv reads MANGARR_STORAGE and the MANGARR_S3_* variables; nil
+// means the library stays on the local disk.
+func StorageFromEnv(dataDir string) (*libfs.S3Config, error) {
+	switch m := strings.ToLower(env("MANGARR_STORAGE", "local")); m {
+	case "local":
+		return nil, nil
+	case "s3":
+	default:
+		return nil, fmt.Errorf("MANGARR_STORAGE must be local or s3 (got %q)", m)
+	}
+	pathStyle, err := envBool("MANGARR_S3_PATH_STYLE", true)
+	if err != nil {
+		return nil, err
+	}
+	cfg := &libfs.S3Config{
+		Endpoint:  env("MANGARR_S3_ENDPOINT", ""),
+		Bucket:    env("MANGARR_S3_BUCKET", ""),
+		Region:    env("MANGARR_S3_REGION", "us-east-1"),
+		Prefix:    env("MANGARR_S3_PREFIX", ""),
+		AccessKey: env("MANGARR_S3_ACCESS_KEY_ID", os.Getenv("AWS_ACCESS_KEY_ID")),
+		SecretKey: env("MANGARR_S3_SECRET_ACCESS_KEY", os.Getenv("AWS_SECRET_ACCESS_KEY")),
+		PathStyle: pathStyle,
+		TempDir:   filepath.Join(dataDir, "tmp", "uploads"),
+	}
+	switch {
+	case cfg.Bucket == "":
+		return nil, errors.New("MANGARR_STORAGE=s3 needs MANGARR_S3_BUCKET")
+	case cfg.AccessKey == "" || cfg.SecretKey == "":
+		return nil, errors.New("MANGARR_STORAGE=s3 needs MANGARR_S3_ACCESS_KEY_ID and MANGARR_S3_SECRET_ACCESS_KEY")
+	}
+	return cfg, nil
 }
 
 // Environ returns the MANGARR_* variables of the process.

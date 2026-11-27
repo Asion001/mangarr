@@ -154,7 +154,7 @@ function RootFolders() {
       </IconButton>
     </Td>
   );
-  const space = (r: (typeof rows)[number]) => <Td>{r.accessible ? bytes(r.freeSpace) : <Badge tone="err">{r.error}</Badge>}</Td>;
+  const space = (r: (typeof rows)[number]) => <Td>{r.accessible ? (r.freeSpace > 0 ? bytes(r.freeSpace) : "—") : <Badge tone="err">{r.error}</Badge>}</Td>;
   return (
     <Card title={t("Root folders")} className="mb-6">
       {relocating && (

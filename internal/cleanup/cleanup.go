@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -22,6 +21,7 @@ import (
 	"github.com/Asion001/mangarr/internal/events"
 	"github.com/Asion001/mangarr/internal/fsutil"
 	"github.com/Asion001/mangarr/internal/history"
+	"github.com/Asion001/mangarr/internal/libfs"
 	"github.com/Asion001/mangarr/internal/library"
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/settings"
@@ -551,7 +551,7 @@ func (c *Cleaner) remove(ctx context.Context, cd Candidate, recycle bool, event 
 	if !current {
 		return errChanged
 	}
-	if _, err := os.Stat(cd.Path); err == nil {
+	if _, err := libfs.Stat(cd.Path); err == nil {
 		if recycle {
 			var file model.ChapterFile
 			if err := c.db.NewSelect().Model(&file).Where("id = ?", cd.FileID).Scan(ctx); err != nil {
@@ -560,7 +560,7 @@ func (c *Cleaner) remove(ctx context.Context, cd Candidate, recycle bool, event 
 			if _, err := c.lib.Recycle(ctx, cd.Path, s.Path, false, library.RecycleInfo{Series: &s, File: &file, Reason: event}); err != nil {
 				return err
 			}
-		} else if err := os.Remove(cd.Path); err != nil {
+		} else if err := libfs.Remove(cd.Path); err != nil {
 			return err
 		}
 	}

@@ -15,6 +15,7 @@ import (
 
 	"github.com/Asion001/mangarr/internal/access"
 	"github.com/Asion001/mangarr/internal/downloads"
+	"github.com/Asion001/mangarr/internal/libfs"
 	"github.com/Asion001/mangarr/internal/model"
 	"github.com/Asion001/mangarr/internal/moodscore"
 	"github.com/Asion001/mangarr/internal/processing"
@@ -263,7 +264,11 @@ func (s *Server) registerWorkerProtocol() {
 				return s.workerProcessInput(task)
 			}
 			path, _ := task.Spec["input"].(string)
-			f, err := os.Open(path)
+			if path == "" {
+				// a library file on object storage (see pagemoods)
+				path, _ = task.Spec["storedInput"].(string)
+			}
+			f, err := libfs.Open(path)
 			if err != nil {
 				return nil, huma.Error404NotFound("this task's pages are gone")
 			}

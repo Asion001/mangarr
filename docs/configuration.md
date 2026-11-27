@@ -25,6 +25,14 @@ Lists are comma-separated (`a,b,c`) or JSON; key/value settings use `key=value,k
 | `MANGARR_TRUSTED_PROXIES` | `private` | Reverse proxies whose X-Forwarded-For/-Proto/-Host headers are believed: addresses or CIDR ranges, comma-separated; private = loopback and private networks; none = no proxy. |
 | `MANGARR_FRAME_ANCESTORS` | `'self'` | Sites that may show the UI in a frame (e.g. a dashboard): origins separated by spaces, or * for any (Content-Security-Policy frame-ancestors). |
 | `MANGARR_KOMGA_LISTEN` | `:25600` | Listen address of the Komga-compatible API for reading apps (when enabled in Settings → Reading apps). |
+| `MANGARR_STORAGE` | `local` | Where the library (root folders and recycle bin) is kept: local (the disk) or s3 (an S3-compatible bucket, set with the MANGARR_S3_* variables). The database, caches and download staging stay in the data dir either way. Copy an existing library over with `mangarr storage migrate`. |
+| `MANGARR_S3_ENDPOINT` | `` | S3 service URL, e.g. https://s3.example.com (empty: AWS in MANGARR_S3_REGION). |
+| `MANGARR_S3_BUCKET` | `` | Bucket that holds the library. |
+| `MANGARR_S3_REGION` | `us-east-1` | Region the requests are signed for (some services want auto). |
+| `MANGARR_S3_PREFIX` | `` | Key prefix, to share a bucket. A file at /data/manga/Title/x.cbz is kept as &lt;prefix&gt;/data/manga/Title/x.cbz. |
+| `MANGARR_S3_ACCESS_KEY_ID` | `` | Access key (AWS_ACCESS_KEY_ID is used when unset). |
+| `MANGARR_S3_SECRET_ACCESS_KEY` | `` | Secret key (AWS_SECRET_ACCESS_KEY is used when unset). |
+| `MANGARR_S3_PATH_STYLE` | `true` | Address the bucket as &lt;endpoint&gt;/&lt;bucket&gt; (most self-hosted services) instead of &lt;bucket&gt;.&lt;endpoint&gt;. |
 | `MANGARR_ROOT_FOLDERS` | `` | Root folders to create and lock, comma-separated; append \|lang to set a language (/data/manga/ja\|ja), or \|* for the automatic folder that gets a subfolder per language (/data/manga\|*). |
 
 ## Workers (`MANGARR_MODE=worker`)

@@ -882,6 +882,60 @@ and retry. Previews on the profile page still run on the server.
   writes it back once the server has scanned the new files (readers need linked
   accounts, see section 10). It never lowers progress on the server.
 
+### The library on S3-compatible object storage
+
+The library (every root folder and the recycle bin) can live in an
+S3-compatible bucket instead of on a disk, so the server can run on a small
+machine and keep only its data folder (database, caches, download staging)
+locally:
+
+```yaml
+environment:
+  MANGARR_STORAGE: s3
+  MANGARR_S3_ENDPOINT: https://s3.example.com
+  MANGARR_S3_BUCKET: manga
+  MANGARR_S3_REGION: us-east-1        # some services want auto
+  MANGARR_S3_ACCESS_KEY_ID: …
+  MANGARR_S3_SECRET_ACCESS_KEY: …
+  # MANGARR_S3_PREFIX: mangarr        # to share the bucket
+  # MANGARR_S3_PATH_STYLE: "false"    # for <bucket>.<endpoint> addressing
+```
+
+Paths keep their names: a chapter at `/data/manga/Title/Title Ch.0001.cbz`
+is stored under the key `data/manga/Title/Title Ch.0001.cbz`, so the
+database doesn't change. The server checks at start that it can list, write
+and read the bucket, and refuses to start when it can't. Pages are read with
+ranged requests, so opening a page doesn't fetch the whole chapter.
+
+To move an existing library over:
+
+1. With the bucket made, run the migration where the files are, with the
+   same `MANGARR_STORAGE`/`MANGARR_S3_*` variables and the server's database
+   (`MANGARR_DB` or its data folder), e.g. inside the running container:
+   `docker exec -e MANGARR_STORAGE=s3 -e MANGARR_S3_… mangarr mangarr storage migrate`
+   (`/mangarr storage migrate` in the slim image).
+   `--dry-run` lists what it would copy; `--from /data/manga=/mnt/manga`
+   reads a root folder from another place on this machine. It copies every
+   root folder and the recycle bin, skips files already there with the same
+   size, never deletes anything, and ends by checking that every chapter
+   file the database knows is in the bucket.
+2. Stop mangarr, run the migration again (it only copies what changed since),
+   then start it with the `MANGARR_STORAGE`/`MANGARR_S3_*` variables (on the
+   new machine, with the database moved there too). Keep the old files until
+   you're happy; mangarr doesn't touch them.
+
+With the library in a bucket:
+
+- **Workers** fetch and upload everything over HTTP. Turn off
+  `MANGARR_WORKER_SHARED_STORAGE` on workers that used to share the server's
+  folders.
+- **Komga or Kavita reading the same folders** need a file system; point them
+  at the bucket through a mount (rclone, s3fs) or use mangarr's own
+  Komga-compatible API and OPDS feed instead.
+- Free space checks and cleanup's free-space goal skip the bucket (it has no
+  disk to fill), and backups still cover the data folder only, not the
+  library.
+
 ## 14. Importing from Mihon, Tachiyomi, Suwayomi or Aidoku
 
 Import library → upload a backup:

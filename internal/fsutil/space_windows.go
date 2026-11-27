@@ -4,11 +4,16 @@ import (
 	"path/filepath"
 
 	"golang.org/x/sys/windows"
+
+	"github.com/Asion001/mangarr/internal/libfs"
 )
 
 // FreeSpace returns available bytes on the filesystem holding path. Only
 // the Windows worker build needs this to compile; the server runs on Unix.
 func FreeSpace(path string) (uint64, error) {
+	if !libfs.IsLocal(path) {
+		return 0, ErrNoDisk
+	}
 	p, err := windows.UTF16PtrFromString(path)
 	if err != nil {
 		return 0, err
@@ -23,6 +28,9 @@ func FreeSpace(path string) (uint64, error) {
 // Usage returns the size of the volume holding path, its available bytes,
 // and the path's volume as its id.
 func Usage(path string) (total, free uint64, device string, err error) {
+	if !libfs.IsLocal(path) {
+		return 0, 0, "", ErrNoDisk
+	}
 	p, err := windows.UTF16PtrFromString(path)
 	if err != nil {
 		return 0, 0, "", err

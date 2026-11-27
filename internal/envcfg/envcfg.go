@@ -272,7 +272,8 @@ func CoreVars(env map[string]string) []Var {
 	var out []Var
 	for _, d := range config.Vars {
 		v, set := env[d.Name]
-		out = append(out, Var{Name: d.Name, Scope: "core", Type: "string", Default: d.Default, Description: d.Description, Set: set, Value: v})
+		secret := strings.HasSuffix(d.Name, "_SECRET_ACCESS_KEY")
+		out = append(out, Var{Name: d.Name, Scope: "core", Type: "string", Default: d.Default, Description: d.Description, Secret: secret, Set: set, Value: mask(v, secret)})
 	}
 	v, set := env[RootFoldersVar]
 	out = append(out, Var{Name: RootFoldersVar, Scope: "rootfolders", Type: "list", Description: "Root folders to create and lock, comma-separated; append |lang to set a language (/data/manga/ja|ja), or |* for the automatic folder that gets a subfolder per language (/data/manga|*).", Set: set, Value: v})

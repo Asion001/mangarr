@@ -29,7 +29,14 @@ type Services struct {
 // wire constructs domain services and registers commands/tasks.
 func (a *App) wire(ctx context.Context) error {
 	log := a.Log
+	if err := a.useStorage(ctx); err != nil {
+		return err
+	}
 	a.Library = library.New(a.DB, a.Settings, a.HTTP, a.Cfg.DataDir, log.With("component", "library"))
+	if err := a.Library.MountAll(ctx); err != nil {
+		return fmt.Errorf("mount the library: %w", err)
+	}
+	a.checkStorage(ctx)
 	if _, err := a.Library.RescanRecycleBin(ctx); err != nil {
 		log.Warn("index recycle bin", "err", err)
 	}
