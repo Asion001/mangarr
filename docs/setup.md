@@ -916,7 +916,7 @@ To move an existing library over:
    (`/mangarr storage migrate` in the slim image).
    `--dry-run` lists what it would copy; `--from /data/manga=/mnt/manga`
    reads a root folder from another place on this machine. It copies every
-   root folder and the recycle bin, skips files already there with the same
+   root folder and the recycle bin (`--skip-recycle` leaves the bin behind), skips files already there with the same
    size, never deletes anything, and ends by checking that every chapter
    file the database knows is in the bucket.
 2. Stop mangarr, run the migration again (it only copies what changed since),

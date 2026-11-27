@@ -296,12 +296,13 @@ func bench(args []string) int {
 // local disk to the object storage set with MANGARR_STORAGE=s3.
 func storage(args []string) int {
 	if len(args) == 0 || args[0] != "migrate" {
-		fmt.Fprintln(os.Stderr, "usage: mangarr storage migrate [--dry-run] [--workers N] [--from LIBRARY_PATH=LOCAL_PATH]...")
+		fmt.Fprintln(os.Stderr, "usage: mangarr storage migrate [--dry-run] [--skip-recycle] [--workers N] [--from LIBRARY_PATH=LOCAL_PATH]...")
 		return 2
 	}
 	fl := flag.NewFlagSet("storage migrate", flag.ContinueOnError)
 	dry := fl.Bool("dry-run", false, "list what would be copied without copying")
 	workers := fl.Int("workers", 4, "files uploaded at once")
+	skipRecycle := fl.Bool("skip-recycle", false, "leave the recycle bin behind")
 	from := map[string]string{}
 	fl.Func("from", "read a library folder from elsewhere on this machine: LIBRARY_PATH=LOCAL_PATH (repeatable)", func(v string) error {
 		k, val, ok := strings.Cut(v, "=")
@@ -321,7 +322,7 @@ func storage(args []string) int {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	if err := app.MigrateStorage(ctx, cfg, app.MigrateOptions{DryRun: *dry, Workers: *workers, From: from}, os.Stdout); err != nil {
+	if err := app.MigrateStorage(ctx, cfg, app.MigrateOptions{DryRun: *dry, Workers: *workers, SkipRecycle: *skipRecycle, From: from}, os.Stdout); err != nil {
 		fmt.Fprintln(os.Stderr, "storage migrate:", err)
 		return 1
 	}

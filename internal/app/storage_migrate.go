@@ -26,12 +26,15 @@ type MigrateOptions struct {
 	DryRun bool
 	// Workers is how many files are uploaded at once.
 	Workers int
+	// SkipRecycle leaves the recycle bin behind.
+	SkipRecycle bool
 	// From reads a folder from another place on this machine: the library
 	// path (as the database knows it) mapped to where it is mounted here.
 	From map[string]string
 }
 
-// MigrateStorage copies the library (every root folder and the recycle bin)
+// MigrateStorage copies the library (every root folder and, unless skipped,
+// the recycle bin)
 // from the local disk to the object storage set in cfg.Storage. Paths keep
 // their names (see libfs.Key). It can be run again: files already there
 // with the same size are skipped, so a second run before switching over
@@ -65,7 +68,10 @@ func MigrateStorage(ctx context.Context, cfg *config.Config, opts MigrateOptions
 	if recycle == "" {
 		recycle = filepath.Join(cfg.DataDir, "recycle")
 	}
-	dirs := []string{recycle}
+	var dirs []string
+	if !opts.SkipRecycle {
+		dirs = append(dirs, recycle)
+	}
 	for _, r := range roots {
 		dirs = append(dirs, r.Path)
 	}
